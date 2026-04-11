@@ -103,7 +103,7 @@ function getBannerStatus(banner: any): BannerStatus {
     offerText: "",
     buttonText: "",
     isActive: true,
-    displayOrder: 1,
+ displayOrder: "" as number | "",
     startDate: "",
     endDate: ""
   });
@@ -423,7 +423,8 @@ const handleSubmit = async (e: React.FormEvent) => {
           ? formData.buttonText || undefined
           : undefined,
       isActive: Boolean(formData.isActive),
-      displayOrder: Number(formData.displayOrder) || 0,
+     displayOrder:
+  formData.displayOrder === "" ? undefined : Number(formData.displayOrder),
       startDate: formData.startDate, // Now guaranteed to exist
       endDate: formData.endDate,     // Now guaranteed to exist
       ...(editingBanner && { id: editingBanner.id }),
@@ -455,8 +456,6 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
-
-
   useEffect(() => {
     fetchBanners();
   }, []);
@@ -475,7 +474,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       offerText: banner.offerText || "",
       buttonText: banner.buttonText || "",
       isActive: banner.isActive,
-      displayOrder: banner.displayOrder,
+      displayOrder:
+      banner.displayOrder === 0 ? "" : banner.displayOrder,
       startDate: banner.startDate ? banner.startDate.slice(0, 16) : "",
       endDate: banner.endDate ? banner.endDate.slice(0, 16) : "",
     });
@@ -520,7 +520,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       offerText: "",
       buttonText: "",
       isActive: true,
-      displayOrder: 0,
+      displayOrder: "" as number | "",
       startDate: "",
       endDate: "",
     });
@@ -971,7 +971,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Order */}
               <td className="py-2 px-3 text-center text-[11px] text-slate-300">
-                {banner.displayOrder || 0}
+             {banner.displayOrder === 0 ? "-" : banner.displayOrder}
               </td>
 
               {/* Dates */}
@@ -1175,13 +1175,20 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
                       <input
-                        type="number"
-                        value={formData.displayOrder}
-                        onChange={(e) => setFormData({...formData, displayOrder: parseInt(e.target.value) || 0})}
-                        placeholder="1"
-                        min="1"
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
+  type="number"
+  value={formData.displayOrder ?? ""}
+  onChange={(e) => {
+    const val = e.target.value;
+
+    setFormData({
+      ...formData,
+      displayOrder: val === "" ? "" : Number(val),
+    });
+  }}
+  placeholder="Enter display order"
+  min="1"
+  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+/>
                     </div>
 
                     <div>

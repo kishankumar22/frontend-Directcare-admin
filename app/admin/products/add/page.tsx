@@ -221,8 +221,8 @@ const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
     missing.push('Product Name');
   }
 
-  // 2. SKU
-  if (!formData.sku?.trim()) {
+  // 2. SKU (optional for variable products — auto-generated)
+  if (!formData.sku?.trim() && formData.productType !== 'variable') {
     missing.push('SKU');
   }
 
@@ -253,15 +253,18 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
 
   // 1. Basic Info
   if (!formData.name?.trim()) missing.push('Product Name');
-  if (!formData.sku?.trim()) missing.push('SKU');
+  if (!formData.sku?.trim() && formData.productType !== 'variable') missing.push('SKU');
   if (!formData.shortDescription?.trim()) missing.push('Short Description');
   if (!formData.fullDescription?.trim()) missing.push('full Description');
   // 3. Categories
   if (!formData.categoryIds || formData.categoryIds.length === 0) {
     missing.push('Category (at least 1)');
   }
-  const price = Number(formData.price);
-  if (isNaN(price) || price <= 0) missing.push('Valid Price');
+  // Price only required for non-variable products
+  if (formData.productType !== 'variable') {
+    const price = Number(formData.price);
+    if (isNaN(price) || price <= 0) missing.push('Valid Price');
+  }
 
   // 4. Brands
   const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
@@ -274,12 +277,17 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
     missing.push(`Product Images (minimum 5, current: ${formData.productImages?.length || 0})`);
   }
 
-  // 6. Stock (if tracking)
-  if (formData.manageInventory === 'track') {
+  // 6. Stock (if tracking - skip for variable products, variants manage their own stock)
+  if (formData.productType !== 'variable' && formData.manageInventory === 'track') {
     const stock = parseInt(formData.stockQuantity?.toString() || '0');
     if (isNaN(stock) || stock < 0) {
       missing.push('Stock Quantity (valid number)');
     }
+  }
+
+  // 6b. Variable products: require at least 1 variant
+  if (formData.productType === 'variable' && productVariants.length === 0) {
+    missing.push('At least 1 variant (go to Variants tab)');
   }
 
   // 7. Shipping (if enabled)
@@ -711,9 +719,9 @@ useEffect(() => {
   formData.productType,
   formData.requireOtherProducts,
   formData.requiredProductIds,
-    formData.vatExempt,      // ✅ Add this
-  formData.vatRateId,      // ✅ Add this
-
+  formData.vatExempt,
+  formData.vatRateId,
+  productVariants,
 ]);
 
 /**
@@ -974,12 +982,27 @@ const handleSubmit = async (
     // ============================================================
 
     // 1.1 Required Fields
-    if (!formData.name || !formData.sku) {
-      toast.warning("Please fill in required fields: Product Name and SKU");
+    if (!formData.name) {
+      toast.warning("Please fill in Product Name");
       target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
+    }
+
+    // For variable products, auto-generate SKU from name if not provided
+    if (!formData.sku?.trim()) {
+      if (formData.productType === 'variable') {
+        const autoSku = formData.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').replace(/-+/g, '-').slice(0, 20);
+        setFormData(prev => ({ ...prev, sku: autoSku }));
+        formData.sku = autoSku;
+      } else {
+        toast.warning("Please fill in required field: SKU");
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
     }
 
 
@@ -1000,23 +1023,23 @@ const handleSubmit = async (
       }
     }
 
-    // 1.3 SKU VALIDATION - Length
-    if (formData.sku.length < 3) {
-      toast.error("SKU must be at least 3 characters long.");
-      target.removeAttribute("data-submitting");
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
-    // ADD THIS NEW VALIDATION BEFORE LENGTH CHECK
-    const skuValidation = validateSkuFormat(formData.sku);
-    if (!skuValidation.isValid) {
-      toast.error(skuValidation.error, { autoClose: 5000 });
-      target.removeAttribute("data-submitting");
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
+    // 1.3 SKU VALIDATION (skip strict check for variable products - SKU may be auto-generated)
+    if (formData.productType !== 'variable') {
+      if (formData.sku.length < 3) {
+        toast.error("SKU must be at least 3 characters long.");
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
+      const skuValidation = validateSkuFormat(formData.sku);
+      if (!skuValidation.isValid) {
+        toast.error(skuValidation.error, { autoClose: 5000 });
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
     }
 
 // ================= SKU UNIQUENESS CHECK (OPTIMIZED) =================
@@ -1058,8 +1081,8 @@ try {
       return;
     }
 
-    // 1.5 PRICE VALIDATION (REQUIRED FOR PUBLISH)
-    if (!isDraft) {
+    // 1.5 PRICE VALIDATION (REQUIRED FOR PUBLISH - skip for variable products)
+    if (!isDraft && formData.productType !== 'variable') {
       const price = Number(formData.price);
       if (isNaN(price) ) {
         toast.error("Price is required");
@@ -1070,8 +1093,8 @@ try {
       }
     }
 
-    // 1.6 STOCK VALIDATION (REQUIRED WHEN TRACKING)
-    if (!isDraft && formData.manageInventory === "track") {
+    // 1.6 STOCK VALIDATION (REQUIRED WHEN TRACKING - skip for variable products)
+    if (!isDraft && formData.productType !== 'variable' && formData.manageInventory === "track") {
       const stock = Number(formData.stockQuantity);
       if (isNaN(stock)) {
         toast.error("Stock quantity is required when inventory is tracked.");
@@ -1080,6 +1103,15 @@ try {
         setSubmitProgress(null);
         return;
       }
+    }
+
+    // 1.7 VARIANT VALIDATION (REQUIRED FOR VARIABLE PRODUCTS)
+    if (!isDraft && formData.productType === 'variable' && productVariants.length === 0) {
+      toast.error("Variable products must have at least one variant. Please add variants in the Variants tab.");
+      target.removeAttribute("data-submitting");
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
     }
 
     setSubmitProgress({
@@ -1427,8 +1459,9 @@ if (!formData.nextDayDeliveryEnabled) {
     // ============================================================
     // SECTION 8: BUILD PRODUCT DATA
     // ============================================================
+    // Only non-variation attributes go to the attributes array
     const attributesArray = productAttributes
-      .filter((attr) => attr.name && attr.value)
+      .filter((attr) => !attr.isVariation && attr.name && attr.value)
       .map((attr) => ({
         id: attr.id,
         name: attr.name,
@@ -1451,6 +1484,10 @@ if (!formData.nextDayDeliveryEnabled) {
         weight: cleanedVariant.weight ? parseFloat(cleanedVariant.weight.toString()) : null,
         stockQuantity: parseInt(cleanedVariant.stockQuantity.toString()) || 0,
         trackInventory: cleanedVariant.trackInventory ?? true,
+        // NEW: option values as comma-separated string
+        optionValues: Array.isArray(variant.optionValues) && variant.optionValues.length > 0
+          ? variant.optionValues.filter((v: string) => v).join(',')
+          : null,
         // USE CLEANED OPTIONS (null if incomplete)
         option1Name: cleanedVariant.option1Name,
         option1Value: cleanedVariant.option1Value,
@@ -1458,7 +1495,7 @@ if (!formData.nextDayDeliveryEnabled) {
         option2Value: cleanedVariant.option2Value,
         option3Name: cleanedVariant.option3Name,
         option3Value: cleanedVariant.option3Value,
-        imageUrl: null,
+        imageUrl: cleanedVariant.imageUrl?.startsWith('blob') ? null : (cleanedVariant.imageUrl || null),
         isDefault: cleanedVariant.isDefault || false,
         displayOrder: cleanedVariant.displayOrder || 0,
         isActive: cleanedVariant.isActive ?? true,
@@ -1466,6 +1503,19 @@ if (!formData.nextDayDeliveryEnabled) {
         barcode: cleanedVariant.barcode || null,
       };
     });
+
+    // Build options array from variation attributes (WooCommerce-style unified)
+    const guidRegexOpt = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const optionsArray = productAttributes
+      .filter(a => a.isVariation && a.name && a.value)
+      .map((a, index) => ({
+        ...(a.id && guidRegexOpt.test(a.id) ? { id: a.id } : {}),
+        name: a.name.trim(),
+        values: a.value.trim(),
+        displayType: a.displayType || 'buttons',
+        position: a.position || index + 1,
+        isActive: true,
+      }));
 
     // Clean cart quantities based on active mode
 // ======================================
@@ -1597,7 +1647,8 @@ allowedQuantities: cleanedCartData.allowedQuantities,
       productAvailabilityRange: formData.productAvailabilityRange || null,
       notReturnable: formData.notReturnable ?? false,
 
-      // Attributes & Variants
+      // Options, Attributes & Variants
+      options: optionsArray.length > 0 ? optionsArray : [],
       attributes: attributesArray.length > 0 ? attributesArray : [],
       variants: variantsArray.length > 0 ? variantsArray : [],
     };
@@ -2376,13 +2427,16 @@ if (name === 'nextDayDeliveryEnabled') {
 
 
 
-  // Product Attribute handlers (matching backend ProductAttributeCreateDto)
-  const addProductAttribute = () => {
+  // Product Attribute handlers (WooCommerce-style: unified attributes with "Used for variations" toggle)
+  const addProductAttribute = (isVariation = false) => {
     const newAttr: ProductAttribute = {
-      id: Date.now().toString(),
+      id: `attr-${Date.now()}`,
       name: '',
       value: '',
-      displayOrder: productAttributes.length + 1
+      displayOrder: productAttributes.length + 1,
+      isVariation,
+      displayType: isVariation ? 'buttons' : undefined,
+      position: isVariation ? productAttributes.filter(a => a.isVariation).length + 1 : undefined,
     };
     setProductAttributes([...productAttributes, newAttr]);
   };
@@ -2395,6 +2449,20 @@ if (name === 'nextDayDeliveryEnabled') {
     setProductAttributes(productAttributes.map(attr =>
       attr.id === id ? { ...attr, [field]: value } : attr
     ));
+  };
+
+  // Toggle "Used for variations" on an attribute
+  const toggleAttributeVariation = (id: string) => {
+    setProductAttributes(productAttributes.map(attr => {
+      if (attr.id !== id) return attr;
+      const nowVariation = !attr.isVariation;
+      return {
+        ...attr,
+        isVariation: nowVariation,
+        displayType: nowVariation ? (attr.displayType || 'buttons') : undefined,
+        position: nowVariation ? productAttributes.filter(a => a.isVariation).length + 1 : undefined,
+      };
+    }));
   };
  
 
@@ -3090,6 +3158,14 @@ useEffect(() => {
                     <TabsTrigger value="variants" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                       <Package className="h-4 w-4" />
                       Variants
+                      {productVariants.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-violet-500/30 text-violet-300 rounded-full font-medium">
+                          {productVariants.length}
+                        </span>
+                      )}
+                      {productVariants.length === 0 && (
+                        <span className="ml-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="No variants added" />
+                      )}
                     </TabsTrigger>
                   )}
                   <TabsTrigger value="seo" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
@@ -3159,11 +3235,17 @@ useEffect(() => {
 
 
  <div className="grid md:grid-cols-3 gap-4">
-{/* ✅ SKU FIELD - Updated with flexible format support */}
-<SKUInput
-  value={formData.sku}
-  onChange={(val) => setFormData({ ...formData, sku: val })}
-/>
+{/* SKU FIELD */}
+<div>
+  <SKUInput
+    value={formData.sku}
+    onChange={(val) => setFormData({ ...formData, sku: val })}
+    isVariableProduct={formData.productType === 'variable'}
+  />
+  {formData.productType === 'variable' && !formData.sku && (
+    <p className="mt-1 text-xs text-slate-500 italic">Leave blank to auto-generate from product name</p>
+  )}
+</div>
 
 
 
@@ -3247,6 +3329,20 @@ useEffect(() => {
 </div>
 
       </div>
+
+{/* Variable product guidance banner */}
+{formData.productType === 'variable' && (
+  <div className="flex items-start gap-3 bg-violet-500/10 border border-violet-500/30 rounded-xl px-4 py-3">
+    <Package className="h-5 w-5 text-violet-400 mt-0.5 flex-shrink-0" />
+    <div className="text-sm">
+      <span className="font-semibold text-violet-300">Variable Product selected — </span>
+      <span className="text-slate-300">Price and stock are managed per variant. Go to the <strong className="text-violet-300">Variants</strong> tab to define options (Color, Size…) and generate variants.</span>
+      {productVariants.length > 0 && (
+        <span className="ml-2 text-emerald-400 font-medium">✓ {productVariants.length} variant{productVariants.length !== 1 ? 's' : ''} added</span>
+      )}
+    </div>
+  </div>
+)}
 
 {/* ✅ UPDATED Product Type Row with Edit Button */}
 <div className="grid md:grid-cols-2 gap-4">
@@ -5086,149 +5182,228 @@ useEffect(() => {
 
 
               {/* Product Attributes Tab */}
-              <TabsContent value="product-attributes" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Product Attributes</h3>
-                      <p className="text-sm text-slate-400">
-                        Add custom attributes like warranty, brand info, material details etc.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addProductAttribute}
-                      className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <Tag className="h-4 w-4" />
-                      Add Attribute
-                    </button>
+              <TabsContent value="product-attributes" className="space-y-3 mt-2">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Product Attributes</h3>
+                    <p className="text-sm text-slate-400">Define attributes. Toggle <span className="text-violet-300 font-medium">Used for variations</span> to use an attribute for generating variants (like Color, Size).</p>
                   </div>
+                  <button type="button" onClick={() => addProductAttribute(false)}
+                    className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2 text-sm">
+                    <Plus className="h-4 w-4" /> Add Attribute
+                  </button>
+                </div>
 
-                  {productAttributes.length === 0 ? (
-                   <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4 text-center">
-  <Tag className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-
-  <h3 className="text-sm font-medium text-white mb-1">
-    No Product Attributes Yet
-  </h3>
-
-  <p className="text-xs text-slate-400">
-    Click “Add Attribute” to add product information
-  </p>
-</div>
-
-                  ) : (
-                    <div className="space-y-3">
-                      {productAttributes.map((attr, index) => (
-                        <div key={attr.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                          <div className="flex items-start gap-4">
-                            <div className="flex-1 grid grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                  {index+1} . Attribute Name <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={attr.name}
-                                  onChange={(e) => updateProductAttribute(attr.id, 'name', e.target.value)}
-                                  placeholder="e.g., Warranty, Material, Brand"
-                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                  Value <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={attr.value}
-                                  onChange={(e) => updateProductAttribute(attr.id, 'value', e.target.value)}
-                                  placeholder="e.g., 1 Year, Cotton, Nike"
-                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                  Display Order
-                                </label>
-                                <input
-                                  type="number"
-                                  value={attr.displayOrder}
-                                  onChange={(e) => updateProductAttribute(attr.id, 'displayOrder', parseInt(e.target.value) || 0)}
-                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeProductAttribute(attr.id)}
-                              className="mt-8 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                            >
-                              <X className="h-5 w-5" />
-                            </button>
-                          </div>
+                {/* Variation attributes section (WooCommerce-style) */}
+                {productAttributes.some(a => a.isVariation) && (
+                  <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="h-4 w-4 text-violet-400" />
+                      <span className="text-sm font-semibold text-violet-300">Variation Attributes</span>
+                      <span className="text-xs text-slate-400">— used to generate variants in the Variants tab</span>
+                    </div>
+                    <div className="space-y-2">
+                      {productAttributes.filter(a => a.isVariation).map((attr, idx) => (
+                        <div key={attr.id} className="flex items-center gap-2 bg-slate-900/50 rounded-lg px-3 py-2">
+                          <span className="text-xs text-slate-500 w-4">{idx + 1}.</span>
+                          <span className="text-sm font-medium text-white w-24 truncate">{attr.name || <span className="text-slate-500 italic">unnamed</span>}</span>
+                          <span className="text-slate-600">→</span>
+                          <span className="text-sm text-slate-300 flex-1 truncate">{attr.value || <span className="text-slate-500 italic">no values</span>}</span>
+                          <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">{attr.displayType || 'buttons'}</span>
                         </div>
                       ))}
                     </div>
-                  )}
-
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                    <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Attribute Examples</h4>
-                    <ul className="text-sm text-slate-400 space-y-1">
-                      <li>• Warranty: 1 Year Manufacturer Warranty</li>
-                      <li>• Material: 100% Cotton</li>
-                      <li>• Brand: Nike</li>
-                      <li>• Country of Origin: Made in India</li>
-                    </ul>
                   </div>
-                </div>
+                )}
+
+                {/* Attributes list */}
+                {productAttributes.length === 0 ? (
+                  <div className="bg-slate-800/30 border border-slate-700 border-dashed rounded-xl p-8 text-center">
+                    <Tag className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-white mb-1">No attributes yet</p>
+                    <p className="text-xs text-slate-500 mb-3">Add product info (Material, Warranty) or variation attributes (Color, Size)</p>
+                    <div className="flex items-center justify-center gap-2">
+                      <button type="button" onClick={() => addProductAttribute(false)}
+                        className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                        + Regular Attribute
+                      </button>
+                      <button type="button" onClick={() => addProductAttribute(true)}
+                        className="px-3 py-1.5 text-xs bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/40 rounded-lg transition-colors">
+                        + Variation Attribute (Color, Size…)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {productAttributes.map((attr, index) => (
+                      <div key={attr.id}
+                        className={`border rounded-xl p-4 transition-all ${attr.isVariation ? 'bg-violet-500/5 border-violet-500/30' : 'bg-slate-800/30 border-slate-700'}`}>
+                        <div className="flex items-start gap-3">
+                          {/* Index */}
+                          <span className="text-xs text-slate-500 mt-3 w-5 text-right flex-shrink-0">{index + 1}.</span>
+
+                          {/* Fields */}
+                          <div className="flex-1 space-y-3">
+                            <div className={`grid gap-3 ${attr.isVariation ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+                              {/* Name */}
+                              <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1">Attribute Name</label>
+                                <input type="text" value={attr.name}
+                                  onChange={(e) => updateProductAttribute(attr.id, 'name', e.target.value)}
+                                  placeholder={attr.isVariation ? "e.g., Color, Size, Material" : "e.g., Warranty, Brand"}
+                                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+                              </div>
+                              {/* Value */}
+                              <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1">
+                                  {attr.isVariation ? 'Values (comma-separated)' : 'Value'}
+                                </label>
+                                <input type="text" value={attr.value}
+                                  onChange={(e) => updateProductAttribute(attr.id, 'value', e.target.value)}
+                                  placeholder={attr.isVariation ? "e.g., Red, Blue, Green" : "e.g., 100% Cotton"}
+                                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+                                {attr.isVariation && attr.value && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {attr.value.split(',').map(v => v.trim()).filter(Boolean).map((v, i) => (
+                                      <span key={i} className="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded-full">{v}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Display type (only for variation) */}
+                              {attr.isVariation && (
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-400 mb-1">Display As</label>
+                                  <select value={attr.displayType || 'buttons'}
+                                    onChange={(e) => updateProductAttribute(attr.id, 'displayType', e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent">
+                                    <option value="buttons">Buttons</option>
+                                    <option value="dropdown">Dropdown</option>
+                                    <option value="swatch">Color Swatch</option>
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* "Used for variations" toggle */}
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-700/50">
+                              <button type="button" onClick={() => toggleAttributeVariation(attr.id)}
+                                className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg transition-all ${
+                                  attr.isVariation
+                                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-600 hover:bg-slate-700'
+                                }`}>
+                                <span className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${attr.isVariation ? 'bg-violet-400 border-violet-400' : 'border-slate-500'}`} />
+                                {attr.isVariation ? '✓ Used for variations' : 'Used for variations'}
+                              </button>
+                              {attr.isVariation && (
+                                <span className="text-xs text-slate-500 italic">Goes to Variants tab</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Delete */}
+                          <button type="button" onClick={() => removeProductAttribute(attr.id)}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add more */}
+                    <div className="flex gap-2 pt-1">
+                      <button type="button" onClick={() => addProductAttribute(false)}
+                        className="flex-1 py-2 text-xs border border-dashed border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300 rounded-lg transition-colors">
+                        + Add Regular Attribute
+                      </button>
+                      <button type="button" onClick={() => addProductAttribute(true)}
+                        className="flex-1 py-2 text-xs border border-dashed border-violet-500/40 text-violet-400 hover:border-violet-500/60 hover:text-violet-300 rounded-lg transition-colors">
+                        + Add Variation Attribute
+                      </button>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
 {/* ========================================== */}
-{/* VARIANTS TAB Add Page- NEW COMPONENTS */}
+{/* VARIANTS TAB - WooCommerce Style          */}
 {/* ========================================== */}
 <TabsContent value="variants" className="space-y-4">
- {/* Product Options Manager */}
-  <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-    <ProductOptionsManager
-      options={productOptions}
-      onOptionsChange={setProductOptions}
-      maxOptions={3}
-      disabled={isSubmitting}
-    />
-  </div>
+  {/* Variation options summary (sourced from Attributes tab) */}
+  {(() => {
+    const varAttrs = productAttributes.filter(a => a.isVariation && a.name && a.value);
+    const varOptions = varAttrs.map((a, i) => ({
+      id: a.id,
+      name: a.name,
+      values: a.value.split(',').map((v: string) => v.trim()).filter(Boolean),
+      displayType: a.displayType || 'buttons',
+      position: i + 1,
+      isActive: true,
+    }));
+    return (
+      <>
+        {/* Options summary */}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <Settings className="h-4 w-4 text-violet-400" /> Variation Options
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Defined in the Attributes tab. Go there to add or change options.</p>
+            </div>
+          </div>
+          {varOptions.length === 0 ? (
+            <div className="border border-dashed border-slate-600 rounded-lg p-4 text-center">
+              <p className="text-sm text-slate-400 mb-2">No variation attributes defined yet.</p>
+              <p className="text-xs text-slate-500">Go to <strong className="text-violet-300">Attributes</strong> tab → Add Attribute → toggle <strong className="text-violet-300">Used for variations</strong></p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {varOptions.map((opt) => (
+                <div key={opt.id} className="flex items-center gap-3 bg-slate-900/50 rounded-lg px-3 py-2.5">
+                  <span className="text-sm font-semibold text-white w-24 flex-shrink-0">{opt.name}</span>
+                  <span className="text-slate-600 flex-shrink-0">→</span>
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {opt.values.map((v: string, i: number) => (
+                      <span key={i} className="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded-full font-medium">{v}</span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-slate-500">{opt.displayType}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-  {/* Product Variants Manager (now includes Generate button internally) */}
-  <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-    <ProductVariantsManager
-      variants={productVariants}
-      options={productOptions}
-      productSku={formData.sku}
-      productName={formData.name}
-      productId={productId || undefined}
-      onVariantsChange={setProductVariants}
-      disabled={isSubmitting}
-      variantSkuErrors={variantSkuErrors}
-      onVariantImageUpload={handleVariantImageUpload}
-    />
-  </div>
-  {/* ============================================ */}
-  {/* HELP SECTION */}
-  {/* ============================================ */}
-  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-    <div className="flex items-start gap-3">
-      <Info className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-      <div>
-        <h4 className="font-semibold text-sm text-blue-400 mb-2">How Options & Variants Work</h4>
-        <ul className="text-xs text-slate-400 space-y-1">
-          <li>• <strong className="text-white">Options:</strong> Define selectable types (Color: Red Blue Green | Size: S M L)</li>
-          <li>• <strong className="text-white">Generate Variants:</strong> Auto-creates all combinations (Red-S, Red-M, Blue-S...)</li>
-          <li>• <strong className="text-white">Manual Add:</strong> Add specific variants with custom details</li>
-          <li>• <strong className="text-white">Save Product First:</strong> Variant images upload after product creation</li>
-          <li>• Each variant has unique SKU, price, and stock</li>
-        </ul>
-      </div>
+        {/* Variants Manager */}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+          <ProductVariantsManager
+            variants={productVariants}
+            options={varOptions}
+            productSku={formData.sku}
+            productName={formData.name}
+            productId={productId || undefined}
+            onVariantsChange={setProductVariants}
+            disabled={isSubmitting}
+            variantSkuErrors={variantSkuErrors}
+            onVariantImageUpload={handleVariantImageUpload}
+          />
+        </div>
+      </>
+    );
+  })()}
+
+  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+    <div className="flex items-start gap-2">
+      <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+      <ul className="text-xs text-slate-400 space-y-1">
+        <li>• <strong className="text-white">Step 1:</strong> Go to <strong className="text-violet-300">Attributes</strong> tab → Add attribute (e.g., Color) → enable <strong className="text-violet-300">Used for variations</strong></li>
+        <li>• <strong className="text-white">Step 2:</strong> Come back here → click <strong className="text-white">Generate All Variants</strong></li>
+        <li>• <strong className="text-white">Step 3:</strong> Set price, stock, SKU per variant (SKU auto-generates if left blank)</li>
+        <li>• Variant images upload after product is first saved</li>
+      </ul>
     </div>
   </div>
 </TabsContent>

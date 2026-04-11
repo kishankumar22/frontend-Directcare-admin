@@ -350,7 +350,7 @@ useEffect(() => {
       {/* NAME */}
       <div>
         <label className="block text-sm text-slate-300 mb-2">
-          Category Name *
+          Category Name     <span className="text-red-500">*</span>
         </label>
        <input
   required

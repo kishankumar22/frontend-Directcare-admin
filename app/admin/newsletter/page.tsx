@@ -10,7 +10,6 @@ import { newsletterService, NewsletterSubscription, NewsletterStats } from "@/li
 import * as XLSX from 'xlsx';
 import { formatDate } from "../_utils/formatUtils";
 import { useDebounce } from "../_hooks/useDebounce";
-
 export default function NewsletterPage() {
   const toast = useToast();
   const [subscriptions, setSubscriptions] = useState<NewsletterSubscription[]>([]);
@@ -543,6 +542,7 @@ export default function NewsletterPage() {
           </div>
         </div>
       </div>
+    
 
       {/* Search + Filters */}
       <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">

@@ -628,7 +628,7 @@ const getDateRangeLabel = () => {
       className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-md hover:opacity-90"
     >
       <FolderTree className="h-3 w-3" />
-     Blog Categories
+     Go toBlog Category Page
     </button>
 
     {/* Blog Posts */}
@@ -637,7 +637,7 @@ const getDateRangeLabel = () => {
       className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-md hover:opacity-90"
     >
       <FileText className="h-3 w-3" />
-    Blog  Posts
+     Go to Blog Post Page
     </button>
 
     {/* Refresh */}

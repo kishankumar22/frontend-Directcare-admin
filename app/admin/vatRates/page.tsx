@@ -173,16 +173,16 @@ const handleExportSelected = () => {
 };
 
   // Form state
-  const [formData, setFormData] = useState<CreateVATRateDto>({
-    name: "",
-    description: "",
-    rate: 0,
-    isDefault: false,
-    isActive: true,
-    country: "",
-    region: "",
-    displayOrder: 0,
-  });
+const [formData, setFormData] = useState({
+  name: "",
+  description: "",
+  rate: "" as number | "",   // 🔥 ONLY CHANGE
+  isDefault: false,
+  isActive: true,
+  country: "",
+  region: "",
+  displayOrder: 0,
+});
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -355,10 +355,11 @@ const filteredRates = useMemo(() => {
     } else if (formData.description.trim().length < 10) {
       errors.description = "Description must be at least 10 characters";
     }
-
-   if (formData.rate < 0) {
+if (formData.rate === "") {
+  errors.rate = "VAT rate is required";
+} else if (Number(formData.rate) < 0) {
   errors.rate = "VAT rate cannot be negative";
-} else if (formData.rate > 100) {
+} else if (Number(formData.rate) > 100) {
   errors.rate = "VAT rate cannot exceed 100%";
 }
 if (formData.rate === 0) {
@@ -430,8 +431,13 @@ const handleCreate = async (e: React.FormEvent) => {
   setIsSubmitting(true);
   
   try {
-    const response = await vatratesService.create(formData);
     
+const payload: CreateVATRateDto = {
+  ...formData,
+  rate: formData.rate === "" ? 0 : Number(formData.rate),
+};
+
+const response = await vatratesService.create(payload);
     // ✅ Type assertion for proper response structure
     const apiData = response?.data as any;
     
@@ -465,7 +471,12 @@ const handleUpdate = async (e: React.FormEvent) => {
   setIsSubmitting(true);
   
   try {
-    const response = await vatratesService.update(editingRate.id, formData);
+ const payload: CreateVATRateDto = {
+  ...formData,
+  rate: formData.rate === "" ? 0 : Number(formData.rate),
+};
+
+const response = await vatratesService.update(editingRate.id, payload);
     
     // ✅ Type assertion for proper response structure
     const apiData = response?.data as any;
@@ -528,7 +539,7 @@ const handleUpdate = async (e: React.FormEvent) => {
     setFormData({
       name: "",
       description: "",
-      rate: 0,
+      rate: "",
       isDefault: false,
       isActive: true,
       country: "",
@@ -1373,7 +1384,11 @@ const clearFilters = () => {
                     max="100"
                     value={formData.rate}
                     onChange={(e) => {
-                      setFormData({ ...formData, rate: parseFloat(e.target.value) || 0 });
+                      const val = e.target.value;
+                      setFormData({
+  ...formData,
+  rate: val === "" ? "" : parseFloat(val),
+});
                       setFormErrors({ ...formErrors, rate: '' });
                     }}
                     className={`w-full px-4 py-2.5 bg-slate-800/50 border ${

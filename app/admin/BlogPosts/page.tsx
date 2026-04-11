@@ -140,11 +140,11 @@ export default function BlogPostsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => router.push("/admin/comments")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 text-xs font-semibold rounded-lg transition-all">
-            <MessageSquare className="w-3.5 h-3.5" />Blog Comments
+            <MessageSquare className="w-3.5 h-3.5" />Go to Blog Comment Page
           </button>
           <button onClick={() => router.push("/admin/BlogCategories")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/15 border border-violet-500/30 text-violet-400 hover:bg-violet-500/25 text-xs font-semibold rounded-lg transition-all">
-            <FolderTree className="w-3.5 h-3.5" />Blog Categories
+            <FolderTree className="w-3.5 h-3.5" />Go to Blog Category Page
           </button>
           <button onClick={() => router.push("/admin/BlogPosts/create")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">

@@ -20,10 +20,14 @@ export interface ProductImage {
 export interface ProductAttribute {
   id: string;
   name: string;
-  value: string;
+  value: string;           // For variation: "Red, Blue, Green" | For regular: "100% Cotton"
   displayOrder: number;
   sortOrder?: number;
   displayName?: string;
+  // WooCommerce-style: marks this attribute as "Used for variations"
+  isVariation?: boolean;
+  displayType?: string;    // Only for variation: "buttons" | "dropdown" | "swatch"
+  position?: number;       // Only for variation: ordering (1, 2, 3...)
 }
 
 export interface VATRateData {
@@ -978,6 +982,6 @@ export const productHelpers = {
 
 // ==========================================
 // EXPORT DEFAULT
-// ==========================================
+// ==========================================d
 
 export default productsService;

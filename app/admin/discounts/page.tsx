@@ -307,7 +307,7 @@ const fetchDropdownData = async () => {
   try {
     const [categoriesRes, productsRes] = await Promise.all([
       categoriesService.getAll(),
-      productsService.getAll({ pageSize: 1000 }),
+      productsService.getAll(),
     ]);
 
     // ================= CATEGORIES =================

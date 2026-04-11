@@ -558,7 +558,7 @@ const openMediaViewer = (images: any[], idx = 0) => {
             className="flex items-center gap-1.5 px-3 py-2 text-xs bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-semibold shadow-md transition-all"
           title="go to product page"
           >
-            <ShoppingCart className="w-3.5 h-3.5" /> Products
+            <ShoppingCart className="w-3.5 h-3.5" /> Go To Product Page
           </button>
 {/* <button
   onClick={downloadFullTemplate}

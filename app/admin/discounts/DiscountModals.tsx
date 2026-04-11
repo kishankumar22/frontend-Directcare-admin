@@ -28,7 +28,7 @@ import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Discount, DiscountType, DiscountLimitationType, DiscountUsageHistory } from "@/lib/services/discounts";
 import { Product } from "@/lib/services";
 import { Category } from "@/lib/services/categories";
-import { formatDate, getImageUrl } from "../_utils/formatUtils";
+import { formatDate, getImageUrl, getProductImage } from "../_utils/formatUtils";
 import ImagePreviewModal from "../_components/ImagePreviewModal";
 
 // ========== INTERFACES ==========
@@ -149,6 +149,84 @@ export default function DiscountModals(props: DiscountModalsProps) {
   } = props;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const productMap = useMemo(() => {
+  const map = new Map();
+  products.forEach(p => map.set(p.id, p));
+  return map;
+}, [products]);
+  const MultiValueLabel = (props: any) => {
+  const { data } = props;
+
+const product = productMap.get(data.value);
+const imageUrl = getProductImage(product?.images ?? []);
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-5 h-5 rounded overflow-hidden bg-slate-700">
+        {imageUrl && (
+          <img src={imageUrl} className="w-full h-full object-cover" />
+        )}
+      </div>
+      <span className="text-white">{data.label}</span>
+    </div>
+  );
+};
+const ProductOption = (props: any) => {
+  const { data, isSelected } = props;
+
+  const product = productMap.get(data.value);
+  const imageUrl = getProductImage(product?.images ?? []);
+
+  return (
+    <div
+      {...props.innerProps}
+      className="flex items-center gap-3 px-3 py-2 hover:bg-slate-700 cursor-pointer"
+    >
+ {/* IMAGE */}
+  <div className="w-10 h-10 rounded-md overflow-hidden border border-slate-700 bg-slate-800 shrink-0">
+    {imageUrl ? (
+      <img src={imageUrl} className="w-full h-full object-cover" />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500">
+        No Img
+      </div>
+    )}
+  </div>
+
+  {/* LEFT SIDE (name + sku) */}
+  <div className="flex flex-col min-w-0 flex-1">
+    <span className={`text-sm font-medium truncate ${
+      isSelected ? "text-white" : "text-slate-300"
+    }`}>
+      {data.label}
+    </span>
+
+    <span className="text-[11px] text-slate-500">
+      SKU: {product?.sku ?? "N/A"}
+    </span>
+  </div>
+
+  {/* RIGHT SIDE (price + stock) 🔥 */}
+  <div className="flex flex-col items-end shrink-0">
+    
+    <span className="text-xs text-cyan-400 font-semibold">
+      £{product?.price ?? "0.00"}
+    </span>
+
+    <span className={`text-[11px] font-medium ${
+      (product?.stockQuantity ?? 0) > 0
+        ? "text-green-400"
+        : "text-red-400"
+    }`}>
+      {(product?.stockQuantity ?? 0) > 0
+        ? `In Stock (${product?.stockQuantity})`
+        : "Out of Stock"}
+    </span>
+
+  </div>
+    </div>
+  );
+};
+
 
   // ========== HELPER FUNCTIONS FOR USAGE HISTORY ==========
   const getFilteredUsageHistory = () => {
@@ -177,16 +255,7 @@ useEffect(() => {
   }
 }, [isProductSelectionModalOpen, formData.assignedProductIds, props.categoryFilteredProductOptions]);
 
-// Update the filtered products calculation (around line 200)
-const filteredProducts = useMemo(() => {
-  if (!props.categoryFilteredProductOptions || props.categoryFilteredProductOptions.length === 0) {
-    return [];
-  }
-  
-  return props.categoryFilteredProductOptions.filter((productOption) =>
-    productOption.label.toLowerCase().includes(productSearchTerm.toLowerCase())
-  );
-}, [props.categoryFilteredProductOptions, productSearchTerm]);
+
 // Add this in DiscountModals component (around line 100-150)
 useEffect(() => {
   // When product selection modal opens, log selected products for debugging
@@ -318,7 +387,7 @@ useEffect(() => {
                   
                   {/* Discount Name */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Name *</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Name    <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
@@ -331,7 +400,7 @@ useEffect(() => {
                   
                   {/* Discount Type */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type *</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type     <span className="text-red-500">*</span></label>
                     <select
                       required
                       value={formData.discountType}
@@ -349,7 +418,7 @@ useEffect(() => {
                   {formData.discountType === "AssignedToCategories" && (
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Select Category *
+                        Select Category     <span className="text-red-500">*</span>
                         <span className="text-xs text-slate-400 ml-2">Choose one category</span>
                       </label>
                       <Select
@@ -392,7 +461,7 @@ useEffect(() => {
                   {formData.discountType === "AssignedToProducts" && (
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Select Products *
+                        Select Products     <span className="text-red-500">*</span>
                         <span className="text-xs text-slate-400 ml-2">Choose which products this discount applies to</span>
                       </label>
 
@@ -427,28 +496,37 @@ useEffect(() => {
                         </div>
                       </div>
 
-                      <Select
-                        isMulti
-                        options={filteredProductOptions}
-                        value={filteredProductOptions.filter((opt) =>
-                          formData.assignedProductIds.includes(opt.value)
-                        )}
-                        onChange={(selectedOptions) => {
-                          const ids = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
-                          setFormData({ ...formData, assignedProductIds: ids });
-                        }}
-                        placeholder="Search and select products..."
-                        isSearchable
-                        closeMenuOnSelect={false}
-                        styles={customSelectStyles}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                        noOptionsMessage={() => 
-                          productCategoryFilter || productBrandFilter 
-                            ? "No products match the selected filters" 
-                            : "No products found"
-                        }
-                      />
+                   <Select
+  isMulti
+  options={filteredProductOptions}
+  value={filteredProductOptions.filter((opt) =>
+    formData.assignedProductIds.includes(opt.value)
+  )}
+  onChange={(selectedOptions) => {
+    const ids = selectedOptions
+      ? selectedOptions.map((opt) => opt.value)
+      : [];
+    setFormData({ ...formData, assignedProductIds: ids });
+  }}
+  placeholder="Search and select products..."
+  isSearchable
+  closeMenuOnSelect={false}
+  styles={customSelectStyles}
+  className="react-select-container"
+  classNamePrefix="react-select"
+
+  // 🔥 MAIN CHANGE
+  components={{
+    Option: ProductOption,
+    MultiValueLabel: MultiValueLabel,
+  }}
+
+  noOptionsMessage={() =>
+    productCategoryFilter || productBrandFilter
+      ? "No products match the selected filters"
+      : "No products found"
+  }
+/>
 
                       <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-slate-400">
@@ -477,7 +555,7 @@ useEffect(() => {
                         const conflicted: { name: string; discountName: string; via: string }[] = [];
 
                         formData.assignedProductIds.forEach(productId => {
-                          const product = products.find(p => p.id === productId);
+                          const product = productMap.get(productId);
                           if (!product) return;
                           const prodCatIds = [
                             (product as any).categoryId,
@@ -539,7 +617,7 @@ useEffect(() => {
                       {formData.assignedCategoryIds.length > 0 ? (
                         <div>
                           <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Additional Products
+                            Additional Products     <span className="text-red-500">*</span>
                             <span className="text-xs text-slate-400 ml-2">Select specific products from selected categories</span>
                           </label>
                           
@@ -551,7 +629,7 @@ useEffect(() => {
                             <span>
                               {formData.assignedProductIds.length > 0
                                 ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? 's' : ''} selected`
-                                : 'Select products...'
+                                : 'Add products...'
                               }
                             </span>
                             <ChevronDown className="h-5 w-5" />
@@ -587,7 +665,7 @@ useEffect(() => {
                             // Compute conflicts for each product in this category
                             const conflictedProducts: { name: string; discountName: string }[] = [];
                             categoryFilteredProductOptions.forEach(opt => {
-                              const product = products.find(p => p.id === opt.value);
+                              const product = productMap.get(opt.value);
                               if (!product) return;
                               const productIdStr = opt.value;
                               const prodCatIds = [
@@ -866,7 +944,7 @@ useEffect(() => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time *</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time     <span className="text-red-500">*</span></label>
                     <input
                       type="datetime-local"
                       required
@@ -877,7 +955,7 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time *</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time     <span className="text-red-500">*</span></label>
                     <input
                       type="datetime-local"
                       required
@@ -931,7 +1009,7 @@ useEffect(() => {
       {/* LEFT: COUPON CODE */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-2">
-          Coupon Code *
+          Coupon Code     <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
@@ -1238,7 +1316,7 @@ useEffect(() => {
           return (
             <div className="space-y-2">
               {filteredProducts.map((productOption) => {
-                const product = products.find(p => p.id === productOption.value);
+                const product = productMap.get(productOption.value);
                 
                 // 🎯 CHECK 1: Is this product assigned to CURRENT discount (republic sale)?
                 const isAssignedToCurrentDiscount = editingDiscount?.id && 
@@ -1305,11 +1383,11 @@ useEffect(() => {
                 const primaryConflict = uniqueConflicts[0];
 
                 const isChecked = isSelected;
-
+               const imageUrl = getProductImage(product?.images || []);
                 return (
                   <div
                     key={productOption.value}
-                    className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                    className={`relative flex items-center gap-3 p-2 rounded-xl border transition-all ${
                       isDisabled
                         ? 'bg-slate-800/30 border-slate-700/50 cursor-not-allowed opacity-60'
                         : isSelected
@@ -1331,22 +1409,64 @@ useEffect(() => {
                       checked={isChecked}
                       disabled={isDisabled}
                       onChange={() => {}} // Handled by div click
-                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-4 h-4 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       readOnly
                     />
 
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${
-                        isDisabled ? 'text-slate-500' : 'text-white'
-                      }`}>
-                        {productOption.label}
-                      </p>
-                      {product && (
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          £{(product as any).price || '0.00'}
-                        </p>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+
+  {/* IMAGE */}
+<div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 shrink-0">
+  {imageUrl ? (
+    <img
+      src={imageUrl}
+      alt={product?.name || "product"}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center text-slate-500 text-[10px]">
+      No Img
+    </div>
+  )}
+</div>
+
+  {/* DETAILS */}
+<div className="flex flex-col min-w-0 flex-1">
+
+  {/* NAME */}
+  <p className={`text-sm font-medium truncate ${
+    isDisabled ? "text-slate-500" : "text-white"
+  }`}>
+    {productOption.label}
+  </p>
+
+  {/* SKU */}
+  <p className="text-[11px] text-slate-500 truncate">
+    SKU: {product?.sku ?? "N/A"}
+  </p>
+
+  <div className="flex items-center gap-2">
+
+  {/* PRICE */}
+  <span className="text-xs text-cyan-400 font-semibold">
+    £{product?.price ?? "0.00"}
+  </span>
+
+  {/* STOCK */}
+  <span className={`text-[11px] font-medium ${
+    (product?.stockQuantity ?? 0) > 0
+      ? "text-green-400"
+      : "text-red-400"
+  }`}>
+    {(product?.stockQuantity ?? 0) > 0
+      ? `In Stock (${product?.stockQuantity})`
+      : "Out of Stock"}
+  </span>
+
+</div>
+
+</div>
+</div>
 
                     {/* 🎯 CASE 1: CURRENT DISCOUNT - Show for assigned products */}
                     {isAssignedToCurrentDiscount && (
@@ -1418,7 +1538,7 @@ useEffect(() => {
           let availableCount = 0;
 
           categoryFilteredProductOptions.forEach(opt => {
-            const product = products.find(p => p.id === opt.value);
+            const product = productMap.get(opt.value);
             if (!product) return;
             const productIdStr = opt.value;
             const prodCatIds = [
@@ -1757,7 +1877,7 @@ useEffect(() => {
                             </div>
                             <div className="flex flex-wrap gap-2 pl-10">
                               {viewingDiscount.assignedProductIds.split(',').filter(id => id.trim()).map((productId, index) => {
-                                const product = products.find(p => p.id === productId.trim());
+                                const product = productMap.get(productId.trim());
                                 return (
                                   <span 
                                     key={index} 
@@ -1815,7 +1935,7 @@ useEffect(() => {
                                 </div>
                                 <div className="flex flex-wrap gap-2 pl-10">
                                   {viewingDiscount.assignedProductIds.split(',').filter(id => id.trim()).map((productId, index) => {
-                                    const product = products.find(p => p.id === productId.trim());
+                                    const product = productMap.get(productId.trim());
                                     return (
                                       <span 
                                         key={index} 

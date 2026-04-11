@@ -3,7 +3,7 @@
 import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Upload, X, Info,  Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon,  Video, Play, Clock, Send, Bell } from "lucide-react";
+import { ArrowLeft, Save, Upload, X, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus } from "lucide-react";
 
 import Link from "next/link";
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
@@ -378,19 +378,20 @@ useEffect(() => {
   // Set initial time
   setTakeoverTimeLeft(takeoverRequest.timeLeftSeconds || 0);
 
-  // Start countdown
+  // Start countdown — no toast inside setState updater (causes React setState-during-render error)
+  let currentTime = takeoverRequest.timeLeftSeconds || 0;
   const timer = setInterval(() => {
-    setTakeoverTimeLeft((prev) => {
-      if (prev <= 1) {
-        clearInterval(timer);
-        setHasPendingTakeover(false);
-        setTakeoverRequest(null);
-        toast.info('Takeover request expired', { autoClose: 3000 });
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, 1000); // Update every second
+    currentTime -= 1;
+    if (currentTime <= 0) {
+      clearInterval(timer);
+      setTakeoverTimeLeft(0);
+      setHasPendingTakeover(false);
+      setTakeoverRequest(null);
+      toast.info('Takeover request expired', { autoClose: 3000 });
+      return;
+    }
+    setTakeoverTimeLeft(currentTime);
+  }, 1000);
 
   // Cleanup
   return () => clearInterval(timer);
@@ -602,9 +603,11 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   if (isEmpty(formData.fullDescription)) missing.push('Full Description');
   if (isEmpty(formData.shortDescription)) missing.push('Short Description');
 
-  // Price
-  const price = Number(formData.price);
-  if (isNaN(price) || price <= 0) missing.push('Valid Price');
+  // Price (not required for variable products - managed per variant)
+  if (formData.productType !== 'variable') {
+    const price = Number(formData.price);
+    if (isNaN(price) || price <= 0) missing.push('Valid Price');
+  }
 
   // Categories
   if (!formData.categoryIds || formData.categoryIds.length === 0) {
@@ -625,8 +628,8 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
     );
   }
 
-  // Stock
-  if (formData.manageInventory === 'track') {
+  // Stock (skip for variable products - variants manage stock)
+  if (formData.productType !== 'variable' && formData.manageInventory === 'track') {
     const stock = parseInt(formData.stockQuantity?.toString() || '0');
     if (isNaN(stock) || stock < 0) {
       missing.push('Valid Stock Quantity');
@@ -1147,34 +1150,54 @@ notReturnable: productData.notReturnable ?? false,
         specialPrice: productData.groupBundleSpecialPrice || 0
       });
 
-      // ✅ Load attributes
-      if (productData.attributes && Array.isArray(productData.attributes)) {
-        const attrs = productData.attributes.map((attr: any) => ({
-          id: attr.id || `attr-${Date.now()}-${Math.random()}`,
-          name: attr.name || '',
-          value: attr.value || '',
-          displayOrder: attr.displayOrder || attr.sortOrder || 0
-        }));
-        setProductAttributes(attrs);
-        console.log('✅ Attributes loaded:', attrs.length);
+      // ✅ Load product options AND attributes into unified state (WooCommerce-style)
+      const unifiedAttrs: any[] = [];
+
+      // Variation attributes (from options)
+      if (productData.options && Array.isArray(productData.options)) {
+        productData.options.forEach((opt: any, i: number) => {
+          unifiedAttrs.push({
+            id: opt.id || `opt-${Date.now()}-${i}`,
+            name: opt.name || '',
+            value: Array.isArray(opt.values)
+              ? opt.values.join(', ')
+              : (opt.values || '').split(',').map((v: string) => v.trim()).filter(Boolean).join(', '),
+            isVariation: true,
+            displayType: opt.displayType || 'buttons',
+            position: opt.position || i + 1,
+            displayOrder: i,
+          });
+        });
       }
 
-      // ✅ Load product options (NEW - for selectable variants like Color, Size)
-      console.log('🔍 RAW OPTIONS FROM API:', productData.options);
-      if (productData.options && Array.isArray(productData.options)) {
-        const opts = productData.options.map((opt: any) => ({
-          id: opt.id || `opt-${Date.now()}-${Math.random()}`,
-          name: opt.name || '',
-          values: Array.isArray(opt.values) ? opt.values : (opt.values || '').split(',').map((v: string) => v.trim()).filter(Boolean),
-          displayType: opt.displayType || 'dropdown',
-          position: opt.position || 0,
-          isActive: opt.isActive ?? true
-        }));
-        setProductOptions(opts);
-        console.log('✅ Product Options loaded:', opts.length, opts);
-      } else {
-        console.warn('⚠️ No options found in API response. productData.options =', productData.options);
+      // Regular attributes (from attributes)
+      if (productData.attributes && Array.isArray(productData.attributes)) {
+        productData.attributes.forEach((attr: any, i: number) => {
+          unifiedAttrs.push({
+            id: attr.id || `attr-${Date.now()}-${i}`,
+            name: attr.name || '',
+            value: attr.value || '',
+            isVariation: false,
+            displayOrder: attr.displayOrder || i,
+          });
+        });
       }
+
+      setProductAttributes(unifiedAttrs);
+      // Also keep productOptions in sync for legacy usage
+      const legacyOpts = unifiedAttrs
+        .filter(a => a.isVariation)
+        .map(a => ({
+          id: a.id,
+          name: a.name,
+          values: a.value.split(',').map((v: string) => v.trim()).filter(Boolean),
+          displayType: a.displayType || 'buttons',
+          position: a.position || 1,
+          isActive: true,
+        }));
+      setProductOptions(legacyOpts);
+      console.log('✅ Unified attributes loaded:', unifiedAttrs.length, '(variation:', legacyOpts.length, ')');
+
 
 // Load variants with optionValues
 if (productData.variants && Array.isArray(productData.variants)) {
@@ -1191,7 +1214,7 @@ if (productData.variants && Array.isArray(productData.variants)) {
 
     return {
       id: variant.id || `var-${Date.now()}-${Math.random()}`,
-      name: variant.name || '',
+      name: variant.name || (optionValues.length > 0 ? `${productData.name} - ${optionValues.join(' / ')}` : ''),
       sku: variant.sku || '',
       price: variant.price || 0,
       compareAtPrice: variant.compareAtPrice || variant.oldPrice || null,
@@ -1702,7 +1725,7 @@ useEffect(() => {
 
       // ✅ CASE 2: Product locked by ME (same user, different tab)
       if (status.isLocked && status.lockedBy === currentUserId) {
-        console.log('✅ Product already locked by you (same user)');
+        console.log('✅ Product already locked by you (same user — another tab)');
         setProductLock({
           isLocked: true,
           lockedBy: status.lockedBy,
@@ -1710,6 +1733,11 @@ useEffect(() => {
         });
         lockAcquiredRef.current = true;
         setIsAcquiringLock(false);
+        // Inform user they already have this open elsewhere — do not show "Lock expired"
+        toast.info('This product is already open in another tab. Both tabs share the same edit session.', {
+          autoClose: 5000,
+          position: 'top-center'
+        });
         return;
       }
 
@@ -2023,67 +2051,41 @@ useEffect(() => {
   const minutes = Math.floor(initialTime / 60);
   console.log(`⏰ Lock expires in ${minutes} minutes`);
 
-  // Start countdown timer
+  // Start countdown timer — toast calls outside setState updater to avoid React setState-during-render error
+  let currentLockTime = initialTime;
   lockTimerRef.current = setInterval(() => {
-    setLockTimeRemaining(prev => {
-      const newTime = prev - 1;
+    currentLockTime -= 1;
+    const newTime = Math.max(0, currentLockTime);
+    setLockTimeRemaining(newTime);
 
-      // ✅ 5 MINUTES WARNING
-      if (newTime === 300) {
-        toast.warning('⏰ Lock expires in 5 minutes!', {
-          autoClose: 8000,
-          position: 'top-center'
-        });
-        console.log('⚠️ 5 minutes warning');
+    // ✅ 5 MINUTES WARNING
+    if (newTime === 300) {
+      toast.warning('⏰ Lock expires in 5 minutes!', { autoClose: 8000, position: 'top-center' });
+    }
+
+    // ✅ 2 MINUTES WARNING
+    if (newTime === 120) {
+      toast.warning('⏰ Lock expires in 2 minutes! Please save your changes.', { autoClose: 10000, position: 'top-center' });
+    }
+
+    // ✅ 1 MINUTE WARNING
+    if (newTime === 60) {
+      setShowExpiryWarning(true);
+      toast.error('Lock expires in 1 minute! Save your work now!', { autoClose: 12000, position: 'top-center' });
+    }
+
+    // ✅ 30 SECONDS - FINAL WARNING
+    if (newTime === 30) {
+      toast.error('30 seconds remaining! Save your changes.', { autoClose: 10000, position: 'top-center' });
+    }
+
+    // ✅ 0 SECONDS - EXPIRED
+    if (newTime <= 0) {
+      if (lockTimerRef.current) {
+        clearInterval(lockTimerRef.current);
+        lockTimerRef.current = null;
       }
-
-      // ✅ 2 MINUTES WARNING
-      if (newTime === 120) {
-        toast.warning('⏰ Lock expires in 2 minutes! Please save your changes.', {
-          autoClose: 10000,
-          position: 'top-center'
-        });
-        console.log('⚠️ 2 minutes warning');
-      }
-
-      // ✅ 1 MINUTE WARNING
-      if (newTime === 60 && !showExpiryWarning) {
-        setShowExpiryWarning(true);
-        toast.error('🚨 Lock expires in 1 minute! Save your work now!', {
-          autoClose: 12000,
-          position: 'top-center'
-        });
-        console.log('⚠️ 1 minute warning');
-      }
-
-      // ✅ 30 SECONDS - FINAL WARNING
-      if (newTime === 30) {
-        toast.error('🚨 30 seconds remaining! Auto-save will trigger soon...', {
-          autoClose: 10000,
-          position: 'top-center'
-        });
-        console.log('🚨 30 seconds warning');
-      }
-
-      // ✅ 0 SECONDS - AUTO-SAVE
-      if (newTime <= 0) {
-        console.log('💾 Lock expired - auto-saving changes...');
-        
-        // Clear timer
-        if (lockTimerRef.current) {
-          clearInterval(lockTimerRef.current);
-          lockTimerRef.current = null;
-        }
-
-     toast.warning('Lock expired! Your changes will be discarded. Please save before editing again.', {
-  autoClose: 5000,
-  position: 'top-center'
-});
-        return 0;
-      }
-
-      return newTime;
-    });
+    }
   }, 1000);
 
   // Cleanup
@@ -2798,7 +2800,7 @@ if (formData.showOnHomepage) {
     // SECTION 10: INVENTORY VALIDATIONS
     // ═══════════════════════════════════════════════════════════════════════
 
-    if (formData.manageInventory === 'track') {
+    if (formData.productType !== 'variable' && formData.manageInventory === 'track') {
       const stockQty = parseInt(formData.stockQuantity) || 0;
       const minStockQty = parseInt(formData.minStockQuantity) || 0;
       const notifyQty = parseInt(formData.notifyQuantityBelow) || 0;
@@ -3243,29 +3245,23 @@ if (formData.markAsNew) {
     // SECTION 18A: PRODUCT OPTIONS VALIDATION (NEW)
     // ═══════════════════════════════════════════════════════════════════════
 
-    console.log('🔧 Building options array from productOptions:', productOptions);
-    const optionsArray = productOptions
-      ?.filter(opt => opt.name && opt.values && opt.values.length > 0)
-      .map((opt, index) => {
-        const isExistingOpt = opt.id && guidRegex.test(opt.id);
+    // Build options array from variation attributes (WooCommerce-style unified)
+    const optionsArray = productAttributes
+      ?.filter(a => a.isVariation && a.name && a.value)
+      .map((a, index) => {
+        const isExisting = a.id && guidRegex.test(a.id);
         const optData: any = {
-          name: opt.name.trim(),
-          values: opt.values.join(','), // Convert array to comma-separated string for API
-          displayType: opt.displayType || 'dropdown',
-          position: opt.position || index + 1,
-          isActive: opt.isActive ?? true
+          name: a.name.trim(),
+          values: a.value.trim(),
+          displayType: a.displayType || 'buttons',
+          position: a.position || index + 1,
+          isActive: true,
         };
-        console.log('📦 Option data prepared:', optData);
-
         if (optData.name.length > 50) {
           toast.error(`❌ Option name "${optData.name}" is too long (max 50 chars)`);
-         return null;
+          return null;
         }
-
-        if (isExistingOpt) {
-          optData.id = opt.id;
-        }
-
+        if (isExisting) optData.id = a.id;
         return optData;
       });
 
@@ -3273,8 +3269,9 @@ if (formData.markAsNew) {
     // SECTION 19: ATTRIBUTES VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
+    // Only non-variation attributes go here
     const attributesArray = productAttributes
-      ?.filter(attr => attr.name && attr.value)
+      ?.filter(attr => !attr.isVariation && attr.name && attr.value)
       .map(attr => {
         const isExistingAttr = attr.id && guidRegex.test(attr.id);
         const attrData: any = {
@@ -4603,13 +4600,16 @@ const handleGroupedProductsChange = (selectedOptions: any) => {
 };
 
 
-// Product Attribute handlers (matching backend ProductAttributeCreateDto)
-const addProductAttribute = () => {
+// Product Attribute handlers (WooCommerce-style unified with "Used for variations" toggle)
+const addProductAttribute = (isVariation = false) => {
   const newAttr: ProductAttribute = {
-    id: Date.now().toString(),
+    id: `attr-${Date.now()}`,
     name: '',
     value: '',
-    displayOrder: productAttributes.length + 1
+    displayOrder: productAttributes.length + 1,
+    isVariation,
+    displayType: isVariation ? 'buttons' : undefined,
+    position: isVariation ? productAttributes.filter(a => a.isVariation).length + 1 : undefined,
   };
   setProductAttributes([...productAttributes, newAttr]);
 };
@@ -4618,6 +4618,19 @@ const updateProductAttribute = (id: string, field: keyof ProductAttribute, value
   setProductAttributes(productAttributes.map(attr =>
     attr.id === id ? { ...attr, [field]: value } : attr
   ));
+};
+
+const toggleAttributeVariation = (id: string) => {
+  setProductAttributes(productAttributes.map(attr => {
+    if (attr.id !== id) return attr;
+    const nowVariation = !attr.isVariation;
+    return {
+      ...attr,
+      isVariation: nowVariation,
+      displayType: nowVariation ? (attr.displayType || 'buttons') : undefined,
+      position: nowVariation ? productAttributes.filter(a => a.isVariation).length + 1 : undefined,
+    };
+  }));
 };
 
 
@@ -5235,6 +5248,11 @@ const uploadImagesToProductDirect = async (
                     <TabsTrigger value="variants" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                       <Package className="h-4 w-4" />
                       Variants
+                      {productVariants.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-violet-500/30 text-violet-300 rounded-full font-medium">
+                          {productVariants.length}
+                        </span>
+                      )}
                     </TabsTrigger>
                   )}
                   <TabsTrigger value="seo" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
@@ -5317,6 +5335,7 @@ const uploadImagesToProductDirect = async (
   value={formData.sku}
   productId={productId}
   onChange={(val) => setFormData({ ...formData, sku: val })}
+  isVariableProduct={formData.productType === 'variable'}
 />
 
 
@@ -5399,6 +5418,20 @@ const uploadImagesToProductDirect = async (
 
 
       </div>
+
+      {/* Variable product guidance banner */}
+      {formData.productType === 'variable' && (
+        <div className="flex items-start gap-3 bg-violet-500/10 border border-violet-500/30 rounded-xl px-4 py-3">
+          <Package className="h-5 w-5 text-violet-400 mt-0.5 flex-shrink-0" />
+          <div className="text-sm">
+            <span className="font-semibold text-violet-300">Variable Product — </span>
+            <span className="text-slate-300">Price and stock are managed per variant. Use the <strong className="text-violet-300">Variants</strong> tab to edit options and variants.</span>
+            {productVariants.length > 0 && (
+              <span className="ml-2 text-emerald-400 font-medium">✓ {productVariants.length} variant{productVariants.length !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ✅ Row 2: Product Type & Product Tags (2 Columns) */}
 <div className="grid md:grid-cols-2 gap-4">
@@ -7386,147 +7419,214 @@ const uploadImagesToProductDirect = async (
 </TabsContent>
 
               {/* Product Attributes Tab */}
-              <TabsContent value="product-attributes" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Product Attributes</h3>
-                      <p className="text-sm text-slate-400">
-                        Add custom attributes like warranty, brand info, material details etc.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addProductAttribute}
-                      className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <Tag className="h-4 w-4" />
-                      Add Attribute
-                    </button>
+              <TabsContent value="product-attributes" className="space-y-3 mt-2">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Product Attributes</h3>
+                    <p className="text-sm text-slate-400">Define attributes. Toggle <span className="text-violet-300 font-medium">Used for variations</span> to use an attribute for generating variants (like Color, Size).</p>
                   </div>
+                  <button type="button" onClick={() => addProductAttribute(false)}
+                    className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2 text-sm">
+                    <Plus className="h-4 w-4" /> Add Attribute
+                  </button>
+                </div>
 
-                  {productAttributes.length === 0 ? (
-                   <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4 text-center">
-  <Tag className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-
-  <h3 className="text-sm font-medium text-white mb-1">
-    No Product Attributes Yet
-  </h3>
-
-  <p className="text-xs text-slate-400">
-    Click “Add Attribute” to add product information
-  </p>
-</div>
-
-                  ) : (
-                    <div className="space-y-3">
-                      {productAttributes.map((attr, index) => (
-                        <div key={attr.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                          <div className="flex items-start gap-4">
-                            <div className="flex-1 grid grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                {index + 1} .  Attribute Name <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={attr.name}
-                                  onChange={(e) => updateProductAttribute(attr.id, 'name', e.target.value)}
-                                  placeholder="e.g., Warranty, Material, Brand"
-                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                  Value <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  value={attr.value}
-                                  onChange={(e) => updateProductAttribute(attr.id, 'value', e.target.value)}
-                                  placeholder="e.g., 1 Year, Cotton, Nike"
-                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                  Display Order
-                                </label>
-                                <input
-                                  type="number"
-                                  value={attr.displayOrder}
-                                  onChange={(e) => updateProductAttribute(attr.id, 'displayOrder', parseInt(e.target.value) || 0)}
-                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                              </div>
-                            </div>
-                            {/* Attribute Delete Button */}
-<button
-  type="button"
-  onClick={() => removeProductAttribute(attr.id)}
-  className="mt-8 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
->
-  <X className="h-5 w-5" />
-</button>
-                          </div>
+                {/* Variation attributes summary */}
+                {productAttributes.some(a => a.isVariation) && (
+                  <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="h-4 w-4 text-violet-400" />
+                      <span className="text-sm font-semibold text-violet-300">Variation Attributes</span>
+                      <span className="text-xs text-slate-400">— used to generate variants in the Variants tab</span>
+                    </div>
+                    <div className="space-y-2">
+                      {productAttributes.filter(a => a.isVariation).map((attr, idx) => (
+                        <div key={attr.id} className="flex items-center gap-2 bg-slate-900/50 rounded-lg px-3 py-2">
+                          <span className="text-xs text-slate-500 w-4">{idx + 1}.</span>
+                          <span className="text-sm font-medium text-white w-24 truncate">{attr.name || <span className="text-slate-500 italic">unnamed</span>}</span>
+                          <span className="text-slate-600">→</span>
+                          <span className="text-sm text-slate-300 flex-1 truncate">{attr.value || <span className="text-slate-500 italic">no values</span>}</span>
+                          <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">{attr.displayType || 'buttons'}</span>
                         </div>
                       ))}
                     </div>
-                  )}
-
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                    <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Attribute Examples</h4>
-                    <ul className="text-sm text-slate-400 space-y-1">
-                      <li>• Warranty: 1 Year Manufacturer Warranty</li>
-                      <li>• Material: 100% Cotton</li>
-                      <li>• Brand: Nike</li>
-                      <li>• Country of Origin: Made in Uk</li>
-                    </ul>
                   </div>
-                </div>
+                )}
+
+                {productAttributes.length === 0 ? (
+                  <div className="bg-slate-800/30 border border-slate-700 border-dashed rounded-xl p-8 text-center">
+                    <Tag className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-white mb-1">No attributes yet</p>
+                    <p className="text-xs text-slate-500 mb-3">Add product info (Material, Warranty) or variation attributes (Color, Size)</p>
+                    <div className="flex items-center justify-center gap-2">
+                      <button type="button" onClick={() => addProductAttribute(false)}
+                        className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                        + Regular Attribute
+                      </button>
+                      <button type="button" onClick={() => addProductAttribute(true)}
+                        className="px-3 py-1.5 text-xs bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/40 rounded-lg transition-colors">
+                        + Variation Attribute (Color, Size…)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {productAttributes.map((attr, index) => (
+                      <div key={attr.id}
+                        className={`border rounded-xl p-4 transition-all ${attr.isVariation ? 'bg-violet-500/5 border-violet-500/30' : 'bg-slate-800/30 border-slate-700'}`}>
+                        <div className="flex items-start gap-3">
+                          <span className="text-xs text-slate-500 mt-3 w-5 text-right flex-shrink-0">{index + 1}.</span>
+                          <div className="flex-1 space-y-3">
+                            <div className={`grid gap-3 ${attr.isVariation ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1">Attribute Name</label>
+                                <input type="text" value={attr.name}
+                                  onChange={(e) => updateProductAttribute(attr.id, 'name', e.target.value)}
+                                  placeholder={attr.isVariation ? "e.g., Color, Size, Material" : "e.g., Warranty, Brand"}
+                                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1">
+                                  {attr.isVariation ? 'Values (comma-separated)' : 'Value'}
+                                </label>
+                                <input type="text" value={attr.value}
+                                  onChange={(e) => updateProductAttribute(attr.id, 'value', e.target.value)}
+                                  placeholder={attr.isVariation ? "e.g., Red, Blue, Green" : "e.g., 100% Cotton"}
+                                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+                                {attr.isVariation && attr.value && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {attr.value.split(',').map(v => v.trim()).filter(Boolean).map((v, i) => (
+                                      <span key={i} className="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded-full">{v}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {attr.isVariation && (
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-400 mb-1">Display As</label>
+                                  <select value={attr.displayType || 'buttons'}
+                                    onChange={(e) => updateProductAttribute(attr.id, 'displayType', e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent">
+                                    <option value="buttons">Buttons</option>
+                                    <option value="dropdown">Dropdown</option>
+                                    <option value="swatch">Color Swatch</option>
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-700/50">
+                              <button type="button" onClick={() => toggleAttributeVariation(attr.id)}
+                                className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg transition-all ${
+                                  attr.isVariation
+                                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-600 hover:bg-slate-700'
+                                }`}>
+                                <span className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${attr.isVariation ? 'bg-violet-400 border-violet-400' : 'border-slate-500'}`} />
+                                {attr.isVariation ? '✓ Used for variations' : 'Used for variations'}
+                              </button>
+                              {attr.isVariation && (
+                                <span className="text-xs text-slate-500 italic">Goes to Variants tab</span>
+                              )}
+                            </div>
+                          </div>
+                          <button type="button" onClick={() => removeProductAttribute(attr.id)}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex gap-2 pt-1">
+                      <button type="button" onClick={() => addProductAttribute(false)}
+                        className="flex-1 py-2 text-xs border border-dashed border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300 rounded-lg transition-colors">
+                        + Add Regular Attribute
+                      </button>
+                      <button type="button" onClick={() => addProductAttribute(true)}
+                        className="flex-1 py-2 text-xs border border-dashed border-violet-500/40 text-violet-400 hover:border-violet-500/60 hover:text-violet-300 rounded-lg transition-colors">
+                        + Add Variation Attribute
+                      </button>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
  
 {/* ========================================== */}
-{/* EDIT PAGE - PRODUCT VARIANTS TAB */}
+{/* EDIT PAGE - PRODUCT VARIANTS TAB         */}
 {/* ========================================== */}
 <TabsContent value="variants" className="space-y-4">
- {/* Product Options Manager */}
-  <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-    <ProductOptionsManager
-      options={productOptions}
-      onOptionsChange={setProductOptions}
-      maxOptions={3}
-      disabled={isSubmitting}
-    />
-  </div>
+  {(() => {
+    const varAttrs = productAttributes.filter(a => a.isVariation && a.name && a.value);
+    const varOptions = varAttrs.map((a, i) => ({
+      id: a.id,
+      name: a.name,
+      values: a.value.split(',').map((v: string) => v.trim()).filter(Boolean),
+      displayType: a.displayType || 'buttons',
+      position: i + 1,
+      isActive: true,
+    }));
+    return (
+      <>
+        {/* Options summary */}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <Settings className="h-4 w-4 text-violet-400" /> Variation Options
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Managed in the Attributes tab — go there to add or change options.</p>
+            </div>
+          </div>
+          {varOptions.length === 0 ? (
+            <div className="border border-dashed border-slate-600 rounded-lg p-4 text-center">
+              <p className="text-sm text-slate-400 mb-1">No variation attributes defined.</p>
+              <p className="text-xs text-slate-500">Go to <strong className="text-violet-300">Attributes</strong> tab → enable <strong className="text-violet-300">Used for variations</strong> on an attribute</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {varOptions.map((opt) => (
+                <div key={opt.id} className="flex items-center gap-3 bg-slate-900/50 rounded-lg px-3 py-2.5">
+                  <span className="text-sm font-semibold text-white w-24 flex-shrink-0">{opt.name}</span>
+                  <span className="text-slate-600 flex-shrink-0">→</span>
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {opt.values.map((v: string, i: number) => (
+                      <span key={i} className="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded-full font-medium">{v}</span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-slate-500">{opt.displayType}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-  {/* Product Variants Manager (now includes Generate button internally) */}
-  <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-    <ProductVariantsManager
-      variants={productVariants}
-      options={productOptions}
-      productSku={formData.sku}
-      productName={formData.name}
-      productId={productId || undefined}
-      onVariantsChange={setProductVariants}
-      disabled={isSubmitting}
-      variantSkuErrors={variantSkuErrors}
-      onVariantImageUpload={handleVariantImageUpload}
-    />
-  </div>
-  {/* Help Section */}
-  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-    <div className="flex items-start gap-3">
-      <Info className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-      <div>
-        <h4 className="font-semibold text-sm text-blue-400 mb-2">How Options & Variants Work</h4>
-        <ul className="text-xs text-slate-400 space-y-1">
-          <li>• <strong className="text-white">Options:</strong> Define types (Color: Red Blue Green)</li>
-          <li>• <strong className="text-white">Generate:</strong> Auto-creates all combinations</li>
-          <li>• Each variant has unique SKU, price, and stock</li>
-        </ul>
-      </div>
+        {/* Variants Manager */}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+          <ProductVariantsManager
+            variants={productVariants}
+            options={varOptions}
+            productSku={formData.sku}
+            productName={formData.name}
+            productId={productId || undefined}
+            onVariantsChange={setProductVariants}
+            disabled={isSubmitting}
+            variantSkuErrors={variantSkuErrors}
+            onVariantImageUpload={handleVariantImageUpload}
+          />
+        </div>
+      </>
+    );
+  })()}
+
+  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+    <div className="flex items-start gap-2">
+      <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+      <ul className="text-xs text-slate-400 space-y-1">
+        <li>• <strong className="text-white">Step 1:</strong> Go to <strong className="text-violet-300">Attributes</strong> tab → enable <strong className="text-violet-300">Used for variations</strong> on Color/Size etc.</li>
+        <li>• <strong className="text-white">Step 2:</strong> Come back here → click <strong className="text-white">Generate All Variants</strong></li>
+        <li>• Each variant gets its own SKU (auto-generated if blank), price, and stock</li>
+      </ul>
     </div>
   </div>
 </TabsContent>

@@ -376,13 +376,13 @@ export default function BlogCategoriesPage() {
             onClick={() => router.push("/admin/BlogPosts")}
             className="flex items-center gap-1.5 px-3 py-2 text-sm bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-violet-500/50 rounded-lg transition-all"
           >
-            <FileText className="h-3.5 w-3.5" /> Blog Posts
+            <FileText className="h-3.5 w-3.5" /> Go To Blog Post Page
           </button>
           <button
             onClick={() => router.push("/admin/comments")}
             className="flex items-center gap-1.5 px-3 py-2 text-sm bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-pink-500/50 rounded-lg transition-all"
           >
-            <MessageSquare className="h-3.5 w-3.5" />Blog Comments
+            <MessageSquare className="h-3.5 w-3.5" /> Go To Blog Comment Page
           </button>
           <button
             onClick={() => { resetForm(); setShowModal(true); }}

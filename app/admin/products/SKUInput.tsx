@@ -7,7 +7,8 @@ import { useState, useEffect, useRef } from 'react';
 interface Props {
   value: string;
   onChange: (value: string) => void;
-  productId?: string; // edit mode ke liye
+  productId?: string;
+  isVariableProduct?: boolean; // SKU optional for variable products
 }
 
 // ✅ SKU FORMAT VALIDATION
@@ -31,7 +32,7 @@ const validateSkuFormat = (sku: string) => {
   return { isValid: true, error: '' };
 };
 
-export default function SKUInput({ value, onChange, productId }: Props) {
+export default function SKUInput({ value, onChange, productId, isVariableProduct = false }: Props) {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
 
@@ -101,7 +102,11 @@ export default function SKUInput({ value, onChange, productId }: Props) {
   return (
     <div>
       <label className="block text-sm font-medium text-slate-300 mb-2">
-        SKU (Stock Keeping Unit) <span className="text-red-500">*</span>
+        SKU (Stock Keeping Unit){' '}
+        {isVariableProduct
+          ? <span className="text-slate-500 text-xs font-normal">(optional)</span>
+          : <span className="text-red-500">*</span>
+        }
       </label>
 
       <div className="relative">
@@ -118,7 +123,7 @@ export default function SKUInput({ value, onChange, productId }: Props) {
               ? 'border-green-500 focus:ring-green-500'
               : 'border-slate-700 focus:ring-violet-500'
           }`}
-          required
+          required={!isVariableProduct}
         />
 
         {/* ICON */}
