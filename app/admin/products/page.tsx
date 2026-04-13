@@ -2254,9 +2254,9 @@ const handleExportSelected = async () => {
               onChange={handleSelectAll}
               className="accent-violet-500"
             />
-          <th onClick={() => handleSort('name')}>
+          <span onClick={() => handleSort('name')}>
   Name {sortBy === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-</th>
+</span>
           </div>
         </th>
 

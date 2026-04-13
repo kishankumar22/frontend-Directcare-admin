@@ -245,6 +245,7 @@ export interface Product {
   metaKeywords?: string;
   searchEngineFriendlyPageName?: string;
   tags?: string;
+allowedSubscriptionFrequencies?: string;
   averageRating?: number;
   reviewCount?: number;
   viewCount?: number;
