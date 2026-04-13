@@ -204,6 +204,7 @@ export default function ProductsPage() {
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const ALLOWED_SORT_FIELDS = ['name', 'price', 'createdAt'];
   
   // API Pagination state
   const [totalCount, setTotalCount] = useState(0);
@@ -343,6 +344,8 @@ const deletedOptions = [
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showToggleConfirm, setShowToggleConfirm] = useState(false);
   const [apiStats, setApiStats] = useState<any>(null);
+  const [sortBy, setSortBy] = useState<string>('createdAt');
+const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 // BULK SELECTION
 const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 const [exportingSelected, setExportingSelected] = useState(false);
@@ -355,11 +358,25 @@ const handleSelectProduct = (productId: string) => {
       : [...prev, productId]
   );
 };
+
+const handleSort = (field: string) => {
+  if (!ALLOWED_SORT_FIELDS.includes(field)) return;
+
+  if (sortBy === field) {
+    setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+  } else {
+    setSortBy(field);
+    setSortDirection('asc');
+  }
+};
 useEffect(() => {
   if (searchInput.trim() !== "") {
     setSearchLoading(true);
   }
 }, [searchInput]);
+useEffect(() => {
+  fetchProducts();
+}, [sortBy, sortDirection]);
 const handleSelectAll = () => {
   if (selectedProducts.length === products.length) {
     setSelectedProducts([]);
@@ -447,11 +464,11 @@ const fetchProducts = async () => {
   try {
     // Build backend params
     const params: any = {
-      page: currentPage,
-      pageSize: itemsPerPage,
-      sortBy: 'createdAt',
-      sortDirection: 'desc',
-    };
+  page: currentPage,
+  pageSize: itemsPerPage,
+  sortBy,
+  sortDirection,
+};
     if (statusFilter.value !== "all") {
       params.stockStatus = statusFilter.value;
     }
@@ -874,7 +891,13 @@ const clearFilters = useCallback(() => {
   setVatFilter({ value: "all", label: "VAT: All" });
   setDeletedFilter({ value: "all", label: "All Records" });
   setPharmaFilter({ value: "all", label: "All Products" });
-  setSearchInput(""); // Clear search input
+
+  setSearchInput("");
+
+  // 🔥 ADD THIS (IMPORTANT)
+  setSortBy("createdAt");
+  setSortDirection("desc");
+
   setCurrentPage(1);
 }, []);
 
@@ -894,8 +917,13 @@ const hasActiveFilters = useMemo(
     recurringFilter.value !== "all" ||
     vatFilter.value !== "all" ||
     deletedFilter.value !== "all" ||
-    pharmaFilter.value !== "all"||
-    searchInput.trim() !== "", // Use searchInput instead of searchTerm
+    pharmaFilter.value !== "all" ||
+    searchInput.trim() !== "" ||
+
+    // 🔥 ADD THIS
+    sortBy !== "createdAt" ||
+    sortDirection !== "desc",
+
   [
     selectedCategory,
     selectedBrand,
@@ -910,7 +938,12 @@ const hasActiveFilters = useMemo(
     recurringFilter,
     vatFilter,
     deletedFilter,
-    searchInput, // Use searchInput
+    pharmaFilter,
+    searchInput,
+
+    // 🔥 ADD DEPENDENCIES
+    sortBy,
+    sortDirection,
   ]
 );
 
@@ -2221,17 +2254,30 @@ const handleExportSelected = async () => {
               onChange={handleSelectAll}
               className="accent-violet-500"
             />
-            Product
+          <th onClick={() => handleSort('name')}>
+  Name {sortBy === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+</th>
           </div>
         </th>
 
         <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[80px]" onClick={() => handleSort('price')}>
+          Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+        </th>
         <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[170px]">Stock Status</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[150px]">Visibility</th>
-        <th className="text-left py-2 px-3 text-slate-400 w-[150px]">Updated At</th>
-        <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated By</th>
+        <th
+  onClick={() => handleSort('createdAt')}
+  className="text-left py-2 px-3 text-slate-400 w-[170px] cursor-pointer"
+>
+  Created
+  {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+</th>
+
+<th className="text-left py-2 px-3 text-slate-400 w-[170px]">
+  Updated
+</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Actions</th>
       </tr>
     </thead>
@@ -2466,25 +2512,30 @@ Backorder: ${allowBackorder ? "Allowed" : "No"}
                         </div>
                       </td>
 
-                      <td
-                        className="py-2 px-3 text-xs text-slate-300 cursor-help"
-                        title={`
-Created At: ${product.createdAt || "N/A"}
-Last Updated At: ${product.updatedAt || "N/A"}
-                        `.trim()}
-                      >
-                        {formatDate(product.updatedAt)}
-                      </td>
-
-                      <td
-                        className="py-2 px-3 text-xs text-slate-300 truncate cursor-help"
-                        title={`
-Created By: ${product.createdBy || "N/A"}
-Last Updated By: ${product.updatedBy || "N/A"}
-                        `.trim()}
-                      >
-                        {product.updatedBy || "-"}
-                      </td>
+<td
+  className="py-2 px-3 text-xs text-slate-300 cursor-help"
+  title={`Created At: ${product.createdAt || "N/A"}
+Created By: ${product.createdBy || "N/A"}`}
+>
+  <div className="flex flex-col">
+    <span>{product.createdAt || "N/A"}</span>
+    <span className="text-[10px] text-slate-500">
+      {product.createdBy || "N/A"}
+    </span>
+  </div>
+</td>
+<td
+  className="py-2 px-3 text-xs text-slate-300 cursor-help"
+  title={`Updated At: ${product.updatedAt || "N/A"}
+Updated By: ${product.updatedBy || "N/A"}`}
+>
+  <div className="flex flex-col">
+    <span>{product.updatedAt || "N/A"}</span>
+    <span className="text-[10px] text-slate-500">
+      {product.updatedBy || "N/A"}
+    </span>
+  </div>
+</td>
 
                       {/* ACTIONS */}
                       <td className="py-2 px-3">

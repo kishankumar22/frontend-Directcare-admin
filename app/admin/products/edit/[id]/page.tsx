@@ -24,7 +24,7 @@ import RequestTakeoverModal from "../../RequestTakeoverModal";
 import { apiClient } from "@/lib/api";
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
-import ProductOptionsManager from "../../ProductOptionsManager";
+
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../../ProductNameInput";
@@ -7151,35 +7151,29 @@ const uploadImagesToProductDirect = async (
 
 {/* Related Products Tab */}
 <TabsContent value="related-products" className="space-y-6 mt-2">
-  {/* Related Products */}
-  <RelatedProductsSelector
-    type="related"
-    selectedProductIds={formData.relatedProducts}
-    availableProducts={availableProducts}
-    brands={dropdownsData.brands}
-    categories={dropdownsData.categories}
-    onProductsChange={(productIds) => {
-      setFormData(prev => ({
-        ...prev,
-        relatedProducts: productIds
-      }));
-    }}
-  />
+{/* Related Products */}
+<RelatedProductsSelector
+  type="related"
+  selectedProductIds={formData.relatedProducts}
+  onProductsChange={(productIds) => {
+    setFormData(prev => ({
+      ...prev,
+      relatedProducts: productIds
+    }));
+  }}
+/>
 
-  {/* Cross-sell Products */}
-  <RelatedProductsSelector
-    type="cross-sell"
-    selectedProductIds={formData.crossSellProducts}
-    availableProducts={availableProducts}
-    brands={dropdownsData.brands}
-    categories={dropdownsData.categories}
-    onProductsChange={(productIds) => {
-      setFormData(prev => ({
-        ...prev,
-        crossSellProducts: productIds
-      }));
-    }}
-  />
+{/* Cross-sell Products */}
+<RelatedProductsSelector
+  type="cross-sell"
+  selectedProductIds={formData.crossSellProducts}
+  onProductsChange={(productIds) => {
+    setFormData(prev => ({
+      ...prev,
+      crossSellProducts: productIds
+    }));
+  }}
+/>
     {/* Info Box */}
       <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
         <h4 className="font-semibold text-sm text-violet-400 mb-2">💡 Tips</h4>
@@ -8075,7 +8069,7 @@ const uploadImagesToProductDirect = async (
 <GroupedProductModal
   isOpen={isGroupedModalOpen}
   onClose={() => setIsGroupedModalOpen(false)}
-  simpleProducts={simpleProducts}
+
   selectedGroupedProducts={selectedGroupedProducts}
   automaticallyAddProducts={formData.automaticallyAddProducts}
    // ⭐ PASS MAIN PRODUCT DATA

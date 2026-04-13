@@ -5147,27 +5147,21 @@ useEffect(() => {
 
 {/* Related Products Tab */}
 <TabsContent value="related-products" className="space-y-6 mt-2">
-  <RelatedProductsSelector
-    type="related"
-    selectedProductIds={formData.relatedProducts}
-    availableProducts={availableProducts}
-    brands={dropdownsData.brands}
-    categories={dropdownsData.categories}
-    onProductsChange={(productIds) => {
-      setFormData(prev => ({ ...prev, relatedProducts: productIds }));
-    }}
-  />
+ <RelatedProductsSelector
+  type="related"
+  selectedProductIds={formData.relatedProducts}
+  onProductsChange={(productIds) => {
+    setFormData(prev => ({ ...prev, relatedProducts: productIds }));
+  }}
+/>
 
-  <RelatedProductsSelector
-    type="cross-sell"
-    selectedProductIds={formData.crossSellProducts}
-    availableProducts={availableProducts}
-    brands={dropdownsData.brands}
-    categories={dropdownsData.categories}
-    onProductsChange={(productIds) => {
-      setFormData(prev => ({ ...prev, crossSellProducts: productIds }));
-    }}
-  />
+<RelatedProductsSelector
+  type="cross-sell"
+  selectedProductIds={formData.crossSellProducts}
+  onProductsChange={(productIds) => {
+    setFormData(prev => ({ ...prev, crossSellProducts: productIds }));
+  }}
+/>
 
       {/* Info Box */}
       <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
@@ -5864,11 +5858,7 @@ useEffect(() => {
     </button>
   </div>
 </TabsContent>
-
-
-
-
-            </Tabs>
+</Tabs>
           </div>
         </div>
       </div>
@@ -5876,7 +5866,6 @@ useEffect(() => {
 <GroupedProductModal
   isOpen={isGroupedModalOpen}
   onClose={() => setIsGroupedModalOpen(false)}
-  simpleProducts={simpleProducts || []} // ✅ Safe default
   selectedGroupedProducts={selectedGroupedProducts || []} // ✅ Correct (with 's')
   automaticallyAddProducts={formData.automaticallyAddProducts || false}
   mainProductPrice={parseFloat(String(formData.price || 0))} // ✅ SAFE

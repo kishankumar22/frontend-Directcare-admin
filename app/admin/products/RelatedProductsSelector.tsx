@@ -12,17 +12,12 @@ import { categoriesService } from '@/lib/services/categories';
 interface RelatedProductsSelectorProps {
   type: 'related' | 'cross-sell';
   selectedProductIds: string[];
-  availableProducts: Product[];
-  brands: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string }>;
   onProductsChange: (productIds: string[]) => void;
 }
 
 export default function RelatedProductsSelector({
   type,
   selectedProductIds,
-  availableProducts,
-  
   onProductsChange
 }: RelatedProductsSelectorProps) {
   const [productSearch, setProductSearch] = useState('');
@@ -195,16 +190,35 @@ useEffect(() => {
       onProductsChange([...selectedProductIds, productId]);
     }
   };
+const fetchSelectedProducts = async () => {
+  if (selectedProductIds.length === 0) return;
 
+  try {
+    const res = await Promise.all(
+      selectedProductIds.map(id => productsService.getById(id))
+    );
 
+    const data = res
+      .map(r => r.data?.data)
+      .filter((p): p is Product => Boolean(p));
+
+    setProducts(prev => {
+      const map = new Map(prev.map(p => [p.id, p]));
+      data.forEach(p => map.set(p.id, p));
+      return Array.from(map.values());
+    });
+
+  } catch (e) {
+    console.error("Selected products fetch error", e);
+  }
+};
+
+useEffect(() => {
+  fetchSelectedProducts();
+}, [selectedProductIds]);
   // Get selected products
 const selectedProducts = selectedProductIds
-  .map(id => {
-    return (
-      products.find(p => p.id === id) ||   // 🔥 FIRST TRY API DATA
-      availableProducts.find(p => p.id === id) // fallback
-    );
-  })
+  .map(id => products.find(p => p.id === id))
   .filter(Boolean) as Product[];
 
   return (
