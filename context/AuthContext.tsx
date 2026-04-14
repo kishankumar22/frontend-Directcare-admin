@@ -200,9 +200,12 @@ useEffect(() => {
   localStorage.setItem("refreshToken", data.refreshToken);
   localStorage.setItem("user", JSON.stringify(data.user));
 
-  // Keep the existing anonymous sessionId so the guest cart is NOT wiped on login.
-  // CartContext re-reads sessionId via auth:login; since it hasn't changed, React
-  // bails out of the state update and the in-memory cart stays intact.
+  // Restore user's saved cart session from previous logout (if any).
+  // This ensures items added before logout are still present after re-login.
+  const userId = data.user?.id;
+
+  // (else: keep current anonymous sessionId — guest cart merges naturally)
+
   window.dispatchEvent(new CustomEvent("auth:login"));
 
   setUser(data.user);
@@ -260,8 +263,19 @@ useEffect(() => {
 
   // 🚪 LOGOUT
   const logout = () => {
-    // Remove cartSessionId so CartContext generates a fresh anonymous UUID.
-    // This ensures the next visitor (or re-login) starts with a clean cart.
+    // Save current cart session tied to this user BEFORE removing it.
+    // On next login, CartContext will restore from cart_user_{userId}.
+    try {
+      const userStr = localStorage.getItem("user");
+      const userId = userStr ? JSON.parse(userStr)?.id : null;
+      const currentCartSession = localStorage.getItem("cartSessionId");
+      if (userId && currentCartSession) {
+        localStorage.setItem(`cart_user_${userId}`, currentCartSession);
+      }
+    } catch {/* ignore */}
+
+    // Remove cartSessionId so CartContext generates a fresh anonymous UUID
+    // for any new guest session after this logout.
     localStorage.removeItem("cartSessionId");
     window.dispatchEvent(new CustomEvent("auth:logout"));
 

@@ -50,7 +50,7 @@ import { formatDate, getOrderProductImage } from "../_utils/formatUtils";
 
 type CustomerTier = "all" | "gold" | "silver" | "bronze";
 
-export const getStatusColor = (status: string) => {
+const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
     case "delivered":
       return "bg-green-500/15 text-green-400 border border-green-500/30";
@@ -65,7 +65,7 @@ export const getStatusColor = (status: string) => {
   }
 };
 
-export const getPaymentColor = (status: string) => {
+const getPaymentColor = (status: string) => {
   switch (status?.toLowerCase()) {
     case "paid":
       return "text-green-400";

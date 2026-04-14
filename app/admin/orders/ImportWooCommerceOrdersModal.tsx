@@ -46,13 +46,12 @@ const handleImport = async () => {
 
     const response = await orderService.importWooCommerce(file);
 
-    // 🔥 CRITICAL CHECK
-    if (!response?.success) {
+    // ✅ FIXED CHECK
+    if (!response?.data) {
       toast.error(response?.message || "Import failed");
       return;
     }
 
-    // ✅ success case
     setResult(response.data);
     toast.success(response.message || 'WooCommerce orders imported successfully');
 

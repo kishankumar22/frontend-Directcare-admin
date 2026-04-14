@@ -18,28 +18,17 @@ interface BulkStatusModalProps {
 }
 
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-
   Pending: ['Confirmed', 'Processing', 'Cancelled'],
-
   Confirmed: ['Processing', 'Cancelled'],
-
   Processing: ['Shipped', 'Cancelled', 'PartiallyShipped'],
-
   Shipped: ['Delivered', 'Returned'],
-
   PartiallyShipped: ['Shipped', 'Cancelled'],
-
   Delivered: [],
-
   Returned: [],
-
   Cancelled: [],
-
   Refunded: [],
-
-  // 🔥 ADD THIS (missing)
   CancellationRequested: ['Cancelled', 'Processing'],
-
+  Collected: [], // ✅ FIX
 };
 export default function BulkStatusModal({
   isOpen,

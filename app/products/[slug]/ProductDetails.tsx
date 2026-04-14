@@ -772,13 +772,13 @@ const stock = useMemo(() => {
 // ✅ STOCK DISPLAY LOGIC (backend driven)
 const stockDisplay = useMemo(() => {
   // ❌ Always dominant
-  if (stock === 0) {
-    return {
-      show: true,
-      text: "Out of Stock",
-      type: "out",
-    };
-  }
+ if (stock === 0) {
+  return {
+    show: false, // 🔥 HIDE BADGE
+    text: "",
+    type: "out",
+  };
+}
   // ✅ Exact quantity has highest priority
   if (product.displayStockQuantity === true) {
     if (stock <= 5) {
@@ -2042,7 +2042,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   <span className="font-semibold text-sm">One-Time Purchase</span>
 </label>
 {/* Price + VAT + Loyalty — all compact inline */}
-<div className="flex flex-wrap items-baseline gap-1.5 mb-2">
+<div className="flex flex-wrap items-center gap-1.5 mb-2">
   <span className="text-lg font-bold text-[#445D41]">
     £{(finalPrice * normalQty).toFixed(2)}
   </span>
@@ -2052,7 +2052,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     </span>
   )}
   {vatRate !== null && (
-    <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
+    <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
       {vatRate}% VAT
     </span>
   )}
@@ -2107,7 +2107,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     <Button
       onClick={handleAddToCart}
       disabled={product.disableBuyButton || (isGroupedProduct && !allRequiredSelected)}
-      className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
+      className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <ShoppingCart className="h-4 w-4" />
       Add to Cart
@@ -2118,7 +2118,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     <Button
       onClick={handleBuyNow}
       disabled={product.disableBuyButton}
-      className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
+      className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <Zap className="h-4 w-4" />
       Buy Now
@@ -2167,7 +2167,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
    <Card className="mb-2 border border-gray-200 rounded-2xl shadow-sm">
   <CardContent className="p-3">
     {/* Price + VAT + Loyalty — all compact inline */}
-    <div className="flex flex-wrap items-baseline gap-1.5 mb-2">
+    <div className="flex flex-wrap items-center gap-1.5 mb-2">
       <span className="text-lg md:text-2xl font-bold text-[#445D41]">
         £{(finalPrice * normalQty).toFixed(2)}
       </span>
