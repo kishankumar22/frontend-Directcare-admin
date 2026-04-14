@@ -12,7 +12,7 @@ import {
   DiscountType,
 } from "@/lib/services/discounts";
 import { categoriesService, Category } from "@/lib/services/categories";
-import { Product, productsService } from "@/lib/services";
+import { Brand, brandsService, Product, productsService } from "@/lib/services";
 import { DiscountUsageHistory } from "@/lib/services/discounts";
 import DiscountModals from "./DiscountModals";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -251,6 +251,7 @@ export default function DiscountsPage() {
   const [productBrandFilter, setProductBrandFilter] = useState<string>("");
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [assignedItemsPopup, setAssignedItemsPopup] = useState<string | null>(null); // discount id
   const popupRef = useRef<HTMLDivElement>(null);
   const [usageHistoryModal, setUsageHistoryModal] = useState(false);
@@ -296,18 +297,47 @@ const debouncedSearch = useDebounce(searchTerm, 400);
     mobileBannerImageUrl: null,
   });
 
-  // Fetch data on mount
-  useEffect(() => {
-    fetchDiscounts();
-    fetchDropdownData();
-  }, []);
+useEffect(() => {
+  const delay = setTimeout(() => {
+    fetchProducts();
+  }, 400);
+
+  return () => clearTimeout(delay);
+}, [productSearchTerm, productCategoryFilter, productBrandFilter]);
+
+const fetchProducts = async () => {
+  try {
+    const productsRes = await productsService.getAll({
+      searchTerm: productSearchTerm || undefined,
+      categoryId: productCategoryFilter || undefined,
+      brandId: productBrandFilter || undefined,
+      pageSize: 10,
+    });
+
+    const productsData =
+      productsRes?.data?.data?.items ||
+      productsRes?.data ||
+      [];
+
+    setProducts(Array.isArray(productsData) ? productsData : []);
+
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    toast.error("Failed to load products");
+  }
+};
+useEffect(() => {
+  fetchDiscounts();
+  fetchDropdownData();
+  fetchProducts(); // ✅ add this
+}, []);
 
   // Fetch dropdown data
 const fetchDropdownData = async () => {
   try {
-    const [categoriesRes, productsRes] = await Promise.all([
+    const [categoriesRes, brandsRes] = await Promise.all([
       categoriesService.getAll(),
-      productsService.getAll(),
+      brandsService.getAll(), // ✅ brand service use करो
     ]);
 
     // ================= CATEGORIES =================
@@ -317,12 +347,12 @@ const fetchDropdownData = async () => {
 
     setCategories(categoriesData);
 
-    // ================= PRODUCTS =================
-    const productsData = Array.isArray(productsRes?.data?.data?.items)
-      ? productsRes.data.data.items
+    // ================= BRANDS =================
+    const brandsData = Array.isArray(brandsRes?.data?.data?.items)
+      ? brandsRes.data.data.items
       : [];
 
-    setProducts(productsData);
+    setBrands(brandsData); // ✅ brands set करो
 
   } catch (error) {
     console.error("Error fetching dropdown data:", error);
@@ -452,108 +482,28 @@ const handleRestore = async () => {
     [categories]
   );
 
-  // Brand options
-  const brandOptions: SelectOption[] = useMemo(() => {
-    const uniqueBrands = new Map<string, string>();
-    products.forEach((product) => {
-      if ((product as any).brandId && (product as any).brandName) {
-        uniqueBrands.set((product as any).brandId, (product as any).brandName);
-      }
-    });
-    return Array.from(uniqueBrands.entries())
-      .map(([id, name]) => ({ value: id, label: name }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [products]);
+const brandOptions: SelectOption[] = useMemo(() => {
+  return brands.map((b) => ({
+    value: b.id,
+    label: b.name,
+  }));
+}, [brands]);
 
-// Add in main page (around line 150-170)
-useEffect(() => {
-  if (products.length > 0) {
-    console.log("📦 Sample Product Structure:", products[0]);
-    console.log("🔍 Categories in product:", (products[0] as any).categories);
-    
-    // Check if any product has the target category
-    const targetCategoryId = "5f1fa8e9-0d76-40af-a9bc-4e9ce90858ca";
-    const productsWithCategory = products.filter(p => 
-      (p as any).categories?.some((cat: any) => cat.categoryId === targetCategoryId)
+const getProductDiscount = (product: any) => {
+  if (!product?.assignedDiscounts?.length) return null;
+
+  // active discount निकाल
+  const active = product.assignedDiscounts.find((d: any) => {
+    const now = new Date();
+    return (
+      d.isActive &&
+      new Date(d.startDate) <= now &&
+      new Date(d.endDate) >= now
     );
-    console.log(`🎯 Products with category ${targetCategoryId}:`, productsWithCategory.length);
-  }
-}, [products]);
-// In main page, find this useMemo (around line 200-220)
-// In main page, find this useMemo (around line 200-220)
-const categoryFilteredProductOptions: SelectOption[] = useMemo(() => {
-  if (formData.assignedCategoryIds.length === 0) {
-    console.log("🔍 No categories selected");
-    return [];
-  }
-
-  console.log("🔍 Filtering products for categories:", formData.assignedCategoryIds);
-  console.log("📊 Total products available:", products.length);
-  
-  // Debug: Show first product structure
-  if (products.length > 0) {
-    console.log("📦 First product categories:", (products[0] as any).categories);
-  }
-  
-  const filtered = products.filter((product) => {
-    const prod = product as any;
-    
-    // Check if categories exist and is array
-    if (!Array.isArray(prod.categories) || prod.categories.length === 0) {
-      return false;
-    }
-    
-    // Check if any category matches
-    const hasCategory = prod.categories.some((cat: any) => {
-      // Try both categoryId and id fields
-      const catId = cat.categoryId || cat.id;
-      const match = formData.assignedCategoryIds.includes(catId);
-      if (match) {
-        console.log(`✅ Product "${prod.name}" matches category:`, cat);
-      }
-      return match;
-    });
-    
-    return hasCategory;
   });
 
-  console.log(`📊 Found ${filtered.length} products in selected categories`);
-  
-  if (filtered.length === 0 && formData.assignedCategoryIds.length > 0) {
-    console.log("⚠️ No products found! Checking all products...");
-    products.slice(0, 5).forEach((p, i) => {
-      const prod = p as any;
-      console.log(`Product ${i + 1}: "${prod.name}"`, {
-        categories: prod.categories,
-        categoryCount: prod.categories?.length || 0
-      });
-    });
-  }
-  
-  return filtered.map((product) => ({ 
-    value: product.id, 
-    label: product.name 
-  }));
-}, [products, formData.assignedCategoryIds]);
-
-  // Filtered product options
-  const filteredProductOptions: SelectOption[] = useMemo(() => {
-    let filtered = products;
-
-    if (productCategoryFilter) {
-      filtered = filtered.filter((product) =>
-        (product as any).categories?.some((cat: any) => cat.categoryId === productCategoryFilter)
-      );
-    }
-
-    if (productBrandFilter) {
-      filtered = filtered.filter((product) => (product as any).brandId === productBrandFilter);
-    }
-
-    return filtered.map((product) => ({ value: product.id, label: product.name }));
-  }, [products, productCategoryFilter, productBrandFilter]);
-
-
+  return active || product.assignedDiscounts[0];
+};
 // Handle submit
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -1295,9 +1245,10 @@ const filteredDiscounts = discounts.filter((discount) => {
       {/* PRODUCTS */}
       {isProducts &&
         assignedProducts.map((p) => {
-          const imgUrl = p.images?.[0]?.imageUrl;
+  const imgUrl = p.images?.[0]?.imageUrl;
+  const discount = getProductDiscount(p); // ✅ ADD THIS
 
-          return (
+  return (
             <div
               key={p.id}
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition"
@@ -1318,10 +1269,19 @@ const filteredDiscounts = discounts.filter((discount) => {
                   <Package className="w-3 h-3 text-slate-400" />
                 </div>
               )}
+<div className="flex flex-col flex-1">
+  <span className="text-xs text-slate-200 truncate">
+    {p.name}
+  </span>
 
-              <span className="text-xs text-slate-200 truncate flex-1">
-                {p.name}
-              </span>
+  {discount && (
+    <span className="text-[10px] text-green-400">
+      {discount.usePercentage
+        ? `${discount.discountPercentage}% OFF`
+        : `£${discount.discountAmount} OFF`}
+    </span>
+  )}
+</div>
             </div>
           );
         })}
@@ -1557,9 +1517,10 @@ const filteredDiscounts = discounts.filter((discount) => {
       />
 
 <DiscountModals
-  // 🔥 YAHI EK CHANGE HAI - KEY PROP ADD KARO
+
   key={`${showModal}-${editingDiscount?.id}-${formData.assignedProductIds.join(',')}`}
   discounts={discounts}
+  getProductDiscount={getProductDiscount}
   showModal={showModal}
   setShowModal={setShowModal}
   viewingDiscount={viewingDiscount}
@@ -1575,8 +1536,15 @@ const filteredDiscounts = discounts.filter((discount) => {
   categories={categories}
   categoryOptions={categoryOptions}
   brandOptions={brandOptions}
-  filteredProductOptions={filteredProductOptions}
-  categoryFilteredProductOptions={categoryFilteredProductOptions}
+ filteredProductOptions={products.map(p => ({
+  value: p.id,
+  label: p.name
+}))}
+
+categoryFilteredProductOptions={products.map(p => ({
+  value: p.id,
+  label: p.name
+}))}
   productCategoryFilter={productCategoryFilter}
   setProductCategoryFilter={setProductCategoryFilter}
   productBrandFilter={productBrandFilter}

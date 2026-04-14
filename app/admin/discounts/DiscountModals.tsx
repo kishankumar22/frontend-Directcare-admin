@@ -26,7 +26,7 @@ import {
 import Select from "react-select";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Discount, DiscountType, DiscountLimitationType, DiscountUsageHistory } from "@/lib/services/discounts";
-import { Product } from "@/lib/services";
+import { Product, productsService } from "@/lib/services";
 import { Category } from "@/lib/services/categories";
 import { formatDate, getImageUrl, getProductImage } from "../_utils/formatUtils";
 import ImagePreviewModal from "../_components/ImagePreviewModal";
@@ -64,6 +64,7 @@ interface FormData {
 
 interface DiscountModalsProps {
     discounts?: Discount[]; // Add this line
+    getProductDiscount: (product: any) => any;
   showModal: boolean;
   setShowModal: (show: boolean) => void;
   viewingDiscount: Discount | null;
@@ -109,6 +110,7 @@ export default function DiscountModals(props: DiscountModalsProps) {
   const {
     showModal,
     setShowModal,
+    getProductDiscount,
     viewingDiscount,
     setViewingDiscount,
     usageHistoryModal,
@@ -149,11 +151,53 @@ export default function DiscountModals(props: DiscountModalsProps) {
   } = props;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const productMap = useMemo(() => {
+  const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+const mergedOptions = useMemo(() => {
+  const selectedOptions = selectedProducts.map(p => ({
+    value: p.id,
+    label: p.name
+  }));
+
   const map = new Map();
-  products.forEach(p => map.set(p.id, p));
+
+  [...selectedOptions, ...filteredProductOptions].forEach(opt => {
+    map.set(opt.value, opt);
+  });
+
+  return Array.from(map.values());
+}, [filteredProductOptions, selectedProducts]);
+  useEffect(() => {
+  if (editingDiscount?.assignedProductIds) {
+    const ids = editingDiscount.assignedProductIds.split(",").map(id => id.trim());
+
+    const fetchSelected = async () => {
+      try {
+        const res = await Promise.all(
+          ids.map(id => productsService.getById(id))
+        );
+
+      const data: Product[] = res
+  .map(r => r?.data?.data)
+  .filter((p): p is Product => Boolean(p));
+
+        setSelectedProducts(data);
+      } catch (e) {
+        console.error("Failed to fetch selected products", e);
+      }
+    };
+
+    fetchSelected();
+  }
+}, [editingDiscount]);
+const productMap = useMemo(() => {
+  const map = new Map();
+
+  [...products, ...selectedProducts].forEach(p => {
+    map.set(p.id, p);
+  });
+
   return map;
-}, [products]);
+}, [products, selectedProducts]);
   const MultiValueLabel = (props: any) => {
   const { data } = props;
 
@@ -498,10 +542,10 @@ useEffect(() => {
 
                    <Select
   isMulti
-  options={filteredProductOptions}
-  value={filteredProductOptions.filter((opt) =>
-    formData.assignedProductIds.includes(opt.value)
-  )}
+options={mergedOptions}
+value={mergedOptions.filter(opt =>
+  formData.assignedProductIds.includes(opt.value)
+)}
   onChange={(selectedOptions) => {
     const ids = selectedOptions
       ? selectedOptions.map((opt) => opt.value)
@@ -1291,10 +1335,7 @@ useEffect(() => {
           // FIXED: Using allDiscounts directly from component props/context
           const allDiscounts = (props.discounts || []) as any[]; // Pass discounts array from parent
           
-          // Filter products by category and search term
-          const filteredProducts = categoryFilteredProductOptions.filter((productOption) =>
-            productOption.label.toLowerCase().includes(productSearchTerm.toLowerCase())
-          );
+const filteredProducts = categoryFilteredProductOptions;
 
           if (filteredProducts.length === 0) {
             return (

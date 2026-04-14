@@ -1006,7 +1006,6 @@ const handleDownloadInvoice = async () => {
   }
 };
 
-
 const handleFullRefund = async (notes: string, reason: RefundReason) => {
   if (!notes || !notes.trim()) {
     toast.error('Please provide refund notes');
@@ -1015,16 +1014,12 @@ const handleFullRefund = async (notes: string, reason: RefundReason) => {
 
   if (!order) return;
 
-  if (!confirm(`Process full refund of ${formatCurrency(order.totalAmount, order.currency)}?`)) {
-    return;
-  }
-
   try {
     setProcessingRefund(true);
 
     const result = await orderEditService.processFullRefund({
       orderId,
-      reason: reason,
+      reason,
       reasonDetails: orderEditService.getRefundReasonLabel(reason),
       adminNotes: notes,
       restoreInventory: true,
@@ -1038,7 +1033,6 @@ const handleFullRefund = async (notes: string, reason: RefundReason) => {
     toast.success(result.message || 'Refund processed successfully');
 
     setShowRefundModal(false);
-
     await refreshAllOrderData();
 
   } catch (error: any) {
@@ -1111,10 +1105,6 @@ const handlePartialRefund = async (
 
   if (!order) return;
 
-  if (!confirm(`Process partial refund of ${formatCurrency(refundAmount, order.currency)}?`)) {
-    return;
-  }
-
   try {
     setProcessingRefund(true);
 
@@ -1127,16 +1117,13 @@ const handlePartialRefund = async (
       sendCustomerNotification: true,
     });
 
-    // ✅ IMPORTANT: check backend success
     if (!result?.success) {
       throw new Error(result?.message || 'Refund failed');
     }
 
-    // ✅ use backend message
     toast.success(result.message || 'Partial refund processed successfully');
 
     setShowRefundModal(false);
-
     await refreshAllOrderData();
 
   } catch (error: any) {
