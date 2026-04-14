@@ -639,7 +639,7 @@ useEffect(() => {
 
     const displayName = variant?.name || product.name || 'Unknown Product';
     const displaySku = variant?.sku || product.sku || '';
-    const displayImage = product.images?.[0] ?? null;
+  const displayImage = getProductImage(product.images || []);
 
     const operation = {
       operationType: OrderEditOperationType.AddItem,

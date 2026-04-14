@@ -1527,12 +1527,12 @@ title="Select order"
       </div>
 
       {/* PRODUCT NAME */}
-      <p
-        className="text-xs text-slate-200 leading-tight line-clamp-2 break-words"
-        title={order.orderItems[0]?.productName}
-      >
-        {order.orderItems[0]?.productName}
-      </p>
+<p
+  className="text-xs text-slate-200 leading-tight line-clamp-2 max-w-[420px]"
+  title={order.orderItems[0]?.productName}
+>
+  {order.orderItems[0]?.productName}
+</p>
 
       {/* SKU */}
       <p className="text-[10px] text-cyan-400 leading-none">

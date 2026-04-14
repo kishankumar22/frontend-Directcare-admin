@@ -2254,14 +2254,14 @@ const handleExportSelected = async () => {
               onChange={handleSelectAll}
               className="accent-violet-500"
             />
-          <span onClick={() => handleSort('name')}>
+          <span className="text-purple-500" onClick={() => handleSort('name')}>
   Name {sortBy === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
 </span>
           </div>
         </th>
 
         <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[80px]" onClick={() => handleSort('price')}>
+        <th className="text-center py-2 px-3 text-red-400 w-[80px]" onClick={() => handleSort('price')}>
           Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
         </th>
         <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
@@ -2269,14 +2269,14 @@ const handleExportSelected = async () => {
         <th className="text-center py-2 px-3 text-slate-400 w-[150px]">Visibility</th>
         <th
   onClick={() => handleSort('createdAt')}
-  className="text-left py-2 px-3 text-slate-400 w-[170px] cursor-pointer"
+  className="text-left py-2 px-3 text-blue-400 w-[170px] cursor-pointer"
 >
-  Created
+  Created At
   {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
 </th>
 
 <th className="text-left py-2 px-3 text-slate-400 w-[170px]">
-  Updated
+  Updated At
 </th>
         <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Actions</th>
       </tr>

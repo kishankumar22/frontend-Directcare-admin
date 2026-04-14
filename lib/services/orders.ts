@@ -195,6 +195,7 @@ export interface Order {
   collectionStoreName: string;
   deliveryMethod: DeliveryMethod;
   clickAndCollectFee?: number;
+  remainingRefundableAmount?: number;
 
   totalRefundedAmount: number;
   netAmountPaid: number;
@@ -503,95 +504,148 @@ async bulkCreateShipment(data: BulkCreateShipmentRequest) {
     }
   }
 
-  async updateStatus(data: UpdateStatusRequest) {
-    try {
-      const response = await apiClient.put<ApiResponse<Order>>(
-        `${API_ENDPOINTS.orders}/${data.orderId}/status`,
-        data
-      );
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to update order status');
-    }
+async updateStatus(data: UpdateStatusRequest) {
+  try {
+    const response = await apiClient.put<ApiResponse<Order>>(
+      `${API_ENDPOINTS.orders}/${data.orderId}/status`,
+      data
+    );
+
+    return {
+      data: response.data?.data,
+      message: response.data?.message
+    };
+
+  } catch (error: any) {
+    throw new Error(
+      error?.response?.data?.message || 'Failed to update order status'
+    );
   }
+}
 
-  async createShipment(data: CreateShipmentRequest) {
-    try {
-      const response = await apiClient.post<ApiResponse<Shipment>>(
-        `${API_ENDPOINTS.orders}/${data.orderId}/shipment`,
-        data
-      );
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to create shipment');
-    }
+async createShipment(data: CreateShipmentRequest) {
+  try {
+    const response = await apiClient.post<ApiResponse<Shipment>>(
+      `${API_ENDPOINTS.orders}/${data.orderId}/shipment`,
+      data
+    );
+
+    return {
+      data: response.data?.data,
+      message: response.data?.message
+    };
+
+  } catch (error: any) {
+    throw new Error(
+      error?.response?.data?.message || 'Failed to create shipment'
+    );
   }
+}
 
-  async markDelivered(data: MarkDeliveredRequest) {
-    try {
-      const response = await apiClient.post<ApiResponse<Order>>(
-        `${API_ENDPOINTS.orders}/${data.orderId}/delivered`,
-        data
-      );
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to mark order as delivered');
-    }
+async markDelivered(data: MarkDeliveredRequest) {
+  try {
+    const response = await apiClient.post<ApiResponse<Order>>(
+      `${API_ENDPOINTS.orders}/${data.orderId}/delivered`,
+      data
+    );
+
+    return {
+      data: response.data?.data,
+      message: response.data?.message
+    };
+
+  } catch (error: any) {
+    throw new Error(
+      error?.response?.data?.message || 'Failed to mark order as delivered'
+    );
   }
+}
 
-  async cancelOrder(data: CancelOrderRequest) {
-    try {
-      const response = await apiClient.post<ApiResponse<Order>>(
-        `${API_ENDPOINTS.orders}/${data.orderId}/cancel`,
-        data
-      );
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to cancel order');
-    }
+async cancelOrder(data: CancelOrderRequest) {
+  try {
+    const response = await apiClient.post<ApiResponse<Order>>(
+      `${API_ENDPOINTS.orders}/${data.orderId}/cancel`,
+      data
+    );
+
+    return {
+      data: response.data?.data,
+      message: response.data?.message
+    };
+
+  } catch (error: any) {
+    throw new Error(
+      error?.response?.data?.message || 'Failed to cancel order'
+    );
   }
+}
+async importWooCommerce(file: File) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
 
-  async importWooCommerce(file: File) {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    const response = await apiClient.post<ApiResponse<WooCommerceOrderImportResult>>(
+      `${API_ENDPOINTS.orders}/import-woocommerce`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
 
-      const response = await apiClient.post<ApiResponse<WooCommerceOrderImportResult>>(
-        `${API_ENDPOINTS.orders}/import-woocommerce`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+    return {
+      data: response.data?.data,
+      message: response.data?.message
+    };
 
-      return response.data;
-    } catch (error: any) {
-      throw new Error(
-        error.response?.data?.message || 'Failed to import WooCommerce orders'
-      );
-    }
+  } catch (error: any) {
+    throw new Error(
+      error?.response?.data?.message || 'Failed to import WooCommerce orders'
+    );
   }
+}
 
-  async downloadInvoice(orderId: string): Promise<void> {
-    try {
-      const response = await apiClient.get(
-        `${API_ENDPOINTS.orders}/${orderId}/invoice/download`,
-        { responseType: 'blob' }
-      );
-      const url = window.URL.createObjectURL(new Blob([response.data as BlobPart], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `invoice-${orderId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Failed to download invoice');
+async downloadInvoice(orderId: string): Promise<void> {
+  try {
+    const response = await apiClient.get<Blob>(
+      `${API_ENDPOINTS.orders}/${orderId}/invoice/download`,
+      { responseType: 'blob' }
+    );
+
+    const blob = response.data as Blob;
+
+    // ❗ handle backend JSON error inside blob
+    if (blob.type === "application/json") {
+      const text = await blob.text();
+      const json = JSON.parse(text);
+      throw new Error(json?.message || "Failed to download invoice");
     }
+
+    const url = window.URL.createObjectURL(
+      new Blob([blob], { type: "application/pdf" })
+    );
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `invoice-${orderId}.pdf`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+
+  } catch (error: any) {
+    throw new Error(
+      error?.response?.data?.message ||
+      error?.message ||
+      "Failed to download invoice"
+    );
   }
+}
+
+
 }
 
 

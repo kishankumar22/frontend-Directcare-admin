@@ -917,19 +917,26 @@ const handleRegenerateInvoice = async (
       sendToCustomer,
     });
 
-    toast.success("Invoice regenerated successfully", { autoClose: 4000 });
-
-    if (sendToCustomer) {
-      toast.info("Invoice sent to customer email", { autoClose: 4000 });
+    // ✅ check backend success
+    if (!result?.success) {
+      throw new Error(result?.message || 'Failed to regenerate invoice');
     }
 
-    // ✅ Download PDF securely
-    if (result?.pdfUrl) {
-      const fullUrl = result.pdfUrl.startsWith("http")
-        ? result.pdfUrl
-        : `${API_BASE_URL}${result.pdfUrl}`;
+    // ✅ show backend message
+    toast.success(result.message || "Invoice regenerated successfully");
 
-      // ✅ correct token key
+    if (sendToCustomer) {
+      toast.info("Invoice sent to customer email");
+    }
+
+    const invoiceData = result.data;
+
+    // ✅ Download PDF
+    if (invoiceData?.pdfUrl) {
+      const fullUrl = invoiceData.pdfUrl.startsWith("http")
+        ? invoiceData.pdfUrl
+        : `${API_BASE_URL}${invoiceData.pdfUrl}`;
+
       const token = localStorage.getItem("authToken");
 
       const response = await fetch(fullUrl, {
@@ -945,56 +952,62 @@ const handleRegenerateInvoice = async (
 
       const blob = await response.blob();
 
-const file = new Blob([blob], { type: "application/pdf" });
-const url = window.URL.createObjectURL(file);
+      const file = new Blob([blob], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(file);
 
-const link = document.createElement("a");
-link.href = url;
-link.setAttribute("download", `invoice-${orderId}.pdf`);
-link.style.display = "none";
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `invoice-${orderId}.pdf`);
+      link.style.display = "none";
 
-document.body.appendChild(link);
-link.click();
+      document.body.appendChild(link);
+      link.click();
 
-setTimeout(() => {
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-}, 100);
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
     }
 
     await refreshAllOrderData();
-
     setShowRegenerateInvoiceModal(false);
 
   } catch (error: any) {
-    console.error("Error regenerating invoice", error);
+    const backendMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.errors?.[0] ||
+      error?.message ||
+      "Failed to regenerate invoice";
 
-    toast.error(
-      error?.message || "Failed to regenerate invoice",
-      { autoClose: 5000 }
-    );
+    toast.error(backendMessage);
   } finally {
     setRegeneratingInvoice(false);
   }
 };
-
 const handleDownloadInvoice = async () => {
   if (downloadingInvoice) return;
+
   try {
     setDownloadingInvoice(true);
+
     await orderService.downloadInvoice(orderId);
-    toast.success('Invoice downloaded successfully', { autoClose: 3000 });
+
+    toast.success('Invoice downloaded successfully');
+
   } catch (error: any) {
-    toast.error(error?.message || 'Failed to download invoice. Please regenerate the invoice first.', { autoClose: 5000 });
+    const backendMessage =
+      error?.response?.data?.message ||
+      error?.message ||
+      'Failed to download invoice. Please regenerate the invoice first.';
+
+    toast.error(backendMessage);
   } finally {
     setDownloadingInvoice(false);
   }
 };
 
 
-
 const handleFullRefund = async (notes: string, reason: RefundReason) => {
-
   if (!notes || !notes.trim()) {
     toast.error('Please provide refund notes');
     return;
@@ -1018,14 +1031,122 @@ const handleFullRefund = async (notes: string, reason: RefundReason) => {
       sendCustomerNotification: true,
     });
 
-    toast.success(`Refund processed successfully`);
+    if (!result?.success) {
+      throw new Error(result?.message || 'Refund failed');
+    }
+
+    toast.success(result.message || 'Refund processed successfully');
 
     setShowRefundModal(false);
 
     await refreshAllOrderData();
 
   } catch (error: any) {
-    toast.error(error.message || 'Failed to process refund');
+    const backendMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.errors?.[0] ||
+      error?.message ||
+      'Failed to process refund';
+
+    toast.error(backendMessage);
+  } finally {
+    setProcessingRefund(false);
+  }
+};
+
+const handleShippingRefund = async (notes: string) => {
+  if (!order) return;
+
+  if (!notes?.trim()) {
+    toast.error('Please provide refund notes');
+    return;
+  }
+
+  try {
+    setProcessingRefund(true);
+
+    const result = await orderEditService.refundShipping(order.id, {
+      adminNotes: notes.trim(),
+      sendCustomerNotification: true,
+    });
+
+    // ✅ backend decides success
+    if (!result?.success) {
+      throw new Error(result?.message || 'Failed to refund shipping charge');
+    }
+
+    // ✅ show real backend message
+    toast.success(result.message || 'Shipping charge refunded successfully');
+
+    setShowRefundModal(false);
+
+    await refreshAllOrderData();
+
+  } catch (error: any) {
+    const backendMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.errors?.[0] ||
+      error?.message ||
+      'Failed to refund shipping charge';
+
+    toast.error(backendMessage);
+  } finally {
+    setProcessingRefund(false);
+  }
+};
+const handlePartialRefund = async (
+  refundAmount: number,
+  reason: RefundReason,
+  notes: string
+) => {
+  if (!refundAmount || refundAmount <= 0) {
+    toast.error('Please enter a valid refund amount');
+    return;
+  }
+
+  if (!notes?.trim()) {
+    toast.error('Please provide refund notes');
+    return;
+  }
+
+  if (!order) return;
+
+  if (!confirm(`Process partial refund of ${formatCurrency(refundAmount, order.currency)}?`)) {
+    return;
+  }
+
+  try {
+    setProcessingRefund(true);
+
+    const result = await orderEditService.processPartialRefund({
+      orderId,
+      refundAmount,
+      reason,
+      reasonDetails: orderEditService.getRefundReasonLabel(reason),
+      adminNotes: notes,
+      sendCustomerNotification: true,
+    });
+
+    // ✅ IMPORTANT: check backend success
+    if (!result?.success) {
+      throw new Error(result?.message || 'Refund failed');
+    }
+
+    // ✅ use backend message
+    toast.success(result.message || 'Partial refund processed successfully');
+
+    setShowRefundModal(false);
+
+    await refreshAllOrderData();
+
+  } catch (error: any) {
+    const backendMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.errors?.[0] ||
+      error?.message ||
+      'Failed to process refund';
+
+    toast.error(backendMessage);
   } finally {
     setProcessingRefund(false);
   }
@@ -1055,51 +1176,6 @@ const handlePaymentSubmit = async (data: any) => {
   }
 };
 
-const handlePartialRefund = async (
-  refundAmount: number,
-  reason: RefundReason,
-  notes: string
-) => {
-  if (!refundAmount || refundAmount <= 0) {
-    toast.error('Please enter a valid refund amount', { autoClose: 4000 });
-    return;
-  }
-
-  if (!notes || !notes.trim()) {
-    toast.error('Please provide refund notes', { autoClose: 4000 });
-    return;
-  }
-
-  if (!order) return;
-
-  if (!confirm(`Process partial refund of ${formatCurrency(refundAmount, order.currency)}?`)) {
-    return;
-  }
-
-  try {
-    setProcessingRefund(true);
-
-    const result = await orderEditService.processPartialRefund({
-      orderId,
-      refundAmount,
-      reason,
-      reasonDetails: orderEditService.getRefundReasonLabel(reason),
-      adminNotes: notes,
-      sendCustomerNotification: true,
-    });
-
-    toast.success(`✅ Partial refund processed successfully`);
-
-    setShowRefundModal(false);
-
-    await refreshAllOrderData();
-
-  } catch (error: any) {
-    toast.error(error.message || 'Failed to process refund');
-  } finally {
-    setProcessingRefund(false);
-  }
-};
 
 const handleAction = (action: string) => {
   // 🔥 STATUS / SHIPMENT ACTIONS
@@ -1173,23 +1249,7 @@ const handleActionSuccess = async (nextAction?: string) => {
   await refreshAllOrderData();
 };
 
-const handleShippingRefund = async (notes: string) => {
-  if (!order) return;
-  try {
-    setProcessingRefund(true);
-    await orderEditService.refundShipping(order.id, {
-      adminNotes: notes.trim(),
-      sendCustomerNotification: true,
-    });
-    toast.success('Shipping charge refunded successfully', { autoClose: 4000 });
-    setShowRefundModal(false);
-    await refreshAllOrderData();
-  } catch (error: any) {
-    toast.error(error?.message || 'Failed to refund shipping charge', { autoClose: 5000 });
-  } finally {
-    setProcessingRefund(false);
-  }
-};
+
 
   const isCollectionExpired = () => {
     if (!order?.collectionExpiryDate) return false;

@@ -170,7 +170,23 @@ useEffect(() => {
   fetchBanners();
 }, [statusFilter, bannerTypeFilter, deletedFilter]);
 
+const handleStatusToggle = async (banner: Banner) => {
+  try {
+    const payload = {
+      ...banner,
+      id: banner.id,
+      isActive: !banner.isActive,
+    };
 
+    await bannersService.update(banner.id, payload);
+
+    toast.success("Status updated");
+    await fetchBanners();
+
+  } catch (error: any) {
+    toast.error(error.message);
+  }
+};
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -344,12 +360,21 @@ const handleSubmit = async (e: React.FormEvent) => {
         finalImageUrl = uploadResponse.data.data;
 
         // Delete old desktop image if editing
-        if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
-          const filename = extractFilename(editingBanner.imageUrl);
-          if (filename) {
-            try { await bannersService.deleteImage(filename); } catch {}
-          }
-        }
+      if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
+     const filename = extractFilename(editingBanner.imageUrl);
+  if (filename) {
+    try {
+      await bannersService.deleteImage(filename);
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("Image file not found")) {
+        console.log("⚠️ Image already deleted:", filename);
+      } else {
+        console.error("❌ Delete image error:", err);
+      }
+    }
+  }
+}
       } catch (uploadErr: any) {
         console.error("Error uploading image:", uploadErr);
         toast.error(uploadErr?.response?.data?.message || "Failed to upload desktop image");
@@ -371,12 +396,22 @@ const handleSubmit = async (e: React.FormEvent) => {
         finalMobileImageUrl = uploadResponse.data.data;
 
         // Delete old mobile image if editing
-        if (editingBanner?.mobileImageUrl && editingBanner.mobileImageUrl !== finalMobileImageUrl) {
-          const filename = extractFilename(editingBanner.mobileImageUrl);
-          if (filename) {
-            try { await bannersService.deleteImage(filename); } catch {}
-          }
-        }
+   if (editingBanner?.mobileImageUrl && editingBanner.mobileImageUrl !== finalMobileImageUrl) {
+  const filename = extractFilename(editingBanner.mobileImageUrl);
+  if (filename) {
+    try {
+      await bannersService.deleteImage(filename);
+    } catch (err: any) {
+      const msg = err?.message || "";
+
+      if (msg.includes("Image file not found")) {
+        console.log("⚠️ Mobile image already deleted:", filename);
+      } else {
+        console.error("❌ Delete mobile image error:", err);
+      }
+    }
+  }
+}
       } catch (uploadErr: any) {
         console.error("Error uploading mobile image:", uploadErr);
         toast.error(uploadErr?.response?.data?.message || "Failed to upload mobile image");
@@ -1684,23 +1719,55 @@ const handleSubmit = async (e: React.FormEvent) => {
             )}
 
             {/* Banner Image */}
-            {viewingBanner.imageUrl && (
-              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                <p className="text-sm text-slate-300 font-semibold mb-3">Banner Image:</p>
-                <div className="rounded-lg overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
-                  <img
-                    src={getImageUrl(viewingBanner.imageUrl)}
-                    alt={viewingBanner.title}
-                    className="w-full h-auto object-cover hover:scale-105 transition-transform"
-                    onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.imageUrl))}
-                     onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-2 font-mono break-all">
-                  {viewingBanner.imageUrl}
-                </p>
-              </div>
-            )}
+<div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-4">
+
+  {/* DESKTOP IMAGE */}
+  {viewingBanner.imageUrl && (
+    <div>
+      <p className="text-xs text-cyan-400 mb-2 font-semibold">Desktop Image</p>
+
+      <div
+        className="rounded-lg overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500"
+        onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.imageUrl))}
+      >
+        <img
+          src={getImageUrl(viewingBanner.imageUrl)}
+          alt="Desktop Banner"
+          className="w-full h-auto object-cover"
+          onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+        />
+      </div>
+
+      <p className="text-[10px] text-slate-400 mt-1 break-all">
+        {viewingBanner.imageUrl}
+      </p>
+    </div>
+  )}
+
+  {/* MOBILE IMAGE */}
+  {viewingBanner.mobileImageUrl && (
+    <div>
+      <p className="text-xs text-pink-400 mb-2 font-semibold">Mobile Image</p>
+
+      <div
+        className="rounded-lg overflow-hidden border-2 border-pink-500/20 cursor-pointer hover:border-pink-500"
+        onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.mobileImageUrl || undefined))}
+      >
+        <img
+          src={getImageUrl(viewingBanner.mobileImageUrl)}
+          alt="Mobile Banner"
+      className="w-full h-60 object-contain bg-black"
+          onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+        />
+      </div>
+
+      <p className="text-[10px] text-slate-400 mt-1 break-all">
+        {viewingBanner.mobileImageUrl}
+      </p>
+    </div>
+  )}
+
+</div>
           </div>
 
           {/* Right Column - Offer Details + Schedule */}
@@ -1853,17 +1920,26 @@ const handleSubmit = async (e: React.FormEvent) => {
       <ConfirmDialog
   isOpen={!!statusConfirm}
   onClose={() => setStatusConfirm(null)}
-  onConfirm={async () => {
-    if (!statusConfirm) return;
+onConfirm={async () => {
+  if (!statusConfirm) return;
 
-    await bannersService.update(statusConfirm.id, {
-      isActive: !statusConfirm.isActive
-    });
+  try {
+    const payload = {
+      ...statusConfirm, // 🔥 FULL OBJECT
+      id: statusConfirm.id, // 🔥 MUST
+      isActive: !statusConfirm.isActive // 🔥 only change
+    };
+
+    await bannersService.update(statusConfirm.id, payload);
 
     toast.success("Status updated!");
     setStatusConfirm(null);
-    fetchBanners();
-  }}
+    await fetchBanners();
+
+  } catch (error: any) {
+    toast.error(error.message || "Update failed");
+  }
+}}
   title="Change Status"
   message="Are you sure you want to change banner status?"
   confirmText="Yes, Change"

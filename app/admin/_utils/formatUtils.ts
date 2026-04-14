@@ -152,7 +152,7 @@ export const generateSlug = (title: string) =>
     
     const cleanUrl = imageUrl.split('?')[0];
     
-    return `${API_BASE_URL}${cleanUrl}`;
+    return `${API_BASE_URL}/${cleanUrl}`;
   };
 
   export const extractFilename = (imageUrl: string) => {
