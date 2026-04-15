@@ -392,7 +392,7 @@ useEffect(() => {
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        productsService.getAll({ pageSize: 100 }),
+        productsService.getAll(),
         productsService.getSimpleProducts()
       ]);
 
@@ -912,7 +912,9 @@ const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => 
 
 const getHomepageCount = async () => {
   try {
-    const res = await productsService.getAll({ pageSize: 100 });
+    const res = await productsService.getAll({
+      showOnHomepage: true
+    });
     const products = res.data?.data?.items || [];
     const count = products.filter((p: any) => p.showOnHomepage).length;
     setHomepageCount(count);
@@ -1320,7 +1322,7 @@ if (!formData.nextDayDeliveryEnabled) {
       // 5.4 Check Against Database
       try {
         console.log("Validating variant SKUs against database...");
-        const allProductsResponse = await productsService.getAll({ pageSize: 100 });
+        const allProductsResponse = await productsService.getAll({ productType: 'variable' });
         const allProducts = allProductsResponse.data?.data?.items || [];
 
         for (const variant of productVariants) {

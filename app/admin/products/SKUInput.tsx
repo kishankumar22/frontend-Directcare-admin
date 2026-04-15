@@ -1,14 +1,15 @@
 'use client';
 
 import productsService from '@/lib/services/products';
-import { useState, useEffect, useRef } from 'react';
-
+import { useState, useRef, useEffect } from 'react';
 
 interface Props {
   value: string;
   onChange: (value: string) => void;
   productId?: string;
-  isVariableProduct?: boolean; // SKU optional for variable products
+  isVariableProduct?: boolean;
+  onErrorChange?: (hasError: boolean) => void; // ✅ parent sync
+  onCheckingChange?: (checking: boolean) => void; // ✅ loading sync
 }
 
 // ✅ SKU FORMAT VALIDATION
@@ -32,22 +33,38 @@ const validateSkuFormat = (sku: string) => {
   return { isValid: true, error: '' };
 };
 
-export default function SKUInput({ value, onChange, productId, isVariableProduct = false }: Props) {
+export default function SKUInput({
+  value,
+  onChange,
+  productId,
+  isVariableProduct = false,
+  onErrorChange,
+  onCheckingChange
+}: Props) {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ✅ CHECK SKU
+  // 🔥 sync error with parent
+  useEffect(() => {
+    onErrorChange?.(!!error);
+  }, [error]);
+
+  // 🔥 sync checking state
+  useEffect(() => {
+    onCheckingChange?.(checking);
+  }, [checking]);
+
   const checkSkuExists = async (sku: string) => {
     setError('');
 
-    if (!sku || sku.length < 3) return false;
+    if (!sku || sku.length < 3) return;
 
     const validation = validateSkuFormat(sku);
     if (!validation.isValid) {
       setError(validation.error);
-      return true;
+      return;
     }
 
     try {
@@ -59,111 +76,67 @@ export default function SKUInput({ value, onChange, productId, isVariableProduct
 
       const items = res.data?.data?.items ?? [];
 
-      const exists = items.some((p: any) =>
-        p.sku?.toUpperCase() === sku.toUpperCase() &&
-        p.id !== productId
+      const exists = items.some(
+        (p: any) =>
+          p.sku?.toUpperCase() === sku.toUpperCase() &&
+          p.id !== productId
       );
 
       if (exists) {
         setError('SKU already exists');
-        return true;
+      } else {
+        setError('');
       }
-
-      return false;
-
     } catch (err) {
       console.warn('SKU check failed:', err);
-      return false;
     } finally {
       setChecking(false);
     }
   };
 
-  // ✅ HANDLE CHANGE
   const handleChange = (input: string) => {
-    // sanitize
     const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
 
     onChange(sanitized);
 
-    if (error) setError('');
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (sanitized.length >= 3) {
       debounceRef.current = setTimeout(() => {
         checkSkuExists(sanitized);
-      }, 600);
+      }, 500);
+    } else {
+      setError('');
     }
   };
 
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        SKU (Stock Keeping Unit){' '}
+      <label className="block text-sm text-slate-300 mb-2">
+        SKU{' '}
         {isVariableProduct
-          ? <span className="text-slate-500 text-xs font-normal">(optional)</span>
-          : <span className="text-red-500">*</span>
-        }
+          ? <span className="text-xs text-slate-500">(optional)</span>
+          : <span className="text-red-500">*</span>}
       </label>
 
       <div className="relative">
         <input
-          type="text"
           value={value}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="PROD-001"
-          maxLength={30}
-          className={`w-full px-4 py-2.5 pr-10 bg-slate-900 border rounded-lg text-white uppercase font-mono transition-all ${
-            error
-              ? 'border-red-500 focus:ring-red-500'
-              : value && !checking && value.length >= 3
-              ? 'border-green-500 focus:ring-green-500'
-              : 'border-slate-700 focus:ring-violet-500'
+          className={`w-full px-4 py-2 rounded-lg ${
+            error ? 'border-red-500' : 'border-slate-700'
           }`}
-          required={!isVariableProduct}
         />
 
-        {/* ICON */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-
-          {checking && (
-            <svg className="animate-spin h-5 w-5 text-violet-400" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-            </svg>
-          )}
-
-          {!checking && error && (
-            <span
-              className="text-red-500 cursor-pointer"
-              onClick={() => {
-                onChange('');
-                setError('');
-              }}
-            >
-              ❌
-            </span>
-          )}
-
-          {!checking && !error && value && value.length >= 3 && (
-            <span className="text-green-500">✔</span>
-          )}
+          {checking && <span className="text-yellow-400">...</span>}
+          {!checking && error && <span className="text-red-500">❌</span>}
+          {!checking && !error && value.length >= 3 && <span className="text-green-500">✔</span>}
         </div>
       </div>
 
-      {/* ERROR */}
-      {error && (
-        <p className="text-red-400 text-xs mt-1">{error}</p>
-      )}
-
-      {/* SUCCESS */}
-      {!error && value && value.length >= 3 && !checking && (
-        <p className="text-green-400 text-xs mt-1">
-          SKU is available
-        </p>
-      )}
+      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
     </div>
   );
 }

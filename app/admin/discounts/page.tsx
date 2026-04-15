@@ -22,7 +22,23 @@ import ImagePreviewModal from "../_components/ImagePreviewModal";
 
 
 
+type AnyProductResponse =
+  | Product[]
+  | { items: Product[] }
+  | { data: Product[] }
+  | { data: { items: Product[] } };
 
+const extractProducts = (res: any): Product[] => {
+  if (Array.isArray(res)) return res;
+
+  if (Array.isArray(res?.items)) return res.items;
+
+  if (Array.isArray(res?.data)) return res.data;
+
+  if (Array.isArray(res?.data?.items)) return res.data.items;
+
+  return [];
+};
 // ========== INTERFACES ==========
 interface SelectOption {
   value: string;
@@ -91,6 +107,7 @@ const buildCategoryTree = (flatCategories: CategoryNode[]): CategoryNode[] => {
 
   return roots;
 };
+
 
 const flattenCategoryTree = (nodes: CategoryNode[]): SelectOption[] => {
   const result: SelectOption[] = [];
@@ -271,6 +288,9 @@ const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 const [isRestoring, setIsRestoring] = useState(false);
 const [imageModal, setImageModal] = useState<Discount | null>(null);
 const debouncedSearch = useDebounce(searchTerm, 400);
+const [allSelectedProducts, setAllSelectedProducts] = useState<Product[]>([]);
+const [productsLoading, setProductsLoading] = useState(false);
+const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -305,25 +325,66 @@ useEffect(() => {
   return () => clearTimeout(delay);
 }, [productSearchTerm, productCategoryFilter, productBrandFilter]);
 
+const fetchAssignedProducts = async (ids: string[]) => {
+  try {
+    const res = await Promise.all(
+      ids.map(id => productsService.getById(id))
+    );
+
+    const data: Product[] = res
+      .map(r => r?.data?.data)
+      .filter((p): p is Product => Boolean(p));
+
+    return data;
+  } catch {
+    return [];
+  }
+};
+
+const productOptions = useMemo(() => {
+  return products.map(p => ({
+    value: p.id,
+    label: p.name
+  }));
+}, [products]);
+
+
+
 const fetchProducts = async () => {
   try {
-    const productsRes = await productsService.getAll({
-      searchTerm: productSearchTerm || undefined,
-      categoryId: productCategoryFilter || undefined,
-      brandId: productBrandFilter || undefined,
-      pageSize: 10,
-    });
+    setProductsLoading(true);
 
-    const productsData =
-      productsRes?.data?.data?.items ||
-      productsRes?.data ||
-      [];
+    const params: any = {
+      pageSize: 10
+    };
 
-    setProducts(Array.isArray(productsData) ? productsData : []);
+    // ✅ search
+    if (productSearchTerm?.trim()) {
+      params.searchTerm = productSearchTerm.trim();
+    }
 
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    toast.error("Failed to load products");
+    // ✅ category (CRITICAL)
+    if (productCategoryFilter) {
+      params.categoryId = productCategoryFilter;
+    }
+
+    // ✅ brand (CRITICAL)
+    if (productBrandFilter) {
+      params.brandId = productBrandFilter;
+    }
+
+    console.log("🔥 API PARAMS:", params); // debug
+
+    const res = await productsService.getAll(params);
+
+    const productsArray = extractProducts(res?.data);
+
+    setProducts(productsArray);
+
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setProductsLoading(false);
   }
 };
 useEffect(() => {
@@ -335,28 +396,20 @@ useEffect(() => {
   // Fetch dropdown data
 const fetchDropdownData = async () => {
   try {
+    setCategoriesLoading(true);
+
     const [categoriesRes, brandsRes] = await Promise.all([
       categoriesService.getAll(),
-      brandsService.getAll(), // ✅ brand service use करो
+      brandsService.getAll(),
     ]);
 
-    // ================= CATEGORIES =================
-    const categoriesData = Array.isArray(categoriesRes?.data?.data?.items)
-      ? categoriesRes.data.data.items
-      : [];
-
-    setCategories(categoriesData);
-
-    // ================= BRANDS =================
-    const brandsData = Array.isArray(brandsRes?.data?.data?.items)
-      ? brandsRes.data.data.items
-      : [];
-
-    setBrands(brandsData); // ✅ brands set करो
+    setCategories(categoriesRes?.data?.data?.items || []);
+    setBrands(brandsRes?.data?.data?.items || []);
 
   } catch (error) {
-    console.error("Error fetching dropdown data:", error);
-    toast.error("Failed to load dropdown data");
+    console.error(error);
+  } finally {
+    setCategoriesLoading(false);
   }
 };
 
@@ -550,6 +603,8 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
+
+
 // In main page, find handleEdit function (around line 300-320)
 const handleEdit = (discount: Discount) => {
   console.log("✏️ Editing discount:", discount);
@@ -586,6 +641,13 @@ const handleEdit = (discount: Discount) => {
     desktopBannerImageUrl: discount.desktopBannerImageUrl ?? null,
     mobileBannerImageUrl: discount.mobileBannerImageUrl ?? null,
   });
+  if (discount.assignedProductIds) {
+  const ids = discount.assignedProductIds.split(",").filter(Boolean);
+
+  fetchAssignedProducts(ids).then(data => {
+    setAllSelectedProducts(data);
+  });
+}
   setShowModal(true);
   setProductCategoryFilter("");
   setProductBrandFilter("");
@@ -706,11 +768,25 @@ useEffect(() => {
 
 // Get assigned products/categories for a discount
 const getAssignedProducts = useCallback((discount: Discount) => {
-  const ids = typeof discount.assignedProductIds === "string"
-    ? discount.assignedProductIds.split(",").map(s => s.trim()).filter(Boolean)
-    : (discount.assignedProductIds as string[]) || [];
-  return products.filter(p => ids.includes(p.id));
-}, [products]);
+  const ids =
+    typeof discount.assignedProductIds === "string"
+      ? discount.assignedProductIds.split(",").map(s => s.trim()).filter(Boolean)
+      : (discount.assignedProductIds as string[]) || [];
+
+  return allSelectedProducts.filter(p => ids.includes(p.id));
+}, [allSelectedProducts]);
+useEffect(() => {
+  const allIds = discounts
+    .flatMap(d => d.assignedProductIds?.split(",") || [])
+    .map(id => id.trim())
+    .filter(Boolean);
+
+  const uniqueIds = Array.from(new Set(allIds));
+
+  if (uniqueIds.length) {
+    fetchAssignedProducts(uniqueIds).then(setAllSelectedProducts);
+  }
+}, [discounts]);
 
 const getAssignedCategories = useCallback((discount: Discount) => {
   const ids = typeof discount.assignedCategoryIds === "string"
@@ -1517,11 +1593,12 @@ const filteredDiscounts = discounts.filter((discount) => {
       />
 
 <DiscountModals
-
+  
   key={`${showModal}-${editingDiscount?.id}-${formData.assignedProductIds.join(',')}`}
   discounts={discounts}
   getProductDiscount={getProductDiscount}
   showModal={showModal}
+  productsLoading={productsLoading}
   setShowModal={setShowModal}
   viewingDiscount={viewingDiscount}
   setViewingDiscount={setViewingDiscount}
@@ -1536,15 +1613,21 @@ const filteredDiscounts = discounts.filter((discount) => {
   categories={categories}
   categoryOptions={categoryOptions}
   brandOptions={brandOptions}
- filteredProductOptions={products.map(p => ({
-  value: p.id,
-  label: p.name
-}))}
+filteredProductOptions={[
+  ...productOptions,
+  ...allSelectedProducts.map(p => ({
+    value: p.id,
+    label: p.name
+  }))
+]}
 
-categoryFilteredProductOptions={products.map(p => ({
-  value: p.id,
-  label: p.name
-}))}
+categoryFilteredProductOptions={[
+  ...productOptions,
+  ...allSelectedProducts.map(p => ({
+    value: p.id,
+    label: p.name
+  }))
+]}
   productCategoryFilter={productCategoryFilter}
   setProductCategoryFilter={setProductCategoryFilter}
   productBrandFilter={productBrandFilter}
@@ -1590,6 +1673,8 @@ categoryFilteredProductOptions={products.map(p => ({
   cancelText="Cancel"
   isLoading={isRestoring}
 />
+
+
 {imageModal && (
   <div
     className="fixed inset-0 bg-black/80 backdrop-blur-md z-[40] flex items-center justify-center p-4"

@@ -31,6 +31,7 @@ import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
 import { categoriesService, CategoryApiResponse } from "@/lib/services/categories";
 import { formatDateOnly,  formatTime } from "@/app/admin/_utils/formatUtils";
+import { useDebounce } from "@/app/admin/_hooks/useDebounce";
 
 // ✅ ADD THIS INTERFACE (at the top with other interfaces)
 interface AdminCommentHistory {
@@ -74,6 +75,9 @@ const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
 const [loadingHistory, setLoadingHistory] = useState(false);
 const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
+const [nameError, setNameError] = useState(false);
+const [skuError, setSkuError] = useState(false);
+const [checkingSku, setCheckingSku] = useState(false);
 
 // ================================
 // ✅ LOADING STATE (Add after other useState)
@@ -151,6 +155,8 @@ const fetchCommentHistory = async () => {
     setLoadingHistory(false);
   }
 };
+
+
 
 
 const handleVariantImageUpload = async (variantId: string, file: File) => {
@@ -718,14 +724,14 @@ useEffect(() => {
         brandsResponse, 
         categoriesResponse, 
         vatRatesResponse, 
-        allProductsResponse,
-        simpleProductsResponse
+        // allProductsResponse,
+        // simpleProductsResponse
       ] = await Promise.allSettled([
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        productsService.getAll({ pageSize: 1000 }),
-        productsService.getSimpleProducts()
+        // productsService.getAll(),
+        // productsService.getSimpleProducts()
       ]);
 
    const brandsData =
@@ -761,88 +767,88 @@ const vatRatesData =
       });
 
       // ✅ Helper function to extract products from service response
-      const extractProducts = (response: any): any[] => {
-        const data = response?.data?.data || response?.data || {};
-        return data.items || (Array.isArray(data) ? data : []);
-      };
+      // const extractProducts = (response: any): any[] => {
+      //   const data = response?.data?.data || response?.data || {};
+      //   return data.items || (Array.isArray(data) ? data : []);
+      // };
 
 // Process ALL products for related/cross-sell
-if (allProductsResponse.status === 'fulfilled') {
-  const allItems = extractProducts(allProductsResponse.value);
+// if (allProductsResponse.status === 'fulfilled') {
+//   const allItems = extractProducts(allProductsResponse.value);
   
-  if (allItems.length > 0) {
-    const transformedProducts = allItems.map((product: any) => ({
-      id: product.id,
-      name: product.name,
-      sku: product.sku,
-      price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+//   if (allItems.length > 0) {
+//     const transformedProducts = allItems.map((product: any) => ({
+//       id: product.id,
+//       name: product.name,
+//       sku: product.sku,
+//       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
       
-      // ✅ ADD THESE 3 LINES FOR FILTERING
-      brandId: product.brandId || product.brands?.[0]?.brandId || null,
-      brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
-      categories: product.categories || []
-    }));
+//       // ✅ ADD THESE 3 LINES FOR FILTERING
+//       brandId: product.brandId || product.brands?.[0]?.brandId || null,
+//       brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
+//       categories: product.categories || []
+//     }));
     
-    setAvailableProducts(transformedProducts);
-    console.log('✅ Available products loaded:', transformedProducts.length);
-  } else {
-    setAvailableProducts([]);
-  }
-} else {
-  console.warn('❌ Failed to fetch all products');
-  setAvailableProducts([]);
-}
+//     setAvailableProducts(transformedProducts);
+//     console.log('✅ Available products loaded:', transformedProducts.length);
+//   } else {
+//     setAvailableProducts([]);
+//   }
+// } else {
+//   console.warn('❌ Failed to fetch all products');
+//   setAvailableProducts([]);
+// }
 
 
       // ✅ Process SIMPLE products from service
-      if (simpleProductsResponse.status === 'fulfilled') {
-        const simpleItems = extractProducts(simpleProductsResponse.value);
+      // if (simpleProductsResponse.status === 'fulfilled') {
+      //   const simpleItems = extractProducts(simpleProductsResponse.value);
         
-        if (simpleItems.length > 0) {
-          // Filter out current product
-          const simpleProductsList = simpleItems
-            .filter((p: any) => p.id !== productId)
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              sku: p.sku,
-              price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-              stockQuantity: p.stockQuantity || 0
-            }));
+      //   if (simpleItems.length > 0) {
+      //     // Filter out current product
+      //     const simpleProductsList = simpleItems
+      //       .filter((p: any) => p.id !== productId)
+      //       .map((p: any) => ({
+      //         id: p.id,
+      //         name: p.name,
+      //         sku: p.sku,
+      //         price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+      //         stockQuantity: p.stockQuantity || 0
+      //       }));
 
-          setSimpleProducts(simpleProductsList);
-          console.log('✅ Simple products loaded:', simpleProductsList.length);
-        } else {
-          console.warn('⚠️ Simple products endpoint returned no data');
-          setSimpleProducts([]);
-        }
-      } else {
-        console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
+      //     setSimpleProducts(simpleProductsList);
+      //     console.log('✅ Simple products loaded:', simpleProductsList.length);
+      //   } else {
+      //     console.warn('⚠️ Simple products endpoint returned no data');
+      //     setSimpleProducts([]);
+      //   }
+      // } else {
+      //   console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
         
-        // ✅ FALLBACK: Filter from all products if separate endpoint fails
-        if (allProductsResponse.status === 'fulfilled') {
-          const allItems = extractProducts(allProductsResponse.value);
+      //   // ✅ FALLBACK: Filter from all products if separate endpoint fails
+      //   if (allProductsResponse.status === 'fulfilled') {
+      //     const allItems = extractProducts(allProductsResponse.value);
           
-          const simpleProductsList = allItems
-            .filter((product: any) => 
-              product.productType === 'simple' && 
-              product.isPublished === true &&
-              product.id !== productId
-            )
-            .map((product: any) => ({
-              id: product.id,
-              name: product.name,
-              sku: product.sku,
-              price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-              stockQuantity: product.stockQuantity || 0
-            }));
+      //     const simpleProductsList = allItems
+      //       .filter((product: any) => 
+      //         product.productType === 'simple' && 
+      //         product.isPublished === true &&
+      //         product.id !== productId
+      //       )
+      //       .map((product: any) => ({
+      //         id: product.id,
+      //         name: product.name,
+      //         sku: product.sku,
+      //         price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+      //         stockQuantity: product.stockQuantity || 0
+      //       }));
 
-          setSimpleProducts(simpleProductsList);
-          console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
-        } else {
-          setSimpleProducts([]);
-        }
-      }
+      //     setSimpleProducts(simpleProductsList);
+      //     console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
+      //   } else {
+      //     setSimpleProducts([]);
+      //   }
+      // }
 
       // ✅ Extract product data from service response
       const productData = (productResponse.data as any)?.data || productResponse.data;
@@ -1625,6 +1631,8 @@ const handleLockReleased = (data: any) => {
     }
   };
 }, [productId]);
+
+
 const getHomepageCount = async () => {
   try {
     const res = await productsService.getAll({
@@ -2311,6 +2319,9 @@ const releaseProductLock = async (productId: string): Promise<boolean> => {
   }
 };
 
+
+
+
 // ==================== HANDLERS ====================
 const handleCancel = async () => {
   await releaseProductLock(productId);
@@ -2356,6 +2367,15 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, relea
   if (e) {
     e.preventDefault();
   }
+
+  if (nameError) {
+  toast.error('❌ Product name already exists');
+  return;
+}
+if (skuError) {
+  toast.error('❌ SKU already exists');
+  return;
+}
 
   const target = (e?.target as HTMLElement) || document.body;
 
@@ -2490,29 +2510,6 @@ setSubmitProgress({
   percentage: 20,
 });
 
-try {
-  const res = await productsService.getAll({
-    searchTerm: formData.sku
-  });
-
-  const items = res.data?.data?.items ?? [];
-
-  const skuExists = items.some((p: any) =>
-    p.sku?.toUpperCase() === formData.sku.toUpperCase() &&
-    p.id !== productId // ✅ edit safe
-  );
-
-  if (skuExists) {
-    toast.error('❌ SKU already exists. Please use a unique SKU.');
-    target.removeAttribute('data-submitting');
-    setIsSubmitting(false);
-    setSubmitProgress(null);
-    return;
-  }
-
-} catch (error) {
-  console.warn('⚠️ SKU check failed:', error);
-}
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 5: DESCRIPTION LENGTH VALIDATIONS
@@ -2532,29 +2529,7 @@ if (
 
 const sortlength = getPlainText(formData.shortDescription || "").length;
 // ================= NAME UNIQUENESS CHECK =================
-try {
-  const res = await productsService.getAll({
-    searchTerm: formData.name
-  });
 
-  const items = res.data?.data?.items ?? [];
-
-  const nameExists = items.some((p: any) =>
-    p.name?.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
-    p.id !== productId
-  );
-
-  if (nameExists) {
-    toast.error('❌ Product name already exists. Please use a unique name.');
-    target.removeAttribute('data-submitting');
-    setIsSubmitting(false);
-    setSubmitProgress(null);
-    return;
-  }
-
-} catch (error) {
-  console.warn('⚠️ Name check failed:', error);
-}
 if (!isDraft && sortlength > 350) {
   formData.shortDescription = truncateHtmlByTextLength(formData.shortDescription, 350);
   toast.info("ℹ️ Short description trimmed to 350 characters");
@@ -3403,10 +3378,9 @@ const variantsArray = productVariants?.map(variant => {
 });
 
 
-
-    if (variantsArray && variantsArray.length > 0) {
+if (variantsArray && variantsArray.length > 0) {
       try {
-        const allProductsResponse = await productsService.getAll({ pageSize: 10000 });
+        const allProductsResponse = await productsService.getAll({productType: 'variable' });
         const allProducts = allProductsResponse.data?.data?.items || [];
 
         for (const variant of variantsArray) {
@@ -3790,8 +3764,8 @@ try {
   // Don't throw - continue with product update
 }
 
-if (!isDraft && formData.productImages.length < 5) {
-  toast.error('❌ Minimum 5 product images are required');
+if (!isDraft && formData.productImages.length < 2) {
+  toast.error('❌ Minimum 2 product images are required');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
   setSubmitProgress(null);
@@ -5077,7 +5051,7 @@ const uploadImagesToProductDirect = async (
           {formData.name && (
             <div className="flex items-center gap-2">
               <span className="text-slate-600">•</span>
-              <span className="text-lg font-semibold text-white truncate max-w-xs" title={formData.name}>
+              <span className="text-lg font-semibold text-white truncate max-w-md" title={formData.name}>
                 {formData.name}
               </span>
             </div>
@@ -5297,6 +5271,7 @@ const uploadImagesToProductDirect = async (
   value={formData.name}
   productId={productId}
   onChange={(val) => setFormData({ ...formData, name: val })}
+  onErrorChange={setNameError}
 />
 
 <div className="space-y-4">
@@ -5348,13 +5323,15 @@ const uploadImagesToProductDirect = async (
 
       {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
       <div className="grid md:grid-cols-3 gap-4">
+
+
 <SKUInput
   value={formData.sku}
   productId={productId}
   onChange={(val) => setFormData({ ...formData, sku: val })}
-  isVariableProduct={formData.productType === 'variable'}
+  onErrorChange={setSkuError}
+  onCheckingChange={setCheckingSku}
 />
-
 
 
 

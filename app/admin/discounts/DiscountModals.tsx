@@ -78,6 +78,7 @@ interface DiscountModalsProps {
   editingDiscount: Discount | null;
   products: Product[];
   categories: Category[];
+  productsLoading: boolean;
   categoryOptions: SelectOption[];
   brandOptions: SelectOption[];
   filteredProductOptions: SelectOption[];
@@ -118,6 +119,7 @@ export default function DiscountModals(props: DiscountModalsProps) {
     isProductSelectionModalOpen,
     setIsProductSelectionModalOpen,
     formData,
+    productsLoading,
     setFormData,
     editingDiscount,
     products,
@@ -150,22 +152,37 @@ export default function DiscountModals(props: DiscountModalsProps) {
     handleDeleteBannerImage,
   } = props;
 
+
+  
+
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
-const mergedOptions = useMemo(() => {
-  const selectedOptions = selectedProducts.map(p => ({
-    value: p.id,
-    label: p.name
-  }));
+  
+  const filteredProducts = useMemo(() => {
+  const seen = new Set();
 
-  const map = new Map();
-
-  [...selectedOptions, ...filteredProductOptions].forEach(opt => {
-    map.set(opt.value, opt);
+  return categoryFilteredProductOptions.filter(opt => {
+    if (seen.has(opt.value)) return false;
+    seen.add(opt.value);
+    return true;
   });
+}, [categoryFilteredProductOptions]);
+const mergedOptions = useMemo(() => {
+  const seen = new Set();
 
-  return Array.from(map.values());
-}, [filteredProductOptions, selectedProducts]);
+  return [...products, ...selectedProducts]
+    .filter(p => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    })
+    .map(p => ({
+      value: p.id,
+      label: p.name
+    }));
+}, [products, selectedProducts]);
+
+
   useEffect(() => {
   if (editingDiscount?.assignedProductIds) {
     const ids = editingDiscount.assignedProductIds.split(",").map(id => id.trim());
@@ -271,6 +288,70 @@ const ProductOption = (props: any) => {
   );
 };
 
+const stats = useMemo(() => {
+  const allDiscounts = (props.discounts || []) as any[];
+
+  let conflictCount = 0;
+  let availableCount = 0;
+
+  filteredProducts.forEach(opt => {
+    const product = productMap.get(opt.value);
+    if (!product) return;
+
+    const productIdStr = opt.value;
+
+    const prodCatIds = [
+      (product as any).categoryId,
+      ...(((product as any).categories || []) as any[])
+        .map((c: any) => c.categoryId || c.id)
+        .filter(Boolean)
+    ].filter(Boolean);
+
+    const hasConflict =
+      allDiscounts.some((d: any) => {
+        if (d.id === editingDiscount?.id) return false;
+        if (!d.isActive || d.isDeleted) return false;
+        if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
+
+        if (
+          d.discountType === "AssignedToProducts" &&
+          d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr)
+        ) return true;
+
+        if (d.discountType === "AssignedToCategories") {
+          const dCatIds = (d.assignedCategoryIds || '')
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+
+          if (!prodCatIds.some(cid => dCatIds.includes(cid))) return false;
+
+          if (d.assignedProductIds && d.assignedProductIds.trim()) {
+            return d.assignedProductIds
+              .split(',')
+              .map((s: string) => s.trim())
+              .includes(productIdStr);
+          }
+
+          return true;
+        }
+
+        return false;
+      }) ||
+      (Array.isArray((product as any).assignedDiscounts) &&
+        (product as any).assignedDiscounts.some((d: any) => d.id !== editingDiscount?.id && d.isActive));
+
+    if (hasConflict) conflictCount++;
+    else availableCount++;
+  });
+
+  return {
+    total: filteredProducts.length,
+    conflictCount,
+    availableCount,
+    selectedCount: formData.assignedProductIds.length
+  };
+}, [filteredProducts, productMap, props.discounts, editingDiscount, formData.assignedProductIds]);
 
   // ========== HELPER FUNCTIONS FOR USAGE HISTORY ==========
   const getFilteredUsageHistory = () => {
@@ -527,6 +608,7 @@ useEffect(() => {
                         <div>
                           <label className="block text-xs font-medium text-slate-400 mb-1">Filter by Brand</label>
                           <Select
+                          
                             isClearable
                             options={brandOptions}
                             value={brandOptions.find(opt => opt.value === productBrandFilter) || null}
@@ -540,18 +622,29 @@ useEffect(() => {
                         </div>
                       </div>
 
-                   <Select
+<Select
   isMulti
-options={mergedOptions}
-value={mergedOptions.filter(opt =>
-  formData.assignedProductIds.includes(opt.value)
-)}
+  options={mergedOptions}
+  value={mergedOptions.filter(opt =>
+    formData.assignedProductIds.includes(opt.value)
+  )}
+
   onChange={(selectedOptions) => {
     const ids = selectedOptions
       ? selectedOptions.map((opt) => opt.value)
       : [];
     setFormData({ ...formData, assignedProductIds: ids });
   }}
+
+  onInputChange={(input) => {
+    setProductSearchTerm(input);
+  }}
+
+  inputValue={productSearchTerm}
+
+  isLoading={productsLoading} // 🔥 ADD THIS
+  loadingMessage={() => "Loading products..."} // 🔥 ADD THIS
+
   placeholder="Search and select products..."
   isSearchable
   closeMenuOnSelect={false}
@@ -559,14 +652,15 @@ value={mergedOptions.filter(opt =>
   className="react-select-container"
   classNamePrefix="react-select"
 
-  // 🔥 MAIN CHANGE
   components={{
     Option: ProductOption,
     MultiValueLabel: MultiValueLabel,
   }}
 
   noOptionsMessage={() =>
-    productCategoryFilter || productBrandFilter
+    productsLoading
+      ? "Loading..."
+      : productCategoryFilter || productBrandFilter
       ? "No products match the selected filters"
       : "No products found"
   }
@@ -708,36 +802,7 @@ value={mergedOptions.filter(opt =>
 
                             // Compute conflicts for each product in this category
                             const conflictedProducts: { name: string; discountName: string }[] = [];
-                            categoryFilteredProductOptions.forEach(opt => {
-                              const product = productMap.get(opt.value);
-                              if (!product) return;
-                              const productIdStr = opt.value;
-                              const prodCatIds = [
-                                (product as any).categoryId,
-                                ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)
-                              ].filter(Boolean);
-
-                              const conflicts = allDiscounts.filter((d: any) => {
-                                if (d.id === editingDiscount?.id) return false;
-                                if (!d.isActive || d.isDeleted) return false;
-                                if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
-                                if (d.discountType === "AssignedToProducts" &&
-                                    d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr)) return true;
-                                if (d.discountType === "AssignedToCategories") {
-                                  const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-                                  if (!prodCatIds.some((cid: string) => dCatIds.includes(cid))) return false;
-                                  if (d.assignedProductIds && d.assignedProductIds.trim())
-                                    return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
-                                  return true;
-                                }
-                                return false;
-                              });
-                              const fromProduct = Array.isArray((product as any).assignedDiscounts)
-                                ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
-                                : [];
-                              const all = [...conflicts, ...fromProduct].filter((v, i, a) => a.findIndex((t: any) => t.id === v.id) === i);
-                              if (all.length > 0) conflictedProducts.push({ name: opt.label, discountName: all[0]?.name || 'Unknown' });
-                            });
+                      
 
                             const cleanCount = total - conflictedProducts.length;
 
@@ -1316,26 +1381,31 @@ value={mergedOptions.filter(opt =>
         </div>
 
         {/* Search Input */}
-        <div className="mt-3 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <input
-            type="search"
-            placeholder="Search products by name..."
-            value={productSearchTerm}
-            onChange={(e) => setProductSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </div>
+       <div className="mt-3 relative">
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+
+  <input
+    type="search"
+    placeholder="Search products by name..."
+    value={productSearchTerm}
+    onChange={(e) => setProductSearchTerm(e.target.value)}
+    className="w-full pl-10 pr-10 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+  />
+
+  {/* 🔥 LOADER INSIDE INPUT */}
+  {productsLoading && (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+      <div className="h-4 w-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )}
+</div>
       </div>
 
       {/* Product List */}
       <div className="p-4 overflow-y-auto max-h-[calc(80vh-240px)]">
         {(() => {
-          // Get all discounts from props or context
-          // FIXED: Using allDiscounts directly from component props/context
+  
           const allDiscounts = (props.discounts || []) as any[]; // Pass discounts array from parent
-          
-const filteredProducts = categoryFilteredProductOptions;
 
           if (filteredProducts.length === 0) {
             return (
@@ -1578,62 +1648,29 @@ const filteredProducts = categoryFilteredProductOptions;
           let conflictCount = 0;
           let availableCount = 0;
 
-          categoryFilteredProductOptions.forEach(opt => {
-            const product = productMap.get(opt.value);
-            if (!product) return;
-            const productIdStr = opt.value;
-            const prodCatIds = [
-              (product as any).categoryId,
-              ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)
-            ].filter(Boolean);
-
-            const hasConflict = allDiscounts.some((d: any) => {
-              if (d.id === editingDiscount?.id) return false;
-              if (!d.isActive || d.isDeleted) return false;
-              if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
-              if (d.discountType === "AssignedToProducts" &&
-                  d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr)) return true;
-              if (d.discountType === "AssignedToCategories") {
-                const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-                if (!prodCatIds.some((cid: string) => dCatIds.includes(cid))) return false;
-                if (d.assignedProductIds && d.assignedProductIds.trim())
-                  return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
-                return true;
-              }
-              return false;
-            }) || (Array.isArray((product as any).assignedDiscounts) &&
-              (product as any).assignedDiscounts.some((d: any) => d.id !== editingDiscount?.id && d.isActive));
-
-            if (hasConflict) conflictCount++;
-            else availableCount++;
-          });
+      
 
           const selectedCount = formData.assignedProductIds.length;
 
           return (
             <div className="flex items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-3 text-xs">
-                <span className="flex items-center gap-1.5 text-slate-400">
-                  <span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>
-                  Total: <span className="font-bold text-white">{categoryFilteredProductOptions.length}</span>
-                </span>
-                {conflictCount > 0 && (
-                  <span className="flex items-center gap-1.5 text-red-400">
-                    <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
-                    Already discounted: <span className="font-bold">{conflictCount}</span>
-                  </span>
-                )}
-                <span className="flex items-center gap-1.5 text-green-400">
-                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-                  Available: <span className="font-bold">{availableCount}</span>
-                </span>
-                {selectedCount > 0 && (
-                  <span className="flex items-center gap-1.5 text-violet-400">
-                    <span className="w-2 h-2 rounded-full bg-violet-500 inline-block"></span>
-                    Selected: <span className="font-bold">{selectedCount}</span>
-                  </span>
-                )}
-              </div>
+          <div className="flex items-center gap-4 text-xs">
+  <span className="text-slate-400">
+    Total: <b className="text-white">{stats.total}</b>
+  </span>
+
+  <span className="text-red-400">
+    Already discounted: <b>{stats.conflictCount}</b>
+  </span>
+
+  <span className="text-green-400">
+    Available: <b>{stats.availableCount}</b>
+  </span>
+
+  <span className="text-violet-400">
+    Selected: <b>{stats.selectedCount}</b>
+  </span>
+</div>
               <button
                 type="button"
                 onClick={() => {
