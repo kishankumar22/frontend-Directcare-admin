@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 interface Props {
   value: string;
   onChange: (value: string) => void;
-  onErrorChange?: (hasError: boolean) => void; // ✅ NEW
+  onErrorChange?: (hasError: boolean) => void;
   productId?: string;
 }
 
@@ -21,7 +21,6 @@ export default function ProductNameInput({
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 🔥 notify parent
   useEffect(() => {
     onErrorChange?.(!!error);
   }, [error]);
@@ -38,16 +37,13 @@ export default function ProductNameInput({
 
       const items = res.data?.data?.items ?? [];
 
-      const exists = items.some((p: any) =>
-        p.name?.toLowerCase().trim() === name.toLowerCase().trim() &&
-        p.id !== productId
+      const exists = items.some(
+        (p: any) =>
+          p.name?.toLowerCase().trim() === name.toLowerCase().trim() &&
+          p.id !== productId
       );
 
-      if (exists) {
-        setError('Product name already exists');
-      } else {
-        setError('');
-      }
+      setError(exists ? 'Product name already exists' : '');
 
     } catch (err) {
       console.warn(err);
@@ -64,7 +60,7 @@ export default function ProductNameInput({
     if (val.length >= 3) {
       debounceRef.current = setTimeout(() => {
         checkName(val);
-      }, 400);
+      }, 300); // ⬅ faster response
     } else {
       setError('');
     }
@@ -72,19 +68,45 @@ export default function ProductNameInput({
 
   return (
     <div>
+      {/* 🔥 RED STAR FIX */}
       <label className="block text-sm text-slate-300 mb-2">
-        Product Name *
+        Product Name <span className="text-red-500">*</span>
       </label>
 
-      <input
-        value={value}
-        onChange={(e) => handleChange(e.target.value)}
-        className={`w-full px-3 py-2 rounded-xl  bg-slate-800 border text-white ${
-          error ? 'border-red-500' : 'border-slate-700'
-        }`}
-      />
+      <div className="relative">
+        <input
+          value={value}
+          onChange={(e) => handleChange(e.target.value)}
+          className={`w-full px-3 py-2 pr-10 rounded-xl bg-slate-800 border text-white ${
+            error ? 'border-red-500' : 'border-slate-700'
+          }`}
+        />
 
+        {/* 🔥 LOADER / STATUS ICON */}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">
+          {checking && (
+            <span className="text-yellow-400 animate-pulse">...</span>
+          )}
+
+          {!checking && error && (
+            <span className="text-red-500">❌</span>
+          )}
+
+          {!checking && !error && value.length >= 3 && (
+            <span className="text-green-500">✔</span>
+          )}
+        </div>
+      </div>
+
+      {/* ERROR */}
       {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+
+      {/* SUCCESS */}
+      {!error && value.length >= 3 && !checking && (
+        <p className="text-green-400 text-xs mt-1">
+          Name is available
+        </p>
+      )}
     </div>
   );
 }

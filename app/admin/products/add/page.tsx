@@ -42,6 +42,10 @@ const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
 
+const [nameError, setNameError] = useState(false);
+const [skuError, setSkuError] = useState(false);
+const [checkingSku, setCheckingSku] = useState(false);
+
 // ✅ LOADING & SUBMISSION STATES
 // ================================
 const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,15 +84,9 @@ const truncateHtmlByTextLength = (html: string, maxLength: number) => {
 
   return div.innerHTML;
 };
-if (hasVariantSkuErrors) {
-  toast.error("Please fix variant SKU errors before saving");
-  return;
-}
 
-if (hasCheckingVariantSku) {
-  toast.error("Please wait while we validate variant SKUs");
-  return;
-}
+
+
 
 // Add this to your component state
 const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
@@ -386,14 +384,14 @@ useEffect(() => {
         brandsResponse, 
         categoriesResponse, 
         vatRatesResponse,
-        allProductsResponse,
-        simpleProductsResponse
+        // allProductsResponse,
+        // simpleProductsResponse
       ] = await Promise.all([
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        productsService.getAll(),
-        productsService.getSimpleProducts()
+        // productsService.getAll({ pageSize: 100 }),
+        // productsService.getSimpleProducts()
       ]);
 
       console.log('✅ All data fetched');
@@ -442,53 +440,53 @@ const vatRatesData = Array.isArray(vatRatesResponse?.data?.data)
       };
 
       // ==================== SIMPLE PRODUCTS ====================
-      const simpleItems = extractProducts(simpleProductsResponse);
+      // const simpleItems = extractProducts(simpleProductsResponse);
 
-      if (simpleItems.length > 0) {
-        setSimpleProducts(simpleItems.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          sku: p.sku,
-          price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-          stockQuantity: p.stockQuantity || 0,
+      // if (simpleItems.length > 0) {
+      //   setSimpleProducts(simpleItems.map((p: any) => ({
+      //     id: p.id,
+      //     name: p.name,
+      //     sku: p.sku,
+      //     price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+      //     stockQuantity: p.stockQuantity || 0,
           
-          // ✅ Brand & Category for filtering
-          brandId: p.brandId || p.brands?.[0]?.brandId || null,
-          brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
-          categories: p.categories || []
-        })));
+      //     // ✅ Brand & Category for filtering
+      //     brandId: p.brandId || p.brands?.[0]?.brandId || null,
+      //     brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+      //     categories: p.categories || []
+      //   })));
         
-        console.log('✅ Simple products:', simpleItems.length);
-      }
+      //   console.log('✅ Simple products:', simpleItems.length);
+      // }
 
       // ==================== ALL PRODUCTS (FIXED) ====================
-      const allItems = extractProducts(allProductsResponse);
+      // const allItems = extractProducts(allProductsResponse);
       
-      if (allItems.length > 0) {
-        setAvailableProducts(allItems.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          sku: p.sku,
-          price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', // ✅ Fixed format
+      // if (allItems.length > 0) {
+      //   setAvailableProducts(allItems.map((p: any) => ({
+      //     id: p.id,
+      //     name: p.name,
+      //     sku: p.sku,
+      //     price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', // ✅ Fixed format
           
-          // ✅ ADD THESE 3 LINES FOR FILTERING
-          brandId: p.brandId || p.brands?.[0]?.brandId || null,
-          brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
-          categories: p.categories || []
-        })));
+      //     // ✅ ADD THESE 3 LINES FOR FILTERING
+      //     brandId: p.brandId || p.brands?.[0]?.brandId || null,
+      //     brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+      //     categories: p.categories || []
+      //   })));
         
-        console.log('✅ Available products:', allItems.length);
+      //   console.log('✅ Available products:', allItems.length);
         
-        // ✅ DEBUG: Log sample product
-        if (allItems.length > 0) {
-          console.log('📦 Sample Product:', {
-            name: allItems[0].name,
-            brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
-            brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
-            categories: allItems[0].categories?.length || 0
-          });
-        }
-      }
+      //   // ✅ DEBUG: Log sample product
+      //   if (allItems.length > 0) {
+      //     console.log('📦 Sample Product:', {
+      //       name: allItems[0].name,
+      //       brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
+      //       brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
+      //       categories: allItems[0].categories?.length || 0
+      //     });
+      //   }
+      // }
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
@@ -912,9 +910,7 @@ const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => 
 
 const getHomepageCount = async () => {
   try {
-    const res = await productsService.getAll({
-      showOnHomepage: true
-    });
+    const res = await productsService.getAll({ pageSize: 100 });
     const products = res.data?.data?.items || [];
     const count = products.filter((p: any) => p.showOnHomepage).length;
     setHomepageCount(count);
@@ -960,24 +956,44 @@ const handleSubmit = async (
       percentage: 10,
     });
 
-      const res = await productsService.getAll({
-    searchTerm: formData.name
-  });
+if (nameError) {
+  toast.error('Product name already exists');
+  target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
-  const items = res.data?.data?.items ?? [];
+if (hasCheckingVariantSku) {
+  toast.error("Please wait while we validate variant SKUs");
+   target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
+if (skuError) {
+  toast.error('SKU already exists');
+  target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
- const nameExists = items.some((p: any) =>
-  p.name?.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
-  (!isEditMode || p.id !== productId)
-);
+if (checkingSku) {
+  toast.warning('Checking SKU... please wait');
+  target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
-  if (nameExists) {
-    toast.error('❌ Product name already exists. Please use a unique name.');
-    target.removeAttribute("data-submitting");
-    setIsSubmitting(false);
-    setSubmitProgress(null);
-    return;
-  }
+if (hasVariantSkuErrors) {
+  toast.error("Please fix variant SKU errors before saving");
+  target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
     // ============================================================
     // SECTION 1: BASIC VALIDATION
     // ============================================================
@@ -1048,30 +1064,6 @@ setSubmitProgress({
   step: "Checking SKU availability...",
   percentage: 20,
 });
-
-try {
-  const res = await productsService.getAll({
-    searchTerm: formData.sku
-  });
-
-  const items = res.data?.data?.items ?? [];
-
-  const skuExists = items.some((p: any) =>
-   p.sku?.toUpperCase().trim() === formData.sku.toUpperCase().trim() &&
-    (!isEditMode || p.id !== productId) // edit safe
-  );
-
-  if (skuExists) {
-    toast.error("❌ SKU already exists. Please use a unique SKU.");
-    target.removeAttribute("data-submitting");
-    setIsSubmitting(false);
-    setSubmitProgress(null);
-    return;
-  }
-
-} catch (error) {
-  console.warn("⚠️ SKU check failed:", error);
-}
 
     // 1.5 PRICE VALIDATION
     if (formData.price && parseFloat(formData.price.toString()) < 0) {
@@ -1322,7 +1314,7 @@ if (!formData.nextDayDeliveryEnabled) {
       // 5.4 Check Against Database
       try {
         console.log("Validating variant SKUs against database...");
-        const allProductsResponse = await productsService.getAll({ productType: 'variable' });
+        const allProductsResponse = await productsService.getAll({ pageSize: 100 });
         const allProducts = allProductsResponse.data?.data?.items || [];
 
         for (const variant of productVariants) {
@@ -3190,6 +3182,7 @@ useEffect(() => {
 <ProductNameInput
   value={formData.name}
   onChange={(val) => setFormData({ ...formData, name: val })}
+  onErrorChange={setNameError}
 />
 
 <div className="space-y-4">
@@ -3238,11 +3231,13 @@ useEffect(() => {
  <div className="grid md:grid-cols-3 gap-4">
 {/* SKU FIELD */}
 <div>
-  <SKUInput
-    value={formData.sku}
-    onChange={(val) => setFormData({ ...formData, sku: val })}
-    isVariableProduct={formData.productType === 'variable'}
-  />
+<SKUInput
+  value={formData.sku}
+  onChange={(val) => setFormData({ ...formData, sku: val })}
+  onErrorChange={setSkuError}
+  onCheckingChange={setCheckingSku}
+  isVariableProduct={formData.productType === 'variable'}
+/>
   {formData.productType === 'variable' && !formData.sku && (
     <p className="mt-1 text-xs text-slate-500 italic">Leave blank to auto-generate from product name</p>
   )}

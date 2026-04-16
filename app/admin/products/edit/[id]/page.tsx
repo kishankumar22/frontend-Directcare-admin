@@ -31,7 +31,6 @@ import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
 import { categoriesService, CategoryApiResponse } from "@/lib/services/categories";
 import { formatDateOnly,  formatTime } from "@/app/admin/_utils/formatUtils";
-import { useDebounce } from "@/app/admin/_hooks/useDebounce";
 
 // ✅ ADD THIS INTERFACE (at the top with other interfaces)
 interface AdminCommentHistory {
@@ -75,9 +74,6 @@ const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
 const [loadingHistory, setLoadingHistory] = useState(false);
 const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
-const [nameError, setNameError] = useState(false);
-const [skuError, setSkuError] = useState(false);
-const [checkingSku, setCheckingSku] = useState(false);
 
 // ================================
 // ✅ LOADING STATE (Add after other useState)
@@ -93,6 +89,10 @@ const [submitProgress, setSubmitProgress] = useState<{
   const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
+
+  const [nameError, setNameError] = useState(false);
+const [skuError, setSkuError] = useState(false);
+const [checkingSku, setCheckingSku] = useState(false);
  
 // ✅ Add these new states
 const [isDeletingImage, setIsDeletingImage] = useState(false);
@@ -155,8 +155,6 @@ const fetchCommentHistory = async () => {
     setLoadingHistory(false);
   }
 };
-
-
 
 
 const handleVariantImageUpload = async (variantId: string, file: File) => {
@@ -583,7 +581,9 @@ const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
   const missing: string[] = [];
 
   if (isEmpty(formData.name)) missing.push('Product Name');
-  if (isEmpty(formData.sku)) missing.push('SKU');
+if (formData.productType !== 'variable' && isEmpty(formData.sku)) {
+  missing.push('SKU');
+}
 
   if (!formData.categoryIds || formData.categoryIds.length === 0) {
     missing.push('Category');
@@ -605,7 +605,9 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
 
   // Basic Info
   if (isEmpty(formData.name)) missing.push('Product Name');
-  if (isEmpty(formData.sku)) missing.push('SKU');
+  if (formData.productType !== 'variable' && isEmpty(formData.sku)) {
+  missing.push('SKU');
+}
   if (isEmpty(formData.fullDescription)) missing.push('Full Description');
   if (isEmpty(formData.shortDescription)) missing.push('Short Description');
 
@@ -724,14 +726,14 @@ useEffect(() => {
         brandsResponse, 
         categoriesResponse, 
         vatRatesResponse, 
-        // allProductsResponse,
-        // simpleProductsResponse
+        allProductsResponse,
+        simpleProductsResponse
       ] = await Promise.allSettled([
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        // productsService.getAll(),
-        // productsService.getSimpleProducts()
+        productsService.getAll({ pageSize: 1000 }),
+        productsService.getSimpleProducts()
       ]);
 
    const brandsData =
@@ -767,88 +769,88 @@ const vatRatesData =
       });
 
       // ✅ Helper function to extract products from service response
-      // const extractProducts = (response: any): any[] => {
-      //   const data = response?.data?.data || response?.data || {};
-      //   return data.items || (Array.isArray(data) ? data : []);
-      // };
+      const extractProducts = (response: any): any[] => {
+        const data = response?.data?.data || response?.data || {};
+        return data.items || (Array.isArray(data) ? data : []);
+      };
 
 // Process ALL products for related/cross-sell
-// if (allProductsResponse.status === 'fulfilled') {
-//   const allItems = extractProducts(allProductsResponse.value);
+if (allProductsResponse.status === 'fulfilled') {
+  const allItems = extractProducts(allProductsResponse.value);
   
-//   if (allItems.length > 0) {
-//     const transformedProducts = allItems.map((product: any) => ({
-//       id: product.id,
-//       name: product.name,
-//       sku: product.sku,
-//       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+  if (allItems.length > 0) {
+    const transformedProducts = allItems.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
       
-//       // ✅ ADD THESE 3 LINES FOR FILTERING
-//       brandId: product.brandId || product.brands?.[0]?.brandId || null,
-//       brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
-//       categories: product.categories || []
-//     }));
+      // ✅ ADD THESE 3 LINES FOR FILTERING
+      brandId: product.brandId || product.brands?.[0]?.brandId || null,
+      brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
+      categories: product.categories || []
+    }));
     
-//     setAvailableProducts(transformedProducts);
-//     console.log('✅ Available products loaded:', transformedProducts.length);
-//   } else {
-//     setAvailableProducts([]);
-//   }
-// } else {
-//   console.warn('❌ Failed to fetch all products');
-//   setAvailableProducts([]);
-// }
+    setAvailableProducts(transformedProducts);
+    console.log('✅ Available products loaded:', transformedProducts.length);
+  } else {
+    setAvailableProducts([]);
+  }
+} else {
+  console.warn('❌ Failed to fetch all products');
+  setAvailableProducts([]);
+}
 
 
       // ✅ Process SIMPLE products from service
-      // if (simpleProductsResponse.status === 'fulfilled') {
-      //   const simpleItems = extractProducts(simpleProductsResponse.value);
+      if (simpleProductsResponse.status === 'fulfilled') {
+        const simpleItems = extractProducts(simpleProductsResponse.value);
         
-      //   if (simpleItems.length > 0) {
-      //     // Filter out current product
-      //     const simpleProductsList = simpleItems
-      //       .filter((p: any) => p.id !== productId)
-      //       .map((p: any) => ({
-      //         id: p.id,
-      //         name: p.name,
-      //         sku: p.sku,
-      //         price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-      //         stockQuantity: p.stockQuantity || 0
-      //       }));
+        if (simpleItems.length > 0) {
+          // Filter out current product
+          const simpleProductsList = simpleItems
+            .filter((p: any) => p.id !== productId)
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              sku: p.sku,
+              price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+              stockQuantity: p.stockQuantity || 0
+            }));
 
-      //     setSimpleProducts(simpleProductsList);
-      //     console.log('✅ Simple products loaded:', simpleProductsList.length);
-      //   } else {
-      //     console.warn('⚠️ Simple products endpoint returned no data');
-      //     setSimpleProducts([]);
-      //   }
-      // } else {
-      //   console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
+          setSimpleProducts(simpleProductsList);
+          console.log('✅ Simple products loaded:', simpleProductsList.length);
+        } else {
+          console.warn('⚠️ Simple products endpoint returned no data');
+          setSimpleProducts([]);
+        }
+      } else {
+        console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
         
-      //   // ✅ FALLBACK: Filter from all products if separate endpoint fails
-      //   if (allProductsResponse.status === 'fulfilled') {
-      //     const allItems = extractProducts(allProductsResponse.value);
+        // ✅ FALLBACK: Filter from all products if separate endpoint fails
+        if (allProductsResponse.status === 'fulfilled') {
+          const allItems = extractProducts(allProductsResponse.value);
           
-      //     const simpleProductsList = allItems
-      //       .filter((product: any) => 
-      //         product.productType === 'simple' && 
-      //         product.isPublished === true &&
-      //         product.id !== productId
-      //       )
-      //       .map((product: any) => ({
-      //         id: product.id,
-      //         name: product.name,
-      //         sku: product.sku,
-      //         price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-      //         stockQuantity: product.stockQuantity || 0
-      //       }));
+          const simpleProductsList = allItems
+            .filter((product: any) => 
+              product.productType === 'simple' && 
+              product.isPublished === true &&
+              product.id !== productId
+            )
+            .map((product: any) => ({
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+              stockQuantity: product.stockQuantity || 0
+            }));
 
-      //     setSimpleProducts(simpleProductsList);
-      //     console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
-      //   } else {
-      //     setSimpleProducts([]);
-      //   }
-      // }
+          setSimpleProducts(simpleProductsList);
+          console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
+        } else {
+          setSimpleProducts([]);
+        }
+      }
 
       // ✅ Extract product data from service response
       const productData = (productResponse.data as any)?.data || productResponse.data;
@@ -1631,8 +1633,6 @@ const handleLockReleased = (data: any) => {
     }
   };
 }, [productId]);
-
-
 const getHomepageCount = async () => {
   try {
     const res = await productsService.getAll({
@@ -2319,9 +2319,6 @@ const releaseProductLock = async (productId: string): Promise<boolean> => {
   }
 };
 
-
-
-
 // ==================== HANDLERS ====================
 const handleCancel = async () => {
   await releaseProductLock(productId);
@@ -2368,17 +2365,30 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, relea
     e.preventDefault();
   }
 
-  if (nameError) {
-  toast.error('❌ Product name already exists');
-  return;
-}
-if (skuError) {
-  toast.error('❌ SKU already exists');
-  return;
-}
-
   const target = (e?.target as HTMLElement) || document.body;
+if (nameError) {
+  toast.error('Product name already exists');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
+if (skuError) {
+  toast.error('SKU already exists');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
+
+if (checkingSku) {
+  toast.warning('Checking SKU... please wait');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
   // ================================
   // SECTION 1: DUPLICATE SUBMISSION PREVENTION
   // ================================
@@ -2433,13 +2443,16 @@ if (skuError) {
       return;
     }
 
-    if (!formData.sku || formData.sku.trim().length === 0) {
-      toast.error('❌ SKU is required');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+if (
+  formData.productType !== 'variable' &&
+  (!formData.sku || formData.sku.trim().length === 0)
+) {
+  toast.error('❌ SKU is required');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
 //   if (!formData.price) {
 //   toast.error('❌ Price is required');
@@ -2479,30 +2492,36 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
     }
 
   
-    const skuRegex = /^[A-Za-z0-9_-]+$/;
-    if (!skuRegex.test(formData.sku)) {
-      toast.error('⚠️ SKU can only contain letters, numbers, dashes, and underscores');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+if (formData.productType !== 'variable' || formData.sku?.trim()) {
 
-    if (formData.sku.length < 2) {
-      toast.error('⚠️ SKU must be at least 2 characters');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+  const sku = formData.sku?.trim() || '';
 
-    if (formData.sku.length > 50) {
-      toast.error('⚠️ SKU cannot exceed 50 characters');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+  const skuRegex = /^[A-Za-z0-9_-]+$/;
+
+  if (!skuRegex.test(sku)) {
+    toast.error('⚠️ SKU can only contain letters, numbers, dashes, and underscores');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  if (sku.length < 2) {
+    toast.error('⚠️ SKU must be at least 2 characters');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  if (sku.length > 50) {
+    toast.error('⚠️ SKU cannot exceed 50 characters');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+}
 
 // ================= SKU UNIQUENESS CHECK (OPTIMIZED) =================
 setSubmitProgress({
@@ -3378,9 +3397,10 @@ const variantsArray = productVariants?.map(variant => {
 });
 
 
-if (variantsArray && variantsArray.length > 0) {
+
+    if (variantsArray && variantsArray.length > 0) {
       try {
-        const allProductsResponse = await productsService.getAll({productType: 'variable' });
+        const allProductsResponse = await productsService.getAll({ productType: 'variable',  });
         const allProducts = allProductsResponse.data?.data?.items || [];
 
         for (const variant of variantsArray) {
@@ -3788,9 +3808,6 @@ console.log("🚀 FINAL PAYLOAD:", productData);
   JSON.stringify(productData).length / 1024
 );
 
-if (!response?.data?.success) {
-  throw new Error(response?.data?.message || 'Update failed');
-}
 
     if (response.data) {
       const apiResponse = response.data;
@@ -3830,12 +3847,20 @@ if (!response?.data?.success) {
 
   let msg = 'Failed to update product';
 
-  if (error.response) {
+if (error.response) {
+  const data = error.response.data;
+
+  if (data?.errors) {
+    msg = Object.entries(data.errors)
+      .map(([field, errs]) => `${field}: ${(errs as string[]).join(', ')}`)
+      .join(' | ');
+  } else {
     msg =
-      error.response.data?.message ||
-      error.response.data?.error ||
+      data?.message ||
+      data?.error ||
       `Server Error (${error.response.status})`;
-  } else if (error.request) {
+  }
+} else if (error.request) {
     msg = 'No response from server (CORS / network issue)';
   } else {
     msg = error.message;
@@ -5051,7 +5076,7 @@ const uploadImagesToProductDirect = async (
           {formData.name && (
             <div className="flex items-center gap-2">
               <span className="text-slate-600">•</span>
-              <span className="text-lg font-semibold text-white truncate max-w-md" title={formData.name}>
+              <span className="text-lg font-semibold text-white truncate max-w-xs" title={formData.name}>
                 {formData.name}
               </span>
             </div>
@@ -5269,7 +5294,7 @@ const uploadImagesToProductDirect = async (
       {/* Product Name */}
 <ProductNameInput
   value={formData.name}
-  productId={productId}
+  productId={productId ?? undefined}
   onChange={(val) => setFormData({ ...formData, name: val })}
   onErrorChange={setNameError}
 />
@@ -5323,19 +5348,14 @@ const uploadImagesToProductDirect = async (
 
       {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
       <div className="grid md:grid-cols-3 gap-4">
-
-
 <SKUInput
   value={formData.sku}
-  productId={productId}
+  productId={productId ?? undefined}
   onChange={(val) => setFormData({ ...formData, sku: val })}
+  isVariableProduct={formData.productType === 'variable'}
   onErrorChange={setSkuError}
   onCheckingChange={setCheckingSku}
 />
-
-
-
-
 {/* ✅ Multiple Brands Selector - EDIT PAGE */}
 
 <div>
