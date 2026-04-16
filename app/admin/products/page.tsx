@@ -2265,24 +2265,24 @@ const handleExportSelected = async () => {
           Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
         </th>
         <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[170px]">Stock Status</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[150px]">Visibility</th>
+        <th className="text-center py-1 px-3 text-slate-400 w-[180px]">Stock Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[210px]">Visibility</th>
         <th
   onClick={() => handleSort('createdAt')}
-  className="text-left py-2 px-3 text-blue-400 w-[170px] cursor-pointer"
+  className="text-left py-2 px-3 text-blue-400 w-[140px] cursor-pointer"
 >
   Created At
   {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
 </th>
 
-<th className="text-left py-2 px-3 text-slate-400 w-[170px]">
+<th className="text-left py-2 px-3 text-slate-400 w-[140px]">
   Updated At
 </th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Actions</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[130px]">Actions</th>
       </tr>
     </thead>
 
-              <tbody>
+              <tbody className="text-sm">
                 {products.map((product) => {
                   const isBusy =
                     isProcessing &&

@@ -4604,17 +4604,14 @@ const generateSeoName = (text: string) => {
 
 
 // ✅ ADD: New handler function
-const handleGroupedProductsChange = (selectedOptions: any) => {
-  const selectedIds = selectedOptions.map((option: any) => option.value);
+const handleGroupedProductsChange = (selectedIds: string[]) => {
   setSelectedGroupedProducts(selectedIds);
-  
-  // Update formData with comma-separated IDs
+
   setFormData(prev => ({
     ...prev,
     requiredProductIds: selectedIds.join(',')
   }));
 };
-
 
 // Product Attribute handlers (WooCommerce-style unified with "Used for variations" toggle)
 const addProductAttribute = (isVariation = false) => {

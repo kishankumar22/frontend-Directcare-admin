@@ -384,14 +384,14 @@ useEffect(() => {
         brandsResponse, 
         categoriesResponse, 
         vatRatesResponse,
-        // allProductsResponse,
-        // simpleProductsResponse
+        allProductsResponse,
+        simpleProductsResponse
       ] = await Promise.all([
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        // productsService.getAll({ pageSize: 100 }),
-        // productsService.getSimpleProducts()
+        productsService.getAll({ pageSize: 100 }),
+        productsService.getSimpleProducts()
       ]);
 
       console.log('✅ All data fetched');
@@ -440,53 +440,53 @@ const vatRatesData = Array.isArray(vatRatesResponse?.data?.data)
       };
 
       // ==================== SIMPLE PRODUCTS ====================
-      // const simpleItems = extractProducts(simpleProductsResponse);
+      const simpleItems = extractProducts(simpleProductsResponse);
 
-      // if (simpleItems.length > 0) {
-      //   setSimpleProducts(simpleItems.map((p: any) => ({
-      //     id: p.id,
-      //     name: p.name,
-      //     sku: p.sku,
-      //     price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-      //     stockQuantity: p.stockQuantity || 0,
+      if (simpleItems.length > 0) {
+        setSimpleProducts(simpleItems.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+          stockQuantity: p.stockQuantity || 0,
           
-      //     // ✅ Brand & Category for filtering
-      //     brandId: p.brandId || p.brands?.[0]?.brandId || null,
-      //     brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
-      //     categories: p.categories || []
-      //   })));
+          // ✅ Brand & Category for filtering
+          brandId: p.brandId || p.brands?.[0]?.brandId || null,
+          brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+          categories: p.categories || []
+        })));
         
-      //   console.log('✅ Simple products:', simpleItems.length);
-      // }
+        console.log('✅ Simple products:', simpleItems.length);
+      }
 
       // ==================== ALL PRODUCTS (FIXED) ====================
-      // const allItems = extractProducts(allProductsResponse);
+      const allItems = extractProducts(allProductsResponse);
       
-      // if (allItems.length > 0) {
-      //   setAvailableProducts(allItems.map((p: any) => ({
-      //     id: p.id,
-      //     name: p.name,
-      //     sku: p.sku,
-      //     price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', // ✅ Fixed format
+      if (allItems.length > 0) {
+        setAvailableProducts(allItems.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', // ✅ Fixed format
           
-      //     // ✅ ADD THESE 3 LINES FOR FILTERING
-      //     brandId: p.brandId || p.brands?.[0]?.brandId || null,
-      //     brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
-      //     categories: p.categories || []
-      //   })));
+          // ✅ ADD THESE 3 LINES FOR FILTERING
+          brandId: p.brandId || p.brands?.[0]?.brandId || null,
+          brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+          categories: p.categories || []
+        })));
         
-      //   console.log('✅ Available products:', allItems.length);
+        console.log('✅ Available products:', allItems.length);
         
-      //   // ✅ DEBUG: Log sample product
-      //   if (allItems.length > 0) {
-      //     console.log('📦 Sample Product:', {
-      //       name: allItems[0].name,
-      //       brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
-      //       brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
-      //       categories: allItems[0].categories?.length || 0
-      //     });
-      //   }
-      // }
+        // ✅ DEBUG: Log sample product
+        if (allItems.length > 0) {
+          console.log('📦 Sample Product:', {
+            name: allItems[0].name,
+            brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
+            brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
+            categories: allItems[0].categories?.length || 0
+          });
+        }
+      }
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);

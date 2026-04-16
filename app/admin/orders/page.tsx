@@ -1465,23 +1465,23 @@ title="Select all orders"
 />
 </th>
 
-<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs">
+<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs w-[550px]">
 Order
 </th>
 
-<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs">
+<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs w-[350px]">
 Customer
 </th>
 
-<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs">
+<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs w-[10px]">
 Amount
 </th>
 
-<th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs w-[200px]">
+<th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs w-[250px]">
 Status
 </th>
 
-<th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs">
+<th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs w-[150px]">
 Payment
 </th>
 
@@ -1515,7 +1515,11 @@ const availableActions = getAvailableActions(order);
 return (
 <tr
 key={order.id}
-className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors"
+ className={`border-b border-slate-800 transition-colors
+    ${selectedOrders.includes(order.id)
+      ? 'bg-violet-500/10 ring-1 ring-violet-500/30'
+      : 'hover:bg-slate-800/40'
+    }`}
 title={`Order ${order.orderNumber}`}
 >
 
