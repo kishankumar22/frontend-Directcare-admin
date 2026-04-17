@@ -1,72 +1,78 @@
 import { apiClient } from "../api";
 import { API_ENDPOINTS } from "../api-config";
 
-export interface ContactItem {
+// ================= TYPES =================
+
+export interface FeatureCard {
+  icon: string;
+  heading: string;
+  description: string;
+}
+
+export interface DeliveryStrip {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  orderNumber: string;
-  subject: string;
-  category: string;
-  message: string;
-  status: string;
-  adminReply: string;
-  repliedAt: string | null;
-  repliedBy: string;
-  internalNotes: string;
-  assignedTo: string;
-  createdAt: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  slug: string;
+  displayOrder: number;
+  isActive: boolean;
+  pageTitle: string;
+  pageSubtitle: string;
+  featureCards: FeatureCard[];
+  infoSectionTitle: string;
+  infoPoints: string[];
+  pageContentJson: string;
+  currentUser: string;
 }
 
-export interface ContactListData {
-  items: ContactItem[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  hasPrevious: boolean;
-  hasNext: boolean;
-  stats?: string | Record<string, unknown>;
-}
-
-export interface ContactListResponse {
+export interface DeliveryStripResponse {
   success: boolean;
   message?: string;
-  data: ContactListData;
+  data: DeliveryStrip;
   errors?: string[];
 }
 
-export interface ContactResponse {
+export interface DeliveryStripListResponse {
   success: boolean;
   message?: string;
-  data: ContactItem;
+  data: DeliveryStrip[];
   errors?: string[];
 }
 
-export interface ReplyToContactDto {
-  reply: string;
-  internalNotes?: string;
-  assignedTo?: string;
+export interface DeliveryStripActionResponse {
+  success: boolean;
+  message?: string;
+  data: boolean;
+  errors?: string[];
 }
 
-export interface ContactQueryParams {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-  category?: string;
-  search?: string;
-}
+// ================= SERVICE =================
 
-export const contactService = {
-  getAll: (params: ContactQueryParams = {}) =>
-    apiClient.get<ContactListResponse>(API_ENDPOINTS.contact, { params }),
+export const deliveryStripService = {
+  // ✅ CREATE
+  create: (data: DeliveryStrip) =>
+    apiClient.post<DeliveryStripResponse>(
+      API_ENDPOINTS.deliveryStrip,
+      data
+    ),
 
-  reply: (id: string, data: ReplyToContactDto) =>
-    apiClient.post<ContactResponse>(`${API_ENDPOINTS.contact}/${id}/reply`, data),
+  // ✅ UPDATE
+  update: (id: string, data: DeliveryStrip) =>
+    apiClient.put<DeliveryStripResponse>(
+      `${API_ENDPOINTS.deliveryStrip}/${id}`,
+      data
+    ),
 
+  // ✅ DELETE
   delete: (id: string) =>
-    apiClient.delete<{ success: boolean; message?: string; errors?: string[] }>(
-      `${API_ENDPOINTS.contact}/${id}`
+    apiClient.delete<DeliveryStripActionResponse>(
+      `${API_ENDPOINTS.deliveryStrip}/${id}`
+    ),
+
+  // ✅ TOGGLE ACTIVE
+  toggle: (id: string) =>
+    apiClient.patch<DeliveryStripActionResponse>(
+      `${API_ENDPOINTS.deliveryStrip}/${id}/toggle`
     ),
 };

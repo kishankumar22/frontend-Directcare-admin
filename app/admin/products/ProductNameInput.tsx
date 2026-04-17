@@ -20,37 +20,37 @@ export default function ProductNameInput({
   const [checking, setChecking] = useState(false);
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
+const requestIdRef = useRef(0);
   useEffect(() => {
     onErrorChange?.(!!error);
   }, [error]);
 
-  const checkName = async (name: string) => {
-    if (!name || name.length < 3) return;
+const checkName = async (name: string) => {
+  if (!name || name.length < 3) return;
 
-    try {
-      setChecking(true);
+  const currentRequestId = ++requestIdRef.current;
 
-      const res = await productsService.getAll({
-        searchTerm: name.trim()
-      });
+  try {
+    setChecking(true);
 
-      const items = res.data?.data?.items ?? [];
+    const res = await productsService.searchSummary({
+      name: name.trim(),
+    });
 
-      const exists = items.some(
-        (p: any) =>
-          p.name?.toLowerCase().trim() === name.toLowerCase().trim() &&
-          p.id !== productId
-      );
+    if (currentRequestId !== requestIdRef.current) return;
 
-      setError(exists ? 'Product name already exists' : '');
+    const exists = res.data?.data?.nameFound ?? false;
 
-    } catch (err) {
-      console.warn(err);
-    } finally {
+    setError(exists ? 'Product name already exists' : '');
+
+  } catch (err) {
+    console.warn(err);
+  } finally {
+    if (currentRequestId === requestIdRef.current) {
       setChecking(false);
     }
-  };
+  }
+};
 
   const handleChange = (val: string) => {
     onChange(val);

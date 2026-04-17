@@ -359,6 +359,8 @@ const handleSelectProduct = (productId: string) => {
   );
 };
 
+
+
 const handleSort = (field: string) => {
   if (!ALLOWED_SORT_FIELDS.includes(field)) return;
 
@@ -554,7 +556,7 @@ if (selectedType.value !== "all") {
       const hasPrevious = apiData.page > 1;
       const hasNext = apiData.page < apiData.totalPages;
       
-      setTotalCount(apiData.totalCount);
+      setTotalCount(stats.totalCount);
       setTotalPages(apiData.totalPages);
       setCurrentPage(apiData.page);
       setHasPrevious(hasPrevious);
@@ -645,6 +647,7 @@ if (selectedType.value !== "all") {
         };
       });
 
+      
 
 // ✅ ADD THIS
 setApiStats(apiData.stats);
@@ -717,14 +720,7 @@ const fetchBrands = async () => {
     console.error("Error fetching brands:", err);
   }
 };
-const FilterLoader = () => {
-  return (
-    <div className="flex items-center gap-2 text-xs text-violet-400 bg-violet-500/10 border border-violet-500/30 px-2 py-1 rounded-md">
-      <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
-      Loading...
-    </div>
-  );
-};
+
   // ✅ FETCH PRODUCT DETAILS
 const fetchProductDetails = async (productId: string) => {
   setLoadingDetails(true);
@@ -811,7 +807,7 @@ if (p.crossSellProductIds) {
     if (!images || images.length === 0) return;
     const mediaItems: MediaItem[] = images.map((img) => ({
       type: "image",
-      url: img.imageUrl,
+      url:getProductImage( img.imageUrl),
       title: img.altText || productName,
       description: `${productName} - ${img.isMain ? "Main Image" : "Product Image"}`,
       isMain: img.isMain,
@@ -2269,13 +2265,13 @@ const handleExportSelected = async () => {
         <th className="text-center py-2 px-3 text-slate-400 w-[210px]">Visibility</th>
         <th
   onClick={() => handleSort('createdAt')}
-  className="text-left py-2 px-3 text-blue-400 w-[140px] cursor-pointer"
+  className="text-left py-2 px-3 text-blue-400 w-[160px] cursor-pointer"
 >
   Created At
   {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
 </th>
 
-<th className="text-left py-2 px-3 text-slate-400 w-[140px]">
+<th className="text-left py-2 px-3 text-slate-400 w-[160px]">
   Updated At
 </th>
         <th className="text-center py-2 px-3 text-slate-400 w-[130px]">Actions</th>
@@ -2291,6 +2287,10 @@ const handleExportSelected = async () => {
                       selectedToggleProduct?.id === product.id
                     );
                     const isDeleted = product.isDeleted;
+                    const imageUrl =
+  product.image?.startsWith("http")
+    ? product.image
+    : `${API_BASE_URL}${product.image?.startsWith("/") ? "" : "/"}${product.image}`;
 
                   return (
                     <tr
@@ -2321,7 +2321,7 @@ className={`border-b border-slate-800 transition-colors
                           <div className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
                             {product.image ? (
                               <img
-                                src={product.image}
+                                  src={product.image}                                                              
                                 alt={product.name}
                                 className="w-full h-full object-cover cursor-pointer hover:opacity-80"
                                  onError={(e) => (e.currentTarget.src = "/placeholder.png")}

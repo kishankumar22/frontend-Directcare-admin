@@ -4,7 +4,6 @@ import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Upload, X, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus } from "lucide-react";
-
 import Link from "next/link";
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
 import  {useToast } from "@/app/admin/_components/CustomToast";
@@ -15,7 +14,7 @@ import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
 import { BackInStockSubscribers, LowStockAlert } from "../../productModals";
-import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
+import { vatratesService } from "@/lib/services/vatrates";
 import productLockService from "@/lib/services/productLockService";
 import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
@@ -24,7 +23,6 @@ import RequestTakeoverModal from "../../RequestTakeoverModal";
 import { apiClient } from "@/lib/api";
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
-
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../../ProductNameInput";
@@ -52,9 +50,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const router = useRouter();
   const toast = useToast();
   let seoTimer: any = null;
-
   const { id: productId } = use(params);
-
   const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
   const [takeoverTimeLeft, setTakeoverTimeLeft] = useState<number>(0);
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
@@ -401,9 +397,6 @@ useEffect(() => {
   return () => clearInterval(timer);
 }, [takeoverRequest?.id]); // Re-run when request changes
 
-
-  // Available products for related/cross-sell (from API)
-  const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
 const [formData, setFormData] = useState({ 
   // ===== BASIC INFO =====
   name: '',
@@ -726,13 +719,13 @@ useEffect(() => {
         brandsResponse, 
         categoriesResponse, 
         vatRatesResponse, 
-        allProductsResponse,
+        // allProductsResponse,
         simpleProductsResponse
       ] = await Promise.allSettled([
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        productsService.getAll({ pageSize: 1000 }),
+        // productsService.getAll({ pageSize: 1000 }),
         productsService.getSimpleProducts()
       ]);
 
@@ -775,31 +768,31 @@ const vatRatesData =
       };
 
 // Process ALL products for related/cross-sell
-if (allProductsResponse.status === 'fulfilled') {
-  const allItems = extractProducts(allProductsResponse.value);
+// if (allProductsResponse.status === 'fulfilled') {
+//   const allItems = extractProducts(allProductsResponse.value);
   
-  if (allItems.length > 0) {
-    const transformedProducts = allItems.map((product: any) => ({
-      id: product.id,
-      name: product.name,
-      sku: product.sku,
-      price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+//   if (allItems.length > 0) {
+//     const transformedProducts = allItems.map((product: any) => ({
+//       id: product.id,
+//       name: product.name,
+//       sku: product.sku,
+//       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
       
-      // ✅ ADD THESE 3 LINES FOR FILTERING
-      brandId: product.brandId || product.brands?.[0]?.brandId || null,
-      brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
-      categories: product.categories || []
-    }));
+//       // ✅ ADD THESE 3 LINES FOR FILTERING
+//       brandId: product.brandId || product.brands?.[0]?.brandId || null,
+//       brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
+//       categories: product.categories || []
+//     }));
     
-    setAvailableProducts(transformedProducts);
-    console.log('✅ Available products loaded:', transformedProducts.length);
-  } else {
-    setAvailableProducts([]);
-  }
-} else {
-  console.warn('❌ Failed to fetch all products');
-  setAvailableProducts([]);
-}
+//     setAvailableProducts(transformedProducts);
+//     console.log('✅ Available products loaded:', transformedProducts.length);
+//   } else {
+//     setAvailableProducts([]);
+//   }
+// } else {
+//   console.warn('❌ Failed to fetch all products');
+//   setAvailableProducts([]);
+// }
 
 
       // ✅ Process SIMPLE products from service
@@ -828,28 +821,28 @@ if (allProductsResponse.status === 'fulfilled') {
         console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
         
         // ✅ FALLBACK: Filter from all products if separate endpoint fails
-        if (allProductsResponse.status === 'fulfilled') {
-          const allItems = extractProducts(allProductsResponse.value);
+        // if (allProductsResponse.status === 'fulfilled') {
+        //   const allItems = extractProducts(allProductsResponse.value);
           
-          const simpleProductsList = allItems
-            .filter((product: any) => 
-              product.productType === 'simple' && 
-              product.isPublished === true &&
-              product.id !== productId
-            )
-            .map((product: any) => ({
-              id: product.id,
-              name: product.name,
-              sku: product.sku,
-              price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-              stockQuantity: product.stockQuantity || 0
-            }));
+        //   const simpleProductsList = allItems
+        //     .filter((product: any) => 
+        //       product.productType === 'simple' && 
+        //       product.isPublished === true &&
+        //       product.id !== productId
+        //     )
+        //     .map((product: any) => ({
+        //       id: product.id,
+        //       name: product.name,
+        //       sku: product.sku,
+        //       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+        //       stockQuantity: product.stockQuantity || 0
+        //     }));
 
-          setSimpleProducts(simpleProductsList);
-          console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
-        } else {
-          setSimpleProducts([]);
-        }
+        //   setSimpleProducts(simpleProductsList);
+        //   console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
+        // } else {
+        //   setSimpleProducts([]);
+        // }
       }
 
       // ✅ Extract product data from service response
@@ -1635,13 +1628,11 @@ const handleLockReleased = (data: any) => {
 }, [productId]);
 const getHomepageCount = async () => {
   try {
-    const res = await productsService.getAll({
-      showOnHomepage: true, // ✅ only true products
+    const res = await productsService.searchSummary({
+      includeHomepageCount: true,
     });
 
-    const products = res.data?.data?.items || [];
-
-  const count = res.data?.data?.totalCount ?? products.length;
+    const count = res.data?.data?.homepageCount ?? 0;
 
     setHomepageCount(count);
 
@@ -2712,17 +2703,13 @@ if (parsedCost !== null && parsedPrice !== null && parsedCost > parsedPrice) {
 // ================= HOMEPAGE LIMIT CHECK (CLEAN & OPTIMIZED) =================
 if (formData.showOnHomepage) {
   try {
-    const res = await productsService.getAll({
-      showOnHomepage: true
+    const res = await productsService.searchSummary({
+      includeHomepageCount: true,
     });
 
-    const products = res.data?.data?.items || [];
+    const currentCount = res.data?.data?.homepageCount ?? 0;
 
-    // ✅ SAME LOGIC AS getHomepageCount
-    let count = res.data?.data?.totalCount ?? products.length;
-
-
-    const finalCount = count + 1;
+    const finalCount = currentCount + 1;
 
     // ❌ LIMIT EXCEEDED
     if (finalCount > MAX_HOMEPAGE) {
@@ -3877,22 +3864,22 @@ if (error.response) {
 // ================================
 // ✅ SECTION 28A: SHOW ON HOMEPAGE (Keep as string in state, convert in payload)
 // ================================
-const canEnableHomepage = async () => {
+const canEnableHomepage = async (alreadyOnHomepage?: boolean) => {
   try {
-    const res = await productsService.getAll({
-      showOnHomepage: true
+    const res = await productsService.searchSummary({
+      includeHomepageCount: true,
     });
 
-    const products = res.data?.data?.items || [];
-    let count = res.data?.data?.totalCount ?? products.length;
+    const count = res.data?.data?.homepageCount ?? 0;
 
-    return count + 1 <= MAX_HOMEPAGE;
+    const finalCount = alreadyOnHomepage ? count : count + 1;
+
+    return finalCount <= MAX_HOMEPAGE;
 
   } catch {
-    return true; // fallback allow
+    return true;
   }
 };
-
 // ✅ PRODUCTION-LEVEL handleChange with ALL edge cases
 const handleChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>

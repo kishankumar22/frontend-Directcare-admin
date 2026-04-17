@@ -514,6 +514,23 @@ getAll: async (params?: ProductQueryParams) => {
     return apiClient.get<ApiResponse<Product>>(`${API_ENDPOINTS.products}/${id}`);
   },
 
+searchSummary: async (params: {
+  name?: string;
+  sku?: string;
+  includeHomepageCount?: boolean;
+}) => {
+  return apiClient.get<
+    ApiResponse<{
+      nameFound?: boolean;
+      nameMatchedCount?: number;
+      skuFound?: boolean;
+      skuMatchedCount?: number;
+      homepageCount?: number;
+    }>
+  >(`${API_ENDPOINTS.products}/search-summary`, {
+    params,
+  });
+},
   create: async (data: CreateProductDto) => {
     return apiClient.post<ApiResponse<Product>>(API_ENDPOINTS.products, data);
   },

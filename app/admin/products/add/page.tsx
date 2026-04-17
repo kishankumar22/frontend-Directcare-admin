@@ -384,13 +384,13 @@ useEffect(() => {
         brandsResponse, 
         categoriesResponse, 
         vatRatesResponse,
-        allProductsResponse,
+        // allProductsResponse,
         simpleProductsResponse
       ] = await Promise.all([
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        productsService.getAll({ pageSize: 100 }),
+        // productsService.getAll({ pageSize: 100 }),
         productsService.getSimpleProducts()
       ]);
 
@@ -460,33 +460,33 @@ const vatRatesData = Array.isArray(vatRatesResponse?.data?.data)
       }
 
       // ==================== ALL PRODUCTS (FIXED) ====================
-      const allItems = extractProducts(allProductsResponse);
+      // const allItems = extractProducts(allProductsResponse);
       
-      if (allItems.length > 0) {
-        setAvailableProducts(allItems.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          sku: p.sku,
-          price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', // ✅ Fixed format
+      // if (allItems.length > 0) {
+      //   setAvailableProducts(allItems.map((p: any) => ({
+      //     id: p.id,
+      //     name: p.name,
+      //     sku: p.sku,
+      //     price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', // ✅ Fixed format
           
-          // ✅ ADD THESE 3 LINES FOR FILTERING
-          brandId: p.brandId || p.brands?.[0]?.brandId || null,
-          brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
-          categories: p.categories || []
-        })));
+      //     // ✅ ADD THESE 3 LINES FOR FILTERING
+      //     brandId: p.brandId || p.brands?.[0]?.brandId || null,
+      //     brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+      //     categories: p.categories || []
+      //   })));
         
-        console.log('✅ Available products:', allItems.length);
+      //   console.log('✅ Available products:', allItems.length);
         
-        // ✅ DEBUG: Log sample product
-        if (allItems.length > 0) {
-          console.log('📦 Sample Product:', {
-            name: allItems[0].name,
-            brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
-            brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
-            categories: allItems[0].categories?.length || 0
-          });
-        }
-      }
+      //   // ✅ DEBUG: Log sample product
+      //   if (allItems.length > 0) {
+      //     console.log('📦 Sample Product:', {
+      //       name: allItems[0].name,
+      //       brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
+      //       brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
+      //       categories: allItems[0].categories?.length || 0
+      //     });
+      //   }
+      // }
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
@@ -910,18 +910,19 @@ const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => 
 
 const getHomepageCount = async () => {
   try {
-    const res = await productsService.getAll({ pageSize: 100 });
-    const products = res.data?.data?.items || [];
-    const count = products.filter((p: any) => p.showOnHomepage).length;
+    const res = await productsService.searchSummary({
+      includeHomepageCount: true,
+    });
+
+    const count = res.data?.data?.homepageCount ?? 0;
+
     setHomepageCount(count);
-    console.log(`📊 Homepage products count: ${count}/${MAX_HOMEPAGE}`);
+
   } catch (e) {
-    console.error('❌ Error fetching homepage count:', e);
+    console.error("Homepage count error:", e);
     setHomepageCount(null);
   }
 };
-
-
 
 
 

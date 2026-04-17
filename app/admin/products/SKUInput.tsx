@@ -49,42 +49,33 @@ export default function SKUInput({
     onCheckingChange?.(checking);
   }, [checking]);
 
-  const checkSkuExists = async (sku: string) => {
-    // ✅ skip same value
-    if (lastCheckedRef.current === sku) return;
-    lastCheckedRef.current = sku;
+const checkSkuExists = async (sku: string) => {
+  if (lastCheckedRef.current === sku) return;
+  lastCheckedRef.current = sku;
 
-    const currentRequestId = ++requestIdRef.current;
+  const currentRequestId = ++requestIdRef.current;
 
-    try {
-      setChecking(true);
+  try {
+    setChecking(true);
 
-      const res = await productsService.getAll({
-        searchTerm: sku
-      });
+    const res = await productsService.searchSummary({
+      sku: sku.trim(),
+    });
 
-      // ✅ ignore old responses
-      if (currentRequestId !== requestIdRef.current) return;
+    if (currentRequestId !== requestIdRef.current) return;
 
-      const items = res.data?.data?.items ?? [];
+    const exists = res.data?.data?.skuFound ?? false;
 
-      const exists = items.some(
-        (p: any) =>
-          p.sku?.toUpperCase() === sku.toUpperCase() &&
-          p.id !== productId
-      );
+    setError(exists ? 'SKU already exists' : '');
 
-      setError(exists ? 'SKU already exists' : '');
-
-    } catch (err) {
-      console.warn(err);
-    } finally {
-      if (currentRequestId === requestIdRef.current) {
-        setChecking(false);
-      }
+  } catch (err) {
+    console.warn(err);
+  } finally {
+    if (currentRequestId === requestIdRef.current) {
+      setChecking(false);
     }
-  };
-
+  }
+};
   const handleChange = (input: string) => {
     const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
 
