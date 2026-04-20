@@ -3,7 +3,7 @@
 import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Upload, X, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus } from "lucide-react";
+import { ArrowLeft, Save, Upload, X,History, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus } from "lucide-react";
 import Link from "next/link";
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
 import  {useToast } from "@/app/admin/_components/CustomToast";
@@ -20,7 +20,7 @@ import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
 import { MultiCategorySelector } from "../../MultiCategorySelector";
 import RequestTakeoverModal from "../../RequestTakeoverModal";
-import { apiClient } from "@/lib/api";
+
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
@@ -29,16 +29,10 @@ import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
 import { categoriesService, CategoryApiResponse } from "@/lib/services/categories";
 import { formatDateOnly,  formatTime } from "@/app/admin/_utils/formatUtils";
+import AdminCommentHistory from "../../_components/AdminCommentHistory";
+import UnsavedChangesModal from "../../_components/UnsavedChangesModal";
+import ProductLockModal from "../../_components/ProductLockModal";
 
-// ✅ ADD THIS INTERFACE (at the top with other interfaces)
-interface AdminCommentHistory {
-  id: string;
-  productId: string;
-  oldComment: string | null;
-  newComment: string | null;
-  changedBy: string;
-  changedAt: string;
-}
 
 type CleanCartData = {
   orderMinimumQuantity: number | null;
@@ -63,11 +57,7 @@ const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 const [initialFormData, setInitialFormData] = useState<any>(null);
 const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 const [lastSavedData, setLastSavedData] = useState<any>(null);
-// ✅ CORRECT - Array type with brackets []
-const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
-const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
 
-const [loadingHistory, setLoadingHistory] = useState(false);
 const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
 
@@ -123,34 +113,7 @@ const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
 // ✅ ADD THESE FUNCTIONS (around line 300-400, after other helper functions)
 
-const fetchCommentHistory = async () => {
-  if (!productId) return;
-  
-  setLoadingHistory(true);
-  try {
-    const response = await apiClient.get<any>(`/api/Products/${productId}/admin-comment-history`);
-    
-    if (response.data?.success && Array.isArray(response.data.data)) {
-      const sortedHistory = [...response.data.data].sort((a, b) => 
-        new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime()
-      );
-      setCommentHistory(sortedHistory);
-    } else if (Array.isArray(response.data)) {
-      const sortedHistory = [...response.data].sort((a, b) => 
-        new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime()
-      );
-      setCommentHistory(sortedHistory);
-    } else {
-      setCommentHistory([]);
-    }
-  } catch (error: any) {
-    if (error.response?.status === 404) {
-      setCommentHistory([]);
-    }
-  } finally {
-    setLoadingHistory(false);
-  }
-};
+
 
 
 const handleVariantImageUpload = async (variantId: string, file: File) => {
@@ -590,7 +553,34 @@ if (formData.productType !== 'variable' && isEmpty(formData.sku)) {
 
   return { isValid: missing.length === 0, missing };
 };
-
+// Helper function to get list of changed fields
+const getChangedFieldsList = useCallback(() => {
+  const changes: string[] = [];
+  if (!initialFormData) return changes;
+  
+  if (formData.name !== initialFormData.name) changes.push('Product Name');
+  if (formData.sku !== initialFormData.sku) changes.push('SKU');
+  if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
+  if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
+  if (formData.productType !== initialFormData.productType) changes.push('Product Type');
+  if (formData.price !== initialFormData.price) changes.push('Price');
+  if (formData.oldPrice !== initialFormData.oldPrice) changes.push('Old Price');
+  if (formData.cost !== initialFormData.cost) changes.push('Cost');
+  if (JSON.stringify(formData.categoryIds) !== JSON.stringify(initialFormData.categoryIds)) 
+    changes.push('Categories');
+  if (JSON.stringify(formData.brandIds) !== JSON.stringify(initialFormData.brandIds)) 
+    changes.push('Brands');
+  if (formData.stockQuantity !== initialFormData.stockQuantity) changes.push('Stock');
+  if (formData.manageInventory !== initialFormData.manageInventory) changes.push('Inventory Management');
+  if (formData.isShipEnabled !== initialFormData.isShipEnabled) changes.push('Shipping Enabled');
+  if (formData.weight !== initialFormData.weight) changes.push('Weight');
+  if (formData.metaTitle !== initialFormData.metaTitle) changes.push('Meta Title');
+  if (formData.metaDescription !== initialFormData.metaDescription) changes.push('Meta Description');
+  if (formData.showOnHomepage !== initialFormData.showOnHomepage) changes.push('Show on Homepage');
+  if (formData.adminComment !== initialFormData.adminComment) changes.push('Admin Comment');
+  
+  return changes;
+}, [formData, initialFormData]);
 
 // Check Publish Requirements (Complete)
 const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => {
@@ -1279,9 +1269,9 @@ if (productData.variants && Array.isArray(productData.variants)) {
 
 
     } catch (error: any) {
-      console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
       console.error('❌ Error:', error);
       console.error('❌ Message:', error.message);
+      console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
       
       if (error.response) {
         console.error('❌ Status:', error.response.status);
@@ -2195,7 +2185,52 @@ const acquireProductLock = async (productId: string, isRefresh: boolean = false)
     return false;
   }
 };
+// ==================== RELEASE PRODUCT LOCK (USING SERVICE) ====================
+const releaseProductLock = async (productId: string): Promise<boolean> => {
+  if (!lockAcquiredRef.current) {
+    console.log('🔓 No lock to release');
+    return true;
+  }
 
+  try {
+    console.log('🔓 Releasing product lock...');
+    
+    // ✅ USE LOCK SERVICE (not productsService)
+    const response = await productLockService.releaseLock(productId);
+
+    console.log('🔓 LOCK: Release response:', response);
+
+    if (response.success) {
+      setProductLock(null);
+      lockAcquiredRef.current = false;
+      console.log('✅ Product lock released successfully');
+      
+      return true;
+    }
+
+    console.warn('⚠️ Lock release warning:', response.message);
+    return false;
+
+  } catch (error: any) {
+    console.error('❌ Failed to release lock:', error);
+
+    const errorMessage = error.message || 'Failed to release lock';
+
+    // Only show toast if not during unmount/cleanup
+    if (!document.hidden) {
+      toast.error(errorMessage);
+    }
+
+    lockAcquiredRef.current = false;
+    return false;
+  }
+};
+
+// ==================== HANDLERS ====================
+const handleCancel = async () => {
+  await releaseProductLock(productId);
+  router.push("/admin/products");
+};
 
 
 // ==================== HANDLE TAKEOVER REQUEST ====================
@@ -2269,52 +2304,7 @@ const closeTakeoverModal = () => {
   setTakeoverExpiryMinutes(10);
 };
 
-// ==================== RELEASE PRODUCT LOCK (USING SERVICE) ====================
-const releaseProductLock = async (productId: string): Promise<boolean> => {
-  if (!lockAcquiredRef.current) {
-    console.log('🔓 No lock to release');
-    return true;
-  }
 
-  try {
-    console.log('🔓 Releasing product lock...');
-    
-    // ✅ USE LOCK SERVICE (not productsService)
-    const response = await productLockService.releaseLock(productId);
-
-    console.log('🔓 LOCK: Release response:', response);
-
-    if (response.success) {
-      setProductLock(null);
-      lockAcquiredRef.current = false;
-      console.log('✅ Product lock released successfully');
-      
-      return true;
-    }
-
-    console.warn('⚠️ Lock release warning:', response.message);
-    return false;
-
-  } catch (error: any) {
-    console.error('❌ Failed to release lock:', error);
-
-    const errorMessage = error.message || 'Failed to release lock';
-
-    // Only show toast if not during unmount/cleanup
-    if (!document.hidden) {
-      toast.error(errorMessage);
-    }
-
-    lockAcquiredRef.current = false;
-    return false;
-  }
-};
-
-// ==================== HANDLERS ====================
-const handleCancel = async () => {
-  await releaseProductLock(productId);
-  router.push("/admin/products");
-};
 
 const handleModalClose = () => {
   setIsLockModalOpen(false);
@@ -4567,14 +4557,6 @@ const removeProductAttribute = (id: string) => {
 };
 
 
-
-
-
-
-
-
-
-
 // Slug generator for SEO-friendly names
 const generateSeoName = (text: string) => {
   return text
@@ -4585,10 +4567,6 @@ const generateSeoName = (text: string) => {
     .replace(/--+/g, "-")        // remove multiple hyphens
     .replace(/^-+|-+$/g, "");    // trim hyphens
 };
-
-
-
-
 
 // ✅ ADD: New handler function
 const handleGroupedProductsChange = (selectedIds: string[]) => {
@@ -6091,45 +6069,46 @@ const uploadImagesToProductDirect = async (
   </div>
 
 {/* Admin Comment */}
-<div className="space-y-2">
-  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-    Admin Comment
-  </h3>
-  
+<div className="space-y-3">
+
+  {/* HEADER + BUTTON */}
+  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+    <h3 className="text-lg font-semibold text-white">
+      Admin Comment
+    </h3>
+
+    <AdminCommentHistory 
+      productId={productId}
+      renderButton={(onClick, count) => (
+        <button
+          onClick={onClick}
+          className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm"
+        >
+          <History className="w-4 h-4" />
+          <span>History ({count})</span>
+        </button>
+      )}
+    />
+  </div>
+
+  {/* TEXTAREA */}
   <div>
-    <label className="block text-sm text-slate-400 mb-2 ">
+    <label className="block text-sm text-slate-400 mb-2">
       Internal Notes (Not visible to customers)
     </label>
+
     <textarea
       name="adminComment"
       value={formData.adminComment}
       onChange={handleChange}
       placeholder="Add internal notes about this product..."
       rows={4}
-      className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
+      className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl 
+                 text-white placeholder-slate-500 
+                 focus:ring-2 focus:ring-violet-500 focus:border-transparent 
+                 transition-all resize-none"
     />
   </div>
-{/* ✅ REPLACE <AdminCommentHistoryModal productId={productId} /> WITH THIS */}
-<button
-  type="button"
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCommentHistoryOpen(true);
-    fetchCommentHistory();
-  }}
-  className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 rounded-lg text-sm text-violet-400 hover:text-violet-300 transition-all"
->
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-  <span>View Comment History</span>
-  {commentHistory.length > 0 && (
-    <span className="px-2 py-0.5 bg-violet-500/20 rounded-full text-xs font-semibold">
-      {commentHistory.length}
-    </span>
-  )}
-</button>
 
 </div>
 
@@ -8123,115 +8102,13 @@ const uploadImagesToProductDirect = async (
 />
 
 {/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}
-{isLockModalOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div 
-      className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
-      onClick={handleModalClose}
-    />
-    
-    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border border-red-500/20 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-fade-in">
-      
-      {/* ✅ SYNCED HEADER - Single line with lock icon, title, and close button */}
-      <div className="relative flex items-center justify-between px-5 py-4 border-b border-slate-700/50">
-        {/* Left side: Lock icon + Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center flex-shrink-0">
-            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          
-          <h2 className="text-xl font-bold text-white">
-            Product Locked
-          </h2>
-        </div>
-        
-        {/* Right side: Close button with rotate effect */}
-        <button
-          onClick={handleModalClose}
-          className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all hover:rotate-90 duration-300"
-          title="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      
-      {/* ✅ MINIMIZED Body - Reduced padding and spacing */}
-      <div className="px-5 py-4 space-y-3">
-        
-        {/* Editor info card - Minimal padding */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
-              <Users className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-slate-400">Currently Editing</p>
-              <p className="text-white text-sm font-medium truncate">
-                {lockedByEmail || 'admin@ecommerce.com'}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Lock expiry info - Minimal padding */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
-              <Clock className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400">Lock Expires At</p>
-              <p className="text-white text-sm font-medium">
-                {productLock?.expiresAt 
-                  ? new Date(productLock.expiresAt).toLocaleString('en-IN', {
-                      timeZone: 'Asia/Kolkata',
-                      dateStyle: 'medium',
-                      timeStyle: 'short'
-                    })
-                  : '6 Jan 2026, 7:24 am IST'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Info alert - Minimal padding */}
-        <div className="flex items-start gap-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-          <Info className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-amber-200 text-sm font-medium">
-              What can you do?
-            </p>
-            <p className="text-amber-100/70 text-xs leading-relaxed mt-0.5">
-              Wait for the lock to expire automatically, or request takeover from the current editor to gain immediate access.
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      {/* ✅ MINIMIZED Footer - Reduced padding */}
-      <div className="px-5 py-3 bg-slate-900/50 border-t border-slate-700 flex gap-2.5">
-        <button
-          onClick={handleModalClose}
-          className="flex-1 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-xl font-medium transition-all flex items-center justify-center gap-2 group border border-slate-600"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Go Back
-        </button>
-        
-        <button
-          onClick={openTakeoverModal}
-          className="flex-1 px-3 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-sm rounded-xl font-medium transition-all transform hover:scale-105 flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25"
-        >
-          <Send className="w-4 h-4" />
-          Request Takeover
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+<ProductLockModal
+  isOpen={isLockModalOpen}
+  lockedByEmail={lockedByEmail}
+  expiresAt={productLock?.expiresAt}
+  onClose={handleModalClose}
+  onRequestTakeover={openTakeoverModal}
+/>
 
 
 
@@ -8261,406 +8138,23 @@ const uploadImagesToProductDirect = async (
     await handleSubmit(undefined, false, false);
   }}
 />
-{/* ✅ ADD THIS MODAL AT THE END (before last </div> of return) */}
-{isCommentHistoryOpen && (
-  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-    <div 
-      className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-2 border-violet-500/30 rounded-2xl shadow-2xl max-w-6xl w-full overflow-hidden"
-      style={{ maxHeight: '90vh' }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50 bg-slate-800/50">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
-            <svg className="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-white">Admin Comment History</h2>
-        </div>
-        <button
-          onClick={() => setIsCommentHistoryOpen(false)}
-          className="p-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-400 hover:text-white"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
 
-      {/* Content */}
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
-        {loadingHistory ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-violet-500 mx-auto mb-4"></div>
-              <p className="text-slate-400 text-sm">Loading history...</p>
-            </div>
-          </div>
-        ) : commentHistory.length === 0 ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="text-center">
-              <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <p className="text-slate-200 font-semibold text-lg mb-2">No comment history available</p>
-              <p className="text-slate-500 text-sm">Changes will appear here after admin comment updates</p>
-            </div>
-          </div>
-        ) : (
-          <div className="p-6">
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 bg-slate-800/95 backdrop-blur-sm z-10">
-                <tr className="border-b border-slate-700">
-                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase">#</th>
-                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[150px]">Changed By</th>
-                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[120px]">Date & Time</th>
-                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[200px]">Old Comment</th>
-                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[200px]">New Comment</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/30">
-                {commentHistory.map((entry, index) => (
-                  <tr key={entry.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-3">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-violet-500/20 text-violet-300 text-xs font-bold">
-                        {index + 1}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/30 to-purple-500/30 flex items-center justify-center">
-                          <span className="text-xs font-bold text-violet-300">
-                            {entry.changedBy.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-100 truncate">
-                            {entry.changedBy.split('@')[0]}
-                          </p>
-                          <p className="text-xs text-slate-500 truncate">{entry.changedBy}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <p className="text-sm text-slate-200">{formatDateOnly(entry.changedAt)}</p>
-                      <p className="text-xs text-slate-500">{formatTime(entry.changedAt)}</p>
-                    </td>
-                    <td className="py-3 px-3">
-                      {entry.oldComment ? (
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2">
-                          <p className="text-xs text-slate-200 line-clamp-2">{entry.oldComment}</p>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic">No previous comment</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3">
-                      {entry.newComment ? (
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2">
-                          <p className="text-xs text-slate-200 line-clamp-2">{entry.newComment}</p>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic">Comment removed</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+{/* UNSAVED CHANGES MODAL */}
+<UnsavedChangesModal
+  isOpen={showUnsavedModal}
+  missingFields={missingFields}
+  changedFieldsList={getChangedFieldsList()}
+  changedFieldsCount={getChangedFieldsList().length}
+  isSubmitting={isSubmitting}
+  onSaveDraft={handleModalSaveDraft}
+  onUpdate={handleModalUpdateProduct}
+  onDiscard={handleModalDiscard}
+  onCancel={handleModalCancel}
+  canSaveDraft={checkDraftRequirements().isValid}
+  canUpdate={missingFields.length === 0}
+/>
 
-      {/* Footer */}
-      {commentHistory.length > 0 && (
-        <div className="px-6 py-3 bg-slate-800/50 border-t border-slate-700 flex items-center justify-between">
-          <p className="text-sm text-slate-300">
-            Total Changes: <span className="font-bold text-violet-400">{commentHistory.length}</span>
-          </p>
-          <p className="text-xs text-slate-500">Latest changes shown first</p>
-        </div>
-      )}
-    </div>
-  </div>
-)}
-{/* ============================================================ */}
-{/* UNSAVED CHANGES MODAL - FIXED & COMPLETE */}
-{/* ============================================================ */}
-{showUnsavedModal && (
-  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
-    <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl shadow-2xl max-w-2xl w-full animate-slideUp">
-      {/* Header */}
-      <div className="px-6 py-5 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-            <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-white">Unsaved Changes Detected</h3>
-            <p className="text-sm text-slate-400 mt-0.5">You have made changes that haven't been saved yet</p>
-          </div>
 
-          <button onClick={handleModalCancel} className="text-slate-500 hover:text-white transition-colors p-1">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="px-6 py-5">
-        <p className="text-slate-300 text-sm mb-4">
-          Choose how you want to proceed with your changes:
-        </p>
-        
-        {/* Changed Fields Summary - COMPLETE VERSION */}
-        {(() => {
-          const changes: string[] = [];
-          
-          if (initialFormData) {
-            // ========== BASIC INFO ==========
-            if (formData.name !== initialFormData.name) changes.push('Product Name');
-            if (formData.sku !== initialFormData.sku) changes.push('SKU');
-            if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
-            if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
-            if (formData.productType !== initialFormData.productType) changes.push('Product Type');
-            if (formData.gender !== initialFormData.gender) changes.push('Gender');
-            if (formData.gtin !== initialFormData.gtin) changes.push('GTIN');
-            if (formData.manufacturerPartNumber !== initialFormData.manufacturerPartNumber) changes.push('MPN');
-            
-            // ========== PRICING ==========
-            if (formData.price !== initialFormData.price) changes.push('Price');
-            if (formData.oldPrice !== initialFormData.oldPrice) changes.push('Old Price');
-            if (formData.cost !== initialFormData.cost) changes.push('Cost');
-            
-            // ========== CATEGORIES & BRANDS ==========
-            if (JSON.stringify(formData.categoryIds) !== JSON.stringify(initialFormData.categoryIds)) 
-              changes.push('Categories');
-            if (JSON.stringify(formData.brandIds) !== JSON.stringify(initialFormData.brandIds)) 
-              changes.push('Brands');
-            
-            // ========== INVENTORY ==========
-            if (formData.stockQuantity !== initialFormData.stockQuantity) changes.push('Stock');
-            if (formData.manageInventory !== initialFormData.manageInventory) changes.push('Inventory Management');
-            if (formData.minStockQuantity !== initialFormData.minStockQuantity) changes.push('Min Stock');
-            if (formData.allowBackorder !== initialFormData.allowBackorder) changes.push('Backorder');
-            if (formData.displayStockAvailability !== initialFormData.displayStockAvailability) 
-              changes.push('Stock Display');
-            
-            // ========== IMAGES & MEDIA ==========
-            if (formData.productImages.length !== initialFormData.productImages.length) 
-              changes.push('Product Images');
-            if (JSON.stringify(formData.videoUrls) !== JSON.stringify(initialFormData.videoUrls)) 
-              changes.push('Video URLs');
-            
-            // ========== SHIPPING ==========
-            if (formData.isShipEnabled !== initialFormData.isShipEnabled) changes.push('Shipping Enabled');
-            if (formData.weight !== initialFormData.weight) changes.push('Weight');
-            if (formData.length !== initialFormData.length) changes.push('Length');
-            if (formData.width !== initialFormData.width) changes.push('Width');
-            if (formData.height !== initialFormData.height) changes.push('Height');
-            if (formData.sameDayDeliveryEnabled !== initialFormData.sameDayDeliveryEnabled) 
-              changes.push('Same Day Delivery');
-            if (formData.nextDayDeliveryEnabled !== initialFormData.nextDayDeliveryEnabled) 
-              changes.push('Next Day Delivery');
-            
-            // ========== TAX (VAT) ==========
-            if (formData.vatExempt !== initialFormData.vatExempt) changes.push('VAT Exempt');
-            if (formData.vatRateId !== initialFormData.vatRateId) changes.push('VAT Rate');
-            
-            // ========== ATTRIBUTES & VARIANTS ==========
-            if (JSON.stringify(productAttributes) !== JSON.stringify(initialFormData.attributes || [])) 
-              changes.push('Attributes');
-            if (JSON.stringify(productVariants) !== JSON.stringify(initialFormData.variants || [])) 
-              changes.push('Variants');
-            
-            // ========== SUBSCRIPTION ==========
-            if (formData.isRecurring !== initialFormData.isRecurring) changes.push('Subscription');
-            if (formData.recurringCycleLength !== initialFormData.recurringCycleLength) 
-              changes.push('Subscription Cycle');
-            
-            // ========== GROUPED PRODUCTS ==========
-            if (formData.requireOtherProducts !== initialFormData.requireOtherProducts) 
-              changes.push('Grouped Product');
-            if (formData.requiredProductIds !== initialFormData.requiredProductIds) 
-              changes.push('Required Products');
-            if (formData.groupBundleDiscountType !== initialFormData.groupBundleDiscountType) 
-              changes.push('Bundle Discount');
-            
-            // ========== SEO ==========
-            if (formData.metaTitle !== initialFormData.metaTitle) changes.push('Meta Title');
-            if (formData.metaDescription !== initialFormData.metaDescription) changes.push('Meta Description');
-            if (formData.metaKeywords !== initialFormData.metaKeywords) changes.push('Meta Keywords');
-            if (formData.searchEngineFriendlyPageName !== initialFormData.searchEngineFriendlyPageName) 
-              changes.push('SEO Slug');
-            
-            // ========== DISPLAY ==========
-            if (formData.showOnHomepage !== initialFormData.showOnHomepage) changes.push('Show on Homepage');
-            if (formData.visibleIndividually !== initialFormData.visibleIndividually) changes.push('Visibility');
-            if (formData.displayOrder !== initialFormData.displayOrder) changes.push('Display Order');
-            
-            // ========== CART SETTINGS ==========
-            if (formData.orderMinimumQuantity !== initialFormData.orderMinimumQuantity) changes.push('Min Cart Qty');
-            if (formData.orderMaximumQuantity !== initialFormData.orderMaximumQuantity) changes.push('Max Cart Qty');
-            if (formData.disableBuyButton !== initialFormData.disableBuyButton) changes.push('Buy Button');
-            
-            // ========== MARK AS NEW ==========
-            if (formData.markAsNew !== initialFormData.markAsNew) changes.push('Mark as New');
-            
-            // ========== RELATED PRODUCTS ==========
-            if (JSON.stringify(formData.relatedProducts) !== JSON.stringify(initialFormData.relatedProducts)) 
-              changes.push('Related Products');
-            if (JSON.stringify(formData.crossSellProducts) !== JSON.stringify(initialFormData.crossSellProducts)) 
-              changes.push('Cross-Sell Products');
-            
-            // ========== ADMIN COMMENT ==========
-            if (formData.adminComment !== initialFormData.adminComment) changes.push('Admin Comment');
-          }
-          
-          return changes.length > 0 ? (
-            <div className="mb-5 p-4 bg-slate-800/50 border border-slate-700 rounded-xl max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs font-semibold text-cyan-400 mb-1.5">
-                    Modified Fields ({changes.length})
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {changes.slice(0, 15).map((field, idx) => (
-                      <span 
-                        key={idx} 
-                        className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs rounded-md"
-                      >
-                        {field}
-                      </span>
-                    ))}
-                    {changes.length > 15 && (
-                      <span className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs rounded-md font-semibold">
-                        +{changes.length - 15} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null;
-        })()}
-
-        {/* Missing Fields Warning */}
-        {missingFields.length > 0 && (
-          <div className="mb-5 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
-            <div className="flex items-start gap-2">
-              <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-orange-300">
-                  ⚠️ {missingFields.length} required field{missingFields.length !== 1 ? 's' : ''} missing for publishing
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons Grid - 2x2 CONSISTENT LAYOUT */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Update Draft Button */}
-          <button
-            onClick={handleModalSaveDraft}
-            disabled={!checkDraftRequirements().isValid || isSubmitting}
-            className="group p-4 bg-slate-700 hover:bg-slate-600 border-2 border-transparent hover:border-slate-500 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-slate-600 group-hover:bg-slate-500 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                <Save className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-white text-sm mb-1">Update Draft</h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Save changes and leave. Publish later.
-                </p>
-              </div>
-            </div>
-          </button>
-
-          {/* Update Product Button */}
-          <button
-            onClick={handleModalUpdateProduct}
-            disabled={missingFields.length > 0 || isSubmitting}
-            className="group p-4 bg-gradient-to-br from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 border-2 border-transparent hover:border-violet-400 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent shadow-lg"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-white/20 group-hover:bg-white/30 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-white text-sm mb-1">Update Product</h4>
-                <p className="text-xs text-white/80 leading-relaxed">
-                  {missingFields.length > 0 
-                    ? `${missingFields.length} field${missingFields.length !== 1 ? 's' : ''} required`
-                    : 'Publish changes and leave'
-                  }
-                </p>
-              </div>
-            </div>
-          </button>
-
-          {/* Discard Changes Button */}
-          <button
-            onClick={handleModalDiscard}
-            disabled={isSubmitting}
-            className="group p-4 bg-red-500/10 hover:bg-red-500/20 border-2 border-red-500/30 hover:border-red-500/50 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-red-500/20 group-hover:bg-red-500/30 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                <X className="w-5 h-5 text-red-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-red-400 text-sm mb-1">Discard Changes</h4>
-                <p className="text-xs text-red-300/70 leading-relaxed">
-                  Leave without saving. All changes lost.
-                </p>
-              </div>
-            </div>
-          </button>
-
-          {/* Stay on Page Button */}
-          <button
-            onClick={handleModalCancel}
-            disabled={isSubmitting}
-            className="group p-4 bg-slate-800/50 hover:bg-slate-700/50 border-2 border-slate-700 hover:border-slate-600 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-slate-700 group-hover:bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-slate-300 text-sm mb-1">Stay on Page</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Continue editing. Don't leave yet.
-                </p>
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Footer Hint */}
-      <div className="px-6 py-3 bg-slate-800/30 rounded-b-2xl border-t border-slate-800">
-        <p className="text-xs text-slate-500 text-center">
-          💡 Tip: Press <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-slate-400">Esc</kbd> to stay on page
-        </p>
-      </div>
-    </div>
-  </div>
-)}
 
 
     </div>

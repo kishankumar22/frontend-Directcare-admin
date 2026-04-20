@@ -807,7 +807,9 @@ if (p.crossSellProductIds) {
     if (!images || images.length === 0) return;
     const mediaItems: MediaItem[] = images.map((img) => ({
       type: "image",
-      url:getProductImage( img.imageUrl),
+url: img.imageUrl?.startsWith("http")
+  ? img.imageUrl
+  : getProductImage(img.imageUrl),
       title: img.altText || productName,
       description: `${productName} - ${img.isMain ? "Main Image" : "Product Image"}`,
       isMain: img.isMain,
@@ -2318,22 +2320,43 @@ className={`border-b border-slate-800 transition-colors
     onChange={() => handleSelectProduct(product.id)}
     className="accent-violet-500"
   />
-                          <div className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
+                          <div className="w-10 h-10 rounded-md cursor-zoom-in hover:scale-105 transition bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
                             {product.image ? (
                               <img
-                                  src={product.image}                                                              
+                              src={imageUrl}                                                          
                                 alt={product.name}
                                 className="w-full h-full object-cover cursor-pointer hover:opacity-80"
                                  onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const res = await productsService.getById(product.id);
-                                    if (res.data?.success && res.data?.data?.images) {
-                                      viewProductImages(res.data.data.images, product.name, 0);
-                                    }
-                                  } catch {}
-                                }}
+onClick={async (e) => {
+  e.stopPropagation();
+
+  try {
+    const res = await productsService.getById(product.id);
+
+    const images = res?.data?.data?.images;
+    
+
+    if (Array.isArray(images) && images.length > 0) {
+      // ✅ REAL MULTI IMAGES
+      viewProductImages(images, product.name, 0);
+    } else if (product.image) {
+      // ✅ FALLBACK (single)
+      viewProductImages(
+        [
+          {
+            imageUrl: product.image,
+            isMain: true,
+            altText: product.name,
+          },
+        ],
+        product.name,
+        0
+      );
+    }
+  } catch (err) {
+    console.error("Image load failed", err);
+  }
+}}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-white">

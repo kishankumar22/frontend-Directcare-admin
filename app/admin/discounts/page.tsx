@@ -1395,9 +1395,9 @@ const filteredDiscounts = discounts.filter((discount) => {
 
                 {/* VALUE */}
                 <td className="py-2.5 px-3 text-center text-xs">
-                  <span className="text-white font-semibold">
-                    {formatDiscountValue(discount)}
-                  </span>
+                <span className="text-emerald-500 font-semibold">
+  {formatDiscountValue(discount)}
+</span>
 
                   {discount.maximumDiscountAmount && (
                     <p className="text-[10px] text-slate-500">
