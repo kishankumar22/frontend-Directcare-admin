@@ -2618,66 +2618,75 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
 
 // ==================== UPLOAD IMAGES TO PRODUCT (SERVICE-BASED) ====================
-const uploadImagesToProduct = async (productId: string, images: ProductImage[]) => {
-  console.log(`📤 Uploading ${images.length} images to product ${productId}...`);
+const uploadImagesToProduct = async (
+  productId: string,
+  images: ProductImage[]
+) => {
+  if (!productId) {
+    toast.error('Invalid product ID');
+    return [];
+  }
+
+  if (!Array.isArray(images) || images.length === 0) {
+    toast.warning('No images selected');
+    return [];
+  }
+
+  const MAX_IMAGES = 10;
+  const MAX_FILE_SIZE = 1 * 1024 * 1024;
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+  const uploadFormData = new FormData();
+  let validImageCount = 0;
+
+  images.forEach((image, index) => {
+    if (!image.file) return;
+
+    const file = image.file;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.warning(`${file.name}: format not supported`);
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast.warning(`${file.name}: exceeds 1MB`);
+      return;
+    }
+
+    if (validImageCount >= MAX_IMAGES) {
+      toast.warning(`Maximum ${MAX_IMAGES} images allowed`);
+      return;
+    }
+
+    // ✅ REQUIRED FIELDS (missing in your code)
+    uploadFormData.append('images', file);
+
+    uploadFormData.append(
+      'altText',
+      file.name.replace(/\.[^/.]+$/, '')
+    );
+
+    uploadFormData.append(
+      'sortOrder',
+      (index + 1).toString()
+    );
+
+    uploadFormData.append(
+      'isMain',
+      (index === 0).toString()
+    );
+
+    validImageCount++;
+  });
+
+  if (validImageCount === 0) {
+    toast.warning('No valid images to upload');
+    return [];
+  }
 
   try {
-    // BASIC VALIDATIONS
-    if (!productId) {
-      toast.error('Invalid product ID');
-      return;
-    }
-
-    if (!Array.isArray(images) || images.length === 0) {
-      toast.warning('No images selected');
-      return;
-    }
-
-    const MAX_IMAGES = 10;
-    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-    const uploadFormData = new FormData();
-    let validImageCount = 0;
-
-    images.forEach((image) => {
-      if (!image.file) return;
-
-      const file = image.file;
-
-      // File type validation
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        toast.warning(`${file.name}: format not supported`);
-        return;
-      }
-
-      // File size validation
-      if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`${file.name}: exceeds 1MB`);
-        return;
-      }
-
-      // Max image limit
-      if (validImageCount >= MAX_IMAGES) {
-        toast.warning(`Maximum ${MAX_IMAGES} images allowed`);
-        return;
-      }
-
-      uploadFormData.append('images', file);
-      validImageCount++;
-    });
-
-    if (validImageCount === 0) {
-      toast.warning('No valid images to upload');
-      return;
-    }
-
-    console.log(`✅ Uploading ${validImageCount} images in batch...`);
-
-    // ✅ USE SERVICE
     const response = await productsService.addImages(productId, uploadFormData);
-
-    console.log('📥 Upload response:', response);
 
     if (!response?.data?.success || !Array.isArray(response.data.data)) {
       throw new Error(response?.data?.message || 'Invalid server response');
@@ -2685,13 +2694,13 @@ const uploadImagesToProduct = async (productId: string, images: ProductImage[]) 
 
     toast.success(`${response.data.data.length} images uploaded successfully`);
     return response.data.data;
+
   } catch (error: any) {
-    console.error('❌ Error in uploadImagesToProduct:', error);
+    console.error('❌ Upload error:', error);
     toast.error(`Failed to upload images: ${error.message}`);
     return [];
   }
 };
-
 // ==================== UPLOAD VARIANT IMAGES (SERVICE-BASED) ====================
 const uploadVariantImages = async (productResponse: any) => {
   console.log('📤 Checking for variant images to upload...');

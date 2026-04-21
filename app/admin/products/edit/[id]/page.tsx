@@ -20,15 +20,14 @@ import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
 import { MultiCategorySelector } from "../../MultiCategorySelector";
 import RequestTakeoverModal from "../../RequestTakeoverModal";
-
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
-import { categoriesService, CategoryApiResponse } from "@/lib/services/categories";
-import { formatDateOnly,  formatTime } from "@/app/admin/_utils/formatUtils";
+import { categoriesService} from "@/lib/services/categories";
+
 import AdminCommentHistory from "../../_components/AdminCommentHistory";
 import UnsavedChangesModal from "../../_components/UnsavedChangesModal";
 import ProductLockModal from "../../_components/ProductLockModal";
@@ -1942,16 +1941,6 @@ const handleTakeoverActionComplete = () => {
   setTakeoverRequest(null);
   setPendingTakeoverRequests([]);
 };
-
-const handleReopenTakeoverModal = () => {
-  if (takeoverRequest) {
-    setIsTakeoverModalOpen(true);
-  }
-};
-
-
-
-
 
 
 
@@ -4619,21 +4608,6 @@ const toggleAttributeVariation = (id: string) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ✅ REPLACE existing handleImageUpload function:
 const ALLOWED_TYPES = [
   "image/webp",
@@ -4821,7 +4795,7 @@ const removeImage = async (imageId: string) => {
   const imageToRemove = formData.productImages.find(img => img.id === imageId);
   if (!imageToRemove) return;
 
-  // If it's a blob URL (newly uploaded), just remove from state
+  // Blob image → local only
   if (imageToRemove.imageUrl.startsWith('blob:')) {
     URL.revokeObjectURL(imageToRemove.imageUrl);
     setFormData({
@@ -4831,31 +4805,22 @@ const removeImage = async (imageId: string) => {
     return;
   }
 
-  // If it's an existing image from database, call delete API
   setIsDeletingImage(true);
-  
-  try {
-    const token = localStorage.getItem('authToken');
-    
-    const deleteResponse = await fetch(
-      `${API_BASE_URL}/api/Products/images/${imageId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-      }
-    );
 
-    if (deleteResponse.ok) {
+  try {
+    // ✅ Replace fetch with service
+    const response = await productsService.deleteImage(imageId);
+
+    // ⚠️ Important: match your API response structure
+    if (response?.data?.success || response?.status === 200 || response?.status === 204) {
       toast.success('Image deleted successfully! 🗑️');
+
       setFormData({
         ...formData,
         productImages: formData.productImages.filter(img => img.id !== imageId)
       });
     } else {
-      const errorData = await deleteResponse.json().catch(() => ({ message: 'Failed to delete image' }));
-      throw new Error(errorData.message || 'Failed to delete image');
+      throw new Error(response?.data?.message || 'Failed to delete image');
     }
 
   } catch (error: any) {
@@ -4865,15 +4830,10 @@ const removeImage = async (imageId: string) => {
     setIsDeletingImage(false);
   }
 };
-// ✅ ADD this new function:
 const uploadImagesToProductDirect = async (
   productId: string,
   files: File[]
 ): Promise<ProductImage[]> => {
-
-  /* =======================
-     BASIC VALIDATIONS
-  ======================= */
 
   if (!productId) {
     toast.error('❌ Invalid product ID');
@@ -4885,114 +4845,91 @@ const uploadImagesToProductDirect = async (
     return [];
   }
 
-  const token = localStorage.getItem('authToken');
-  if (!token) {
-    toast.error('❌ Authentication required');
-    return [];
-  }
-
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
   const MAX_IMAGES = 10;
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-  const uploadPromises = files.map(async (file, index) => {
-    try {
-      /* =======================
-         FILE VALIDATIONS
-      ======================= */
+  const baseLength = formData.productImages.length;
 
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        toast.warning(`⚠️ ${file.name} format not supported`);
-        return null;
-      }
+  /* =======================
+     VALIDATE FIRST (no API calls yet)
+  ======================= */
 
-      if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`⚠️ ${file.name} exceeds 5MB`);
-        return null;
-      }
+  const validFiles: File[] = [];
 
-      if (formData.productImages.length + index >= MAX_IMAGES) {
-        toast.warning(`⚠️ Maximum ${MAX_IMAGES} images allowed`);
-        return null;
-      }
-
-      /* =======================
-         FORM DATA
-      ======================= */
-
-      const uploadFormData = new FormData();
-      uploadFormData.append('images', file);
-      uploadFormData.append(
-        'altText',
-        file.name.replace(/\.[^/.]+$/, '')
-      );
-      uploadFormData.append(
-        'sortOrder',
-        (formData.productImages.length + index + 1).toString()
-      );
-      uploadFormData.append(
-        'isMain',
-        (formData.productImages.length === 0 && index === 0).toString()
-      );
-
-      /* =======================
-         API REQUEST
-      ======================= */
-
-      const uploadResponse = await fetch(
-        `${API_BASE_URL}/api/Products/${productId}/images?name=${encodeURIComponent(
-          formData.name
-        )}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            // ❌ Do not set Content-Type
-          },
-          body: uploadFormData,
-        }
-      );
-
-      if (!uploadResponse.ok) {
-        let errorMessage = `Upload failed (HTTP ${uploadResponse.status})`;
-
-        try {
-          const errorJson = await uploadResponse.json();
-          errorMessage = errorJson.message || errorMessage;
-        } catch {
-          const errorText = await uploadResponse.text();
-          if (errorText) errorMessage = errorText.substring(0, 200);
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      const result = await uploadResponse.json();
-
-      if (!result?.success || !result.data) {
-        throw new Error('Invalid server response');
-      }
-
-      return Array.isArray(result.data)
-        ? result.data[0]
-        : result.data;
-
-    } catch (error: any) {
-      console.error(`❌ Error uploading ${file.name}:`, error);
-      toast.error(`Failed to upload ${file.name}`);
-      return null;
+  files.forEach((file, index) => {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.warning(`⚠️ ${file.name} format not supported`);
+      return;
     }
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast.warning(`⚠️ ${file.name} exceeds 5MB`);
+      return;
+    }
+
+    if (baseLength + validFiles.length >= MAX_IMAGES) {
+      toast.warning(`⚠️ Maximum ${MAX_IMAGES} images allowed`);
+      return;
+    }
+
+    validFiles.push(file);
+  });
+
+  if (validFiles.length === 0) return [];
+
+  /* =======================
+     BUILD SINGLE FORM DATA (BATCH UPLOAD)
+  ======================= */
+
+  const uploadFormData = new FormData();
+
+  validFiles.forEach((file, index) => {
+    uploadFormData.append('images', file);
+
+    uploadFormData.append(
+      'altText',
+      file.name.replace(/\.[^/.]+$/, '')
+    );
+
+    uploadFormData.append(
+      'sortOrder',
+      (baseLength + index + 1).toString()
+    );
+
+    uploadFormData.append(
+      'isMain',
+      (baseLength === 0 && index === 0).toString()
+    );
   });
 
   /* =======================
-     FINAL RESULT
+     API CALL (SINGLE REQUEST)
   ======================= */
 
-  const results = await Promise.all(uploadPromises);
-  return results.filter(Boolean) as ProductImage[];
+  try {
+    const response = await productsService.addImages(
+      productId,
+      uploadFormData,
+      formData.name
+    );
+
+    const result = response?.data;
+
+    if (!result?.success || !Array.isArray(result.data)) {
+      throw new Error(result?.message || 'Invalid server response');
+    }
+
+    toast.success('Images uploaded successfully 📸');
+
+    return result.data;
+
+  } catch (error: any) {
+    console.error('❌ Upload error:', error);
+    toast.error(error?.message || 'Failed to upload images');
+    return [];
+  }
 };
-
-
 // Add this before your main JSX return
 // if (loading) {
 //   return (
@@ -6079,15 +6016,12 @@ const uploadImagesToProductDirect = async (
 
     <AdminCommentHistory 
       productId={productId}
-      renderButton={(onClick, count) => (
-        <button
-          onClick={onClick}
-          className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm"
-        >
-          <History className="w-4 h-4" />
-          <span>History ({count})</span>
-        </button>
-      )}
+      renderButton={(onClick) => (
+  <button onClick={onClick}
+     className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm">
+    Comment History
+  </button>
+)}
     />
   </div>
 

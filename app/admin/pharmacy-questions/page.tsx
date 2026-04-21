@@ -177,71 +177,8 @@ else if (viewMode === "inactive") {
 
 
 
- 
-// ✅ Update applyFilters function
-const applyFilters = (questionsList: PharmacyQuestion[]) => {
-  let filtered = [...questionsList];
-
-  // Search Filter
-  if (debouncedSearchTerm) {
-    filtered = filtered.filter((q) =>
-      q.questionText.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-    );
-  }
-
-  // Status Filter (from dropdown)
-  if (statusFilter === "active") {
-    filtered = filtered.filter((q) => q.isActive);
-  } else if (statusFilter === "inactive") {
-    filtered = filtered.filter((q) => !q.isActive);
-  }
-
-  // View Mode Filter (from stats cards)
-  if (viewMode === "active") {
-    filtered = filtered.filter((q) => q.isActive);
-  } else if (viewMode === "inactive") {
-    filtered = filtered.filter((q) => !q.isActive);
-  }
-
-  return filtered;
-};
-
-// ✅ Update clearFilters function
-const clearFilters = () => {
-  setSearchTerm("");
-  setStatusFilter("all");
-  setViewMode("all");
-  setCurrentPage(1);
-};
 
 
-
-  const applySorting = (questionsList: PharmacyQuestion[]) => {
-    const sorted = [...questionsList];
-
-    sorted.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortField) {
-        case "questionText":
-          comparison = a.questionText.localeCompare(b.questionText);
-          break;
-        case "displayOrder":
-          comparison = a.displayOrder - b.displayOrder;
-          break;
-        case "createdAt":
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          break;
-        case "optionsCount":
-          comparison = a.options.length - b.options.length;
-          break;
-      }
-
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-
-    return sorted;
-  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

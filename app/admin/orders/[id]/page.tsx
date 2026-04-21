@@ -566,7 +566,9 @@ const canUpdateStatus =
   });
 
   // 💰 PAYMENT ACTIONS
-if (order.paymentStatus === 'Pending') {
+const isOrderActive = !['Cancelled', 'Refunded'].includes(order.status);
+
+if (order.paymentStatus === 'Pending' && isOrderActive) {
   actions.push({
     label: 'Mark Paid',
     action: 'mark-paid',
@@ -620,15 +622,18 @@ if (order.paymentStatus === 'Pending') {
     category: 'financial',
   });
 
-  if (canRefund || canRefundShippingArg) {
-    actions.push({
-      label: 'Refund',
-      action: 'refund',
-      icon: <RotateCcw className="h-3.5 w-3.5" />,
-      color: 'bg-red-600 hover:bg-red-700',
-      category: 'financial',
-    });
-  }
+if (
+  (canRefund || canRefundShippingArg)
+  && order.paymentMethod === 'Stripe'  // hide  this button when payment is not done through stripe as we cannot process refunds for other payment methods
+) {
+  actions.push({
+    label: 'Refund',
+    action: 'refund',
+    icon: <RotateCcw className="h-3.5 w-3.5" />,
+    color: 'bg-red-600 hover:bg-red-700',
+    category: 'financial',
+  });
+}
 
   return actions;
 };
@@ -1251,6 +1256,8 @@ const isOrderEditable = () => {
 
   return isEditableStatus && !isClickAndCollect;
 };
+
+
 
 const canRefund = () => {
   if (!order) return false;

@@ -28,9 +28,10 @@ async function getDeliveryData(slug: string) {
 export default async function DeliveryPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const data = await getDeliveryData(params.slug);
+  const { slug } = await params;
+  const data = await getDeliveryData(slug);
 
   if (!data) return notFound();
 

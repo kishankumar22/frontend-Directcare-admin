@@ -1,6 +1,77 @@
 import { apiClient } from "../api";
 import { API_ENDPOINTS } from "../api-config";
 
+// ================= CONTACT TYPES =================
+
+export interface ContactItem {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  subject?: string;
+  message?: string;
+  status?: string;
+  category?: string;
+  assignedTo?: string;
+  adminReply?: string;
+  internalNotes?: string;
+  repliedAt?: string;
+  repliedBy?: string;
+  orderNumber?: string;
+  createdAt: string;
+}
+
+export interface ContactListData {
+  items: ContactItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
+export interface ContactListResponse {
+  success: boolean;
+  message?: string;
+  data: ContactListData;
+  errors?: string[];
+}
+
+export interface ContactActionResponse {
+  success: boolean;
+  message?: string;
+  data?: any;
+  errors?: string[];
+}
+
+// ================= CONTACT SERVICE =================
+
+export const contactService = {
+  getAll: (params: {
+    page?: number;
+    pageSize?: number;
+    status?: string;
+    category?: string;
+    search?: string;
+  }) =>
+    apiClient.get<ContactListResponse>(API_ENDPOINTS.contact, { params }),
+
+  reply: (
+    id: string,
+    data: { reply: string; internalNotes?: string; assignedTo?: string }
+  ) =>
+    apiClient.post<ContactActionResponse>(
+      `${API_ENDPOINTS.contact}/${id}/reply`,
+      data
+    ),
+
+  delete: (id: string) =>
+    apiClient.delete<ContactActionResponse>(
+      `${API_ENDPOINTS.contact}/${id}`
+    ),
+};
+
 // ================= TYPES =================
 
 export interface FeatureCard {

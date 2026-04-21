@@ -661,18 +661,18 @@ restore: async (id: string) => {
   // ==========================================
   // IMAGE MANAGEMENT
   // ==========================================
-
-  addImages: async (productId: string, images: FormData) => {
-    return apiClient.post<ApiResponse<ProductImage[]>>(
-      `${API_ENDPOINTS.products}/${productId}/images`,
-      images,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-  },
+addImages: async (
+  productId: string,
+  images: FormData,
+  name?: string
+) => {
+  return apiClient.post<ApiResponse<ProductImage[]>>(
+    `${API_ENDPOINTS.products}/${productId}/images${
+      name ? `?name=${encodeURIComponent(name)}` : ''
+    }`,
+    images
+  );
+},
 
   deleteImage: async (imageId: string) => {
     return apiClient.delete<ApiResponse<void>>(
