@@ -651,7 +651,7 @@ if (selectedType.value !== "all") {
 
 // ✅ ADD THIS
 setApiStats(apiData.stats);
-console.log("STATS 👉", apiData.stats);
+// console.log("STATS 👉", apiData.stats);
       setProducts(formattedProducts);
 setSelectedProducts([]);
       // Related Products Map

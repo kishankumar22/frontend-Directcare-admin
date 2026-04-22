@@ -161,6 +161,7 @@ export default function DiscountModals(props: DiscountModalsProps) {
   const filteredProducts = useMemo(() => {
   const seen = new Set();
 
+
   return categoryFilteredProductOptions.filter(opt => {
     if (seen.has(opt.value)) return false;
     seen.add(opt.value);
@@ -168,20 +169,17 @@ export default function DiscountModals(props: DiscountModalsProps) {
   });
 }, [categoryFilteredProductOptions]);
 const mergedOptions = useMemo(() => {
-  const seen = new Set();
+  const map = new Map();
 
-  return [...products, ...selectedProducts]
-    .filter(p => {
-      if (seen.has(p.id)) return false;
-      seen.add(p.id);
-      return true;
-    })
-    .map(p => ({
+  [...products, ...selectedProducts].forEach(p => {
+    map.set(p.id, {
       value: p.id,
       label: p.name
-    }));
-}, [products, selectedProducts]);
+    });
+  });
 
+  return Array.from(map.values());
+}, [products, selectedProducts]);
 
   useEffect(() => {
   if (editingDiscount?.assignedProductIds) {
@@ -215,6 +213,38 @@ const productMap = useMemo(() => {
 
   return map;
 }, [products, selectedProducts]);
+
+useEffect(() => {
+  const missingIds = formData.assignedProductIds.filter(
+    id => !productMap.has(id)
+  );
+
+  if (missingIds.length === 0) return;
+
+  const fetchMissing = async () => {
+    try {
+      const res = await Promise.all(
+        missingIds.map(id => productsService.getById(id))
+      );
+
+      const newProducts: Product[] = res
+        .map(r => r?.data?.data)
+        .filter((p): p is Product => Boolean(p));
+
+      setSelectedProducts(prev => {
+        const map = new Map(prev.map(p => [p.id, p]));
+        newProducts.forEach(p => map.set(p.id, p));
+        return Array.from(map.values());
+      });
+
+    } catch (e) {
+      console.error("Failed to fetch missing selected products", e);
+    }
+  };
+
+  fetchMissing();
+}, [formData.assignedProductIds, productMap]);
+
   const MultiValueLabel = (props: any) => {
   const { data } = props;
 
@@ -625,16 +655,28 @@ useEffect(() => {
 <Select
   isMulti
   options={mergedOptions}
-  value={mergedOptions.filter(opt =>
-    formData.assignedProductIds.includes(opt.value)
-  )}
+value={formData.assignedProductIds.map(id => {
+  const p = productMap.get(id);
+  return p ? { value: p.id, label: p.name } : null;
+}).filter(Boolean)}
 
-  onChange={(selectedOptions) => {
-    const ids = selectedOptions
-      ? selectedOptions.map((opt) => opt.value)
-      : [];
-    setFormData({ ...formData, assignedProductIds: ids });
-  }}
+onChange={(selectedOptions) => {
+  const ids = (selectedOptions || [])
+    .map((opt: any) => opt?.value)
+    .filter(Boolean);
+
+  setFormData({
+    ...formData,
+    assignedProductIds: ids
+  });
+
+  // 🔥 IMPORTANT: keep selectedProducts updated
+  const selected = ids
+    .map(id => productMap.get(id))
+    .filter(Boolean);
+
+  setSelectedProducts(selected as Product[]);
+}}
 
   onInputChange={(input) => {
     setProductSearchTerm(input);

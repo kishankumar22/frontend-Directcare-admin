@@ -624,7 +624,7 @@ if (order.paymentStatus === 'Pending' && isOrderActive) {
 
 if (
   (canRefund || canRefundShippingArg)
-  && order.paymentMethod === 'Stripe'  // hide  this button when payment is not done through stripe as we cannot process refunds for other payment methods
+  // && order.paymentMethod === 'Stripe'  // hide  this button when payment is not done through stripe as we cannot process refunds for other payment methods
 ) {
   actions.push({
     label: 'Refund',

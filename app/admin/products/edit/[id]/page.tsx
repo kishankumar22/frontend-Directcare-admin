@@ -1942,8 +1942,6 @@ const handleTakeoverActionComplete = () => {
   setPendingTakeoverRequests([]);
 };
 
-
-
 // ✅ State to track if component is mounted
 const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -2367,28 +2365,6 @@ if (checkingSku) {
     return;
   }
 
-  if (isAcquiringLock) {
-    toast.warning('⏳ Acquiring edit lock... Please wait a moment.');
-    return;
-  }
-
-  if (!productLock || !productLock.isLocked) {
-    toast.error('❌ Cannot save: Product edit lock not acquired.');
-    return;
-  }
-
-  // Check lock expiry
-  if (productLock.expiresAt) {
-    const expiryTime = new Date(productLock.expiresAt).getTime();
-    const currentTime = new Date().getTime();
-
-    if (currentTime >= expiryTime) {
-      toast.error('⏰ Your edit lock has expired. Refreshing...');
-      await acquireProductLock(productId);
-      return;
-    }
-  }
-
   target.setAttribute('data-submitting', 'true');
   setIsSubmitting(true); // ✅ START LOADER
 
@@ -2678,7 +2654,7 @@ if (parsedCost !== null && parsedPrice !== null && parsedCost > parsedPrice) {
       }
     }
 
-// ================= HOMEPAGE LIMIT CHECK (OPTIMIZED) =================
+
 // ================= HOMEPAGE LIMIT CHECK (CLEAN & OPTIMIZED) =================
 if (formData.showOnHomepage) {
   try {
@@ -2694,7 +2670,7 @@ if (formData.showOnHomepage) {
     if (finalCount > MAX_HOMEPAGE) {
       toast.error(
         `❌ Homepage product limit reached (${MAX_HOMEPAGE} maximum). Please remove other products first.`,
-        { autoClose: 8000, position: 'top-center' }
+        { autoClose: 5000, position: 'top-center' }
       );
       target.removeAttribute('data-submitting');
       setIsSubmitting(false);
@@ -3769,15 +3745,8 @@ if (!isDraft && formData.productImages.length < 2) {
 console.log("🚀 FINAL PAYLOAD:", productData);
     console.log('🚀 API: Updating product...');
   const response = await productsService.update(productId, productData);
-  console.log(
-  "📦 PAYLOAD SIZE (KB):",
-  JSON.stringify(productData).length / 1024
-);
-
-
     if (response.data) {
       const apiResponse = response.data;
-
       if (apiResponse.success === true || apiResponse.success === undefined) {
         // ✅ PROGRESS: 100% - Success
         setSubmitProgress({
@@ -3789,14 +3758,14 @@ console.log("🚀 FINAL PAYLOAD:", productData);
           isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
           { autoClose: 3000 }
         );
-
-        if (releaseLockAfter) {
-          try {
-            await productLockService.releaseLock(productId);
-          } catch (lockError) {
-            console.warn('⚠️ Failed to release lock:', lockError);
-          }
-        }
+  // await productLockService.releaseLock(productId);
+        // if (releaseLockAfter) {
+        //   try {
+            // await productLockService.releaseLock(productId);
+        //   } catch (lockError) {
+        //     console.warn('⚠️ Failed to release lock:', lockError);
+        //   }
+        // }
 
         setTimeout(() => {
           router.push('/admin/products');
@@ -4468,15 +4437,9 @@ if (name === 'showOnHomepage') {
   }));
 };
 
-
-
-
 // ============================================
 // 🔥 FULL IMPLEMENTATION
 // ============================================
-
-
-
 // DELETE ATTRIBUTE - PRODUCTION READY
 const deleteProductAttribute = async (productId: string, attributeId: string) => {
   const previousAttributes = [...productAttributes];
@@ -4600,14 +4563,6 @@ const toggleAttributeVariation = (id: string) => {
   }));
 };
 
-
-
-
-
-
-
-
-
 // ✅ REPLACE existing handleImageUpload function:
 const ALLOWED_TYPES = [
   "image/webp",
@@ -4621,7 +4576,7 @@ const ALLOWED_TYPES = [
 
 const MAX_SIZE = 500 * 1024;     // 500 KB hard limit
 const WARN_SIZE = 300 * 1024;    // 300 KB recommended
-const MIN_IMAGES = 5;
+const MIN_IMAGES = 2;
 const MAX_IMAGES = 10;
 
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -4683,10 +4638,10 @@ if (formData.productImages && formData.productImages.length > 0) {
   const totalAfterUpload =
     formData.productImages.length + files.length;
 
-  // if (totalAfterUpload < MIN_IMAGES) {
-  //   toast.error(`❌ Minimum ${MIN_IMAGES} images are required for a product`);
-  //   return;
-  // }
+  if (totalAfterUpload < MIN_IMAGES) {
+    toast.error(`❌ Minimum ${MIN_IMAGES} images are required for a product`);
+    return;
+  }
 
   const validatedFiles: File[] = [];
 
