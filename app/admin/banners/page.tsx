@@ -945,14 +945,20 @@ const handleSubmit = async (e: React.FormEvent) => {
                       }}
                     />
 
-                    {banner.link && (
-                      <div className="flex items-center gap-1">
-                        <ExternalLink className="h-3 w-3 text-slate-500" />
-                        <span className="text-[10px] text-slate-500 truncate">
-                          {banner.link}
-                        </span>
-                      </div>
-                    )}
+                   {banner.link && (
+  <a
+    href={banner.link}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex items-center gap-1 group cursor-pointer"
+  >
+    <ExternalLink className="h-3 w-3 text-slate-500 group-hover:text-violet-400 transition-colors" />
+    
+    <span className="text-[10px] text-slate-500 truncate group-hover:text-violet-400 group-hover:underline transition-all">
+      {banner.link}
+    </span>
+  </a>
+)}
                   </div>
                 </div>
               </td>
@@ -1631,34 +1637,59 @@ const handleSubmit = async (e: React.FormEvent) => {
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
     <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
       <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-              Banner Details
-            </h2>
-            <p className="text-slate-300 text-xs mt-1 font-medium">ID: {viewingBanner.id}</p>
-          </div>
-          <button
-            onClick={() => setViewingBanner(null)}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-          >
-            ✕
-          </button>
-        </div>
+        <div className="flex items-start justify-between gap-4">
+
+  {/* LEFT CONTENT */}
+  <div className="flex flex-col gap-1">
+
+    {/* Heading */}
+    <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Banner Details
+    </h2>
+
+    {/* Title + Link */}
+    <div className="flex items-center gap-2 flex-wrap">
+      <p className="text-base font-semibold text-white">
+        {viewingBanner.title || 'Untitled'}
+      </p>
+
+      {viewingBanner.link && (
+        <a
+          href={viewingBanner.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-violet-400 hover:text-violet-300 text-sm transition-all hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          <span className="truncate max-w-[200px]">
+            Open Link
+          </span>
+        </a>
+      )}
+    </div>
+
+  </div>
+
+  {/* CLOSE BUTTON */}
+  <button
+    onClick={() => setViewingBanner(null)}
+    className="flex items-center justify-center w-9 h-9 rounded-lg 
+               bg-slate-800/60 border border-slate-700
+               text-slate-400 hover:text-white 
+               hover:bg-red-500/20 hover:border-red-500/50
+               transition-all"
+  >
+    ✕
+  </button>
+
+</div>
       </div>
       
       <div className="p-4 overflow-y-auto max-h-[calc(90vh-180px)]">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           {/* Left Column - Basic Information */}
-          <div className="space-y-4">
-            {/* Title */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-sm text-slate-300 font-semibold whitespace-nowrap pt-1">Title:</span>
-                <p className="text-base font-bold text-white text-right flex-1">{viewingBanner.title || 'Untitled'}</p>
-              </div>
-            </div>
-
+          <div className="space-y-2">
+      
             {/* Banner Type, Status & Display Order */}
             <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
               <div className="flex items-center justify-between">
@@ -1691,87 +1722,66 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             </div>
 
-            {/* Description */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-              <p className="text-sm text-slate-300 font-semibold mb-2">Description:</p>
-              <div
-                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"
-                dangerouslySetInnerHTML={{
-                  __html: viewingBanner.description || "No description",
-                }}
-              />
-            </div>
-
-            {/* Link URL */}
-            {viewingBanner.link && (
-              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                <p className="text-sm text-slate-300 font-semibold mb-2">Link URL:</p>
-                <a
-                  href={viewingBanner.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-violet-400 hover:text-violet-300 text-sm flex items-center gap-1 break-all font-medium"
-                >
-                  {viewingBanner.link}
-                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                </a>
-              </div>
-            )}
+       
 
             {/* Banner Image */}
-<div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-4">
+<div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-  {/* DESKTOP IMAGE */}
-  {viewingBanner.imageUrl && (
-    <div>
-      <p className="text-xs text-cyan-400 mb-2 font-semibold">Desktop Image</p>
+    {/* DESKTOP IMAGE */}
+    {viewingBanner.imageUrl && (
+      <div>
+        <p className="text-xs text-cyan-400 mb-2 font-semibold">Desktop Image</p>
 
-      <div
-        className="rounded-lg overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500"
-        onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.imageUrl))}
-      >
-        <img
-          src={getImageUrl(viewingBanner.imageUrl)}
-          alt="Desktop Banner"
-          className="w-full h-auto object-cover"
-          onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-        />
+        <div
+          className="rounded-lg overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500"
+          onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.imageUrl))}
+        >
+          <img
+            src={getImageUrl(viewingBanner.imageUrl)}
+            alt="Desktop Banner"
+            className="w-full h-48 object-cover"
+          />
+        </div>
+
+        <p className="text-[10px] text-slate-400 mt-1 break-all">
+          {viewingBanner.imageUrl}
+        </p>
       </div>
+    )}
 
-      <p className="text-[10px] text-slate-400 mt-1 break-all">
-        {viewingBanner.imageUrl}
-      </p>
-    </div>
-  )}
+    {/* MOBILE IMAGE */}
+    {viewingBanner.mobileImageUrl && (
+      <div>
+        <p className="text-xs text-pink-400 mb-2 font-semibold">Mobile Image</p>
 
-  {/* MOBILE IMAGE */}
-  {viewingBanner.mobileImageUrl && (
-    <div>
-      <p className="text-xs text-pink-400 mb-2 font-semibold">Mobile Image</p>
+        <div
+          className="rounded-lg overflow-hidden border-2 border-pink-500/20 cursor-pointer hover:border-pink-500"
+          onClick={() =>
+  setSelectedImageUrl(
+    getImageUrl(viewingBanner.mobileImageUrl ?? undefined)
+  )
+}
+        >
+          <img
+            src={getImageUrl(viewingBanner.mobileImageUrl)}
+            alt="Mobile Banner"
+            className="w-full h-48 object-contain bg-black"
+          />
+        </div>
 
-      <div
-        className="rounded-lg overflow-hidden border-2 border-pink-500/20 cursor-pointer hover:border-pink-500"
-        onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.mobileImageUrl || undefined))}
-      >
-        <img
-          src={getImageUrl(viewingBanner.mobileImageUrl)}
-          alt="Mobile Banner"
-      className="w-full h-60 object-contain bg-black"
-          onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-        />
+        <p className="text-[10px] text-slate-400 mt-1 break-all">
+          {viewingBanner.mobileImageUrl}
+        </p>
       </div>
+    )}
 
-      <p className="text-[10px] text-slate-400 mt-1 break-all">
-        {viewingBanner.mobileImageUrl}
-      </p>
-    </div>
-  )}
-
+  </div>
 </div>
           </div>
 
           {/* Right Column - Offer Details + Schedule */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             {/* Offer Details - LARGER */}
             {(viewingBanner.offerCode || viewingBanner.discountPercentage || viewingBanner.offerText || viewingBanner.buttonText) && (
               <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
@@ -1813,6 +1823,17 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             )}
 
+
+     {/* Description */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <p className="text-sm text-slate-300 font-semibold mb-2">Description:</p>
+              <div
+                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: viewingBanner.description || "No description",
+                }}
+              />
+            </div>
             {/* Schedule & Activity - LARGER */}
             <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
               <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
@@ -1874,6 +1895,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </div>
               </div>
             </div>
+
+            
           </div>
         </div>
       </div>

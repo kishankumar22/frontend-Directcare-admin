@@ -561,22 +561,44 @@ const getProductDiscount = (product: any) => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // ✅ Admin Comment Validation
-  if (!formData.discountPercentage ) {
+  // 🔥 Discount validation
+  if (!formData.discountPercentage) {
     toast.error("Discount percentage is required");
     return;
   }
-  if (formData.adminComment.length > 500) {
+ 
+  // 🔥 Admin comment validation
+  if (formData.adminComment && formData.adminComment.length > 500) {
     toast.error("Admin comment must be 500 characters or less");
     return;
   }
-// 🔥 NEW: Validation for AssignedToCategories
-  if (formData.discountType === "AssignedToCategories") {
-    if (formData.assignedProductIds.length === 0) {
-      toast.error("At least one product must be selected from the category");
+if (!formData.adminComment || formData.adminComment.trim() === "") {
+  toast.error("Admin comment is required");
+  return;
+}
+if (formData.requiresCouponCode) {
+  if (!formData.couponCode || formData.couponCode.trim() === "") {
+    toast.error("Coupon code is required");
+    return;
+  }
+}
+
+  // 🔥 Assigned to PRODUCTS validation
+  if (formData.discountType === "AssignedToProducts") {
+    if (!formData.assignedProductIds || formData.assignedProductIds.length === 0) {
+      toast.error("At least one product must be selected from the products list");
       return;
     }
   }
+
+  // 🔥 Assigned to CATEGORIES validation (FIXED ❗)
+  if (formData.discountType === "AssignedToCategories") {
+    if (!formData.assignedCategoryIds || formData.assignedCategoryIds.length === 0) {
+      toast.error("At least one category must be selected");
+      return;
+    }
+  }
+
   try {
     const payload = {
       ...formData,
@@ -597,20 +619,31 @@ const handleSubmit = async (e: React.FormEvent) => {
     await fetchDiscounts();
     setShowModal(false);
     resetForm();
+
   } catch (error: any) {
     console.error("Error saving discount:", error);
-    toast.error(error?.response?.data?.message || "Failed to save discount");
+
+    // 🔥 Handle multiple backend formats
+    const backendErrors = error?.response?.data?.errors;
+
+    if (Array.isArray(backendErrors) && backendErrors.length > 0) {
+      backendErrors.forEach((err: any) => {
+        toast.error(typeof err === "string" ? err : err?.message || "Error");
+      });
+      return;
+    }
+
+    const message =
+      error?.response?.data?.message ||
+      error?.response?.data?.title ||
+      error?.message ||
+      "Something went wrong while saving discount";
+
+    toast.error(message);
   }
 };
-
-
-
-// In main page, find handleEdit function (around line 300-320)
 const handleEdit = (discount: Discount) => {
-  console.log("✏️ Editing discount:", discount);
-  console.log("📦 Assigned Product IDs:", discount.assignedProductIds);
-  
-  setEditingDiscount(discount);
+setEditingDiscount(discount);
   setFormData({
     name: discount.name,
     isActive: discount.isActive,

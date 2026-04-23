@@ -1020,7 +1020,7 @@ onChange={(selectedOptions) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {formData.usePercentage ? (
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Discount Percentage *</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Discount Percentage <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <input
                           type="number"
