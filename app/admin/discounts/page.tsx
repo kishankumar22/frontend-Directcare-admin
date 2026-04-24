@@ -1106,7 +1106,7 @@ const filteredDiscounts = discounts.filter((discount) => {
       <select
         value={itemsPerPage}
         onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px]"
+        className="px-2 py-1 bg-slate-800/90 border border-slate-700 rounded-md text-white text-[11px]"
       >
         <option value={25}>25</option>
         <option value={50}>50</option>
@@ -1157,7 +1157,7 @@ const filteredDiscounts = discounts.filter((discount) => {
       <select
         value={activeFilter}
         onChange={(e) => setActiveFilter(e.target.value)}
-        className={`px-3 py-2 bg-slate-800/70 border rounded-lg text-white text-xs ${
+        className={`px-3 py-2 bg-slate-800 border rounded-lg text-white text-xs ${
           activeFilter !== "all"
             ? "border-blue-500 bg-blue-500/10"
             : "border-slate-600"
@@ -1171,7 +1171,7 @@ const filteredDiscounts = discounts.filter((discount) => {
       <select
         value={typeFilter}
         onChange={(e) => setTypeFilter(e.target.value)}
-        className={`px-3 py-2 bg-slate-800/70 border rounded-lg text-white text-xs ${
+        className={`px-3 py-2 bg-slate-800 border rounded-lg text-white text-xs ${
           typeFilter !== "all"
             ? "border-blue-500 bg-blue-500/10"
             : "border-slate-600"

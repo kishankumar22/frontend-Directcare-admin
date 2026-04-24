@@ -4930,7 +4930,7 @@ const uploadImagesToProductDirect = async (
           {formData.name && (
             <div className="flex items-center gap-2">
               <span className="text-slate-600">•</span>
-              <span className="text-lg font-semibold text-white truncate max-w-xs" title={formData.name}>
+              <span className="text-lg font-semibold text-white truncate max-w-2xl" title={formData.name}>
                 {formData.name}
               </span>
             </div>

@@ -660,8 +660,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
       Banner Management
     </h1>
-    <p className="text-[11px] text-slate-500">
-      {banners.length} banners
+    <p className="text-[12px] text-slate-500">
+    Manage promotional banners for your store. 
     </p>
   </div>
 
@@ -755,7 +755,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       <select
         value={itemsPerPage}
         onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px]"
+        className="px-2 py-1 bg-slate-800 border border-slate-700 rounded-md text-white text-[11px]"
       >
         <option value={25}>25</option>
         <option value={50}>50</option>
@@ -801,7 +801,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     <select
       value={statusFilter}
       onChange={(e) => setStatusFilter(e.target.value)}
-      className={`p-2 text-[11px] rounded-md border bg-slate-800/60 ${
+      className={`p-2 text-[11px] rounded-md border bg-slate-800 ${
         statusFilter !== "all"
           ? "border-blue-500 ring-1 ring-blue-500/40 text-white"
           : "border-slate-700 text-slate-300"
@@ -816,7 +816,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     <select
       value={bannerTypeFilter}
       onChange={(e) => setBannerTypeFilter(e.target.value)}
-      className={`p-2 text-[11px] rounded-md border bg-slate-800/60 ${
+      className={`p-2 text-[11px] rounded-md border bg-slate-800 ${
         bannerTypeFilter !== "all"
           ? "border-violet-500 ring-1 ring-violet-500/40 text-white"
           : "border-slate-700 text-slate-300"
@@ -835,7 +835,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     <select
       value={deletedFilter}
       onChange={(e) => setDeletedFilter(e.target.value)}
-      className={`p-2 text-[11px] rounded-md border bg-slate-800/60 ${
+      className={`p-2 text-[11px] rounded-md border bg-slate-800 ${
         deletedFilter !== "notDeleted"
           ? "border-red-500 ring-1 ring-red-500/40 text-white"
           : "border-slate-700 text-slate-300"

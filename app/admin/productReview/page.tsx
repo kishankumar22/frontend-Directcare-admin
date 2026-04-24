@@ -1263,23 +1263,15 @@ const isPlayableVideoUrl = (url: string) => {
 
   <div className="min-w-0">
     {/* Product Name */}
-    <p className="text-blue-400 hover:text-blue-300 text-xs truncate"
-     onClick={() => { 
-    setProductFilter(review.productId); 
-    setCurrentPage(1); 
-  }}>
-      {review.productName ||
-        products.find(p => p.productId === review.productId)?.productName ||
-        "—"}
-    </p>
-       {/* <a
-  href={`/products/${review.productSku}`}
+
+       <a
+  href={`/products/${review.productSlug}`}
   target="_blank"
   rel="noopener noreferrer"
   className="text-blue-400 hover:text-blue-300 text-xs truncate block"
 >
   {review.productName}
-</a> */}
+</a>
 
     {/* ✅ SKU (NEW) */}
     {review.productSku && (

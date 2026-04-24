@@ -418,7 +418,7 @@ import { formatDate } from "../_utils/formatUtils";
 
     return (
   <div className="">
-    <div className="mx-auto space-y-3 p-2">
+    <div className="space-y-2">
 
     {/* ================= HEADER ================= */}
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -470,14 +470,14 @@ import { formatDate } from "../_utils/formatUtils";
     </div>
 
     {/* ================= ITEMS PER PAGE ================= */}
-    <div className="bg-slate-900/40 border border-slate-800 rounded-xl px-3 py-2.5">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <span>Show</span>
           <select
             value={itemsPerPage}
             onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-            className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-xs"
+            className="px-2 py-1 bg-slate-800 border border-slate-700 rounded-md text-white text-xs"
           >
             <option value={25}>25</option>
             <option value={50}>50</option>
@@ -496,7 +496,7 @@ import { formatDate } from "../_utils/formatUtils";
     </div>
 
     {/* ================= FILTERS ================= */}
-    <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3 space-y-2">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
 
       <div className="flex flex-col lg:flex-row gap-2">
 
@@ -506,7 +506,7 @@ import { formatDate } from "../_utils/formatUtils";
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-800/70 border border-slate-700 rounded-lg text-xs text-white"
+            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -518,7 +518,7 @@ import { formatDate } from "../_utils/formatUtils";
           <select
             value={frequencyFilter}
             onChange={(e) => setFrequencyFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-800/70 border border-slate-700 rounded-lg text-xs text-white"
+            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white"
           >
             <option value="all">All Frequencies</option>
             <option value="Weekly">Weekly</option>
@@ -556,7 +556,7 @@ import { formatDate } from "../_utils/formatUtils";
                       setProductFilter(product.id);
                       setShowProductDropdown(false);
                     }}
-                    className="w-full px-3 py-2 text-left hover:bg-slate-700 text-xs"
+                    className="w-full px-3 py-2 text-white text-left hover:bg-slate-700 text-xs"
                   >
                     {product.name}
                   </button>

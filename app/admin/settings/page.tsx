@@ -445,6 +445,8 @@ function StoreLocationsTab() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<StoreLocationForm>(EMPTY_LOCATION);
+  // ================= STATE ADD =================
+const [viewingLoc, setViewingLoc] = useState<StoreLocationItem | null>(null);
 
   const loadLocations = useCallback(async () => {
     setLocLoading(true);
@@ -551,6 +553,14 @@ function StoreLocationsTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+    onClick={() => setViewingLoc(loc)}
+    className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
+    title="View"
+  >
+    <Eye className="w-4 h-4" />
+  </button>
+
                   <button onClick={() => openEdit(loc)} className="p-1.5 text-slate-400 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all" title="Edit">
                     <Pencil className="w-4 h-4" />
                   </button>
@@ -674,6 +684,126 @@ function StoreLocationsTab() {
         </div>
       )}
 
+      {/* ================= VIEW MODAL ================= */}
+{viewingLoc && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="bg-slate-900 border border-slate-700/60 rounded-2xl w-full max-w-xl shadow-2xl max-h-[92vh] flex flex-col">
+
+      {/* Header */}
+      <div className="flex items-center gap-3 p-5 border-b border-slate-700/50">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center">
+          <MapPin className="w-4 h-4 text-cyan-400" />
+        </div>
+
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-white">
+            Store Location Details
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Click & Collect Store Information
+          </p>
+        </div>
+
+        <button
+          onClick={() => setViewingLoc(null)}
+          className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="p-5 space-y-5 overflow-y-auto">
+
+        <div className="space-y-2">
+          <p className="text-xs text-slate-500 uppercase font-semibold">Location Name</p>
+          <p className="text-white font-semibold text-lg">{viewingLoc.name}</p>
+        </div>
+
+        <div className="border-t border-slate-800 pt-4 space-y-2">
+          <p className="text-xs text-slate-500 uppercase font-semibold">Address</p>
+
+          <p className="text-slate-300">{viewingLoc.addressLine1}</p>
+
+          {viewingLoc.addressLine2 && (
+            <p className="text-slate-300">{viewingLoc.addressLine2}</p>
+          )}
+
+          <p className="text-slate-300">
+            {viewingLoc.city}, {viewingLoc.postalCode}
+          </p>
+
+          <p className="text-slate-300">{viewingLoc.country}</p>
+        </div>
+
+        <div className="border-t border-slate-800 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div>
+            <p className="text-xs text-slate-500 uppercase font-semibold mb-1">
+              Phone
+            </p>
+            <p className="text-slate-300">
+              {viewingLoc.phoneNumber || "N/A"}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-500 uppercase font-semibold mb-1">
+              Email
+            </p>
+            <p className="text-slate-300 break-all">
+              {viewingLoc.email || "N/A"}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-500 uppercase font-semibold mb-1">
+              Opening Hours
+            </p>
+            <p className="text-slate-300">
+              {viewingLoc.openingHours || "N/A"}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-500 uppercase font-semibold mb-1">
+              Display Order
+            </p>
+            <p className="text-slate-300">
+              #{viewingLoc.displayOrder}
+            </p>
+          </div>
+
+        </div>
+
+        <div className="border-t border-slate-800 pt-4">
+          <span
+            className={`px-2 py-1 rounded text-xs font-medium ${
+              viewingLoc.isActive
+                ? "bg-green-500/20 text-green-400"
+                : "bg-red-500/20 text-red-400"
+            }`}
+          >
+            {viewingLoc.isActive ? "Active" : "Inactive"}
+          </span>
+        </div>
+
+      </div>
+
+      {/* Footer */}
+      <div className="p-5 border-t border-slate-700/50">
+        <button
+          onClick={() => setViewingLoc(null)}
+          className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all"
+        >
+          Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
       {/* Delete confirm */}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -740,7 +870,7 @@ export default function SettingsPage() {
   const CurrentIcon = currentTab.icon;
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 space-y-5">
+    <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">

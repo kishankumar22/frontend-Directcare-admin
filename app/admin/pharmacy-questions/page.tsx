@@ -506,8 +506,8 @@ const hasActiveFilters =
       </div>
 
       {/* Items Per Page */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+      <div className="bg-slate-900 backdrop-blur-xl border border-slate-800 rounded-xl p-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <span className="text-xs text-slate-400">Show</span>
             <select
@@ -516,7 +516,7 @@ const hasActiveFilters =
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-2.5 py-1.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              className="px-2 py-1 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -562,7 +562,7 @@ const hasActiveFilters =
           );
           setCurrentPage(1);
         }}
-        className="pl-3 pr-8 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
+        className="pl-3 pr-8 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
       >
         <option value="all">All Status</option>
         <option value="active">Active Only</option>
@@ -579,7 +579,7 @@ const hasActiveFilters =
           setIncludeDeleted(e.target.value === "true");
           setCurrentPage(1);
         }}
-        className="pl-3 pr-8 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
+        className="pl-3 pr-8 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
       >
         <option value="false">Hide Deleted</option>
         <option value="true">Show Deleted</option>

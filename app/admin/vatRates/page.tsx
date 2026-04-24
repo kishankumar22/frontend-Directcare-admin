@@ -862,7 +862,7 @@ const clearFilters = () => {
     setStatusFilter(e.target.value);
     setCurrentPage(1);
   }}
-  className={`p-2 bg-gray-800/90 border rounded-md text-white text-[11px] focus:outline-none transition-all
+  className={`p-2 bg-slate-800/90 border rounded-md text-white text-[11px] focus:outline-none transition-all
   ${
     statusFilter !== "all"
       ? "border-violet-500 bg-violet-500/10"
@@ -882,7 +882,7 @@ const clearFilters = () => {
     setDeletedFilter(e.target.value as any);
     setCurrentPage(1);
   }}
-  className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] focus:outline-none transition-all
+  className={`p-2 bg-slate-800/90 border rounded-md text-white text-[11px] focus:outline-none transition-all
   ${
     deletedFilter !== "notDeleted"
       ? "border-red-500 bg-red-500/10"
@@ -901,7 +901,7 @@ const clearFilters = () => {
     setCountryFilter(e.target.value);
     setCurrentPage(1);
   }}
-  className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] focus:outline-none transition-all
+  className={`p-2 bg-slate-800/90 border rounded-md text-white text-[11px] focus:outline-none transition-all
   ${
     countryFilter !== "All Countries"
       ? "border-cyan-500 bg-cyan-500/10"
