@@ -7,7 +7,6 @@ import Link from "next/link";
 import { authService } from "@/lib/services/auth";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -125,7 +124,7 @@ export default function LoginPage() {
           </div>
 
           <div className="text-sm text-slate-500">
-            © 2025 EcomPanel. All rights reserved.
+            © 2026 EcomPanel. All rights reserved.
           </div>
         </div>
 

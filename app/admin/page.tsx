@@ -184,7 +184,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ═══ KPI ROW 1 — Revenue / Orders / Pending / Delivered ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <KpiCard
           icon={PoundSterling} iconColor="text-violet-400" iconBg="bg-violet-500/10"
           glow="from-violet-500/10 to-transparent"
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
         <KpiCard
           icon={Timer} iconColor="text-amber-400" iconBg="bg-amber-500/10"
           glow="from-amber-500/10 to-transparent"
-          title="Pending"
+          title="Pending Orders"
           value={d.pendingOrders > 0 ? d.pendingOrders.toLocaleString() : "—"}
           sub={d.processingOrders > 0 ? `Processing: ${d.processingOrders}` : undefined}
           alert={d.pendingOrders > 10}
@@ -215,9 +215,16 @@ export default function AdminDashboard() {
         <KpiCard
           icon={CheckCircle2} iconColor="text-green-400" iconBg="bg-green-500/10"
           glow="from-green-500/10 to-transparent"
-          title="Delivered"
+          title="Orders Delivered"
           value={d.deliveredOrders > 0 ? d.deliveredOrders.toLocaleString() : "—"}
           sub={d.shippedOrders > 0 ? `Shipped: ${d.shippedOrders}` : undefined}
+        />
+         <KpiCard
+          icon={XCircle} iconColor="text-red-400" iconBg="bg-red-500/10"
+          glow="from-red-500/10 to-transparent"
+          title="Cancelled Orders"
+          value={d.cancelledOrders > 0 ? d.cancelledOrders.toLocaleString() : "—"}
+          
         />
       </div>
 
@@ -249,13 +256,7 @@ export default function AdminDashboard() {
           change={d.customersChangePercent}
           onClick={() => router.push("/admin/customers")}
         />
-        <KpiCard
-          icon={XCircle} iconColor="text-red-400" iconBg="bg-red-500/10"
-          glow="from-red-500/10 to-transparent"
-          title="Cancelled"
-          value={d.cancelledOrders > 0 ? d.cancelledOrders.toLocaleString() : "—"}
-          sub="All time"
-        />
+       
       </div>
 
       {/* ═══ ORDER STATUS BAR ═══ */}

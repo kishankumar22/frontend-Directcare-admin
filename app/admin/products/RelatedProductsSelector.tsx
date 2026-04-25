@@ -114,15 +114,19 @@ const fetchProducts = async () => {
     const isSearchMode = debouncedSearch.length >= 3;
 
     const params: any = {
+      // ✅ Always apply
+      isPublished: true,
+
+      // ✅ Filters
       categoryId: selectedCategories[0],
       brandId: selectedBrands[0],
     };
 
     if (isSearchMode) {
-      // 🔥 SEARCH MODE (NO PAGINATION)
+      // 🔥 Search mode
       params.searchTerm = debouncedSearch;
     } else {
-      // 🔥 NORMAL MODE
+      // 🔥 Normal mode
       params.page = page;
       params.pageSize = 250;
     }

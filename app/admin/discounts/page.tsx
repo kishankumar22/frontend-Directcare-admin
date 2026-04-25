@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, X, } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, X, ExternalLink, } from "lucide-react";
 
 
 import { useToast } from "@/app/admin/_components/CustomToast";
@@ -22,11 +22,7 @@ import ImagePreviewModal from "../_components/ImagePreviewModal";
 
 
 
-type AnyProductResponse =
-  | Product[]
-  | { items: Product[] }
-  | { data: Product[] }
-  | { data: { items: Product[] } };
+
 
 const extractProducts = (res: any): Product[] => {
   if (Array.isArray(res)) return res;
@@ -280,8 +276,8 @@ export default function DiscountsPage() {
   const [dateRangeFilter, setDateRangeFilter] = useState({ startDate: "", endDate: "" });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
 const [statusConfirm, setStatusConfirm] = useState<Discount | null>(null);
 const [restoreConfirm, setRestoreConfirm] = useState<Discount | null>(null);
 const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -354,35 +350,36 @@ const fetchProducts = async () => {
   try {
     setProductsLoading(true);
 
+    // ✅ Always send published filter
     const params: any = {
-      pageSize: 10
+      pageSize: 10,
+      isPublished: true,
     };
 
-    // ✅ search
+    // ✅ Search
     if (productSearchTerm?.trim()) {
       params.searchTerm = productSearchTerm.trim();
     }
 
-    // ✅ category (CRITICAL)
+    // ✅ Category filter
     if (productCategoryFilter) {
       params.categoryId = productCategoryFilter;
     }
 
-    // ✅ brand (CRITICAL)
+    // ✅ Brand filter
     if (productBrandFilter) {
       params.brandId = productBrandFilter;
     }
 
-    console.log("🔥 API PARAMS:", params); // debug
+    console.log("🔥 API PARAMS:", params);
 
     const res = await productsService.getAll(params);
 
     const productsArray = extractProducts(res?.data);
 
     setProducts(productsArray);
-
   } catch (err) {
-    console.error(err);
+    console.error("❌ Failed to fetch products:", err);
   } finally {
     setProductsLoading(false);
   }
@@ -1258,27 +1255,42 @@ const filteredDiscounts = discounts.filter((discount) => {
                 {/* NAME */}
                 <td className="py-2.5 px-3">
                   <div className="flex items-center gap-2">
-                    <div
-  className="w-8 h-8 rounded-md overflow-hidden border border-slate-600 cursor-pointer"
-  onClick={() => setImageModal(discount)}
+<div className="flex items-center gap-2">
+  {/* Thumbnail */}
+  <div
+    className="w-8 h-8 rounded-md overflow-hidden border border-slate-600 cursor-pointer hover:border-violet-400 transition-all"
+    onClick={() => setImageModal(discount)}
+    title="View Banner"
+  >
+    {discount.desktopBannerImageUrl ? (
+      <img
+        src={getImageUrl(discount.desktopBannerImageUrl)}
+        className="w-full h-full object-cover"
+        onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+      />
+    ) : discount.mobileBannerImageUrl ? (
+      <img
+        src={getImageUrl(discount.mobileBannerImageUrl)}
+        className="w-full h-full object-cover"
+        onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+      />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 text-xs text-white">
+        {getDiscountTypeIcon(discount.discountType)}
+      </div>
+    )}
+  </div>
+
+  {/* View on Store */}
+<a
+  href={`/offers/${discount.slug}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  title="View Offer on Store"
+  className="w-8 h-8 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-all flex items-center justify-center"
 >
-  {discount.desktopBannerImageUrl ? (
-    <img
-      src={getImageUrl(discount.desktopBannerImageUrl)}
-      className="w-full h-full object-cover"
-      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-    />
-  ) : discount.mobileBannerImageUrl ? (
-    <img
-      src={getImageUrl(discount.mobileBannerImageUrl)}
-      className="w-full h-full object-cover"
-      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-    />
-  ) : (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 text-xs">
-      {getDiscountTypeIcon(discount.discountType)}
-    </div>
-  )}
+  <ExternalLink className="w-3.5 h-3.5" />
+</a>
 </div>
 
                     <div className="min-w-0">
@@ -1352,49 +1364,58 @@ const filteredDiscounts = discounts.filter((discount) => {
     <div className="overflow-y-auto max-h-56 p-1.5 space-y-0.5">
 
       {/* PRODUCTS */}
-      {isProducts &&
-        assignedProducts.map((p) => {
-  const imgUrl = p.images?.[0]?.imageUrl;
-  const discount = getProductDiscount(p); // ✅ ADD THIS
+{/* PRODUCTS */}
+{isProducts &&
+  assignedProducts.map((p) => {
+    // ✅ Variant image first, then product main image
+    const variantImg =
+      p.variants?.find((v: any) => v.imageUrl)?.imageUrl || "";
 
-  return (
-            <div
-              key={p.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition"
-            >
-              {imgUrl ? (
-                <img
-                  src={
-                    imgUrl.startsWith("http")
-                      ? imgUrl
-                      : `${process.env.NEXT_PUBLIC_API_URL}${imgUrl}`
-                  }
-                  alt=""
-                  className="w-6 h-6 rounded object-cover flex-shrink-0"
-                   onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-                />
-              ) : (
-                <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center">
-                  <Package className="w-3 h-3 text-slate-400" />
-                </div>
-              )}
-<div className="flex flex-col flex-1">
-  <span className="text-xs text-slate-200 truncate">
-    {p.name}
-  </span>
+    const productImg =
+      p.images?.find((img: any) => img.isMain)?.imageUrl ||
+      p.images?.[0]?.imageUrl ||
+      "";
 
-  {discount && (
-    <span className="text-[10px] text-green-400">
-      {discount.usePercentage
-        ? `${discount.discountPercentage}% OFF`
-        : `£${discount.discountAmount} OFF`}
-    </span>
-  )}
-</div>
-            </div>
-          );
-        })}
+    const imgUrl = getImageUrl(variantImg || productImg);
 
+    const discount = getProductDiscount(p);
+
+    return (
+      <div
+        key={p.id}
+        className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition"
+      >
+        {imgUrl ? (
+          <img
+            src={imgUrl}
+            alt={p.name}
+            className="w-6 h-6 rounded object-cover flex-shrink-0"
+            onError={(e) =>
+              (e.currentTarget.src = "/placeholder.png")
+            }
+          />
+        ) : (
+          <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center">
+            <Package className="w-3 h-3 text-slate-400" />
+          </div>
+        )}
+
+        <div className="flex flex-col flex-1 min-w-0">
+          <span className="text-xs text-slate-200 truncate">
+            {p.name}
+          </span>
+
+          {discount && (
+            <span className="text-[10px] text-green-400">
+              {discount.usePercentage
+                ? `${discount.discountPercentage}% OFF`
+                : `£${discount.discountAmount} OFF`}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  })}
       {/* CATEGORIES */}
       {isCategories &&
         assignedCats.map((c) => (

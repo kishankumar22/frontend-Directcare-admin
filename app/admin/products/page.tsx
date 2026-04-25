@@ -2685,7 +2685,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
               </button>
             </div>
 
-            <div className="text-sm text-slate-400">Total {totalCount} items</div>
+            <div className="text-sm text-slate-400">Total {stats.totalCount} items</div>
           </div>
         </div>
       )}

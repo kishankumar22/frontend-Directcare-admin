@@ -171,43 +171,73 @@ export interface Order {
   orderNumber: string;
   status: OrderStatus;
   orderDate: string;
+
   estimatedDispatchDate?: string;
-  pendingPaymentAmount:number;
   dispatchedAt?: string;
   dispatchNote?: string;
+
+  pendingPaymentAmount: number;
+
   subtotalAmount: number;
-  totalPaidAmount: number;
   taxAmount: number;
   shippingAmount: number;
   discountAmount: number;
   totalAmount: number;
+
+  totalPaidAmount: number;
+  totalRefundedAmount: number;
+  remainingRefundableAmount?: number;
+  netAmountPaid: number;
+
   currency: string;
   notes?: string;
   couponCode?: string;
+
   isGuestOrder: boolean;
   subscriptionId?: string;
+  userId?: string;
+
+  customerName: string;
   customerEmail: string;
   customerPhone?: string;
+
   billingAddress: Address;
   shippingAddress: Address;
-  userId?: string;
-  customerName: string;
-  shippingMethodName: string;
-  collectionStoreName: string;
-  deliveryMethod: DeliveryMethod;
-  clickAndCollectFee?: number;
-  remainingRefundableAmount?: number;
 
-  totalRefundedAmount: number;
-  netAmountPaid: number;
+  // ================= DELIVERY =================
+  deliveryMethod: DeliveryMethod;
+  shippingMethodName: string;
+
+  clickAndCollectFee?: number;
+
+  // ================= COLLECTION STORE =================
+  collectionStoreId?: string;
+  collectionStoreName?: string;
+
+  collectionStoreAddressLine1?: string;
+  collectionStoreAddressLine2?: string;
+  collectionStoreCity?: string;
+  collectionStorePostalCode?: string;
+  collectionStoreCountry?: string;
+
+  collectionStorePhone?: string;
+  collectionStoreOpeningHours?: string;
+
   collectionStatus?: CollectionStatus;
   readyForCollectionAt?: string;
   collectedAt?: string;
   collectedBy?: string;
+
   collectorIDType?: string;
+  collectorIDNumber?: string;
+
   collectionExpiryDate?: string;
-  isShippingRefunded?:string
-  collectorIDNumber?:string
+
+  // ================= REFUND =================
+  isShippingRefunded?: boolean;
+  shippingRefundedAmount?: number;
+
+  refundHistory?: RefundHistory[];
 
   // ================= PHARMACY =================
   pharmacyVerificationStatus?: PharmacyVerificationStatus;
@@ -222,16 +252,20 @@ export interface Order {
     answeredAt: string;
   }[];
 
-  // Payment summary fields (from backend OrderDto)
+  // ================= PAYMENT =================
   paymentMethod?: string;
   paymentStatus?: string;
+
+  payments: Payment[];
+
+  // ================= ITEMS =================
+  orderItems: OrderItem[];
   unshippedItems?: UnshippedItem[];
 
-  orderItems: OrderItem[];
-    // ✅ ADD THIS
-  refundHistory?: RefundHistory[];
-  payments: Payment[];
+  // ================= SHIPPING =================
   shipments: Shipment[];
+
+  // ================= SYSTEM =================
   createdAt: string;
   updatedAt?: string;
 }

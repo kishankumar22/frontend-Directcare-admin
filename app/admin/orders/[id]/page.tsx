@@ -47,6 +47,7 @@ import {
   Smartphone,
   Wallet,
   EyeOff,
+  Store,
 } from 'lucide-react';
 import {
   orderService,
@@ -1641,7 +1642,7 @@ const allActions = getAllAvailableActions(
                 ) : (
                   <>
                     <Shield className="h-3 w-3" />
-                    Registered User
+                    Registered Customer
                   </>
                 )}
               </span>
@@ -1831,80 +1832,134 @@ const allActions = getAllAvailableActions(
 
         </div>
 
-        {/* Important Dates */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-orange-500/30 transition-all group">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg group-hover:scale-110 transition-transform">
-              <Calendar className="h-4 w-4 text-white" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Important Dates</h3>
-          </div>
-          <div className="space-y-3">
-            <div title="Date and time when order was placed">
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Order Date
-              </p>
-              <p className="text-white font-medium text-sm">{formatDate(order.orderDate)}</p>
-            </div>
-            {order.deliveryMethod === 'ClickAndCollect' && order.collectionExpiryDate && (
-              <div title="Deadline to collect order from store">
-                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Collection Expires
-                </p>
-                <p
-                  className={`font-medium text-sm flex items-center gap-1.5 ${
-                    isCollectionExpired() ? 'text-red-400' : 'text-white'
-                  }`}
-                >
-                  {formatDate(order.collectionExpiryDate)}
-                  {isCollectionExpired() && <AlertTriangle className="h-3.5 w-3.5 animate-pulse" />}
-                </p>
-              </div>
+  {/* Important Dates */}
+<div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 group">
+
+  {/* Header */}
+  <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-slate-800">
+    <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
+      <Calendar className="h-4 w-4 text-white" />
+    </div>
+
+    <div>
+      <h3 className="text-base font-semibold text-white leading-none">
+        Important Dates
+      </h3>
+      <p className="text-[11px] text-slate-400 mt-1">
+        Order Timeline
+      </p>
+    </div>
+  </div>
+
+  {/* Body */}
+  <div className="space-y-2.5 text-sm">
+
+    <div
+      title="Date and time when order was placed"
+      className="flex items-start justify-between gap-3"
+    >
+      <span className="text-slate-400 flex items-center gap-1 text-xs">
+        <Clock className="h-3 w-3" />
+        Order Date
+      </span>
+
+      <span className="text-white font-medium text-right">
+        {formatDate(order.orderDate)}
+      </span>
+    </div>
+
+    {order.deliveryMethod === "ClickAndCollect" &&
+      order.collectionExpiryDate && (
+        <div
+          title="Deadline to collect order from store"
+          className="flex items-start justify-between gap-3"
+        >
+          <span className="text-slate-400 flex items-center gap-1 text-xs">
+            <AlertTriangle className="h-3 w-3" />
+            Collection Expires
+          </span>
+
+          <span
+            className={`font-medium text-right flex items-center gap-1 ${
+              isCollectionExpired()
+                ? "text-red-400"
+                : "text-white"
+            }`}
+          >
+            {formatDate(order.collectionExpiryDate)}
+
+            {isCollectionExpired() && (
+              <AlertTriangle className="h-3.5 w-3.5 animate-pulse" />
             )}
-            {order.estimatedDispatchDate && (
-              <div title="Expected date for order dispatch">
-                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  Estimated Dispatch
-                </p>
-                <p className="text-white font-medium text-sm">
-                  {formatDate(order.estimatedDispatchDate)}
-                </p>
-              </div>
-            )}
-            {order.dispatchedAt && (
-              <div title="Actual date when order was dispatched">
-                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                  <Truck className="h-3 w-3" />
-                  Dispatched At
-                </p>
-                <p className="text-white font-medium text-sm">{formatDate(order.dispatchedAt)}</p>
-              </div>
-            )}
-            {order.readyForCollectionAt && (
-              <div title="Date when order was marked ready for collection">
-                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                  <PackageCheck className="h-3 w-3" />
-                  Ready for Collection
-                </p>
-                <p className="text-white font-medium text-sm">
-                  {formatDate(order.readyForCollectionAt)}
-                </p>
-              </div>
-            )}
-            {order.collectedAt && (
-              <div title="Date when customer collected the order">
-                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Collected At
-                </p>
-                <p className="text-white font-medium text-sm">{formatDate(order.collectedAt)}</p>
-              </div>
-            )}
-          </div>
+          </span>
         </div>
+      )}
+
+    {order.estimatedDispatchDate && (
+      <div
+        title="Expected date for order dispatch"
+        className="flex items-start justify-between gap-3"
+      >
+        <span className="text-slate-400 flex items-center gap-1 text-xs">
+          <TrendingUp className="h-3 w-3" />
+          Dispatch ETA
+        </span>
+
+        <span className="text-white font-medium text-right">
+          {formatDate(order.estimatedDispatchDate)}
+        </span>
+      </div>
+    )}
+
+    {order.dispatchedAt && (
+      <div
+        title="Actual date when order was dispatched"
+        className="flex items-start justify-between gap-3"
+      >
+        <span className="text-slate-400 flex items-center gap-1 text-xs">
+          <Truck className="h-3 w-3" />
+          Dispatched
+        </span>
+
+        <span className="text-white font-medium text-right">
+          {formatDate(order.dispatchedAt)}
+        </span>
+      </div>
+    )}
+
+    {order.readyForCollectionAt && (
+      <div
+        title="Date when order was marked ready for collection"
+        className="flex items-start justify-between gap-3"
+      >
+        <span className="text-slate-400 flex items-center gap-1 text-xs">
+          <PackageCheck className="h-3 w-3" />
+          Ready Pickup
+        </span>
+
+        <span className="text-white font-medium text-right">
+          {formatDate(order.readyForCollectionAt)}
+        </span>
+      </div>
+    )}
+
+    {order.collectedAt && (
+      <div
+        title="Date when customer collected the order"
+        className="flex items-start justify-between gap-3"
+      >
+        <span className="text-slate-400 flex items-center gap-1 text-xs">
+          <CheckCircle2 className="h-3 w-3" />
+          Collected
+        </span>
+
+        <span className="text-white font-medium text-right">
+          {formatDate(order.collectedAt)}
+        </span>
+      </div>
+    )}
+  </div>
+</div>
       </div>
 
       {/* ✅ Collection Information */}
@@ -1968,7 +2023,7 @@ const allActions = getAllAvailableActions(
         </div>
       )}
 
-<div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-pink-500/20 rounded-xl p-4 space-y-3">
+<div className="bg-gradient-to-br from-slate-900/80 to-slate-800 border border-pink-500/20 rounded-xl p-4 space-y-3">
 
   {/* Header */}
   <div className="flex items-center justify-between">
@@ -2070,149 +2125,206 @@ const allActions = getAllAvailableActions(
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
   {/* ================= BILLING ADDRESS ================= */}
-  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 hover:border-blue-500/30 transition-all group">
+  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-blue-500/30 transition-all">
 
     {/* Header */}
-    <div className="flex items-center gap-3 mb-5">
-      <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md group-hover:scale-105 transition-transform">
-        <MapPin className="h-4 w-4 text-white" />
+    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-800">
+      <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+        <MapPin className="h-4 w-4 text-blue-400" />
       </div>
-      <h3 className="text-lg font-semibold text-white tracking-wide">
-        Billing Address
-      </h3>
+
+      <div className="min-w-0 flex-1">
+        <h3 className="text-white font-semibold text-sm">Billing Address</h3>
+        
+      </div>
     </div>
 
-    {/* Content */}
-    <div className="space-y-3 text-sm">
-
-      <div className="grid grid-cols-3">
-        <span className="text-slate-400 font-medium">Full Name</span>
-        <span className="col-span-2 text-white font-medium">
+    <div className="space-y-2 text-sm">
+      <div className="flex gap-3">
+        <span className="w-20 text-slate-500">Name</span>
+        <span className="text-white">
           {order.billingAddress.firstName} {order.billingAddress.lastName}
         </span>
       </div>
 
-      {/* {order.billingAddress.company && (
-        <div className="grid grid-cols-3">
-          <span className="text-slate-400 font-medium">Company</span>
-          <span className="col-span-2 text-white">
+      {order.billingAddress.company && (
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Company</span>
+          <span className="text-slate-300">
             {order.billingAddress.company}
           </span>
         </div>
-      )} */}
+      )}
 
-      <div className="grid grid-cols-3">
-        <span className="text-slate-400 font-medium">Address</span>
-        <span className="col-span-2 text-white">
+      <div className="flex gap-3">
+        <span className="w-20 text-slate-500">Address</span>
+        <span className="text-slate-300">
           {order.billingAddress.addressLine1}
-          {order.billingAddress.addressLine2 && (
-            <>
-              <br />
-              {order.billingAddress.addressLine2}
-            </>
-          )}
+          {order.billingAddress.addressLine2 &&
+            `, ${order.billingAddress.addressLine2}`}
         </span>
       </div>
 
-      <div className="grid grid-cols-3">
-        <span className="text-slate-400 font-medium">City / State</span>
-        <span className="col-span-2 text-white">
-          {order.billingAddress.city}, {order.billingAddress.state}{" "}
+      <div className="flex gap-3">
+        <span className="w-20 text-slate-500">City</span>
+        <span className="text-slate-300">
+          {order.billingAddress.city}, {order.billingAddress.state}
+        </span>
+      </div>
+
+      <div className="flex gap-3">
+        <span className="w-20 text-slate-500">Postcode</span>
+        <span className="text-slate-300">
           {order.billingAddress.postalCode}
         </span>
       </div>
 
-      <div className="grid grid-cols-3">
-        <span className="text-slate-400 font-medium">Country</span>
-        <span className="col-span-2 text-white font-medium">
+      <div className="flex gap-3">
+        <span className="w-20 text-slate-500">Country</span>
+        <span className="text-slate-300">
           {order.billingAddress.country}
         </span>
       </div>
 
-      <div className="grid grid-cols-3">
-        <span className="text-slate-400 font-medium">Phone</span>
-        <span className="col-span-2 text-white font-medium">
+      <div className="flex gap-3">
+        <span className="w-20 text-slate-500">Phone</span>
+        <span className="text-slate-300">
           {order.billingAddress.phoneNumber || "-"}
         </span>
       </div>
-
     </div>
   </div>
 
-
-  {/* ================= SHIPPING ADDRESS ================= */}
-  {order.deliveryMethod === "HomeDelivery" && (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 hover:border-purple-500/30 transition-all group">
+  {/* ================= SHIPPING / STORE ================= */}
+  {order.deliveryMethod === "ClickAndCollect" ? (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-md group-hover:scale-105 transition-transform">
-          <Truck className="h-4 w-4 text-white" />
+      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-800">
+        <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <Store className="h-4 w-4 text-emerald-400" />
         </div>
-        <h3 className="text-lg font-semibold text-white tracking-wide">
-          Shipping Address
-        </h3>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="text-white font-semibold text-sm">
+            Collection Store
+          </h3>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="space-y-3 text-sm">
+      <div className="space-y-2 text-sm">
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Store</span>
+          <span className="text-white">
+            {order.collectionStoreName}
+          </span>
+        </div>
 
-        <div className="grid grid-cols-3">
-          <span className="text-slate-400 font-medium">Full Name</span>
-          <span className="col-span-2 text-white font-medium">
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Address</span>
+          <span className="text-slate-300">
+            {order.collectionStoreAddressLine1}
+            {order.collectionStoreAddressLine2 &&
+              `, ${order.collectionStoreAddressLine2}`}
+          </span>
+        </div>
+
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">City</span>
+          <span className="text-slate-300">
+            {order.collectionStoreCity}
+          </span>
+        </div>
+
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Postcode</span>
+          <span className="text-slate-300">
+            {order.collectionStorePostalCode}
+          </span>
+        </div>
+
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Country</span>
+          <span className="text-slate-300">
+            {order.collectionStoreCountry}
+          </span>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-purple-500/30 transition-all">
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-800">
+        <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+          <Truck className="h-4 w-4 text-purple-400" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="text-white font-semibold text-sm">
+            Shipping Address
+          </h3>
+        </div>
+      </div>
+
+      <div className="space-y-2 text-sm">
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Name</span>
+          <span className="text-white">
             {order.shippingAddress.firstName}{" "}
             {order.shippingAddress.lastName}
           </span>
         </div>
 
-        {/* {order.shippingAddress.company && (
-          <div className="grid grid-cols-3">
-            <span className="text-slate-400 font-medium">Company</span>
-            <span className="col-span-2 text-white">
+        {order.shippingAddress.company && (
+          <div className="flex gap-3">
+            <span className="w-20 text-slate-500">Company</span>
+            <span className="text-slate-300">
               {order.shippingAddress.company}
             </span>
           </div>
-        )} */}
+        )}
 
-        <div className="grid grid-cols-3">
-          <span className="text-slate-400 font-medium">Address</span>
-          <span className="col-span-2 text-white">
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Address</span>
+          <span className="text-slate-300">
             {order.shippingAddress.addressLine1}
-            {order.shippingAddress.addressLine2 && (
-              <>
-                <br />
-                {order.shippingAddress.addressLine2}
-              </>
-            )}
+            {order.shippingAddress.addressLine2 &&
+              `, ${order.shippingAddress.addressLine2}`}
           </span>
         </div>
 
-        <div className="grid grid-cols-3">
-          <span className="text-slate-400 font-medium">City / State</span>
-          <span className="col-span-2 text-white">
-            {order.shippingAddress.city},{" "}
-            {order.shippingAddress.state}{" "}
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">City</span>
+          <span className="text-slate-300">
+            {order.shippingAddress.city}, {order.shippingAddress.state}
+          </span>
+        </div>
+
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Postcode</span>
+          <span className="text-slate-300">
             {order.shippingAddress.postalCode}
           </span>
         </div>
 
-        <div className="grid grid-cols-3">
-          <span className="text-slate-400 font-medium">Country</span>
-          <span className="col-span-2 text-white font-medium">
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Country</span>
+          <span className="text-slate-300">
             {order.shippingAddress.country}
           </span>
         </div>
 
-        <div className="grid grid-cols-3">
-          <span className="text-slate-400 font-medium">Phone</span>
-          <span className="col-span-2 text-white font-medium">
+        <div className="flex gap-3">
+          <span className="w-20 text-slate-500">Phone</span>
+          <span className="text-slate-300">
             {order.shippingAddress.phoneNumber || "-"}
           </span>
         </div>
-
       </div>
     </div>
   )}
+
 </div>
 
       {/* ✅ Payments */}

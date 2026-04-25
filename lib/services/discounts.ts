@@ -18,6 +18,7 @@ export type DiscountLimitationType = "Unlimited" | "NTimesOnly" | "NTimesPerCust
 export interface Discount {
   id: string;
   name: string;
+  slug: string;
   isActive: boolean;
   discountType: DiscountType;
   usePercentage: boolean;

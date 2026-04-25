@@ -1995,20 +1995,58 @@ onChange={(selectedOptions) => {
                               </div>
                               <p className="text-sm text-blue-400 font-bold">Discount Applied on Products:</p>
                             </div>
-                            <div className="flex flex-wrap gap-2 pl-10">
-                              {viewingDiscount.assignedProductIds.split(',').filter(id => id.trim()).map((productId, index) => {
-                                const product = productMap.get(productId.trim());
-                                return (
-                                  <span 
-                                    key={index} 
-                                    className="px-3 py-2 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-semibold border border-blue-500/30 hover:bg-blue-500/20 transition-all flex items-center gap-2"
-                                  >
-                                    <Package className="h-3 w-3" />
-                                    {product ? product.name : `Product ${index + 1}`}
-                                  </span>
-                                );
-                              })}
-                            </div>
+                      <div className="flex flex-col gap-2 pl-10">
+  {viewingDiscount.assignedProductIds
+    .split(",")
+    .filter((id) => id.trim())
+    .map((productId, index) => {
+      const product = productMap.get(productId.trim());
+
+      // ✅ Same image fallback logic
+      const variantImg =
+        product?.variants?.find((v: any) => v.imageUrl)?.imageUrl || "";
+
+      const productImg =
+        product?.images?.find((img: any) => img.isMain)?.imageUrl ||
+        product?.images?.[0]?.imageUrl ||
+        "";
+
+      const imgUrl = getImageUrl(variantImg || productImg);
+
+      return (
+        <div
+          key={index}
+          className="px-3 py-2 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-semibold border border-blue-500/30 hover:bg-blue-500/20 transition-all flex items-center gap-2"
+        >
+          {/* Index */}
+          <span className="w-5 h-5 rounded-full bg-blue-500/20 text-[10px] flex items-center justify-center text-blue-300 font-bold flex-shrink-0">
+            {index + 1}
+          </span>
+
+          {/* Image */}
+          {imgUrl ? (
+            <img
+              src={imgUrl}
+              alt={product?.name || "Product"}
+              className="w-6 h-6 rounded object-cover flex-shrink-0 border border-blue-400/20"
+              onError={(e) =>
+                (e.currentTarget.src = "/placeholder.png")
+              }
+            />
+          ) : (
+            <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
+              <Package className="h-3 w-3 text-slate-400" />
+            </div>
+          )}
+
+          {/* Name */}
+          <span className="truncate">
+            {product ? product.name : `Product ${index + 1}`}
+          </span>
+        </div>
+      );
+    })}
+</div>
                           </div>
                         )}
                         
