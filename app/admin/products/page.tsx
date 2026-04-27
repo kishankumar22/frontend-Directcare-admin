@@ -41,6 +41,7 @@ import ProductExcelImportModal from "./ProductExcelImportModal";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getProductImage } from "../_utils/formatUtils";
 import ImportWooCommerceModal from "./ImportWooCommerceModal";
+import { vatratesService } from "@/lib/services/vatrates";
 
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -238,7 +239,7 @@ const [bulkAction, setBulkAction] = useState<null | {
   const [deliveryFilter, setDeliveryFilter] = useState<SelectOption>({ value: "all", label: "All Delivery" });
   const [markAsNewFilter, setMarkAsNewFilter] = useState<SelectOption>({ value: "all", label: "Mark as New: All" });
   const [notReturnableFilter, setNotReturnableFilter] = useState<SelectOption>({ value: "all", label: "Returnable: All" });
-  const [inventoryFilter, setInventoryFilter] = useState<SelectOption>({ value: "all", label: "Inventory: All" });
+  // const [inventoryFilter, setInventoryFilter] = useState<SelectOption>({ value: "all", label: "Inventory: All" });
   const [recurringFilter, setRecurringFilter] = useState<SelectOption>({ value: "all", label: "Subscription: All" });
   const [vatFilter, setVatFilter] = useState<SelectOption>({ value: "all", label: "VAT: All" });
   
@@ -279,8 +280,8 @@ const statusOptions: SelectOption[] = [
 
 const pharmaOptions: SelectOption[] = [
   { value: "all", label: "All Products" },
-  { value: "yes", label: "Pharma Only" },
-  { value: "no", label: "Non-Pharma Only" },
+  { value: "yes", label: "Pharma " },
+  { value: "no", label: "Others" },
 ];
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
@@ -306,11 +307,11 @@ const pharmaOptions: SelectOption[] = [
     { value: "no", label: "Returnable" },
   ];
 
-  const inventoryOptions: SelectOption[] = [
-    { value: "all", label: "Inventory: All" },
-    { value: "track", label: "Track Inventory" },
-    { value: "dont-track", label: "Don't Track" },
-  ];
+  // const inventoryOptions: SelectOption[] = [
+  //   { value: "all", label: "Inventory: All" },
+  //   { value: "track", label: "Track Inventory" },
+  //   { value: "dont-track", label: "Don't Track" },
+  // ];
 
   const subscriptionOptions: SelectOption[] = [
     { value: "all", label: "Subscription: All" },
@@ -318,11 +319,9 @@ const pharmaOptions: SelectOption[] = [
     { value: "no", label: "One-time" },
   ];
 
-  const vatOptions: SelectOption[] = [
-    { value: "all", label: "VAT: All" },
-    { value: "yes", label: "VAT Exempt" },
-    { value: "no", label: "VAT Applicable" },
-  ];
+const [vatOptions, setVatOptions] = useState<SelectOption[]>([
+ { value:"all", label:"VAT: All" }
+]);
 
 
 const deletedOptions = [
@@ -359,7 +358,39 @@ const handleSelectProduct = (productId: string) => {
   );
 };
 
+const fetchVATRates = async () => {
+  try {
+    setLoading(true);
 
+    const response = await vatratesService.getAll();
+
+    if (response?.data?.success) {
+      const list = response.data.data || [];
+
+      setVatOptions([
+        { value: "all", label: "All VAT Rates" },
+
+        ...list.map((v: any) => ({
+          value: v.id,
+          label: `${v.name} (${v.rate}%)`,
+        })),
+      ]);
+    } else {
+      setVatOptions([
+        { value: "all", label: "All VAT Rates" },
+      ]);
+    }
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to load VAT rates");
+
+    setVatOptions([
+      { value: "all", label: "All VAT Rates" },
+    ]);
+  } finally {
+    setLoading(false);
+  }
+};
 
 const handleSort = (field: string) => {
   if (!ALLOWED_SORT_FIELDS.includes(field)) return;
@@ -458,6 +489,9 @@ const [pharmaFilter, setPharmaFilter] = useState<SelectOption>({
 });
 
 
+useEffect(()=>{
+ fetchVATRates();
+},[])
 // ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
 const fetchProducts = async () => {
   // setLoading(true);
@@ -530,19 +564,19 @@ if (selectedType.value !== "all") {
       params.notReturnable = notReturnableFilter.value === "yes";
     }
 
-    if (inventoryFilter.value !== "all") {
-      if (inventoryFilter.value === "track") params.manageInventoryMethod = "track";
-      else if (inventoryFilter.value === "dont-track") params.manageInventoryMethod = "donttrack";
-    }
+    // if (inventoryFilter.value !== "all") {
+    //   if (inventoryFilter.value === "track") params.manageInventoryMethod = "track";
+    //   else if (inventoryFilter.value === "dont-track") params.manageInventoryMethod = "donttrack";
+    // }
 
     if (recurringFilter.value !== "all") {
       params.isRecurring = recurringFilter.value === "yes";
     }
 
-    if (vatFilter.value !== "all") {
-      params.vatExempt = vatFilter.value === "yes";
-    }
-
+ // NEW ADD THIS
+if (vatFilter.value !== "all") {
+  params.vatRateId = vatFilter.value;
+}
     const response = await productsService.getAll(params);
 
     if (response.data?.success && response.data?.data?.items) {
@@ -556,7 +590,7 @@ if (selectedType.value !== "all") {
       const hasPrevious = apiData.page > 1;
       const hasNext = apiData.page < apiData.totalPages;
       
-      setTotalCount(stats.totalCount);
+     setTotalCount(apiData.stats?.totalProducts || 0);
       setTotalPages(apiData.totalPages);
       setCurrentPage(apiData.page);
       setHasPrevious(hasPrevious);
@@ -861,7 +895,7 @@ useEffect(() => {
   selectedHomepage,
   deliveryFilter,
   notReturnableFilter,
-  inventoryFilter,
+  // inventoryFilter,
   recurringFilter,
   vatFilter,
   statusFilter ,// ✅ ADD THIS
@@ -884,7 +918,7 @@ const clearFilters = useCallback(() => {
   setDeliveryFilter({ value: "all", label: "All Delivery" });
   setMarkAsNewFilter({ value: "all", label: "Mark as New: All" });
   setNotReturnableFilter({ value: "all", label: "Returnable: All" });
-  setInventoryFilter({ value: "all", label: "Inventory: All" });
+  // setInventoryFilter({ value: "all", label: "Inventory: All" });
   setRecurringFilter({ value: "all", label: "Subscription: All" });
   setVatFilter({ value: "all", label: "VAT: All" });
   setDeletedFilter({ value: "all", label: "All Records" });
@@ -911,7 +945,7 @@ const hasActiveFilters = useMemo(
     deliveryFilter.value !== "all" ||
     markAsNewFilter.value !== "all" ||
     notReturnableFilter.value !== "all" ||
-    inventoryFilter.value !== "all" ||
+    // inventoryFilter.value !== "all" ||
     recurringFilter.value !== "all" ||
     vatFilter.value !== "all" ||
     deletedFilter.value !== "all" ||
@@ -932,7 +966,7 @@ const hasActiveFilters = useMemo(
     deliveryFilter,
     markAsNewFilter,
     notReturnableFilter,
-    inventoryFilter,
+    // inventoryFilter,
     recurringFilter,
     vatFilter,
     deletedFilter,
@@ -1729,91 +1763,109 @@ const handleExportSelected = async () => {
 
 
       {/* ================= STATS ================= */}
-      <div className="grid gap-3 md:grid-cols-5">
-        <div
-          onClick={() => handleStatClick("total")}
-          className="bg-gradient-to-br from-violet-500/10 to-purple-500/10
-          border border-violet-500/20 rounded-xl p-3
-          hover:shadow-lg hover:shadow-violet-500/10 transition-all cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
-              <Package className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Total Products</p>
-              <p className="text-xl font-bold text-white">{stats.totalCount}</p>
-            </div>
-          </div>
-        </div>
+<div className="grid gap-3 md:grid-cols-5">
 
-        <div
-          onClick={() => handleStatClick("published")}
-          className="bg-gradient-to-br from-green-500/10 to-emerald-500/10
-          border border-green-500/20 rounded-xl p-3
-          hover:shadow-lg hover:shadow-green-500/10 transition-all cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-              <CheckCircle className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Published</p>
-              <p className="text-xl font-bold text-white">{stats.publishedCount}</p>
-            </div>
-          </div>
-        </div>
-
-        <div
-          onClick={() => handleStatClick("lowStock")}
-          className="bg-gradient-to-br from-orange-500/10 to-amber-500/10
-          border border-orange-500/20 rounded-xl p-3
-          hover:shadow-lg hover:shadow-orange-500/10 transition-all cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Low Stock</p>
-              <p className="text-xl font-bold text-white">{stats.lowStockCount}</p>
-            </div>
-          </div>
-        </div>
-
-       <div
-  onClick={() => handleStatClick("unpublished")}
-  className="bg-gradient-to-br from-slate-500/10 to-slate-600/10
-  border border-slate-500/20 rounded-xl p-3
-  hover:shadow-lg hover:shadow-slate-500/10 transition-all cursor-pointer"
->
-  <div className="flex items-center gap-3">
-    <div className="p-2 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg">
-      <EyeOff className="w-4 h-4 text-white" />
-    </div>
-    <div>
-      <p className="text-xs text-slate-400">Unpublished</p>
-      <p className="text-xl font-bold text-white">{stats.unpublishedCount}</p>
+  {/* TOTAL */}
+  <div
+    onClick={() => handleStatClick("total")}
+    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+      !hasActiveFilters
+        ? "bg-gradient-to-br from-violet-500/20 to-purple-500/20 border-violet-400 shadow-lg shadow-violet-500/20 ring-2 ring-violet-500/50"
+        : "bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/20 hover:shadow-lg hover:shadow-violet-500/10"
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
+        <Package className="w-4 h-4 text-white" />
+      </div>
+      <div>
+        <p className="text-xs text-slate-400">Total Products</p>
+        <p className="text-xl font-bold text-white">{stats.totalCount}</p>
+      </div>
     </div>
   </div>
-</div>
-        <div
-          onClick={() => handleStatClick("outOfStock")}
-          className="bg-gradient-to-br from-red-500/10 to-rose-500/10
-          border border-red-500/20 rounded-xl p-3
-          hover:shadow-lg hover:shadow-red-500/10 transition-all cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
-              <XCircle className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Out of Stock</p>
-              <p className="text-xl font-bold text-white">{stats.outOfStockCount}</p>
-            </div>
-          </div>
-        </div>
+
+  {/* PUBLISHED */}
+  <div
+    onClick={() => handleStatClick("published")}
+    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+      publishedFilter.value === "published"
+        ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-400 shadow-lg shadow-green-500/20 ring-2 ring-green-500/50"
+        : "bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20 hover:shadow-lg hover:shadow-green-500/10"
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
+        <CheckCircle className="w-4 h-4 text-white" />
       </div>
+      <div>
+        <p className="text-xs text-slate-400">Published</p>
+        <p className="text-xl font-bold text-white">{stats.publishedCount}</p>
+      </div>
+    </div>
+  </div>
+
+  {/* LOW STOCK */}
+  <div
+    onClick={() => handleStatClick("lowStock")}
+    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+      statusFilter.value === "LowStock"
+        ? "bg-gradient-to-br from-orange-500/20 to-amber-500/20 border-orange-400 shadow-lg shadow-orange-500/20 ring-2 ring-orange-500/50"
+        : "bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/10"
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
+        <AlertCircle className="w-4 h-4 text-white" />
+      </div>
+      <div>
+        <p className="text-xs text-slate-400">Low Stock</p>
+        <p className="text-xl font-bold text-white">{stats.lowStockCount}</p>
+      </div>
+    </div>
+  </div>
+
+  {/* UNPUBLISHED */}
+  <div
+    onClick={() => handleStatClick("unpublished")}
+    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+      publishedFilter.value === "unpublished"
+        ? "bg-gradient-to-br from-slate-400/20 to-slate-500/20 border-slate-300 shadow-lg shadow-slate-500/20 ring-2 ring-slate-400/50"
+        : "bg-gradient-to-br from-slate-500/10 to-slate-600/10 border-slate-500/20 hover:shadow-lg hover:shadow-slate-500/10"
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg">
+        <EyeOff className="w-4 h-4 text-white" />
+      </div>
+      <div>
+        <p className="text-xs text-slate-400">Unpublished</p>
+        <p className="text-xl font-bold text-white">{stats.unpublishedCount}</p>
+      </div>
+    </div>
+  </div>
+
+  {/* OUT OF STOCK */}
+  <div
+    onClick={() => handleStatClick("outOfStock")}
+    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+      statusFilter.value === "OutOfStock"
+        ? "bg-gradient-to-br from-red-500/20 to-rose-500/20 border-red-400 shadow-lg shadow-red-500/20 ring-2 ring-red-500/50"
+        : "bg-gradient-to-br from-red-500/10 to-rose-500/10 border-red-500/20 hover:shadow-lg hover:shadow-red-500/10"
+    }`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
+        <XCircle className="w-4 h-4 text-white" />
+      </div>
+      <div>
+        <p className="text-xs text-slate-400">Out of Stock</p>
+        <p className="text-xl font-bold text-white">{stats.outOfStockCount}</p>
+      </div>
+    </div>
+  </div>
+
+</div>
 
       {/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
 <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
@@ -1862,7 +1914,7 @@ const handleExportSelected = async () => {
               deliveryFilter.value !== "all",
               markAsNewFilter.value !== "all",
               notReturnableFilter.value !== "all",
-              inventoryFilter.value !== "all",
+              // inventoryFilter.value !== "all",
               recurringFilter.value !== "all",
               vatFilter.value !== "all",
             ].filter(Boolean).length} active filter
@@ -1876,7 +1928,7 @@ const handleExportSelected = async () => {
               deliveryFilter.value !== "all",
               markAsNewFilter.value !== "all",
               notReturnableFilter.value !== "all",
-              inventoryFilter.value !== "all",
+              // inventoryFilter.value !== "all",
               recurringFilter.value !== "all",
               vatFilter.value !== "all",
             ].filter(Boolean).length !== 1 && "s"}
@@ -2064,7 +2116,7 @@ const handleExportSelected = async () => {
         {/* ✅ ROW 2 - COLLAPSIBLE FILTERS */}
         {showMoreFilters && (
           <div className="mt-1 pt-1 border-t border-slate-700">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-8 gap-1.5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-7 gap-1.5">
               <select
                 value={statusFilter.value}
                 onChange={(e) => {
@@ -2141,7 +2193,7 @@ const handleExportSelected = async () => {
                 ))}
               </select>
 
-              <select
+              {/* <select
                 value={inventoryFilter.value}
                 onChange={(e) => {
                   const option = inventoryOptions.find(opt => opt.value === e.target.value);
@@ -2158,7 +2210,7 @@ const handleExportSelected = async () => {
                     {opt.label}
                   </option>
                 ))}
-              </select>
+              </select> */}
 
               <select
                 value={recurringFilter.value}
@@ -2178,25 +2230,30 @@ const handleExportSelected = async () => {
                   </option>
                 ))}
               </select>
+<select
+  value={vatFilter.value}
+  onChange={(e) => {
+    const option = vatOptions.find(
+      (opt) => opt.value === e.target.value
+    );
 
-              <select
-                value={vatFilter.value}
-                onChange={(e) => {
-                  const option = vatOptions.find(opt => opt.value === e.target.value);
-                  if (option) setVatFilter(option);
-                }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  vatFilter.value !== "all"
-                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                    : "border-slate-600"
-                }`}
-              >
-                {vatOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+    if (option) setVatFilter(option);
+  }}
+  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs ${
+    vatFilter.value !== "all"
+      ? "border-blue-500"
+      : "border-slate-600"
+  }`}
+>
+  {vatOptions.map((opt) => (
+    <option
+      key={opt.value}
+      value={opt.value}
+    >
+      {opt.label}
+    </option>
+  ))}
+</select>
 <select
   value={pharmaFilter.value}
   onChange={(e) => {
@@ -2232,7 +2289,7 @@ const handleExportSelected = async () => {
   )}
 
   {/* TABLE (always render) */}
-  <div className={`overflow-auto max-h-[65vh] ${filterLoading ? "opacity-40" : ""}`}>
+  <div className={`overflow-auto max-h-[69vh] ${filterLoading ? "opacity-40" : ""}`}>
     
     {products.length === 0 && !filterLoading ? (
       <div className="text-center py-12">

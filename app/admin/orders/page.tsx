@@ -1104,68 +1104,6 @@ if (initialLoading) {
 
 </div>
 
-      {/* Items Per Page */}
-   <div className="bg-slate-900/50 border border-slate-800 rounded-lg px-2 py-2">
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs">
-    
-    {/* LEFT SIDE */}
-    <div className="flex flex-wrap items-center gap-2">
-      
-      {/* Show Entries */}
-      <div className="flex items-center gap-2">
-        <span className="text-slate-400">Show</span>
-        <select
-          value={itemsPerPage}
-          onChange={(e) =>
-            handleItemsPerPageChange(Number(e.target.value))
-          }
-          className="px-2 py-1 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-        >
-          <option value={25}>25</option>
-          <option value={50}>50</option>
-          <option value={75}>75</option>
-          <option value={100}>100</option>
-        </select>
-        <span className="text-slate-400">entries</span>
-      </div>
-
-      {/* Showing Info */}
-      <div className="text-slate-400">
-        Showing{" "}
-        <span className="text-white font-semibold">
-          {orders.length}
-        </span>{" "}
-        of{" "}
-        <span className="text-white font-semibold">
-          {totalCount}
-        </span>
-      </div>
-
-      {/* Selected Count */}
-      {selectedOrders.length > 0 && (
-        <span className="text-blue-400 font-medium">
-          ({selectedOrders.length} selected)
-        </span>
-      )}
-    </div>
-
-    {/* RIGHT SIDE */}
-    <div className="flex items-center gap-2 text-slate-400">
-      
-      {/* Page Info */}
-      <span>
-        Page{" "}
-        <span className="text-white font-semibold">
-          {currentPage}
-        </span>{" "}
-        of{" "}
-        <span className="text-white font-semibold">
-          {totalPages}
-        </span>
-      </span>
-    </div>
-  </div>
-</div>
 {/* FILTERS */}
 <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-2 space-y-3">
 
@@ -1216,7 +1154,7 @@ if (initialLoading) {
       className={`px-2 py-2 rounded-lg text-sm text-white border bg-gray-800 min-w-[100px]
         ${filters.isGuestOrder !== "" ? "border-violet-500 bg-violet-500/10" : "border-slate-700"}`}
     >
-      <option value="">User Type</option>
+      <option value="">Customer Type</option>
       <option value="false">Registered</option>
       <option value="true">Guest</option>
     </select>
@@ -1745,61 +1683,117 @@ title="Manage order"
         )}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-xs text-slate-400">
-              Page {currentPage} of {totalPages}
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={goToFirstPage}
-                disabled={currentPage === 1}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </button>
-              <button
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {getPageNumbers().map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`px-2.5 py-1.5 text-xs rounded-lg transition-all ${
-                    currentPage === page
-                      ? 'bg-violet-500 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-              <button
-                onClick={goToLastPage}
-                disabled={currentPage === totalPages}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
-              >
-                <ChevronsRight className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="text-xs text-slate-400">Total: {totalCount} orders</div>
-          </div>
+
+{/* Combined Pagination + Items Per Page */}
+<div className="bg-slate-900/50 border border-slate-800 rounded-lg px-3 py-2">
+  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 text-xs">
+
+    {/* LEFT SECTION */}
+    <div className="flex flex-wrap items-center gap-3">
+
+      {/* Show Entries */}
+      <div className="flex items-center gap-2">
+        <span className="text-slate-400">Show</span>
+        <select
+          value={itemsPerPage}
+          onChange={(e) =>
+            handleItemsPerPageChange(Number(e.target.value))
+          }
+          className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+        >
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={75}>75</option>
+          <option value={100}>100</option>
+        </select>
+      </div>
+
+      {/* Showing Info */}
+      <div className="text-slate-400">
+        Showing{" "}
+        <span className="text-white font-semibold">
+          {orders.length}
+        </span>{" "}
+        of{" "}
+        <span className="text-white font-semibold">
+          {totalCount}
+        </span>
+      </div>
+
+      {/* Selected */}
+      {selectedOrders.length > 0 && (
+        <div className="text-blue-400 font-medium">
+          {selectedOrders.length} selected
         </div>
       )}
 
+      {/* Page Info */}
+      <div className="text-slate-400">
+        Page{" "}
+        <span className="text-white font-semibold">
+          {currentPage}
+        </span>{" "}
+        /{" "}
+        <span className="text-white font-semibold">
+          {totalPages}
+        </span>
+      </div>
+    </div>
+
+    {/* RIGHT SECTION */}
+    {totalPages > 1 && (
+      <div className="flex items-center gap-1">
+
+        <button
+          onClick={goToFirstPage}
+          disabled={currentPage === 1}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition disabled:opacity-50"
+        >
+          <ChevronsLeft className="h-4 w-4" />
+        </button>
+
+        <button
+          onClick={goToPreviousPage}
+          disabled={currentPage === 1}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition disabled:opacity-50"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        {getPageNumbers().map((page) => (
+          <button
+            key={page}
+            onClick={() => handlePageChange(page)}
+            className={`px-2.5 py-1.5 rounded-lg transition ${
+              currentPage === page
+                ? "bg-violet-500 text-white font-semibold"
+                : "text-slate-400 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+
+        <button
+          onClick={goToNextPage}
+          disabled={currentPage === totalPages}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition disabled:opacity-50"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+
+        <button
+          onClick={goToLastPage}
+          disabled={currentPage === totalPages}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition disabled:opacity-50"
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </button>
+
+      </div>
+    )}
+  </div>
+</div>
 <CancellationDecisionModal
   state={cancellationDecisionState}
   notes={cancellationAdminNotes}

@@ -127,39 +127,28 @@ const downloadSampleTemplate = async () => {
   try {
     setSampleLoading(true);
 
-    const res = await productsService.getAll({
-      page: 1,
-      pageSize: 5,
-      sortBy: "createdAt",
-      sortDirection: "desc",
-    });
+    const res = await productsService.inventorySampleExcel();
 
-    const items = res.data?.data?.items ?? [];
+    const blob = new Blob(
+      [res.data as BlobPart],
+      {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }
+    );
 
-    if (!items.length) {
-      toast.warning("No products found");
-      return;
-    }
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
-const rows: ProductRow[] = items.map((p: any) => ({
-  id: p.id,
-  name: p.name,
-  sku: p.sku || "",
-  stockQuantity: p.stockQuantity ?? 0,
-  price: p.price ?? 0,
-  brandName: "",
-  categoryName: "",
-  newStock: 0,
-  newPrice: 0,
-}));
+    link.href = url;
+    link.download = "inventory-sample.xlsx";
 
-    // 🔥 FORCE DELAY (fix browser blocking)
-    setTimeout(() => {
-  writeExcel(toExcelRows(rows), "inventory-sample.xlsx");
-    }, 100);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
 
     toast.success("Sample downloaded");
-
   } catch (e) {
     console.error(e);
     toast.error("Download failed");

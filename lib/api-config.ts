@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   products: '/api/Products',
   inventoryBulkUpdate: "/api/Products/inventory/bulk-update",
   inventoryBulkUpload: "/api/Products/inventory/bulk-upload",
+  inventorySampleExcel: "/api/Products/inventory/sample-excel",
   PharmacyQuestions: '/api/pharmacy-questions',
 
   deliveryStrip: "/api/DeliveryStrip",

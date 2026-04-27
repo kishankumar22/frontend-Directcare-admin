@@ -483,7 +483,6 @@ const getAllAvailableActions = (
   }> = [];
 
   const status = order.status;
-  const isHomeDelivery = order.deliveryMethod === 'HomeDelivery';
   const isClickAndCollect = order.deliveryMethod === 'ClickAndCollect';
 
   // ===========================
@@ -623,10 +622,7 @@ if (order.paymentStatus === 'Pending' && isOrderActive) {
     category: 'financial',
   });
 
-if (
-  (canRefund || canRefundShippingArg)
-  // && order.paymentMethod === 'Stripe'  // hide  this button when payment is not done through stripe as we cannot process refunds for other payment methods
-) {
+if (canRefund || canRefundShippingArg) {
   actions.push({
     label: 'Refund',
     action: 'refund',
@@ -635,7 +631,6 @@ if (
     category: 'financial',
   });
 }
-
   return actions;
 };
 
@@ -1265,11 +1260,13 @@ const canRefund = () => {
 
   return (
     refundablePaidAmount > 0 &&
-    order.status !== 'Refunded' &&
-    order.collectionStatus !== 'Collected' // 🔥 ADD THIS
+    order.status !== "Refunded" &&
+    (
+      order.status === "Shipped" ||
+      order.collectionStatus === "Collected"
+    )
   );
 };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -1587,7 +1584,7 @@ const allActions = getAllAvailableActions(
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Customer Information */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-violet-500/30 transition-all group">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center pb-2 border-b  border-slate-600 gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg group-hover:scale-110 transition-transform">
               <User className="h-4 w-4 text-white" />
             </div>
@@ -1606,8 +1603,7 @@ const allActions = getAllAvailableActions(
                 <Mail className="h-3 w-3" />
                 Email Address
               </p>
-              <p className="text-white font-medium flex items-center gap-2 text-sm break-all">
-                <Mail className="h-4 w-4 text-cyan-400" />
+              <p className="text-white font-medium flex items-center gap-2 text-sm break-all">                
                 {order.customerEmail}
               </p>
             </div>
@@ -1616,8 +1612,7 @@ const allActions = getAllAvailableActions(
                 <Phone className="h-3 w-3" />
                 Phone Number
               </p>
-              <p className="text-white font-medium flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-green-400" />
+              <p className="text-white font-medium flex items-center gap-2 text-sm">             
                 {order.customerPhone || 'Not provided'}
               </p>
             </div>
@@ -1651,9 +1646,9 @@ const allActions = getAllAvailableActions(
         </div>
 
         {/* Order Summary */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-green-500/30 transition-all group">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg group-hover:scale-110 transition-transform">
+        <div className="bg-slate-900/50 border  border-slate-800 rounded-lg p-4 hover:border-green-500/30 transition-all group">
+          <div className="flex items-center mb-3 pb-2 border-b  border-slate-600 gap-2 mb-3">
+            <div className="p-2 bg-gradient-to-br  from-green-500 to-emerald-500 rounded-lg group-hover:scale-110 transition-transform">
               <PoundSterling className="h-4 w-4 text-white" />
             </div>
             <h3 className="text-lg font-bold text-white">Order Summary</h3>
@@ -1836,7 +1831,7 @@ const allActions = getAllAvailableActions(
 <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 group">
 
   {/* Header */}
-  <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-slate-800">
+  <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-slate-600">
     <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
       <Calendar className="h-4 w-4 text-white" />
     </div>

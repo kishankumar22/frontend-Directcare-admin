@@ -367,6 +367,7 @@ export interface UpdateProductDto extends Partial<CreateProductDto> {}
 export interface ProductQueryParams {
   page?: number;
   pageSize?: number;
+  vatRateId?: string;
 
   // Search
  
@@ -458,64 +459,109 @@ export const productsService = {
 getAll: async (params?: ProductQueryParams) => {
   const queryParams = new URLSearchParams();
 
-  if (params?.page) queryParams.append("page", params.page.toString());
-  if (params?.pageSize) queryParams.append("pageSize", params.pageSize.toString());
+  if (params?.page)
+    queryParams.append("page", params.page.toString());
 
-  if (params?.searchTerm) queryParams.append("searchTerm", params.searchTerm);
+  if (params?.pageSize)
+    queryParams.append("pageSize", params.pageSize.toString());
+
+  if (params?.searchTerm)
+    queryParams.append("searchTerm", params.searchTerm);
+
   if (params?.stockStatus)
-  queryParams.append("stockStatus", params.stockStatus);
+    queryParams.append("stockStatus", params.stockStatus);
 
   if (params?.isPharmaProduct !== undefined)
-  queryParams.append("isPharmaProduct", params.isPharmaProduct.toString());
+    queryParams.append(
+      "isPharmaProduct",
+      params.isPharmaProduct.toString()
+    );
 
-  if (params?.categoryId) queryParams.append("categoryId", params.categoryId);
-  if (params?.brandId) queryParams.append("brandId", params.brandId);
+  if (params?.categoryId)
+    queryParams.append("categoryId", params.categoryId);
 
-  if (params?.productType) queryParams.append("productType", params.productType);
+  if (params?.brandId)
+    queryParams.append("brandId", params.brandId);
+
+  if (params?.vatRateId)
+    queryParams.append("vatRateId", params.vatRateId);
+
+  if (params?.productType)
+    queryParams.append("productType", params.productType);
 
   if (params?.isPublished !== undefined)
-    queryParams.append("isPublished", params.isPublished.toString());
+    queryParams.append(
+      "isPublished",
+      params.isPublished.toString()
+    );
 
   if (params?.showOnHomepage !== undefined)
-    queryParams.append("showOnHomepage", params.showOnHomepage.toString());
+    queryParams.append(
+      "showOnHomepage",
+      params.showOnHomepage.toString()
+    );
 
   if (params?.markAsNew !== undefined)
-    queryParams.append("markAsNew", params.markAsNew.toString());
+    queryParams.append(
+      "markAsNew",
+      params.markAsNew.toString()
+    );
 
   if (params?.isRecurring !== undefined)
-    queryParams.append("isRecurring", params.isRecurring.toString());
-
-  if (params?.vatExempt !== undefined)
-    queryParams.append("vatExempt", params.vatExempt.toString());
+    queryParams.append(
+      "isRecurring",
+      params.isRecurring.toString()
+    );
 
   if (params?.notReturnable !== undefined)
-    queryParams.append("notReturnable", params.notReturnable.toString());
+    queryParams.append(
+      "notReturnable",
+      params.notReturnable.toString()
+    );
 
   if (params?.nextDayDeliveryEnabled !== undefined)
-    queryParams.append("nextDayDeliveryEnabled", params.nextDayDeliveryEnabled.toString());
+    queryParams.append(
+      "nextDayDeliveryEnabled",
+      params.nextDayDeliveryEnabled.toString()
+    );
 
   if (params?.sameDayDeliveryEnabled !== undefined)
-    queryParams.append("sameDayDeliveryEnabled", params.sameDayDeliveryEnabled.toString());
+    queryParams.append(
+      "sameDayDeliveryEnabled",
+      params.sameDayDeliveryEnabled.toString()
+    );
 
   if (params?.standardDeliveryEnabled !== undefined)
-    queryParams.append("standardDeliveryEnabled", params.standardDeliveryEnabled.toString());
-
-  if (params?.manageInventoryMethod)
-    queryParams.append("manageInventoryMethod", params.manageInventoryMethod);
+    queryParams.append(
+      "standardDeliveryEnabled",
+      params.standardDeliveryEnabled.toString()
+    );
 
   if (params?.isDeleted !== undefined)
-    queryParams.append("isDeleted", params.isDeleted.toString());
+    queryParams.append(
+      "isDeleted",
+      params.isDeleted.toString()
+    );
+
+  if (params?.isActive !== undefined)
+    queryParams.append(
+      "isActive",
+      params.isActive.toString()
+    );
 
   if (params?.sortBy)
     queryParams.append("sortBy", params.sortBy);
 
   if (params?.sortDirection)
-    queryParams.append("sortDirection", params.sortDirection);
-  if (params?.isActive !== undefined)
-  queryParams.append("isActive", params.isActive.toString());
+    queryParams.append(
+      "sortDirection",
+      params.sortDirection
+    );
 
   const url = `${API_ENDPOINTS.products}${
-    queryParams.toString() ? `?${queryParams.toString()}` : ""
+    queryParams.toString()
+      ? `?${queryParams.toString()}`
+      : ""
   }`;
 
   return apiClient.get<PaginatedResponse<Product>>(url);
@@ -587,7 +633,14 @@ bulkUpdateInventory: async (items: {
     }>
   >(API_ENDPOINTS.inventoryBulkUpdate, items);
 },
-
+inventorySampleExcel: async () => {
+  return apiClient.get(
+    `${API_ENDPOINTS.inventorySampleExcel}`,
+    {
+      responseType: "blob",
+    }
+  );
+},
 getSimpleProducts: async () => {
   return apiClient.get<ApiResponse<Product[]>>(
     `${API_ENDPOINTS.products}/simple`
