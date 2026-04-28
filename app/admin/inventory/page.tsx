@@ -73,6 +73,7 @@ const selectStyles = {
   menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
 };
 
+
 function StockBadge({ qty }: { qty: number }) {
   if (qty === 0)
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400"><AlertTriangle className="h-2.5 w-2.5" />Out</span>;
@@ -98,6 +99,8 @@ export default function InventoryPage() {
 const [importFile, setImportFile] = useState<File | null>(null);
 const [sampleLoading, setSampleLoading] = useState(false);
 const [fullLoading, setFullLoading] = useState(false);
+const [selectedStatus, setSelectedStatus] =
+  useState("all");
 
   const [currentPage, setCurrentPage]   = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -156,44 +159,106 @@ const downloadSampleTemplate = async () => {
     setSampleLoading(false);
   }
 };
-  // ─── Fetch products ────────────────────────────────────────────────────────
-  const fetchProducts = async () => {
-    try {
-      setTableLoading(true);
-      const res = await productsService.getAll({
-        page: currentPage,
-        pageSize: itemsPerPage,
-        searchTerm: debouncedSearch?.trim() || undefined,
-        categoryId: selectedCategory?.value || undefined,
-        brandId: selectedBrand?.value || undefined,   // ✅ backend brand filter
-        sortBy: "createdAt",
-        sortDirection: "desc",                         // ✅ newest first
-      });
-      if (res.data?.success) {
-        const apiData = res.data.data;
-        setTotalCount(apiData.totalCount);
-        setTotalPages(apiData.totalPages);
-        setProducts(apiData.items.map((p: any) => {
+const fetchProducts = async () => {
+  try {
+    setTableLoading(true);
+
+    const params: any = {
+      page: currentPage,
+      pageSize: itemsPerPage,
+      sortBy: "createdAt",
+      sortDirection: "desc",
+    };
+
+    // Search
+    if (debouncedSearch?.trim()) {
+      params.searchTerm = debouncedSearch.trim();
+    }
+
+    // Stock Status
+    if (selectedStatus !== "all") {
+      params.stockStatus = selectedStatus;
+    }
+
+    // Category
+    if (selectedCategory?.value !== "all") {
+      params.categoryId = selectedCategory?.value;
+    }
+
+    // Brand
+    if (selectedBrand?.value !== "all") {
+      params.brandId = selectedBrand?.value;
+    }
+
+    const res = await productsService.getAll(params);
+
+    if (res.data?.success) {
+      const apiData = res.data.data;
+
+      setTotalCount(apiData.totalCount);
+      setTotalPages(apiData.totalPages);
+
+      setProducts(
+        apiData.items.map((p: any) => {
           const images = p.images || [];
-          const mainImage = images.find((i: any) => i.isMain)?.imageUrl || images[0]?.imageUrl || "";
+
+          const mainImage =
+            images.find((i: any) => i.isMain)?.imageUrl ||
+            images[0]?.imageUrl ||
+            "";
+
           return {
-            id: p.id, name: p.name, sku: p.sku || "-",
+            id: p.id,
+            name: p.name,
+            sku: p.sku || "-",
             stockQuantity: Number(p.stockQuantity ?? 0),
             price: Number(p.price ?? 0),
             brandName: p.brandName ?? "",
-            categoryName: p.categories?.[0]?.categoryName ?? "Uncategorized",
-            image: mainImage, images,
+            categoryName:
+              p.categories?.[0]?.categoryName ||
+              "Uncategorized",
+            image: mainImage,
+            images,
             newStock: Number(p.stockQuantity ?? 0),
             newPrice: Number(p.price ?? 0),
           };
-        }));
-      }
-    } catch {
-      toast.error("Failed to load products");
-    } finally {
-      setTableLoading(false);
+        })
+      );
     }
-  };
+  } catch {
+    toast.error("Failed to load products");
+  } finally {
+    setTableLoading(false);
+  }
+};
+
+// ================================
+// EFFECT
+// ================================
+useEffect(() => {
+  fetchProducts();
+}, [
+  currentPage,
+  itemsPerPage,
+  debouncedSearch,
+  selectedStatus,
+  selectedCategory,
+  selectedBrand,
+]);
+
+
+// ================================
+// PAGE RESET ON FILTER CHANGE
+// ================================
+useEffect(() => {
+  setCurrentPage(1);
+}, [
+  debouncedSearch,
+  selectedStatus,
+  selectedCategory,
+  selectedBrand,
+]);
+
 
 const fetchFilters = async () => {
   try {
@@ -323,36 +388,83 @@ const fetchFilters = async () => {
   };
 
   // ─── Export helpers ────────────────────────────────────────────────────────
-  const toExcelRows = (rows: ProductRow[]) => rows.map(p => ({
-    ProductId: p.id, ProductName: p.name, SKU: p.sku,
-    CurrentStock: p.stockQuantity, NewStock: "",
-    CurrentPrice: p.price, NewPrice: "",
+// Replace ONLY these two functions
+
+const toExcelRows = (rows: ProductRow[]) =>
+  rows.map((p) => ({
+    ProductId: p.id,
+    ProductName: p.name,                 // ref
+    SKU: p.sku,                         // ref
+    VariantId: "",                      // optional
+    VariantName: "",                    // ref
+    CurrentStock: p.stockQuantity,      // ref
+    NewStock: "",
+    CurrentPrice: p.price,              // ref
+    NewPrice: "",
   }));
 
 const writeExcel = (rows: any[], filename: string) => {
   try {
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: true });
+
+    // Header row exactly like image
+    const headers = [[
+      "ProductId",
+      "ProductName (ref)",
+      "SKU (ref)",
+      "VariantId (optional)",
+      "VariantName (ref)",
+      "CurrentStock (ref)",
+      "NewStock",
+      "CurrentPrice (ref)",
+      "NewPrice",
+    ]];
+
+    XLSX.utils.sheet_add_aoa(ws, headers, { origin: "A1" });
+
+    // Notes like image
+    XLSX.utils.sheet_add_aoa(
+      ws,
+      [
+        [],
+        ["NOTES:"],
+        ["• (ref) columns are for reference only — values in these columns are ignored during import."],
+        ["• Leave NewStock blank to keep current stock unchanged."],
+        ["• Leave NewPrice blank to keep current price unchanged."],
+        ["• VariantId is optional. If provided, that specific variant's stock/price is updated instead of the main product."],
+      ],
+      { origin: `A${rows.length + 3}` }
+    );
+
+    // Column widths
+    ws["!cols"] = [
+      { wch: 38 }, // ProductId
+      { wch: 26 }, // ProductName
+      { wch: 14 }, // SKU
+      { wch: 34 }, // VariantId
+      { wch: 20 }, // VariantName
+      { wch: 16 }, // CurrentStock
+      { wch: 12 }, // NewStock
+      { wch: 16 }, // CurrentPrice
+      { wch: 12 }, // NewPrice
+    ];
+
+    // Green header style (supported in many viewers)
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1:I1");
+    for (let C = range.s.c; C <= 8; C++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!ws[cellRef]) continue;
+
+      ws[cellRef].s = {
+        fill: { fgColor: { rgb: "228B22" } },
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+      };
+    }
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory Update");
 
-    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-
-    const blob = new Blob([wbout], {
-      type: "application/octet-stream",
-    });
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-
-    document.body.appendChild(link);
-    link.click();
-
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-    }, 0);
-
+    XLSX.writeFile(wb, filename);
   } catch (e) {
     console.error("Excel write failed", e);
   }
@@ -635,6 +747,28 @@ const openMediaViewer = (images: any[], idx = 0) => {
             <Select styles={selectStyles} options={brands} value={selectedBrand} onChange={setSelectedBrand}
               placeholder="All Brands" isClearable menuPortalTarget={typeof window !== "undefined" ? document.body : null} menuPosition="fixed" />
           </div>
+          <div className="w-44">
+  <select
+    value={selectedStatus}
+    onChange={(e) =>
+      setSelectedStatus(e.target.value)
+    }
+    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+  >
+    <option value="all">
+      All Stock Status
+    </option>
+    <option value="InStock">
+      In Stock
+    </option>
+    <option value="LowStock">
+      Low Stock
+    </option>
+    <option value="OutOfStock">
+      Out Of Stock
+    </option>
+  </select>
+</div>
           {hasActiveFilters && (
             <button
               onClick={() => { setSearchTerm(""); setSelectedCategory(null); setSelectedBrand(null); }}

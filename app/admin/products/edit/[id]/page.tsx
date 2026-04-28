@@ -14,7 +14,6 @@ import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
 import { BackInStockSubscribers, LowStockAlert } from "../../productModals";
-import { vatratesService } from "@/lib/services/vatrates";
 import productLockService from "@/lib/services/productLockService";
 import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
@@ -31,6 +30,7 @@ import { categoriesService} from "@/lib/services/categories";
 import AdminCommentHistory from "../../_components/AdminCommentHistory";
 import UnsavedChangesModal from "../../_components/UnsavedChangesModal";
 import ProductLockModal from "../../_components/ProductLockModal";
+import VatRateSelector from "../../VatRateSelector";
 
 
 type CleanCartData = {
@@ -82,7 +82,7 @@ const [checkingSku, setCheckingSku] = useState(false);
 // ✅ Add these new states
 const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
-const [vatSearch, setVatSearch] = useState('');
+
 const [loading, setLoading] = useState(true);
 // Add states (after existing useState declarations)
 const [takeoverRequest, setTakeoverRequest] = useState<any>(null);
@@ -92,11 +92,11 @@ const [pendingRequestTimeLeft, setPendingRequestTimeLeft] = useState(0);
 const [takeoverRequestStatus, setTakeoverRequestStatus] = useState<'pending' | 'approved' | 'rejected' | 'expired' | null>(null);
 const [takeoverResponseMessage, setTakeoverResponseMessage] = useState('');
   // Dynamic dropdown data from API
-  const [showVatDropdown, setShowVatDropdown] = useState(false);
+
   const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
     brands: [],
-    categories: [],
-    vatRates: []  // ✅ Add this line
+    categories: []
+
   });
 // Add this state with your other useState declarations
 const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
@@ -267,7 +267,6 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
   }
 };
 
-
 // ✅ Extract YouTube Video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
   if (!url) return null;
@@ -329,14 +328,12 @@ const cleanVariantOptions = (variant: any, firstVariant: any) => {
   return cleaned;
 };
 
-
 // ✅ Add this useEffect for real-time countdown timer
 useEffect(() => {
   if (!takeoverRequest || takeoverRequest.isExpired) {
     setTakeoverTimeLeft(0);
     return;
   }
-
   // Set initial time
   setTakeoverTimeLeft(takeoverRequest.timeLeftSeconds || 0);
 
@@ -706,14 +703,13 @@ useEffect(() => {
       // ✅ Fetch all other data in parallel (ALL SERVICE-BASED)
       const [
         brandsResponse, 
-        categoriesResponse, 
-        vatRatesResponse, 
+        categoriesResponse,    
         // allProductsResponse,
         simpleProductsResponse
       ] = await Promise.allSettled([
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
-        vatratesService.getAll(),
+     
         // productsService.getAll({ pageSize: 1000 }),
         productsService.getSimpleProducts()
       ]);
@@ -730,24 +726,20 @@ const categoriesData =
     ? categoriesResponse.value.data.data.items
     : [];
 
-const vatRatesData =
-  vatRatesResponse.status === "fulfilled" &&
-  Array.isArray(vatRatesResponse.value?.data?.data)
-    ? vatRatesResponse.value.data.data
-    : [];
+
       
       
 
       setDropdownsData({
         brands: Array.isArray(brandsData) ? brandsData : [],
-        categories: Array.isArray(categoriesData) ? categoriesData : [],
-        vatRates: Array.isArray(vatRatesData) ? vatRatesData : []
+        categories: Array.isArray(categoriesData) ? categoriesData : []
+  
       });
 
       console.log('✅ Dropdowns loaded:', {
         brands: brandsData.length,
         categories: categoriesData.length,
-        vatRates: vatRatesData.length
+   
       });
 
       // ✅ Helper function to extract products from service response
@@ -6257,253 +6249,10 @@ const uploadImagesToProductDirect = async (
 {/* ✅ VAT / TAX SETTINGS - SAME BOX MEIN SEARCH + SELECTION */}
 {/* ====================================================================== */}
 
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-    VAT / Tax Settings
-  </h3>
-
-  {/* ✅ VAT Rate Selector */}
-  <div className="relative">
-    {/* Label & Preview Button */}
-    <div className="flex items-center justify-between gap-3 mb-2">
-      <label className="block text-sm font-medium text-slate-300">
-        VAT Rate (Please select an applicable rate)
-        <span className="text-red-400">*</span>
-      </label>    
-    </div>
-
-    {/* ✅ SINGLE INPUT BOX - Selection + Search */}
-    <div className="relative">
-      <input
-        type="text"
-        placeholder="Search by name or rate..."
-        value={
-          showVatDropdown 
-            ? vatSearch  // ✅ Search mode - show search text
-            : (formData.vatRateId === '' && formData.vatExempt)
-              ? 'No Tax (0%)'  // ✅ Display mode - show "No Tax"
-              : formData.vatRateId
-                ? (() => {
-                  const selected = dropdownsData?.vatRates?.find(
-  (v: any) => v.id === formData.vatRateId
-);
-                    return selected ? `${selected.name} (${selected.rate}%)` : '';
-                  })()
-                : ''  // ✅ Empty state
-        }
-        onChange={(e) => {
-          setVatSearch(e.target.value);
-          if (!showVatDropdown) {
-            setShowVatDropdown(true);
-          }
-        }}
-        onFocus={() => {
-          setShowVatDropdown(true);
-          // ✅ Clear search when opening dropdown
-          setVatSearch('');
-        }}
-        className="w-full px-3 py-2 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all cursor-pointer"
-      />
-      
-      {/* ✅ Clear Button */}
-      {(formData.vatRateId || formData.vatExempt) && !showVatDropdown && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setFormData({ 
-              ...formData, 
-              vatRateId: '',
-              vatExempt: true
-            });
-            setVatSearch('');
-         
-          }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition-colors z-10"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
-
-      {/* ✅ Dropdown Icon (when closed) */}
-      {!showVatDropdown && (
-        <svg 
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      )}
-    </div>
-
-    {/* ✅ DROPDOWN - Same as Before */}
-    {showVatDropdown && (
-      <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-auto">
-        {(() => {
-          const searchLower = vatSearch.toLowerCase().trim();
-          
-          // ✅ HARDCODED 0% OPTION
-          const hardcodedOption = {
-            id: '',
-            name: 'No Tax',
-            rate: 0,
-            description: 'Zero VAT rate - No tax applied',
-            isDefault: false
-          };
-
-          // ✅ FILTER API RESULTS
-          const filtered = dropdownsData?.vatRates?.filter((vat: any) => {
-            if (!searchLower) return true;
-            
-            return vat.name.toLowerCase().includes(searchLower) ||
-                   vat.rate.toString().includes(searchLower) ||
-                   vat.description?.toLowerCase().includes(searchLower) ||
-                   vat.country?.toLowerCase().includes(searchLower) ||
-                   vat.region?.toLowerCase().includes(searchLower);
-          });
-
-          // ✅ COMBINE OPTIONS
-          const allOptions = [hardcodedOption, ...filtered].filter((vat: any) => {
-            if (!searchLower) return true;
-            
-            if (vat.id === '') {
-              return vat.name.toLowerCase().includes(searchLower) ||
-                     vat.rate.toString().includes(searchLower) ||
-                     '0'.includes(searchLower) ||
-                     'no tax'.includes(searchLower);
-            }
-            
-            return true;
-          });
-
-          // ✅ HIGHLIGHT FUNCTION
-          const highlightText = (text: string, search: string) => {
-            if (!search) return text;
-            const regex = new RegExp(`(${search})`, 'gi');
-            const parts = text.split(regex);
-            return parts.map((part, i) => 
-              part.toLowerCase() === search.toLowerCase() 
-                ? `<mark class="bg-violet-500/30 text-violet-300 px-0.5 rounded">${part}</mark>`
-                : part
-            ).join('');
-          };
-
-          // ✅ NO RESULTS
-          if (allOptions.length === 0) {
-            return (
-              <div className="px-4 py-4 text-center text-slate-500 text-sm">
-                <p>No results found</p>
-                <p className="text-xs mt-1">Try "20", "Standard", or "0"</p>
-              </div>
-            );
-          }
-
-          // ✅ RENDER OPTIONS
-          return allOptions.map((vat: any) => {
-            const isSelected = vat.rate === 0 
-              ? (formData.vatRateId === '' && formData.vatExempt)
-              : formData.vatRateId === vat.id;
-            
-            return (
-              <button
-                key={vat.id || 'no-tax'}
-                type="button"
-                onClick={() => {
-                  // ✅ SET SELECTION
-                  if (vat.rate === 0) {
-                    setFormData({ 
-                      ...formData, 
-                      vatRateId: '',
-                      vatExempt: true
-                    });
-                  } else {
-                    setFormData({ 
-                      ...formData, 
-                      vatRateId: vat.id,
-                      vatExempt: false
-                    });
-                  }
-                  
-                  // ✅ CLOSE DROPDOWN & CLEAR SEARCH
-                  setVatSearch('');
-                  setShowVatDropdown(false);
-                }}
-                className={`w-full text-left px-3 py-2.5 border-b border-slate-800/50 hover:bg-violet-500/10 transition-all group ${
-                  isSelected ? 'bg-violet-500/20 border-l-4 border-l-violet-500' : ''
-                }`}
-              >
-                {/* NAME + RATE IN SAME LINE */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* VAT Name */}
-                  <span 
-                    className={`font-medium text-sm ${isSelected ? 'text-violet-300' : 'text-white'}`}
-                    dangerouslySetInnerHTML={{ __html: highlightText(vat.name, searchLower) }}
-                  />
-                  
-                  {/* RATE BADGE */}
-                  <span 
-                    className={`px-2 py-0.5 rounded-md text-xs font-bold ${
-                      vat.rate === 0 
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                        : vat.rate < 10 
-                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                    } ${
-                      searchLower && vat.rate.toString().includes(searchLower) 
-                        ? 'ring-2 ring-violet-400' 
-                        : ''
-                    }`}
-                    dangerouslySetInnerHTML={{ __html: highlightText(`${vat.rate}%`, searchLower) }}
-                  />
-                  
-                  {/* Default Badge */}
-                  {vat.isDefault && (
-                    <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-md text-xs border border-violet-500/30">
-                      Default
-                    </span>
-                  )}
-                  
-                  {/* Selected Checkmark */}
-                  {isSelected && (
-                    <svg className="w-4 h-4 text-violet-400 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
-                
-                {/* Description */}
-                {vat.description && (
-                  <p 
-                    className="text-xs text-slate-400 mt-1"
-                    dangerouslySetInnerHTML={{ __html: highlightText(vat.description, searchLower) }}
-                  />
-                )}
-              </button>
-            );
-          });
-        })()}
-      </div>
-    )}
-
-    {/* ✅ CLOSE DROPDOWN ON OUTSIDE CLICK */}
-    {showVatDropdown && (
-      <div 
-        className="fixed inset-0 z-40" 
-       onClick={() => {
-  setShowVatDropdown(false);
-  setVatSearch('');
-}}
-      />
-    )}
-  </div>
-
-
-
-</div>
+<VatRateSelector
+  formData={formData}
+  setFormData={setFormData}
+/>
 
 
 
@@ -8042,10 +7791,6 @@ const uploadImagesToProductDirect = async (
   canSaveDraft={checkDraftRequirements().isValid}
   canUpdate={missingFields.length === 0}
 />
-
-
-
-
     </div>
   );
 }

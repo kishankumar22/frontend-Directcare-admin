@@ -346,29 +346,56 @@ const productOptions = useMemo(() => {
 
 
 
+
 const fetchProducts = async () => {
   try {
     setProductsLoading(true);
 
-    // ✅ Always send published filter
     const params: any = {
-      pageSize: 10,
+      pageSize: 100,
       isPublished: true,
     };
 
-    // ✅ Search
-    if (productSearchTerm?.trim()) {
-      params.searchTerm = productSearchTerm.trim();
+    // ===============================
+    // ASSIGNED TO CATEGORIES
+    // ===============================
+    if (formData.discountType === "AssignedToCategories") {
+      // jo category selected hai wahi force karo
+      const selectedCategoryId = formData.assignedCategoryIds?.[0];
+
+      if (selectedCategoryId) {
+        params.categoryId = selectedCategoryId;
+      }
+
+      // optional search inside selected category only
+      if (productSearchTerm?.trim()) {
+        params.searchTerm = productSearchTerm.trim();
+      }
+
+      // optional brand filter
+      if (productBrandFilter) {
+        params.brandId = productBrandFilter;
+      }
     }
 
-    // ✅ Category filter
-    if (productCategoryFilter) {
-      params.categoryId = productCategoryFilter;
-    }
+    // ===============================
+    // ASSIGNED TO PRODUCTS
+    // ===============================
+    if (formData.discountType === "AssignedToProducts") {
+      // category filter
+      if (productCategoryFilter) {
+        params.categoryId = productCategoryFilter;
+      }
 
-    // ✅ Brand filter
-    if (productBrandFilter) {
-      params.brandId = productBrandFilter;
+      // brand filter
+      if (productBrandFilter) {
+        params.brandId = productBrandFilter;
+      }
+
+      // search filter
+      if (productSearchTerm?.trim()) {
+        params.searchTerm = productSearchTerm.trim();
+      }
     }
 
     console.log("🔥 API PARAMS:", params);
@@ -384,6 +411,18 @@ const fetchProducts = async () => {
     setProductsLoading(false);
   }
 };
+useEffect(() => {
+  if (showModal) {
+    fetchProducts();
+  }
+}, [
+  showModal,
+  formData.discountType,
+  formData.assignedCategoryIds,
+  productCategoryFilter,
+  productBrandFilter,
+  productSearchTerm
+]);
 useEffect(() => {
   fetchDiscounts();
   fetchDropdownData();
@@ -542,17 +581,29 @@ const brandOptions: SelectOption[] = useMemo(() => {
 const getProductDiscount = (product: any) => {
   if (!product?.assignedDiscounts?.length) return null;
 
-  // active discount निकाल
+  const now = new Date();
+
   const active = product.assignedDiscounts.find((d: any) => {
-    const now = new Date();
-    return (
-      d.isActive &&
-      new Date(d.startDate) <= now &&
-      new Date(d.endDate) >= now
-    );
+    if (!d.isActive) return false;
+    if (new Date(d.startDate) > now) return false;
+    if (new Date(d.endDate) < now) return false;
+
+    // category discount + specific products selected
+    if (d.discountType === "AssignedToCategories") {
+      const ids = (d.assignedProductIds || "")
+        .split(",")
+        .map((x: string) => x.trim())
+        .filter(Boolean);
+
+      if (ids.length > 0) {
+        return ids.includes(product.id); // only selected products
+      }
+    }
+
+    return true;
   });
 
-  return active || product.assignedDiscounts[0];
+  return active || null;
 };
 // Handle submit
 const handleSubmit = async (e: React.FormEvent) => {

@@ -9,7 +9,6 @@ import { useToast } from "@/app/admin/_components/CustomToast";
 import {   brandsService, DropdownsData, ProductAttribute, ProductImage,  ProductOption,  productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
-import {  vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
 import RelatedProductsSelector from "../RelatedProductsSelector";
 import ProductVariantsManager from "../ProductVariantsManager";
@@ -19,6 +18,7 @@ import ProductNameInput from "../ProductNameInput";
 import SKUInput from "../SKUInput";
 import { categoriesService } from "@/lib/services/categories";
 import UnsavedChangesModal from "../_components/UnsavedChangesModal";
+import VatRateSelector from "../VatRateSelector";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -92,8 +92,6 @@ const truncateHtmlByTextLength = (html: string, maxLength: number) => {
 // Add this to your component state
 const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
 const [uploadingImages, setUploadingImages] = useState(false);
-const [vatSearch, setVatSearch] = useState('');
-const [showVatDropdown, setShowVatDropdown] = useState(false);
 
   
   // ============ NEW STATES FOR DRAFT/EDIT MODE ============
@@ -105,7 +103,7 @@ const [showVatDropdown, setShowVatDropdown] = useState(false);
 const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   brands: [],
   categories: [],
-  vatRates: []  // ✅ Add this
+
 });
  // ✅ ADD THIS STATE FOR MODAL
   const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
@@ -386,13 +384,12 @@ useEffect(() => {
       const [
         brandsResponse, 
         categoriesResponse, 
-        vatRatesResponse,
+      
         // allProductsResponse,
         simpleProductsResponse
       ] = await Promise.all([
         brandsService.getAll({ includeInactive: true }),
-        categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
-        vatratesService.getAll(),
+        categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),    
         // productsService.getAll({ pageSize: 100 }),
         productsService.getSimpleProducts()
       ]);
@@ -407,19 +404,17 @@ const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
   ? categoriesResponse.data.data.items
   : [];
 
-const vatRatesData = Array.isArray(vatRatesResponse?.data?.data)
-  ? vatRatesResponse.data.data
-  : [];
+
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
-        vatRates: vatRatesData
+       
       });
 
       console.log('📊 Dropdowns:', {
         brands: brandsData.length,
         categories: categoriesData.length,
-        vat: vatRatesData.length
+ 
       });
 
   //     // ✅ ==================== SET DEFAULT VAT RATE ====================
@@ -702,34 +697,8 @@ const getChangedFieldsList = useCallback(() => {
   
   return changes;
 }, [formData, initialFormData]);
-// ✅ SEPARATE useEffect FOR DEFAULT VAT RATE
-useEffect(() => {
-  // Only run when VAT rates are loaded AND no rate selected AND not exempt
-  if (dropdownsData.vatRates.length > 0 && !formData.vatRateId && !formData.vatExempt) {
-    // Find default rate (isDefault: true)
-    const defaultRate = dropdownsData.vatRates.find((v: any) => v.isDefault === true);
-    
-    if (defaultRate) {
-      console.log('✅ Setting default VAT rate:', defaultRate.name, `(${defaultRate.rate}%)`);
-      setFormData(prev => ({ 
-        ...prev, 
-        vatRateId: defaultRate.id,
-        vatExempt: false  // Ensure not exempt
-      }));
-    } else {
-      // If no default rate found, optionally find 0% rate
-      const zeroRate = dropdownsData.vatRates.find((v: any) => v.rate === 0);
-      if (zeroRate) {
-        console.log('✅ Setting 0% VAT rate as default:', zeroRate.name);
-        setFormData(prev => ({ 
-          ...prev, 
-          vatRateId: zeroRate.id,
-          vatExempt: false
-        }));
-      }
-    }
-  }
-}, [dropdownsData.vatRates, formData.vatRateId, formData.vatExempt]); // ✅ Dependencies
+
+
 useEffect(() => {
   const { missing } = checkPublishRequirements();
   setMissingFields(missing);
@@ -881,19 +850,6 @@ const getYouTubeVideoId = (url: string): string | null => {
   
   return null;
 };
-
-// Filter VAT rates based on search
-const filteredVATRates = dropdownsData.vatRates.filter(vat =>
-  vat.name.toLowerCase().includes(vatSearch.toLowerCase()) ||
-  vat.rate.toString().includes(vatSearch)
-);
-
-  const removeRelatedProduct = (productId: string) => {
-    setFormData({
-      ...formData,
-      relatedProducts: formData.relatedProducts.filter(id => id !== productId)
-    });
-  };
 
 
 // ==================== SKU VALIDATION (COMPLETE - SERVICE-BASED) ====================
@@ -4201,210 +4157,11 @@ useEffect(() => {
 {/* ✅ VAT / TAX SETTINGS - ADD PRODUCT PAGE WITH PROPER DROPDOWN */}
 {/* ====================================================================== */}
 
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-    VAT / Tax Settings
-  </h3>
+<VatRateSelector
+  formData={formData}
+  setFormData={setFormData}
 
-{/* VAT Exempt Toggle */}
-<label className="flex items-center gap-3 cursor-pointer">
-  <input
-    type="checkbox"
-    name="vatExempt"
-    checked={formData.vatExempt}
-    onChange={(e) => {
-      const isExempt = e.target.checked;
-      setFormData(prev => ({
-        ...prev,
-        vatExempt: isExempt,
-        vatRateId: isExempt ? '' : prev.vatRateId  // Clear rate if exempt
-      }));
-    }}
-    className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-  />
-  <div>
-    <span className="text-sm font-medium text-slate-300">
-      VAT Exempt (Zero Rated)
-    </span>
-    <p className="text-xs text-slate-400">
-      Check this box if product is VAT exempt or zero-rated
-    </p>
-  </div>
-</label>
-
-  {/* VAT Rate Selector - Show when NOT exempt */}
-  {!formData.vatExempt && (
-    <div className="relative">
-      {/* Label with Required Indicator */}
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <label className="block text-sm font-medium text-slate-300">
-          VAT Rate
-          <span className="text-red-400 ml-1">*</span>
-          <span className="text-xs text-slate-500 ml-2">(Required when product is taxable)</span>
-        </label>
-        
-        {/* Selected Rate Preview */}
-        {formData.vatRateId && (
-          <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-            Selected: {dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name || ''}
-          </span>
-        )}
-      </div>
-
-      {/* Search Input - Always shows current selection */}
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Search or select VAT rate..."
-          value={
-            formData.vatRateId
-              ? (() => {
-                  const selected = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
-                  return selected ? `${selected.name} (${selected.rate}%)` : '';
-                })()
-              : vatSearch || ''
-          }
-          onChange={(e) => {
-            setVatSearch(e.target.value);
-            if (!showVatDropdown) {
-              setShowVatDropdown(true);
-            }
-            // Clear selection when user starts typing
-            if (formData.vatRateId) {
-              setFormData(prev => ({ ...prev, vatRateId: '' }));
-            }
-          }}
-          onFocus={() => {
-            setShowVatDropdown(true);
-          }}
-          className="w-full px-3 py-2.5 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-        
-        {/* Dropdown Icon */}
-        <svg 
-          className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none transition-transform duration-200 ${showVatDropdown ? 'rotate-180' : ''}`}
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-
-      {/* Dropdown List */}
-      {showVatDropdown && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-40" 
-            onClick={() => {
-              setShowVatDropdown(false);
-              setVatSearch('');
-            }} 
-          />
-          
-          {/* Dropdown Menu */}
-          <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
-            {/* Search Input inside dropdown */}
-            <div className="sticky top-0 p-2 bg-slate-800 border-b border-slate-700">
-              <input
-                type="text"
-                placeholder="Search VAT rates..."
-                value={vatSearch}
-                onChange={(e) => setVatSearch(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                autoFocus
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-            
-            {/* Options */}
-            <div className="py-1">
-              {dropdownsData.vatRates.length === 0 ? (
-                <div className="px-4 py-3 text-center text-sm text-slate-400">
-                  No VAT rates available
-                </div>
-              ) : (
-                filteredVATRates.map((vat) => (
-                  <button
-                    key={vat.id}
-                    type="button"
-                    className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center justify-between group hover:bg-slate-700 ${
-                      formData.vatRateId === vat.id 
-                        ? 'bg-violet-500/20 text-violet-400' 
-                        : 'text-slate-300 hover:text-white'
-                    }`}
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        vatRateId: vat.id,
-                        vatExempt: false // Ensure not exempt when rate selected
-                      }));
-                      setVatSearch('');
-                      setShowVatDropdown(false);
-                      toast.success(`VAT rate set to ${vat.name} (${vat.rate}%)`);
-                    }}
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium">{vat.name}</span>
-                      <span className="text-xs text-slate-400">{vat.rate}%</span>
-                    </div>
-                    {formData.vatRateId === vat.id && (
-                      <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Validation Message */}
-      {!formData.vatRateId && !formData.vatExempt && (
-        <p className="mt-2 text-xs text-red-400 flex items-center gap-1">
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          Please select a VAT rate
-        </p>
-      )}
-
-      {/* Info Box for 0% Rate */}
-      {formData.vatRateId && (
-        (() => {
-          const selectedVat = dropdownsData.vatRates.find(v => v.id === formData.vatRateId);
-          if (selectedVat?.rate === 0) {
-            return (
-              <div className="mt-2 flex items-start gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <Info className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-300">
-                  You've selected a 0% VAT rate. The product will be taxable at 0%.
-                </p>
-              </div>
-            );
-          }
-          return null;
-        })()
-      )}
-    </div>
-  )}
-
-  {/* Info when VAT Exempt */}
-  {formData.vatExempt && (
-    <div className="flex items-start gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-      <svg className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-      </svg>
-      <div>
-        <p className="text-sm font-medium text-green-400">VAT Exempt (Zero Rated)</p>
-        <p className="text-xs text-green-400/80">No VAT will be charged on this product</p>
-      </div>
-    </div>
-  )}
-</div>
+/>
 
 </TabsContent>
 
@@ -5965,10 +5722,6 @@ useEffect(() => {
   canSaveDraft={checkDraftRequirements().isValid}
   canUpdate={missingFields.length === 0}
 />
-
-
-
-
     </div>
   );
 }

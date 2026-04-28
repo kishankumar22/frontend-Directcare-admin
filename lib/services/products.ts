@@ -152,7 +152,7 @@ export interface RelatedProduct {
 export interface DropdownsData {
   brands: BrandData[];
   categories: CategoryData[];
-  vatRates: VATRateData[];
+
 }
 
 export interface ProductItem {

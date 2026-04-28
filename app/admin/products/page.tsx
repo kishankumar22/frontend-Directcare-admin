@@ -902,11 +902,6 @@ useEffect(() => {
   pharmaFilter 
 ]);
 
-
-
-
-
-
 // ✅ CLEAR FILTERS
 const clearFilters = useCallback(() => {
   setSelectedCategory({ value: "all", label: "All Categories" });
@@ -923,7 +918,7 @@ const clearFilters = useCallback(() => {
   setVatFilter({ value: "all", label: "VAT: All" });
   setDeletedFilter({ value: "all", label: "All Records" });
   setPharmaFilter({ value: "all", label: "All Products" });
-
+ 
   setSearchInput("");
 
   // 🔥 ADD THIS (IMPORTANT)
@@ -951,6 +946,7 @@ const hasActiveFilters = useMemo(
     deletedFilter.value !== "all" ||
     pharmaFilter.value !== "all" ||
     searchInput.trim() !== "" ||
+    deletedFilter.value !== "all" || // 
 
     // 🔥 ADD THIS
     sortBy !== "createdAt" ||
@@ -962,6 +958,7 @@ const hasActiveFilters = useMemo(
     selectedHomepage,
     selectedType,
     statusFilter,
+    deletedFilter,
     publishedFilter,
     deliveryFilter,
     markAsNewFilter,
@@ -2989,7 +2986,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
         await Promise.all(items.map(p => productsService.restore(p.id)));
       }
 
-      toast.success(`${items.length} product(s) ${type}d successfully`);
+      toast.success(`${items.length} product ${type} successfully`);
       setSelectedProducts([]);
       fetchProducts();
 

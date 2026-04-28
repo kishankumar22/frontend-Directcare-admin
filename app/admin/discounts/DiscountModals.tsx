@@ -152,9 +152,6 @@ export default function DiscountModals(props: DiscountModalsProps) {
     handleDeleteBannerImage,
   } = props;
 
-
-  
-
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   
@@ -171,15 +168,26 @@ export default function DiscountModals(props: DiscountModalsProps) {
 const mergedOptions = useMemo(() => {
   const map = new Map();
 
-  [...products, ...selectedProducts].forEach(p => {
+  // current filtered API products
+  products.forEach((p) => {
     map.set(p.id, {
       value: p.id,
-      label: p.name
+      label: p.name,
     });
   });
 
+  // only keep selected items that user already selected
+  selectedProducts.forEach((p) => {
+    if (formData.assignedProductIds.includes(p.id)) {
+      map.set(p.id, {
+        value: p.id,
+        label: p.name,
+      });
+    }
+  });
+
   return Array.from(map.values());
-}, [products, selectedProducts]);
+}, [products, selectedProducts, formData.assignedProductIds]);
 
   useEffect(() => {
   if (editingDiscount?.assignedProductIds) {
@@ -583,14 +591,18 @@ useEffect(() => {
                           formData.assignedCategoryIds.length > 0 && 
                           opt.value === formData.assignedCategoryIds[0]
                         ) || null}
-                        onChange={(selectedOption) => {
-                          const categoryId = selectedOption?.value || "";
-                          setFormData({ 
-                            ...formData, 
-                            assignedCategoryIds: categoryId ? [categoryId] : [],
-                            assignedProductIds: []
-                          });
-                        }}
+                     onChange={(selectedOption) => {
+  const categoryId = selectedOption?.value || "";
+
+  setProductSearchTerm(""); // add
+  setProductBrandFilter(""); // add if needed
+
+  setFormData({
+    ...formData,
+    assignedCategoryIds: categoryId ? [categoryId] : [],
+    assignedProductIds: [],
+  });
+}}
                         placeholder="Select a category..."
                         isSearchable
                         styles={customSelectStyles}
