@@ -115,8 +115,6 @@ interface SelectOption {
   level?: number;
 }
 
-
-
 // ✅ REACT-SELECT CUSTOM STYLES
 const customSelectStyles = {
   control: (base: any, state: any) => ({
@@ -127,7 +125,7 @@ const customSelectStyles = {
       : '#475569',
     borderWidth: state.selectProps.value && state.selectProps.value.value !== 'all' ? '2px' : '1px',
     borderRadius: '0.75rem',
-    padding: '0.15rem',
+    padding: '0.11rem',
     boxShadow: state.isFocused ? '0 0 0 2px rgba(139, 92, 246, 0.5)' : 'none',
     '&:hover': {
       borderColor: '#8b5cf6',
@@ -1883,6 +1881,8 @@ const handleExportSelected = async () => {
         <option value={50}>50</option>
         <option value={75}>75</option>
         <option value={100}>100</option>
+        <option value={500}>500</option>
+        <option value={1000}>1000</option>
       </select>
 
       <span className="text-xs text-slate-400">entries</span>
@@ -2317,8 +2317,8 @@ const handleExportSelected = async () => {
           Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
         </th>
         <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
-        <th className="text-center py-1 px-3 text-slate-400 w-[180px]">Stock Status</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[210px]">Visibility</th>
+        <th className="text-center py-1 px-3 text-slate-400 w-[160px]">Stock Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Visibility</th>
         <th
   onClick={() => handleSort('createdAt')}
   className="text-left py-2 px-3 text-blue-400 w-[160px] cursor-pointer"
@@ -2366,7 +2366,7 @@ className={`border-b border-slate-800 transition-colors
 `}
                     >
                       {/* PRODUCT */}
-                      <td className="py-2 px-3">
+                      <td className="py-2 px-2">
                        <div className="flex items-center gap-2">
   <input
     type="checkbox"
@@ -2427,11 +2427,11 @@ onClick={async (e) => {
                             >
                               {product.name}
                             </p>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <span className="text-xs text-slate-500 truncate">
+                            <div className="flex items-center  gap-1 ">
+                              <span className="text-xs  bg-slate-800 rounded-sm text-purple-500 truncate" title={product.categoryName}>
                                 {product.categoryName}
                               </span>
-                              <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                              <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded" title={product.brandName}>
                                 {product.brandName}
                               </span>
                             </div>
@@ -2555,40 +2555,45 @@ Backorder: ${allowBackorder ? "Allowed" : "No"}
 
                     
                       {/* VISIBILITY */}
-                      <td className="py-1 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1 flex-wrap">
-                          <span
-                            title={
-                              product.isPublished
-                                ? "Product visible to customers"
-                                : "Product hidden from customers"
-                            }
-                            className={`px-2 py-0.5 rounded-md text-[12px] font-semibold ${
-                              product.isPublished
-                                ? "bg-emerald-500/15 text-emerald-400"
-                                : "bg-slate-600/20 text-slate-400"
-                            }`}
-                          >
-                            {product.isPublished ? "Published" : "Unpublished"}
-                          </span>
+                   <td className="py-1 px-3 text-center">
+  <div className="flex flex-col items-center gap-1">
 
-                          <span
-                            title={
-                              product.showOnHomepage
-                                ? "Featured on homepage"
-                                : "Not featured on homepage"
-                            }
-                            className={`px-2 py-0.5 rounded-md text-[12px] font-medium ${
-                              product.showOnHomepage
-                                ? "bg-violet-500/15 text-violet-400"
-                                : "bg-slate-600/20 text-slate-400"
-                            }`}
-                          >
-                            {product.showOnHomepage ? "★ Featured" : "Standard"}
-                          </span>
-                        </div>
-                      </td>
+    <span
+      title={
+        product.isPublished
+          ? "Product visible to customers"
+          : "Product hidden from customers"
+      }
+      className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-semibold leading-5 ${
+        product.isPublished
+          ? "bg-emerald-500/15 text-emerald-400"
+          : "bg-slate-600/20 text-slate-400"
+      }`}
+    >
+      {product.isPublished
+        ? "Published"
+        : "Unpublished"}
+    </span>
 
+    <span
+      title={
+        product.showOnHomepage
+          ? "Featured on homepage"
+          : "Not featured on homepage"
+      }
+      className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-medium leading-5 ${
+        product.showOnHomepage
+          ? "bg-violet-500/15 text-violet-400"
+          : "bg-slate-600/20 text-slate-400"
+      }`}
+    >
+      {product.showOnHomepage
+        ? "★ Featured"
+        : "Standard"}
+    </span>
+
+  </div>
+</td>
 <td
   className="py-2 px-3 text-xs text-slate-300 cursor-help"
   title={`Created At: ${product.createdAt || "N/A"}

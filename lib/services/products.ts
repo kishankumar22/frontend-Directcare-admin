@@ -606,11 +606,14 @@ searchSummary: async (params: {
   },
 
 // 🔥 Inventory Bulk Update (JSON) — MUST BE PUT
-bulkUpdateInventory: async (items: {
-  productId: string;
-  newStock: number;
-  newPrice: number;
-}[]) => {
+bulkUpdateInventory: async (
+  items: {
+    productId: string;
+    variantId?: string;   // ✅ added
+    newStock: number;
+    newPrice: number;
+  }[]
+) => {
   return apiClient.put<
     ApiResponse<{
       totalItems: number;
@@ -633,6 +636,7 @@ bulkUpdateInventory: async (items: {
     }>
   >(API_ENDPOINTS.inventoryBulkUpdate, items);
 },
+
 inventorySampleExcel: async () => {
   return apiClient.get(
     `${API_ENDPOINTS.inventorySampleExcel}`,
@@ -653,25 +657,7 @@ bulkUploadInventoryExcel: async (file: File) => {
   formData.append("file", file);
 
   return apiClient.post<
-    ApiResponse<{
-      totalItems: number;
-      updated: number;
-      skipped: number;
-      errors: {
-        row: number;
-        productId: string;
-        reason: string;
-      }[];
-      details: {
-        productId: string;
-        productName: string;
-        sku: string;
-        oldStock: number;
-        newStock: number;
-        oldPrice: number;
-        newPrice: number;
-      }[];
-    }>
+    ApiResponse<any>
   >(API_ENDPOINTS.inventoryBulkUpload, formData);
 },
 toggleActive: async (id: string) => {

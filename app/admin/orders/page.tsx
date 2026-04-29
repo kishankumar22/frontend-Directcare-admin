@@ -1012,9 +1012,8 @@ if (initialLoading) {
 )}
 </div>
 
-<div className="grid gap-3 md:grid-cols-5">
+<div className="grid gap-3 md:grid-cols-6">
 
-  {/* CARD */}
   {[
     {
       label1: "Total Orders",
@@ -1022,44 +1021,65 @@ if (initialLoading) {
       color1: "text-violet-400",
       action1: () => handleQuickFilter(""),
 
-      label2: "Pending",
-      value2: stats?.totalPending,
-      color2: "text-cyan-400",
-      action2: () => handleQuickFilter("Pending"),
+      label2: "Total Revenue",
+      value2: `£${Number(
+        stats?.totalRevenue || 0
+      ).toFixed(2)}`,
+      color2: "text-amber-400",
+      action2: () => {},
     },
+
     {
-      label1: "Processing",
-      value1: stats?.totalProcessing,
-      color1: "text-pink-400",
-      action1: () => handleQuickFilter("Processing"),
+      label1: "Pending",
+      value1: stats?.totalPending,
+      color1: "text-cyan-400",
+      action1: () => handleQuickFilter("Pending"),
 
       label2: "Confirmed",
       value2: stats?.totalConfirmed,
       color2: "text-blue-400",
       action2: () => handleQuickFilter("Confirmed"),
     },
-    {
-      label1: "Shipped",
-      value1: stats?.totalShipped,
-      color1: "text-indigo-400",
-      action1: () => handleQuickFilter("Shipped"),
 
-      label2: "Partial",
-      value2: stats?.totalPartiallyShipped,
-      color2: "text-yellow-400",
-      action2: () => handleQuickFilter("PartiallyShipped"),
-    },
     {
-      label1: "Delivered",
-      value1: stats?.totalDelivered,
-      color1: "text-green-400",
-      action1: () => handleQuickFilter("Delivered"),
+      label1: "Processing",
+      value1: stats?.totalProcessing,
+      color1: "text-pink-400",
+      action1: () => handleQuickFilter("Processing"),
+
+      label2: "Shipped",
+      value2: stats?.totalShipped,
+      color2: "text-indigo-400",
+      action2: () => handleQuickFilter("Shipped"),
+    },
+
+    {
+      label1: "Partial",
+      value1: stats?.totalPartiallyShipped,
+      color1: "text-yellow-400",
+      action1: () =>
+        handleQuickFilter(
+          "PartiallyShipped"
+        ),
+
+      label2: "Delivered",
+      value2: stats?.totalDelivered,
+      color2: "text-green-400",
+      action2: () => handleQuickFilter("Delivered"),
+    },
+
+    {
+      label1: "Collected",
+      value1: stats?.totalCollected,
+      color1: "text-emerald-400",
+      action1: () => handleQuickFilter("Collected"),
 
       label2: "Returned",
       value2: stats?.totalReturned,
       color2: "text-orange-400",
       action2: () => handleQuickFilter("Returned"),
     },
+
     {
       label1: "Cancelled",
       value1: stats?.totalCancelled,
@@ -1068,33 +1088,53 @@ if (initialLoading) {
 
       label2: "Refunded",
       value2: stats?.totalRefunded,
-      color2: "text-pink-400",
+      color2: "text-rose-400",
       action2: () => handleQuickFilter("Refunded"),
     },
   ].map((card, i) => (
     <div
       key={i}
-      className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 hover:shadow-md transition"
+      className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 hover:border-slate-500 hover:shadow-md transition"
     >
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
 
-        {/* LEFT */}
-        <button onClick={card.action1} className="text-left group">
-          <p className="text-[12px] text-slate-400 group-hover:text-white truncate">
+        <button
+          onClick={card.action1}
+          className="text-left group"
+        >
+          <p className="text-[11px] text-slate-400 group-hover:text-white truncate">
             {card.label1}
           </p>
-          <p className={`text-sm font-semibold ${card.color1}`}>
-            {formatNumber(card.value1 ?? 0)}
+
+          <p
+            className={`text-sm font-semibold mt-0.5 ${card.color1}`}
+          >
+            {typeof card.value1 ===
+            "number"
+              ? formatNumber(
+                  card.value1
+                )
+              : card.value1}
           </p>
         </button>
 
-        {/* RIGHT */}
-        <button onClick={card.action2} className="text-right group">
-          <p className="text-[12px] text-slate-400 group-hover:text-white truncate">
+        <button
+          onClick={card.action2}
+          className="text-right group"
+        >
+          <p className="text-[11px] text-slate-400 group-hover:text-white truncate">
             {card.label2}
           </p>
-          <p className={`text-sm font-semibold ${card.color2}`}>
-            {formatNumber(card.value2 ?? 0)}
+
+          <p
+            className={`text-sm font-semibold mt-0.5 ${card.color2}`}
+          >
+            {typeof card.value2 ===
+            "number"
+              ? formatNumber(
+                  card.value2
+                )
+              : card.value2}
           </p>
         </button>
 
@@ -1528,16 +1568,14 @@ title="Select order"
       </p>
 
       {/* MORE ITEMS */}
-      {order.orderItems.length > 1 && (
-        <button
-          onClick={() =>
-            setShowProducts(showProducts === order.id ? null : order.id)
-          }
-          className="text-[10px] text-cyan-400 hover:text-cyan-300 leading-none w-fit"
-        >
-          +{order.orderItems.length - 1} more
-        </button>
-      )}
+{order.orderItems.length > 2 && (
+  <a
+    href={`/admin/orders/${order.id}`}
+    className="text-[10px] text-cyan-400 hover:text-cyan-300 leading-none w-fit"
+  >
+    +{order.orderItems.length - 2} more
+  </a>
+)}
 
     </div>
   </div>
@@ -1582,101 +1620,101 @@ title="Select order"
   </div>
 </td>
 
-{/* AMOUNT */}
-<td
-className="py-3 px-3 text-green-400 font-semibold text-sm"
-title={`Total amount ${formatCurrency(order.totalAmount, order.currency)}`}
->
-{formatCurrency(order.totalAmount, order.currency)}
-</td>
+              {/* AMOUNT */}
+              <td
+              className="py-3 px-3 text-green-400 font-semibold text-sm"
+              title={`Total amount ${formatCurrency(order.totalAmount, order.currency)}`}
+              >
+              {formatCurrency(order.totalAmount, order.currency)}
+              </td>
 
-{/* STATUS */}
-<td className="py-3 px-3 text-center">
-<div className="flex flex-col items-center gap-1">
+              {/* STATUS */}
+              <td className="py-2 px-2 text-center">
+              <div className="flex flex-col items-center gap-1">
 
-<span
-className={`px-2 py-1 rounded-lg text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}
-title={`Order status: ${statusInfo.label}`}
->
-{statusInfo.label}
-</span>
+              <span
+              className={`px-2 py-1 rounded-lg text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}
+              title={`Order status: ${statusInfo.label}`}
+              >
+              {statusInfo.label}
+              </span>
 
-{order.pharmacyVerificationStatus && (
-<span
-className={`text-[10px] px-1.5 py-0.5 rounded ${
-order.pharmacyVerificationStatus === "Approved"
-? "bg-green-500/10 text-green-400"
-: order.pharmacyVerificationStatus === "Pending"
-? "bg-yellow-500/10 text-yellow-400"
-: "bg-red-500/10 text-red-400"
-}`}
-title={`Pharmacy verification: ${order.pharmacyVerificationStatus}`}
->
-{order.pharmacyVerificationStatus}
-</span>
-)}
+              {order.pharmacyVerificationStatus && (
+              <span
+              className={`text-[10px] px-1.5 py-0.5 rounded ${
+              order.pharmacyVerificationStatus === "Approved"
+              ? "bg-green-500/10 text-green-400"
+              : order.pharmacyVerificationStatus === "Pending"
+              ? "bg-yellow-500/10 text-yellow-400"
+              : "bg-red-500/10 text-red-400"
+              }`}
+              title={`Pharmacy verification: ${order.pharmacyVerificationStatus}`}
+              >
+              {order.pharmacyVerificationStatus}
+              </span>
+              )}
 
-{order.status === "CancellationRequested" && pendingCancellationRequest && (
-  <div className="mt-1">
-    <CancellationActionButtons
-      compact
-      onApprove={() => openCancellationDecision(order, "approve")}
-      onReject={() => openCancellationDecision(order, "reject")}
-    />
-  </div>
-)}
+              {order.status === "CancellationRequested" && pendingCancellationRequest && (
+              <div className="mt-1">
+                <CancellationActionButtons
+                  compact
+                  onApprove={() => openCancellationDecision(order, "approve")}
+                  onReject={() => openCancellationDecision(order, "reject")}
+                />
+              </div>
+              )}
 
-</div>
-</td>
+              </div>
+              </td>
 
-{/* PAYMENT */}
-<td className="py-3 px-3 text-center">
-<div className="flex flex-col items-center gap-1">
+                {/* PAYMENT */}
+                <td className="py-3 px-3 text-center">
+                <div className="flex flex-col items-center gap-1">
 
-<span
-className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${methodInfo.bgColor} ${methodInfo.color}`}
-title={`Payment method: ${methodInfo.label}`}
->
-{methodInfo.icon === "card" ? (
-<CreditCard className="h-3 w-3" />
-) : (
-<PoundSterling className="h-3 w-3" />
-)}
-{methodInfo.label}
-</span>
+                <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${methodInfo.bgColor} ${methodInfo.color}`}
+                title={`Payment method: ${methodInfo.label}`}
+                >
+                {methodInfo.icon === "card" ? (
+                <CreditCard className="h-3 w-3" />
+                ) : (
+                <PoundSterling className="h-3 w-3" />
+                )}
+                {methodInfo.label}
+                </span>
 
-{paymentInfo && (
-<span
-className={`text-[10px] px-1.5 py-0.5 rounded ${paymentInfo.bgColor} ${paymentInfo.color}`}
-title={`Payment status: ${paymentInfo.label}`}
->
-{paymentInfo.label}
-</span>
-)}
+                {paymentInfo && (
+                <span
+                className={`text-[10px] px-1.5 py-0.5 rounded ${paymentInfo.bgColor} ${paymentInfo.color}`}
+                title={`Payment status: ${paymentInfo.label}`}
+                >
+                {paymentInfo.label}
+                </span>
+                )}
 
-</div>
-</td>
+                </div>
+                </td>
 
-{/* ACTIONS */}
-<td className="py-3 px-3 relative">
-<div className="flex items-center justify-center gap-1.5">
+                {/* ACTIONS */}
+                <td className="py-3 px-3 relative">
+                <div className="flex items-center justify-center gap-1.5">
 
-<button
-onClick={() => router.push(`/admin/orders/${order.id}`)}
-className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 rounded-lg transition-all"
-title="Manage order"
->
-<Edit className="h-4 w-4" />
-</button>
-
-
-</div>
+                <button
+                onClick={() => router.push(`/admin/orders/${order.id}`)}
+                className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 rounded-lg transition-all"
+                title="Manage order"
+                >
+                <Edit className="h-4 w-4" />
+                </button>
 
 
-</td>
-</tr>
-);
-})}
+                </div>
+
+
+                </td>
+                </tr>
+                );
+                })}
 </tbody>
 </table>
           </div>
@@ -1705,6 +1743,8 @@ title="Manage order"
           <option value={50}>50</option>
           <option value={75}>75</option>
           <option value={100}>100</option>
+          <option value={500}>500</option>
+          <option value={1000}>1000</option>
         </select>
       </div>
 

@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import MediaViewerModal, { MediaItem } from "../products/MediaViewerModal";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { getImageUrl } from "../_utils/formatUtils";
+import React from "react";
 
 
 interface ProductImage {
@@ -28,16 +29,29 @@ interface ProductImage {
 
 interface ProductRow {
   id: string;
+  variantId?: string;
+  isVariant?: boolean;
+
+  parentId?: string;
+  parentName?: string;
+
   name: string;
   sku: string;
+
   stockQuantity: number;
   price: number;
-  brandName: string;
-  categoryName: string;
+
   newStock: number;
   newPrice: number;
+  
+
+  brandName: string;
+  categoryName: string;
+
   image?: string;
   images?: ProductImage[];
+
+  variants?: ProductRow[];
 }
 
 interface SelectOption {
@@ -48,29 +62,61 @@ interface SelectOption {
 const selectStyles = {
   control: (base: any, state: any) => ({
     ...base,
-    backgroundColor: "#1e293b",
-    borderColor: state.isFocused ? "#8b5cf6" : "#475569",
+    backgroundColor: "#232e3f",
+    borderColor: state.isFocused ? "#8b5cf6" : "#2f4d76",
     borderRadius: "0.5rem",
     boxShadow: "none",
     minHeight: "38px",
     "&:hover": { borderColor: "#8b5cf6" },
   }),
+
   menu: (base: any) => ({
     ...base,
-    backgroundColor: "#1e293b",
+    backgroundColor: "#1d2a3d",
     borderRadius: "0.5rem",
     overflow: "hidden",
   }),
+
   option: (base: any, state: any) => ({
     ...base,
-    backgroundColor: state.isSelected ? "#6366f1" : state.isFocused ? "#334155" : "#1e293b",
+    backgroundColor: state.isSelected
+      ? "#6366f1"
+      : state.isFocused
+      ? "#334155"
+      : "#263650",
     color: "white",
     cursor: "pointer",
     fontSize: "13px",
   }),
-  singleValue: (base: any) => ({ ...base, color: "white", fontSize: "13px" }),
-  placeholder: (base: any) => ({ ...base, color: "#ecf0f6", fontSize: "13px" }),
-  menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+
+  singleValue: (base: any) => ({
+    ...base,
+    color: "white",
+    fontSize: "13px",
+  }),
+
+  placeholder: (base: any) => ({
+    ...base,
+    color: "#ecf0f6",
+    fontSize: "13px",
+  }),
+
+  // 🔥 THIS FIXES TYPING TEXT COLOR
+  input: (base: any) => ({
+    ...base,
+    color: "white",
+  }),
+
+  // optional better contrast
+  noOptionsMessage: (base: any) => ({
+    ...base,
+    color: "#cbd5e1",
+  }),
+
+  menuPortal: (base: any) => ({
+    ...base,
+    zIndex: 9999,
+  }),
 };
 
 
@@ -101,6 +147,8 @@ const [sampleLoading, setSampleLoading] = useState(false);
 const [fullLoading, setFullLoading] = useState(false);
 const [selectedStatus, setSelectedStatus] =
   useState("all");
+const [productType, setSelectedProductType] =
+  useState("all");
 
   const [currentPage, setCurrentPage]   = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -124,6 +172,38 @@ const [selectedStatus, setSelectedStatus] =
     setConfirmConfig({ title, message, onConfirm });
     setConfirmOpen(true);
   };
+  
+
+  const [expandedRows, setExpandedRows] =
+  useState<Set<string>>(new Set());
+  // ==========================================
+// 3. TOGGLE EXPAND ADD
+// ==========================================
+
+const toggleExpand = (id: string) => {
+  const next = new Set(expandedRows);
+
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+
+  setExpandedRows(next);
+};
+
+
+const getRowKey = (p: ProductRow) =>
+  p.variantId ? `${p.id}-${p.variantId}` : p.id;
+
+// ================================
+// CLEAR FILTER FUNCTION
+// ================================
+const clearFilters = () => {
+  setSearchTerm("");
+  setSelectedStatus("all");
+  setSelectedProductType("all");
+  setSelectedCategory(null);
+  setSelectedBrand(null);
+  setCurrentPage(1);
+};
 
 
 const downloadSampleTemplate = async () => {
@@ -170,67 +250,196 @@ const fetchProducts = async () => {
       sortDirection: "desc",
     };
 
-    // Search
     if (debouncedSearch?.trim()) {
       params.searchTerm = debouncedSearch.trim();
     }
 
-    // Stock Status
     if (selectedStatus !== "all") {
       params.stockStatus = selectedStatus;
     }
-
-    // Category
-    if (selectedCategory?.value !== "all") {
-      params.categoryId = selectedCategory?.value;
+    if (productType  !== "all") {
+      params.productType = productType;
     }
 
-    // Brand
-    if (selectedBrand?.value !== "all") {
-      params.brandId = selectedBrand?.value;
+    if (selectedCategory?.value) {
+      params.categoryId = selectedCategory.value;
+    }
+
+    if (selectedBrand?.value) {
+      params.brandId = selectedBrand.value;
     }
 
     const res = await productsService.getAll(params);
 
     if (res.data?.success) {
       const apiData = res.data.data;
+      const search = debouncedSearch.trim().toLowerCase();
 
       setTotalCount(apiData.totalCount);
       setTotalPages(apiData.totalPages);
 
-      setProducts(
-        apiData.items.map((p: any) => {
-          const images = p.images || [];
+      const rows: ProductRow[] = [];
 
-          const mainImage =
-            images.find((i: any) => i.isMain)?.imageUrl ||
-            images[0]?.imageUrl ||
-            "";
+      const autoExpand = new Set<string>();
 
-          return {
+      apiData.items.forEach((p: any) => {
+        const variants = Array.isArray(p.variants)
+          ? p.variants
+          : [];
+
+          const images = Array.isArray(p.images) ? p.images : [];
+
+const mainImage =
+  images.find((img: any) => img.isMain)?.imageUrl ||
+  images[0]?.imageUrl ||
+  "";
+
+        const parentMatched =
+          !search ||
+          p.name?.toLowerCase().includes(search) ||
+          p.sku?.toLowerCase().includes(search);
+
+        const matchedVariants = variants.filter(
+          (v: any) =>
+            !search ||
+            v.name?.toLowerCase().includes(search) ||
+            v.sku?.toLowerCase().includes(search)
+        );
+
+        const variantRows: ProductRow[] =
+          matchedVariants.map((v: any) => ({
             id: p.id,
-            name: p.name,
-            sku: p.sku || "-",
-            stockQuantity: Number(p.stockQuantity ?? 0),
-            price: Number(p.price ?? 0),
+            parentId: p.id,
+            parentName: p.name,
+
+            variantId: v.id,
+            isVariant: true,
+image: mainImage,
+images,
+            name: v.name,
+            sku: v.sku,
+
+            stockQuantity: Number(
+              v.stockQuantity ?? 0
+            ),
+            price: Number(v.price ?? 0),
+
+            newStock: Number(
+              v.stockQuantity ?? 0
+            ),
+            newPrice: Number(v.price ?? 0),
+
             brandName: p.brandName ?? "",
             categoryName:
               p.categories?.[0]?.categoryName ||
-              "Uncategorized",
+              "",
+          }));
+
+        // Parent search => parent + all variants
+        if (parentMatched) {
+          rows.push({
+            id: p.id,
+            isVariant: false,
+
+            name: p.name,
+            sku: p.sku,
+            image: mainImage,
+images,
+
+            stockQuantity: Number(
+              p.stockQuantity ?? 0
+            ),
+            price: Number(p.price ?? 0),
+
+            newStock: Number(
+              p.stockQuantity ?? 0
+            ),
+            newPrice: Number(p.price ?? 0),
+
+            brandName: p.brandName ?? "",
+            categoryName:
+              p.categories?.[0]?.categoryName ||
+              "",
+
+            variants: variants.map((v: any) => ({
+              id: p.id,
+              parentId: p.id,
+              parentName: p.name,
+
+              variantId: v.id,
+              isVariant: true,
+
+              name: v.name,
+              sku: v.sku,
+
+              stockQuantity: Number(
+                v.stockQuantity ?? 0
+              ),
+              price: Number(v.price ?? 0),
+
+              newStock: Number(
+                v.stockQuantity ?? 0
+              ),
+              newPrice: Number(v.price ?? 0),
+              image: v.imageUrl || mainImage,
+               images,
+              brandName: p.brandName ?? "",
+              categoryName:
+                p.categories?.[0]
+                  ?.categoryName || "",
+            })),
+          });
+
+          if (search && variants.length > 0) {
+            autoExpand.add(p.id);
+          }
+
+          return;
+        }
+
+        // Only variant search matched
+        if (variantRows.length > 0) {
+          rows.push({
+            id: p.id,
+            isVariant: false,
+
+            name: p.name,
+            sku: p.sku,
             image: mainImage,
             images,
-            newStock: Number(p.stockQuantity ?? 0),
+
+            stockQuantity: Number(
+              p.stockQuantity ?? 0
+            ),
+            price: Number(p.price ?? 0),
+
+            newStock: Number(
+              p.stockQuantity ?? 0
+            ),
             newPrice: Number(p.price ?? 0),
-          };
-        })
-      );
+
+            brandName: p.brandName ?? "",
+            categoryName:
+              p.categories?.[0]?.categoryName ||
+              "",
+
+            variants: variantRows,
+          });
+
+          autoExpand.add(p.id);
+        }
+      });
+
+      setExpandedRows(autoExpand);
+      setProducts(rows);
     }
   } catch {
-    toast.error("Failed to load products");
+    toast.error("Failed to load");
   } finally {
     setTableLoading(false);
   }
 };
+
 
 // ================================
 // EFFECT
@@ -241,6 +450,7 @@ useEffect(() => {
   currentPage,
   itemsPerPage,
   debouncedSearch,
+  productType,
   selectedStatus,
   selectedCategory,
   selectedBrand,
@@ -255,6 +465,7 @@ useEffect(() => {
 }, [
   debouncedSearch,
   selectedStatus,
+  productType,
   selectedCategory,
   selectedBrand,
 ]);
@@ -335,138 +546,249 @@ const fetchFilters = async () => {
   }
 };
   useEffect(() => { fetchFilters(); }, []);
-  useEffect(() => { fetchProducts(); }, [currentPage, itemsPerPage, debouncedSearch, selectedCategory, selectedBrand]);
+
   useEffect(() => {
     const h = setTimeout(() => setDebouncedSearch(searchTerm), 500);
     return () => clearTimeout(h);
   }, [searchTerm]);
-  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selectedCategory, selectedBrand]);
+
 
   // ─── Inventory update ──────────────────────────────────────────────────────
-  const updateInventory = async (items: { productId: string; newStock: number; newPrice: number }[]) => {
-    if (!items.length) return;
-    try {
-      setRowLoading(items.length === 1 ? items[0].productId : "bulk");
-      const res = await productsService.bulkUpdateInventory(items);
-      if (!res?.data?.success) { toast.error(res?.data?.message || "Update failed"); return; }
-      toast.success(`Updated: ${res.data.data?.updated ?? 0}, Skipped: ${res.data.data?.skipped ?? 0}`);
-      setProducts(prev => prev.map(p => {
-        const u = items.find(i => i.productId === p.id);
-        return u ? { ...p, stockQuantity: u.newStock, price: u.newPrice, newStock: u.newStock, newPrice: u.newPrice } : p;
-      }));
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Update failed");
-    } finally {
-      setRowLoading(null);
+const updateInventory = async (
+  items: {
+    productId: string;
+    variantId?: string;
+    newStock: number;
+    newPrice: number;
+  }[]
+) => {
+  if (!items.length) return;
+
+  try {
+    setRowLoading(
+  items.length === 1
+    ? `${items[0].productId}-${items[0].variantId || "main"}`
+    : "bulk"
+);
+
+    const res = await productsService.bulkUpdateInventory(items);
+
+    if (!res?.data?.success) {
+      toast.error(res?.data?.message || "Update failed");
+      return;
     }
-  };
 
-  const handleChange = (id: string, field: "newStock" | "newPrice", value: number) =>
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+    toast.success(
+      `Updated: ${res.data.data?.updated ?? 0}, Skipped: ${
+        res.data.data?.skipped ?? 0
+      }`
+    );
 
-  const changedProducts = products.filter(p => p.newStock !== p.stockQuantity || p.newPrice !== p.price);
+    fetchProducts();
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || "Update failed");
+  } finally {
+    setRowLoading(null);
+  }
+};
 
-  const handleBulkUpdate = () => {
-    const changed = changedProducts.map(p => ({ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }));
-    if (!changed.length) { toast.warning("No changes to save"); return; }
-    updateInventory(changed);
-  };
+const handleChange = (
+  productId: string,
+  variantId: string | undefined,
+  field: "newStock" | "newPrice",
+  value: number
+) => {
+  setProducts((prev) =>
+    prev.map((p) => {
+      if (
+        p.id === productId &&
+        !variantId
+      ) {
+        return {
+          ...p,
+          [field]: value,
+        };
+      }
 
-  const discardChanges = () => {
-    setProducts(prev => prev.map(p => ({ ...p, newStock: p.stockQuantity, newPrice: p.price })));
-    toast.info("Changes discarded");
-  };
+      return {
+        ...p,
+        variants:
+          p.variants?.map((v) =>
+            v.variantId === variantId
+              ? {
+                  ...v,
+                  [field]: value,
+                }
+              : v
+          ) || [],
+      };
+    })
+  );
+};
+
+ const changedProducts = products.flatMap((p) => {
+  const rows = [];
+
+  if (
+    p.newStock !== p.stockQuantity ||
+    p.newPrice !== p.price
+  ) {
+    rows.push(p);
+  }
+
+  if (p.variants?.length) {
+    p.variants.forEach((v) => {
+      if (
+        v.newStock !== v.stockQuantity ||
+        v.newPrice !== v.price
+      ) {
+        rows.push(v);
+      }
+    });
+  }
+
+  return rows;
+});
+
+const handleBulkUpdate = () => {
+  const changed = changedProducts.map((p) => ({
+    productId: p.id,
+    variantId: p.variantId || undefined,
+    newStock: p.newStock,
+    newPrice: p.newPrice,
+  }));
+
+  if (!changed.length) {
+    toast.warning("No changes to save");
+    return;
+  }
+
+  updateInventory(changed);
+};
+
+
+const discardChanges = () => {
+  setProducts(prev =>
+    prev.map(p => ({
+      ...p,
+      newStock: p.stockQuantity,
+      newPrice: p.price,
+      variants: p.variants?.map(v => ({
+        ...v,
+        newStock: v.stockQuantity,
+        newPrice: v.price,
+      })) || [],
+    }))
+  );
+
+  toast.info("Changes discarded");
+};
 
   // ─── Select / deselect ─────────────────────────────────────────────────────
-  const toggleSelect = (id: string) => {
-    const s = new Set(selected);
-    s.has(id) ? s.delete(id) : s.add(id);
-    setSelected(s);
-  };
-  const toggleSelectAll = () => {
-    setSelected(selected.size === products.length ? new Set() : new Set(products.map(p => p.id)));
-  };
+const toggleSelect = (rowKey: string) => {
+  const s = new Set(selected);
+  s.has(rowKey) ? s.delete(rowKey) : s.add(rowKey);
+  setSelected(s);
+};
+const toggleSelectAll = () => {
+  const allKeys = products.flatMap((p) => {
+    const keys = [getRowKey(p)];
+
+    if (p.variants?.length) {
+      p.variants.forEach((v) => {
+        keys.push(`${p.id}-${v.variantId}`);
+      });
+    }
+
+    return keys;
+  });
+
+  setSelected(
+    selected.size === allKeys.length
+      ? new Set()
+      : new Set(allKeys)
+  );
+};
 
   // ─── Export helpers ────────────────────────────────────────────────────────
 // Replace ONLY these two functions
 
 const toExcelRows = (rows: ProductRow[]) =>
   rows.map((p) => ({
-    ProductId: p.id,
-    ProductName: p.name,                 // ref
-    SKU: p.sku,                         // ref
-    VariantId: "",                      // optional
-    VariantName: "",                    // ref
-    CurrentStock: p.stockQuantity,      // ref
+    ProductId: p.parentId || p.id,
+
+    ProductName: p.isVariant
+      ? p.parentName || p.name
+      : p.name,
+
+    SKU: p.sku,
+
+    VariantId: p.variantId || "",
+
+    VariantName: p.isVariant
+      ? p.name
+      : "",
+
+    CurrentStock: p.stockQuantity,
     NewStock: "",
-    CurrentPrice: p.price,              // ref
+
+    CurrentPrice: p.price,
     NewPrice: "",
   }));
 
 const writeExcel = (rows: any[], filename: string) => {
   try {
-    const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: true });
-
-    // Header row exactly like image
-    const headers = [[
-      "ProductId",
-      "ProductName (ref)",
-      "SKU (ref)",
-      "VariantId (optional)",
-      "VariantName (ref)",
-      "CurrentStock (ref)",
-      "NewStock",
-      "CurrentPrice (ref)",
-      "NewPrice",
-    ]];
-
-    XLSX.utils.sheet_add_aoa(ws, headers, { origin: "A1" });
-
-    // Notes like image
-    XLSX.utils.sheet_add_aoa(
-      ws,
+    const data = [
       [
-        [],
-        ["NOTES:"],
-        ["• (ref) columns are for reference only — values in these columns are ignored during import."],
-        ["• Leave NewStock blank to keep current stock unchanged."],
-        ["• Leave NewPrice blank to keep current price unchanged."],
-        ["• VariantId is optional. If provided, that specific variant's stock/price is updated instead of the main product."],
+        "ProductId",
+        "ProductName (ref)",
+        "SKU (ref)",
+        "VariantId (optional)",
+        "VariantName (ref)",
+        "CurrentStock (ref)",
+        "NewStock",
+        "CurrentPrice (ref)",
+        "NewPrice",
       ],
-      { origin: `A${rows.length + 3}` }
-    );
 
-    // Column widths
-    ws["!cols"] = [
-      { wch: 38 }, // ProductId
-      { wch: 26 }, // ProductName
-      { wch: 14 }, // SKU
-      { wch: 34 }, // VariantId
-      { wch: 20 }, // VariantName
-      { wch: 16 }, // CurrentStock
-      { wch: 12 }, // NewStock
-      { wch: 16 }, // CurrentPrice
-      { wch: 12 }, // NewPrice
+      ...rows.map((r) => [
+        r.ProductId || "",
+        r.ProductName || "",
+        r.SKU || "",
+        r.VariantId || "",
+        r.VariantName || "",
+        r.CurrentStock ?? "",
+        r.NewStock ?? "",
+        r.CurrentPrice ?? "",
+        r.NewPrice ?? "",
+      ]),
     ];
 
-    // Green header style (supported in many viewers)
-    const range = XLSX.utils.decode_range(ws["!ref"] || "A1:I1");
-    for (let C = range.s.c; C <= 8; C++) {
-      const cellRef = XLSX.utils.encode_cell({ r: 0, c: C });
-      if (!ws[cellRef]) continue;
+    const ws = XLSX.utils.aoa_to_sheet(data);
 
-      ws[cellRef].s = {
-        fill: { fgColor: { rgb: "228B22" } },
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-      };
-    }
+    ws["!cols"] = [
+      { wch: 38 },
+      { wch: 26 },
+      { wch: 14 },
+      { wch: 34 },
+      { wch: 20 },
+      { wch: 16 },
+      { wch: 12 },
+      { wch: 16 },
+      { wch: 12 },
+    ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventory Update");
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      "Inventory Update"
+    );
 
     XLSX.writeFile(wb, filename);
   } catch (e) {
-    console.error("Excel write failed", e);
+    console.error(e);
+    toast.error("Excel export failed");
   }
 };
   // Export all — fetches EVERY product (not just current page)
@@ -517,21 +839,50 @@ const downloadSelectedTemplate = () => {
     return;
   }
 
-  const selectedRows = products.filter(p => selected.has(p.id));
+  const selectedRows: ProductRow[] = [];
+
+  products.forEach((p) => {
+    const parentKey = getRowKey(p);
+
+    if (selected.has(parentKey)) {
+      selectedRows.push({
+        ...p,
+        variants: undefined,
+      });
+    }
+
+    p.variants?.forEach((v) => {
+      const variantKey = `${p.id}-${v.variantId}`;
+
+      if (selected.has(variantKey)) {
+        selectedRows.push({
+          ...v,
+          id: p.id,
+          parentId: p.id,
+          isVariant: true,
+        });
+      }
+    });
+  });
 
   if (!selectedRows.length) {
     toast.error("No valid products selected");
     return;
   }
+  console.log("selectedRows", selectedRows);
+console.log("excelRows", toExcelRows(selectedRows));
 
-writeExcel(toExcelRows(selectedRows), "selected-inventory.xlsx");
+  writeExcel(
+    toExcelRows(selectedRows),
+    "selected-inventory.xlsx"
+  );
 
-  toast.success(`Exported ${selectedRows.length} selected products`);
+  toast.success(
+    `Exported ${selectedRows.length} selected rows`
+  );
 
-  // 🔥 THIS LINE FIXES YOUR ISSUE
-  setSelected(new Set());  // 👈 clears selection → UI auto closes
+  setSelected(new Set());
 };
-
   // ─── Upload Excel ──────────────────────────────────────────────────────────
 const handleExcelUpload = async (file: File) => {
   if (!file) return;
@@ -601,7 +952,15 @@ const openMediaViewer = (images: any[], idx = 0) => {
     return pages;
   };
 
-  const hasActiveFilters = !!(debouncedSearch || selectedCategory || selectedBrand);
+const hasActiveFilters =
+  searchTerm.trim() !== "" ||
+  selectedStatus !== "all" ||
+  
+  (selectedCategory &&
+    selectedCategory.value !== "all") ||
+     productType !== "all" ||
+  (selectedBrand &&
+    selectedBrand.value !== "all");
 
   // ─── Stats bar ─────────────────────────────────────────────────────────────
   const outOfStock = products.filter(p => p.stockQuantity === 0).length;
@@ -727,58 +1086,94 @@ const openMediaViewer = (images: any[], idx = 0) => {
       </div>
 
       {/* ══ FILTER BAR ══ */}
-      <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl px-4 py-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search products by name or Sku..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition-all"
-            />
-          </div>
-          <div className="w-56 flex-shrink-0">
-            <Select styles={selectStyles} options={categories} value={selectedCategory} onChange={setSelectedCategory}
-              placeholder="All Categories" isClearable menuPortalTarget={typeof window !== "undefined" ? document.body : null} menuPosition="fixed" />
-          </div>
-          <div className="w-44 flex-shrink-0">
-            <Select styles={selectStyles} options={brands} value={selectedBrand} onChange={setSelectedBrand}
-              placeholder="All Brands" isClearable menuPortalTarget={typeof window !== "undefined" ? document.body : null} menuPosition="fixed" />
-          </div>
-          <div className="w-44">
-  <select
-    value={selectedStatus}
-    onChange={(e) =>
-      setSelectedStatus(e.target.value)
-    }
-    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-  >
-    <option value="all">
-      All Stock Status
-    </option>
-    <option value="InStock">
-      In Stock
-    </option>
-    <option value="LowStock">
-      Low Stock
-    </option>
-    <option value="OutOfStock">
-      Out Of Stock
-    </option>
-  </select>
+<div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl px-4 py-3">
+  <div className="flex flex-wrap items-center gap-3">
+    
+    {/* Search */}
+    <div className="relative flex-1 min-w-[260px]">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+      <input
+        type="text"
+        placeholder="Search products by name or SKU..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full pl-9 pr-4 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition-all"
+      />
+    </div>
+
+    {/* Category */}
+    <div className="w-56 flex-shrink-0">
+      <Select
+        styles={selectStyles}
+        options={categories}
+        value={selectedCategory}
+        onChange={setSelectedCategory}
+        placeholder="All Categories"
+        isClearable
+        menuPortalTarget={
+          typeof window !== "undefined" ? document.body : null
+        }
+        menuPosition="fixed"
+      />
+    </div>
+
+    {/* Brand */}
+    <div className="w-48 flex-shrink-0">
+      <Select
+        styles={selectStyles}
+        options={brands}
+        value={selectedBrand}
+        onChange={setSelectedBrand}
+        placeholder="All Brands"
+        isClearable
+        menuPortalTarget={
+          typeof window !== "undefined" ? document.body : null
+        }
+        menuPosition="fixed"
+      />
+    </div>
+
+    {/* Stock Status */}
+    <div className="w-48 flex-shrink-0">
+      <select
+        value={selectedStatus}
+        onChange={(e) => setSelectedStatus(e.target.value)}
+        className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+      >
+        <option value="all">All Stock Status</option>
+        <option value="InStock">In Stock</option>
+        <option value="LowStock">Low Stock</option>
+        <option value="OutOfStock">Out Of Stock</option>
+      </select>
+    </div>
+
+    {/* Product Type */}
+    <div className="w-48 flex-shrink-0">
+      <select
+        value={productType}
+        onChange={(e) => setSelectedProductType(e.target.value)}
+        className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+      >
+        <option value="all">All Product Types</option>
+        <option value="simple">Simple</option>
+        <option value="variable">Variable</option>
+        <option value="grouped">Grouped</option>
+      </select>
+    </div>
+
+    {/* Clear Filters */}
+    {hasActiveFilters && (
+      <button
+        onClick={clearFilters}
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all text-sm font-medium"
+      >
+        <FilterX className="w-4 h-4" />
+        Clear Filters
+      </button>
+    )}
+    
+  </div>
 </div>
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setSearchTerm(""); setSelectedCategory(null); setSelectedBrand(null); }}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-all flex-shrink-0"
-            >
-              <FilterX className="w-3.5 h-3.5" /> Clear
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* ══ SHOW ENTRIES + COUNT ══ */}
       <div className="flex items-center justify-between gap-3">
@@ -789,7 +1184,7 @@ const openMediaViewer = (images: any[], idx = 0) => {
             onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
             className="px-2 py-1 bg-slate-800/60 border border-slate-600 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
           >
-            {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
+            {[25, 50, 75, 100,500,1000].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
           <span className="text-xs text-slate-400">entries</span>
         </div>
@@ -806,7 +1201,15 @@ const openMediaViewer = (images: any[], idx = 0) => {
               <th className="p-3 text-center w-10">
                 <input
                   type="checkbox"
-                  checked={products.length > 0 && selected.size === products.length}
+                  checked={
+  selected.size > 0 &&
+  selected.size === products.flatMap((p) => [
+    getRowKey(p),
+    ...(p.variants?.map(
+      (v) => `${p.id}-${v.variantId}`
+    ) || []),
+  ]).length
+}
                   onChange={toggleSelectAll}
                   className="rounded accent-violet-500"
                 />
@@ -819,135 +1222,429 @@ const openMediaViewer = (images: any[], idx = 0) => {
               <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider w-28">New Price</th>
               <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider w-16">Save</th>
             </tr>
+            
           </thead>
-          <tbody>
-            {tableLoading ? (
-              <tr>
-                <td colSpan={8} className="p-16 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-4 border-slate-700 border-t-violet-500 rounded-full animate-spin" />
-                    <p className="text-slate-400 text-sm">Loading inventory…</p>
-                  </div>
-                </td>
-              </tr>
-            ) : products.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="p-16 text-center text-slate-500 text-sm">
-                  <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  No products found
-                </td>
-              </tr>
-            ) : products.map((p) => {
-              const changed = p.newStock !== p.stockQuantity || p.newPrice !== p.price;
-                const mainImage =
-    p.images?.find((img: any) => img.isMain) ||
-    p.images?.[0];
+      <tbody>
+  {tableLoading ? (
+    <tr>
+      <td colSpan={8} className="p-16 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-slate-700 border-t-violet-500 rounded-full animate-spin" />
+          <p className="text-slate-400 text-sm">
+            Loading inventory…
+          </p>
+        </div>
+      </td>
+    </tr>
+  ) : products.length === 0 ? (
+    <tr>
+      <td
+        colSpan={8}
+        className="p-16 text-center text-slate-500 text-sm"
+      >
+        <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
+        No products found
+      </td>
+    </tr>
+  ) : (
+    products.map((p) => {
+      const changed =
+        p.newStock !== p.stockQuantity ||
+        p.newPrice !== p.price;
+
+      return (
+        <React.Fragment key={getRowKey(p)}>
+          {/* MAIN ROW */}
+          <tr
+            className={`border-b border-slate-800/60 transition-colors
+            ${
+              selected.has(getRowKey(p))
+                ? "bg-violet-500/5"
+                : "hover:bg-slate-800/30"
+            }
+            ${
+              changed
+                ? "bg-amber-500/5 border-l-2 border-l-amber-500/40"
+                : ""
+            }`}
+          >
+            {/* CHECKBOX */}
+            <td className="p-3 text-center">
+              <input
+                type="checkbox"
+                checked={selected.has(getRowKey(p))}
+                onChange={() =>
+                  toggleSelect(getRowKey(p))
+                }
+                className="rounded accent-violet-500"
+              />
+            </td>
+
+            {/* PRODUCT */}
+            
+<td className="py-2 px-3">
+  <div className="flex items-center gap-3">
+
+    {/* IMAGE */}
+    <img
+      src={getImageUrl(p.image || "")}
+      alt={p.name}
+      onClick={() => openMediaViewer(p.images || [], 0)}
+      className="w-10 h-10 rounded-lg object-cover border border-slate-700 cursor-pointer bg-slate-800 flex-shrink-0"
+    />
+
+    {/* CONTENT */}
+    <div className="min-w-0 flex-1">
+
+      {/* TOP LINE */}
+      <div className="flex items-center gap-2 flex-wrap">
+
+        <p className="text-white text-sm font-semibold truncate max-w-[420px]">
+          {p.name}
+        </p>
+
+        {(p.variants?.length ?? 0) > 0 && (
+          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+            Main
+          </span>
+        )}
+
+        {(p.variants?.length ?? 0) > 0 && (
+          <button
+            onClick={() => toggleExpand(p.id)}
+            className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white text-xs border border-slate-700"
+          >
+            {expandedRows.has(p.id) ? "−" : "+"}
+          </button>
+        )}
+
+      </div>
+
+      {/* SECOND LINE */}
+      <div className="flex items-center gap-2 mt-1 flex-wrap">
+
+        {p.brandName && (
+          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-violet-500/15 text-violet-300 border border-violet-500/30">
+            {p.brandName}
+          </span>
+        )}
+
+        {p.categoryName && (
+          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            {p.categoryName}
+          </span>
+        )}
+
+      </div>
+
+    </div>
+  </div>
+</td>
+
+            {/* SKU */}
+            <td className="p-3 text-center">
+              <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded">
+                {p.sku}
+              </span>
+            </td>
+
+            {/* CURRENT STOCK */}
+            <td className="p-3 text-center">
+              <StockBadge
+                qty={p.stockQuantity}
+              />
+            </td>
+
+            {/* NEW STOCK */}
+            <td className="p-3 text-center">
+              <input
+                type="number"
+                min={0}
+                value={p.newStock}
+                disabled={
+                  rowLoading === `${p.id}-main`
+                }
+                onChange={(e) =>
+                  handleChange(
+                    p.id,
+                    undefined,
+                    "newStock",
+                    Number(
+                      e.target.value
+                    )
+                  )
+                }
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    changed
+                  ) {
+                    updateInventory([
+                      {
+                        productId:
+                          p.id,
+                        newStock:
+                          p.newStock,
+                        newPrice:
+                          p.newPrice,
+                      },
+                    ]);
+                  }
+                }}
+                className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5
+                ${
+                  p.newStock !==
+                  p.stockQuantity
+                    ? "border-amber-500/60 bg-amber-500/5"
+                    : "border-slate-600"
+                }`}
+              />
+            </td>
+
+            {/* CURRENT PRICE */}
+            <td className="p-3 text-center">
+              <span className="text-sm font-semibold text-emerald-400">
+                £{p.price.toFixed(2)}
+              </span>
+            </td>
+
+            {/* NEW PRICE */}
+            <td className="p-3 text-center relative">
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={p.newPrice}
+                disabled={
+               rowLoading === `${p.id}-main`
+                }
+                onChange={(e) =>
+                  handleChange(
+                    p.id,
+                    undefined,
+                    "newPrice",
+                    Number(
+                      e.target.value
+                    )
+                  )
+                }
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    changed
+                  ) {
+                    updateInventory([
+                      {
+                        productId:
+                          p.id,
+                        newStock:
+                          p.newStock,
+                        newPrice:
+                          p.newPrice,
+                      },
+                    ]);
+                  }
+                }}
+                className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5
+                ${
+                  p.newPrice !==
+                  p.price
+                    ? "border-amber-500/60 bg-amber-500/5"
+                    : "border-slate-600"
+                }`}
+              />
+
+              {rowLoading ===
+                p.id && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/70 rounded-lg">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                </div>
+              )}
+            </td>
+
+            {/* SAVE */}
+            <td className="p-3 text-center">
+              {changed ? (
+                <button
+                  disabled={
+                    rowLoading ===
+                    p.id
+                  }
+                  onClick={() =>
+                    updateInventory(
+                      [
+                        {
+                          productId:
+                            p.id,
+                          newStock:
+                            p.newStock,
+                          newPrice:
+                            p.newPrice,
+                        },
+                      ]
+                    )
+                  }
+                  className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <span className="text-slate-700">
+                  —
+                </span>
+              )}
+            </td>
+          </tr>
+
+          {/* VARIANTS */}
+          {expandedRows.has(p.id) &&
+            p.variants?.map((v) => {
+              const vChanged =
+                v.newStock !==
+                  v.stockQuantity ||
+                v.newPrice !==
+                  v.price;
 
               return (
-                <tr
-                  key={p.id}
-                  className={`border-b border-slate-800/60 transition-colors
-                    ${selected.has(p.id) ? "bg-violet-500/5" : "hover:bg-slate-800/30"}
-                    ${changed ? "bg-amber-500/5 border-l-2 border-l-amber-500/40" : ""}`}
-                >
-                  <td className="p-3 text-center">
-                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded accent-violet-500" />
-                  </td>
+         <tr
+  key={`${p.id}-${v.variantId}`}
+  className={`bg-slate-950/60 border-b border-slate-800 transition-colors ${
+    selected.has(`${p.id}-${v.variantId}`)
+      ? "bg-violet-500/5"
+      : "hover:bg-slate-900/60"
+  }`}
+>
+  {/* CHECKBOX */}
+  <td className="p-3 text-center">
+    <input
+      type="checkbox"
+      checked={selected.has(`${p.id}-${v.variantId}`)}
+      onChange={() =>
+        toggleSelect(`${p.id}-${v.variantId}`)
+      }
+      className="rounded accent-violet-500"
+    />
+  </td>
 
-                  <td className="py-2 px-3 ">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-slate-700 overflow-hidden flex-shrink-0 cursor-pointer hover:border-violet-500/50 transition-colors"
-                        onClick={() => p.images?.length && openMediaViewer(p.images)}
-                      >
-                        
-                    {mainImage ? (
-  <img
-    src={getImageUrl(mainImage.imageUrl)}
-    alt={p.name}
-    className="w-full h-full object-cover pointer-events-none"
-    onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-  />
-) : (
-  <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">
-    📦
+  {/* NAME */}
+<td className="py-2 px-3 pl-12">
+  <div className="flex items-center gap-3 min-w-0">
+
+    <img
+      src={getImageUrl(v.image || p.image || "")}
+      alt={v.name}
+      className="w-9 h-9 rounded-lg object-cover border border-slate-700 bg-slate-800"
+    />
+
+    <div className="flex items-center gap-2 min-w-0">
+      <p className="text-sm text-white truncate">
+        {v.name}
+      </p>
+
+      <span className="px-2 py-0.5 rounded text-[10px] bg-violet-500/15 text-violet-300 border border-violet-500/30 flex-shrink-0">
+        Variant
+      </span>
+    </div>
+
   </div>
-)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-white text-sm font-medium truncate max-w-[480px]">{p.name}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[11px] text-slate-500 truncate">{p.categoryName}</span>
-                          {p.brandName && (
-                            <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">{p.brandName}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
+</td>
 
-                  <td className="p-3 text-center">
-                    <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded">{p.sku}</span>
-                  </td>
+  {/* SKU */}
+  <td className="p-3 text-center">
+    <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded">
+      {v.sku}
+    </span>
+  </td>
 
-                  <td className="p-3 text-center">
-                    <StockBadge qty={p.stockQuantity} />
-                  </td>
+  {/* CURRENT STOCK */}
+  <td className="p-3 text-center">
+    <StockBadge qty={v.stockQuantity} />
+  </td>
 
-                  <td className="p-3 text-center">
-                    <input
-                      type="number"
-                      min={0}
-                      value={p.newStock}
-                      disabled={rowLoading === p.id}
-                      onChange={(e) => handleChange(p.id, "newStock", Number(e.target.value))}
-                      onKeyDown={(e) => { if (e.key === "Enter" && changed) updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }]); }}
-                      className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-violet-500 outline-none transition px-2 py-1.5
-                        ${p.newStock !== p.stockQuantity ? "border-amber-500/60 bg-amber-500/5" : "border-slate-600"}`}
-                    />
-                  </td>
+  {/* NEW STOCK */}
+  <td className="p-3 text-center">
+    <input
+      type="number"
+      min={0}
+      value={v.newStock}
+      onChange={(e) =>
+        handleChange(
+          p.id,
+          v.variantId,
+          "newStock",
+          Number(e.target.value)
+        )
+      }
+      className={`w-20 bg-slate-800 border rounded text-white text-center
+      ${
+        v.newStock !== v.stockQuantity
+          ? "border-amber-500/60 bg-amber-500/5"
+          : "border-slate-600"
+      }`}
+    />
+  </td>
 
-                  <td className="p-3 text-center">
-                    <span className="text-sm font-semibold text-emerald-400">£{p.price.toFixed(2)}</span>
-                  </td>
+  {/* CURRENT PRICE */}
+  <td className="p-3 text-center">
+    <span className="text-emerald-400 font-medium">
+      £{v.price.toFixed(2)}
+    </span>
+  </td>
 
-                  <td className="p-3 text-center relative">
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={p.newPrice}
-                      disabled={rowLoading === p.id}
-                      onChange={(e) => handleChange(p.id, "newPrice", Number(e.target.value))}
-                      onKeyDown={(e) => { if (e.key === "Enter" && changed) updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }]); }}
-                      className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition px-2 py-1.5
-                        ${p.newPrice !== p.price ? "border-amber-500/60 bg-amber-500/5" : "border-slate-600"}`}
-                    />
-                    {rowLoading === p.id && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-slate-900/70 rounded-lg">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      </div>
-                    )}
-                  </td>
+  {/* NEW PRICE */}
+  <td className="p-3 text-center">
+    <input
+      type="number"
+      min={0}
+      step="0.01"
+      value={v.newPrice}
+      onChange={(e) =>
+        handleChange(
+          p.id,
+          v.variantId,
+          "newPrice",
+          Number(e.target.value)
+        )
+      }
+      className={`w-20 bg-slate-800 border rounded text-white text-center
+      ${
+        v.newPrice !== v.price
+          ? "border-amber-500/60 bg-amber-500/5"
+          : "border-slate-600"
+      }`}
+    />
+  </td>
 
-                  <td className="p-3 text-center">
-                    {changed ? (
-                      <button
-                        disabled={rowLoading === p.id}
-                        onClick={() => updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }])}
-                        className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition disabled:opacity-50"
-                        title="Save this row"
-                      >
-                        <Save className="h-3.5 w-3.5" />
-                      </button>
-                    ) : (
-                      <span className="text-slate-700">—</span>
-                    )}
-                  </td>
-                </tr>
+  {/* SAVE */}
+  <td className="p-3 text-center">
+    {vChanged ? (
+      <button
+        onClick={() =>
+          updateInventory([
+            {
+              productId: p.id,
+              variantId: v.variantId,
+              newStock: v.newStock,
+              newPrice: v.newPrice,
+            },
+          ])
+        }
+        className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"
+      >
+        <Save className="h-3.5 w-3.5" />
+      </button>
+    ) : (
+      <span className="text-slate-700">—</span>
+    )}
+  </td>
+</tr>
               );
             })}
-          </tbody>
+        </React.Fragment>
+      );
+    })
+  )}
+</tbody>
         </table>
 
         {/* ══ PAGINATION ══ */}
