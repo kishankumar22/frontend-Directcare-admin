@@ -622,13 +622,21 @@ if (order.paymentStatus === 'Pending' && isOrderActive) {
     category: 'financial',
   });
 
-if (canRefund || canRefundShippingArg) {
+if (
+  (canRefund || canRefundShippingArg) &&
+  order &&
+  order.status !== "Refunded" &&
+  (
+    order.status === "Shipped" ||
+    order.collectionStatus === "Collected"
+  )
+) {
   actions.push({
-    label: 'Refund',
-    action: 'refund',
+    label: "Refund",
+    action: "refund",
     icon: <RotateCcw className="h-3.5 w-3.5" />,
-    color: 'bg-red-600 hover:bg-red-700',
-    category: 'financial',
+    color: "bg-red-600 hover:bg-red-700",
+    category: "financial",
   });
 }
   return actions;
@@ -796,8 +804,6 @@ const [paymentLoading, setPaymentLoading] = useState(false);
 // FETCH ORDER DETAILS
 // ===========================
 
-// Track whether the initial load has completed — subsequent refreshes should
-// NOT set loading=true, which would unmount modals and lose their local state.
 const initialLoadDone = useRef(false);
 
 const fetchOrderDetails = useCallback(async () => {
@@ -825,7 +831,7 @@ const fetchOrderDetails = useCallback(async () => {
   }
 }, [orderId, toast]);
 
-const unshippedItems = order?.unshippedItems ?? [];
+
 // ===========================
 // FETCH REFUND HISTORY
 // ===========================
@@ -893,15 +899,27 @@ useEffect(() => {
 // ===========================
 
 const refreshAllOrderData = useCallback(async () => {
-  await Promise.all([
+  const results = await Promise.allSettled([
     fetchOrderDetails(),
     fetchEditHistory(),
     fetchRefundHistory(),
   ]);
-}, [fetchOrderDetails, fetchEditHistory, fetchRefundHistory]);
 
+  const failed = results.filter(
+    (r) => r.status === "rejected"
+  );
 
-
+  if (failed.length > 0) {
+    console.error(
+      "Some refresh calls failed:",
+      failed
+    );
+  }
+}, [
+  fetchOrderDetails,
+  fetchEditHistory,
+  fetchRefundHistory,
+]);
 
 const handleRegenerateInvoice = async (
   sendToCustomer: boolean,
@@ -1253,20 +1271,12 @@ const isOrderEditable = () => {
   return isEditableStatus && !isClickAndCollect;
 };
 
-
-
 const canRefund = () => {
   if (!order) return false;
-
   return (
-    refundablePaidAmount > 0 &&
-    order.status !== "Refunded" &&
-    (
-      order.status === "Shipped" ||
-      order.collectionStatus === "Collected"
-    )
-  );
+    refundablePaidAmount > 0 );
 };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">

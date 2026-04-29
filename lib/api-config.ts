@@ -63,6 +63,10 @@ export const API_ENDPOINTS = {
   customers: '/api/customers',
   GoogleMerchantCenter:'/api/GoogleMerchant',
 
+  // Staff
+  staff: '/api/Staff',
+  staffRoles: '/api/Staff/roles',
+
   // Discounts
   discounts: '/api/Discounts',
 

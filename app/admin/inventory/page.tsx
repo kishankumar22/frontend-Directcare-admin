@@ -888,16 +888,24 @@ const handleExcelUpload = async (file: File) => {
   if (!file) return;
 
   try {
-    const res = await productsService.bulkUploadInventoryExcel(file);
+    const res =
+      await productsService.bulkUploadInventoryExcel(
+        file
+      );
 
     if (!res?.data) {
-      toast.error("Invalid server response");
+      toast.error(
+        "Invalid server response"
+      );
       return;
     }
 
     if (res.data.success) {
-      const updated = res.data.data?.updated ?? 0;
-      const skipped = res.data.data?.skipped ?? 0;
+      const updated =
+        res.data.data?.updated ?? 0;
+
+      const skipped =
+        res.data.data?.skipped ?? 0;
 
       if (skipped > 0) {
         toast.warning(
@@ -906,22 +914,41 @@ const handleExcelUpload = async (file: File) => {
       }
 
       if (updated > 0) {
-        toast.success(`✅ ${updated} inventory item(s) updated successfully.`);
+        toast.success(
+          `✅ ${updated} inventory item(s) updated successfully.`
+        );
       }
 
-      res.data.data?.errors?.forEach((err: any) =>
-        toast.error(`Row ${err.row} – ${err.reason}`)
+      res.data.data?.errors?.forEach(
+        (err: any) =>
+          toast.error(
+            `Row ${err.row} – ${err.reason}`
+          )
       );
 
-      fetchProducts();
-    } else {
-      toast.error(res.data.message || "Excel upload failed");
-    }
+      // ✅ refresh list
+      await fetchProducts();
 
+      // ✅ close modal
+      setImportOpen(false);
+
+      // ✅ clear selected file
+      setImportFile(null);
+    } else {
+      toast.error(
+        res.data.message ||
+          "Excel upload failed"
+      );
+    }
   } catch (e: any) {
-    toast.error(e?.response?.data?.message || "Excel upload failed");
+    toast.error(
+      e?.response?.data?.message ||
+        "Excel upload failed"
+    );
   } finally {
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 };
 
