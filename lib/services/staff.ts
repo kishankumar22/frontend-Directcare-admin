@@ -83,6 +83,10 @@ export interface CreateRoleRequest {
   name: string;
 }
 
+export interface UpdateRoleRequest {
+  name: string;
+}
+
 export interface ApiEnvelope<T> {
   success: boolean;
   message?: string;
@@ -117,6 +121,9 @@ export const staffService = {
 
   createRole: (body: CreateRoleRequest): Promise<ApiResponse<ApiEnvelope<StaffRole>>> =>
     apiClient.post<ApiEnvelope<StaffRole>>(API_ENDPOINTS.staffRoles, body),
+
+  updateRole: (id: string, body: UpdateRoleRequest): Promise<ApiResponse<ApiEnvelope<StaffRole>>> =>
+    apiClient.put<ApiEnvelope<StaffRole>>(`${API_ENDPOINTS.staffRoles}/${id}`, body),
 
   deleteRole: (name: string): Promise<ApiResponse<ApiEnvelope<string>>> =>
     apiClient.delete<ApiEnvelope<string>>(`${API_ENDPOINTS.staffRoles}/${name}`),

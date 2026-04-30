@@ -54,7 +54,8 @@ import {
   Sliders,
   ClipboardList,
   PoundSterling,
-  Warehouse, // ✅ NEW ICON FOR SYSTEM GROUP
+  Warehouse,
+  ShieldCheck, // ✅ NEW ICON FOR SYSTEM GROUP
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
@@ -135,6 +136,14 @@ const navigation: NavigationItem[] = [
     ],
   },
   {
+  name: 'Staff Management',
+  icon: Users,
+  children: [
+    { name: 'Staff', href: '/admin/staff', icon: User },
+    { name: 'Staff Roles', href: '/admin/staff-roles', icon: ShieldCheck },
+  ],
+},
+  {
     name: 'System',
     icon: Shield,
     children: [
@@ -177,11 +186,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     total: number;
   } | null>(null);
 
-  const isActiveRoute = (navHref: string, currentPath: string) => {
-    if (navHref === '/admin' && currentPath === '/admin') return true;
-    if (navHref !== '/admin' && currentPath.startsWith(navHref)) return true;
-    return false;
-  };
+const isActiveRoute = (navHref: string, currentPath: string) => {
+  if (navHref === '/admin') return currentPath === '/admin';
+
+  return (
+    currentPath === navHref ||
+    currentPath.startsWith(navHref + '/')
+  );
+};
 
   const isParentActive = (children?: NavigationItem[]) => {
     if (!children) return false;
@@ -211,18 +223,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     });
   };
 
-  // ✅ NEW: Handle hover to auto-expand (desktop only)
-  const handleMenuHover = (menuName: string) => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
 
-    hoverTimeoutRef.current = setTimeout(() => {
-      setHoveredMenu(menuName);
-      // Close all other menus and open only the hovered one
-      setExpandedMenus({ [menuName]: true });
-    }, 200); // 200ms delay for smooth UX
-  };
 
   const handleMenuLeave = () => {
     if (hoverTimeoutRef.current) {

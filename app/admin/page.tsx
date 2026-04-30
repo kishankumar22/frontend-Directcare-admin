@@ -724,10 +724,17 @@ export default function AdminDashboard() {
 
         {/* Loyalty Stats */}
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
-            <Gift className="h-4 w-4 text-pink-400" />
-            Loyalty Program
-          </h3>
+        <a
+  href="/admin/loyalty-points"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="block"
+>
+  <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3 hover:text-pink-400 transition">
+    <Gift className="h-4 w-4 text-pink-400" />
+    Loyalty Program
+  </h3>
+</a>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="text-center p-2 rounded-lg bg-slate-800/40">
               <p className="text-xl font-bold text-pink-400">{d.loyaltyStats?.totalPointsIssued?.toLocaleString() ?? 0}</p>
@@ -788,7 +795,14 @@ export default function AdminDashboard() {
           </div>
           {d.subscriptionStats?.newThisMonth > 0 && (
             <div className="mt-3 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
-              <p className="text-[11px] text-emerald-400">+{d.subscriptionStats.newThisMonth} new subscriptions this month</p>
+           <a
+  href="/admin/subscriptions"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-[11px] text-emerald-400 hover:underline cursor-pointer"
+>
+  +{d.subscriptionStats.newThisMonth} new subscriptions this month
+</a>
             </div>
           )}
         </div>
@@ -826,10 +840,15 @@ export default function AdminDashboard() {
 
         {/* Recent Activity */}
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
-            <Activity className="h-4 w-4 text-blue-400" />
-            Recent Activity
-          </h3>
+         <a
+  href="/admin/ActivityLogs"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="flex items-center gap-2 mb-3 text-sm font-bold text-white hover:text-blue-400 transition"
+>
+  <Activity className="h-4 w-4 text-blue-400" />
+  Recent Activity
+</a>
           <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
             {d.recentActivity?.slice(0, 8).map((activity, i) => (
               <div key={i} className="p-2 rounded-lg bg-slate-800/30 border border-slate-700/50">
@@ -852,10 +871,15 @@ export default function AdminDashboard() {
 
         {/* Pending Reviews */}
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
-            <Star className="h-4 w-4 text-yellow-400" />
-            Pending Reviews
-          </h3>
+        <a
+  href="/admin/productReview"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="flex items-center gap-2 mb-3 text-sm font-bold text-white hover:text-blue-400 transition"
+>
+  <Activity className="h-4 w-4 text-blue-400" />
+  Pending Reviews
+</a>
           <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
             {d.pendingReviews?.length > 0 ? d.pendingReviews.map((review, i) => (
               <div key={i} className="p-2 rounded-lg bg-slate-800/30 border border-slate-700/50">

@@ -2427,14 +2427,25 @@ onClick={async (e) => {
                             >
                               {product.name}
                             </p>
-                            <div className="flex items-center  gap-1 ">
-                              <span className="text-xs  bg-slate-800 rounded-sm text-purple-500 truncate" title={product.categoryName}>
-                                {product.categoryName}
-                              </span>
-                              <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded" title={product.brandName}>
-                                {product.brandName}
-                              </span>
-                            </div>
+                           <div className="flex items-center gap-2">
+
+  {/* CATEGORY (secondary) */}
+  <span
+    className="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700 px-2 py-0.5 rounded-md truncate"
+    title={product.categoryName}
+  >
+    {product.categoryName}
+  </span>
+
+  {/* BRAND (primary) */}
+  <span
+    className="text-[11px] text-cyan-300 bg-cyan-500/20 border border-cyan-400/40 px-2 py-0.5 rounded-md font-medium"
+    title={product.brandName}
+  >
+    {product.brandName}
+  </span>
+
+</div>
                           </div>
                         </div>
                       </td>
