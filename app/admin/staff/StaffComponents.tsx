@@ -41,14 +41,22 @@ export type StaffAction =
   | { type: 'delete'; item: StaffItem }
   | { type: 'resetPassword'; item: StaffItem };
 
-export function getBackendMessage(payload: any): string | undefined {
-  return (
-    payload?.data?.message ||
-    payload?.data?.error ||
-    (Array.isArray(payload?.data?.errors) ? payload?.data?.errors?.[0] : undefined) ||
-    payload?.message ||
-    payload?.error
-  );
+export function getBackendErrors(err: any): string[] {
+  const data = err?.response?.data || err?.data;
+
+  if (data?.errors && typeof data.errors === 'object') {
+    return Object.entries(data.errors).flatMap(
+      ([field, msgs]: any) =>
+        msgs.map((msg: string) => `${field}: ${msg}`)
+    );
+  }
+
+  return [
+    data?.title ||
+    data?.message ||
+    err?.message ||
+    'Something went wrong'
+  ];
 }
 
 export const StaffFilters = React.memo(function StaffFilters({

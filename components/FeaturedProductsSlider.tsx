@@ -301,7 +301,7 @@ const shouldShowMinWarning = (product: any) => {
   simulateTouch={true}
  
 >
-        {flattenedProducts.map((item) =>  {
+        {flattenedProducts.slice(0, 50).map((item) =>  {
 
   const product = item.productData;
   const variantForCard = item.variantForCard;
@@ -372,7 +372,7 @@ const backorderState = getBackorderUIState({
 
 
                 {/* Product Image */}
-                <Link href={`/products/${cardSlug}`}>
+                <Link href={`/product/${cardSlug}`}>
                   
                   {/* UNISEX Badge */}
                 <GenderBadge gender={product.gender} />
@@ -463,7 +463,12 @@ const backorderState = getBackorderUIState({
     : product.name,
 
   slug: cardSlug,
-  price: finalPrice,
+ price: finalPrice,
+priceBeforeDiscount: basePrice,
+finalPrice: finalPrice,
+discountAmount: discountAmount ?? 0,
+appliedDiscountId: null, // slider me coupon nahi hai
+couponCode: null,
   image: getProductDisplayImage(product, defaultVariant),
 
   vatRate: vatRate ?? null,
@@ -510,7 +515,7 @@ const backorderState = getBackorderUIState({
 
                   {/* FIXED TITLE HEIGHT */}
                  <div className="min-h-[42px] max-h-[42px] sm:min-h-[38px] sm:max-h-[38px] mb-0.5">
-                    <Link href={`/products/${cardSlug}`} className="block">
+                    <Link href={`/product/${cardSlug}`} className="block">
                      <h3
   className="
     font-semibold text-xs md:text-sm text-gray-800 line-clamp-2

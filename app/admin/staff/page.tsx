@@ -7,7 +7,7 @@ import { useToast } from '@/app/admin/_components/CustomToast';
 import { useDebounce } from '@/app/admin/_hooks/useDebounce';
 import { staffService, type StaffItem, type StaffListQueryParams, type StaffRole } from '@/lib/services/staff';
 import {
-  getBackendMessage,
+  getBackendErrors,
   BulkSelectionBar,
   exportStaffToXlsx,
   ResetPasswordModal,
@@ -110,7 +110,7 @@ export default function StaffPage() {
       return;
     }
     toast.error(res.data?.message || 'Failed to load roles');
-  }, [toast]);
+  }, []);
 
   const fetchList = useCallback(async () => {
     try {
@@ -131,11 +131,19 @@ export default function StaffPage() {
         toast.error(res.data?.message || 'Failed to load staff');
       }
     } catch (e: any) {
-      toast.error(getBackendMessage(e) || 'Failed to load staff');
+     const errors = getBackendErrors(e);
+
+toast.error(
+  <div className="space-y-1">
+    {errors.map((err, i) => (
+      <div key={i}>• {err}</div>
+    ))}
+  </div>
+);
     } finally {
       setLoading(false);
     }
-  }, [effectiveQuery, toast]);
+  }, [effectiveQuery]);
 
   useEffect(() => {
     fetchRoles();
@@ -208,132 +216,215 @@ export default function StaffPage() {
     setFormOpen(true);
   }, []);
 
-  const handleAction = useCallback(
-    (action: StaffAction) => {
-      switch (action.type) {
-        case 'create':
-          openCreate();
-          break;
-        case 'edit':
-          setFormMode('edit');
-          setEditingItem(action.item);
-          setFormOpen(true);
-          break;
-        case 'view':
-          setViewItem(null);
-          setViewOpen(true);
-          setViewLoading(true);
-          staffService
-            .getById(action.id)
-            .then((res) => {
-              if (res.data?.success) {
-                setViewItem(res.data.data);
-              } else {
-                toast.error(res.data?.message || 'Failed to load staff');
-              }
-            })
-            .catch((e: any) => toast.error(getBackendMessage(e) || 'Failed to load staff'))
-            .finally(() => setViewLoading(false));
-          break;
-        case 'resetPassword':
-          setResetTarget(action.item);
-          setResetOpen(true);
-          break;
-        case 'toggle':
-          setConfirmTarget(action.item);
-          setConfirmOpen((p) => ({ ...p, toggle: true }));
-          break;
-        case 'delete':
-          setConfirmTarget(action.item);
-          setConfirmOpen((p) => ({ ...p, delete: true }));
-          break;
-      }
-    },
-    [openCreate, toast]
-  );
+const handleAction = useCallback(
+  (action: StaffAction) => {
+    switch (action.type) {
+      case 'create':
+        openCreate();
+        break;
 
+      case 'edit':
+        setFormMode('edit');
+        setEditingItem(action.item);
+        setFormOpen(true);
+        break;
+
+      case 'view':
+        setViewItem(null);
+        setViewOpen(true);
+        setViewLoading(true);
+
+        staffService
+          .getById(action.id)
+          .then((res) => {
+            if (res.data?.success) {
+              setViewItem(res.data.data);
+            } else {
+              const errors = getBackendErrors(res);
+
+              toast.error(
+                <div className="space-y-1">
+                  {errors.map((err, i) => (
+                    <div key={i}>• {err}</div>
+                  ))}
+                </div>
+              );
+            }
+          })
+          .catch((e: any) => {
+            const errors = getBackendErrors(e);
+
+            toast.error(
+              <div className="space-y-1">
+                {errors.map((err, i) => (
+                  <div key={i}>• {err}</div>
+                ))}
+              </div>
+            );
+          })
+          .finally(() => setViewLoading(false));
+        break;
+
+      case 'resetPassword':
+        setResetTarget(action.item);
+        setResetOpen(true);
+        break;
+
+      case 'toggle':
+        setConfirmTarget(action.item);
+        setConfirmOpen((p) => ({ ...p, toggle: true }));
+        break;
+
+      case 'delete':
+        setConfirmTarget(action.item);
+        setConfirmOpen((p) => ({ ...p, delete: true }));
+        break;
+    }
+  },
+  [openCreate]
+);
   const closeConfirm = useCallback((kind: 'toggle' | 'delete') => {
     setConfirmOpen((p) => ({ ...p, [kind]: false }));
     setConfirmTarget(null);
   }, []);
 
-  const confirmAction = useCallback(
-    async (kind: 'toggle' | 'delete') => {
-      if (!confirmTarget) return;
-      try {
-        setMutating(true);
-        const res =
-          kind === 'toggle' ? await staffService.toggleStatus(confirmTarget.id) : await staffService.remove(confirmTarget.id);
-        if (res.data?.success) {
-          toast.success(res.data?.message || 'Operation successful');
-          closeConfirm(kind);
-          fetchList();
-        } else {
-          toast.error(res.data?.message || 'Operation failed');
-        }
-      } catch (e: any) {
-        toast.error(getBackendMessage(e) || 'Operation failed');
-      } finally {
-        setMutating(false);
-      }
-    },
-    [confirmTarget, toast, closeConfirm, fetchList]
-  );
+const confirmAction = useCallback(
+  async (kind: 'toggle' | 'delete') => {
+    if (!confirmTarget) return;
 
-  const submitForm = useCallback(
-    async (payload: any) => {
-      try {
-        setMutating(true);
-        const res =
-          formMode === 'create'
-            ? await staffService.create(payload)
-            : editingItem
-              ? await staffService.update(editingItem.id, payload)
-              : null;
-        if (!res) return;
-        if (res.data?.success) {
-          toast.success(res.data?.message || 'Operation successful');
-          setFormOpen(false);
-          setEditingItem(null);
-          fetchList();
-        } else {
-          toast.error(res.data?.message || 'Operation failed');
-        }
-      } catch (e: any) {
-        toast.error(getBackendMessage(e) || 'Operation failed');
-      } finally {
-        setMutating(false);
-      }
-    },
-    [formMode, editingItem, toast, fetchList]
-  );
+    try {
+      setMutating(true);
 
-  const submitReset = useCallback(
-    async (newPassword: string) => {
-      if (!resetTarget) return;
-      try {
-        setMutating(true);
-        const res = await staffService.resetPassword(resetTarget.id, { newPassword });
-        if (res.data?.success) {
-          toast.success(res.data?.message || 'Operation successful');
-          setResetOpen(false);
-          setResetTarget(null);
-        } else {
-          toast.error(res.data?.message || 'Operation failed');
-        }
-      } catch (e: any) {
-        toast.error(getBackendMessage(e) || 'Operation failed');
-      } finally {
-        setMutating(false);
+      const res =
+        kind === 'toggle'
+          ? await staffService.toggleStatus(confirmTarget.id)
+          : await staffService.remove(confirmTarget.id);
+
+      if (res.data?.success) {
+        toast.success(res.data.message);
+        closeConfirm(kind);
+        fetchList();
+      } else {
+        const errors = getBackendErrors(res);
+
+        toast.error(
+          <div className="space-y-1">
+            {errors.map((err, i) => (
+              <div key={i}>• {err}</div>
+            ))}
+          </div>
+        );
       }
-    },
-    [resetTarget, toast]
-  );
+    } catch (e: any) {
+      const errors = getBackendErrors(e);
+
+      toast.error(
+        <div className="space-y-1">
+          {errors.map((err, i) => (
+            <div key={i}>• {err}</div>
+          ))}
+        </div>
+      );
+    } finally {
+      setMutating(false);
+    }
+  },
+  [confirmTarget, closeConfirm, fetchList]
+);
+
+const submitForm = useCallback(
+  async (payload: any) => {
+    try {
+      setMutating(true);
+
+      const res =
+        formMode === 'create'
+          ? await staffService.create(payload)
+          : editingItem
+          ? await staffService.update(editingItem.id, payload)
+          : null;
+
+      if (!res) return;
+
+      if (res.data?.success) {
+        toast.success(res.data.message);
+        setFormOpen(false);
+        setEditingItem(null);
+        fetchList();
+      } else {
+        // 🔥 handle non-200 but success=false
+        const errors = getBackendErrors(res);
+
+        toast.error(
+          <div className="space-y-1">
+            {errors.map((err, i) => (
+              <div key={i}>• {err}</div>
+            ))}
+          </div>
+        );
+      }
+    } catch (e: any) {
+      // 🔥 ASP.NET validation (400)
+      const errors = getBackendErrors(e);
+
+      toast.error(
+        <div className="space-y-1">
+          {errors.map((err, i) => (
+            <div key={i}>• {err}</div>
+          ))}
+        </div>
+      );
+    } finally {
+      setMutating(false);
+    }
+  },
+  [formMode, editingItem, fetchList]
+);
+
+const submitReset = useCallback(
+  async (newPassword: string) => {
+    if (!resetTarget) return;
+
+    try {
+      setMutating(true);
+
+      const res = await staffService.resetPassword(resetTarget.id, { newPassword });
+
+      if (res.data?.success) {
+        toast.success(res.data.message);
+        setResetOpen(false);
+        setResetTarget(null);
+      } else {
+        const errors = getBackendErrors(res);
+
+        toast.error(
+          <div className="space-y-1">
+            {errors.map((err, i) => (
+              <div key={i}>• {err}</div>
+            ))}
+          </div>
+        );
+      }
+    } catch (e: any) {
+      const errors = getBackendErrors(e);
+
+      toast.error(
+        <div className="space-y-1">
+          {errors.map((err, i) => (
+            <div key={i}>• {err}</div>
+          ))}
+        </div>
+      );
+    } finally {
+      setMutating(false);
+    }
+  },
+  [resetTarget]
+);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <BulkSelectionBar count={selectedIds.size} onExport={exportSelected} onClear={clearSelection} />
-
       <div
         className="sticky z-30 -mx-4 px-4 py-3 border-b border-slate-800"
       >

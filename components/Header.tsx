@@ -449,8 +449,8 @@ useEffect(() => {
     {!searchLoading &&
       results.map((item) => (
         <Link
-          key={item.id}
-         href={`/products/${item.slug}`}
+        key={item.sku}
+         href={`/product/${item.slug}`}
           onClick={() => {
             setShowSearchDropdown(false);
             setSearchValue("");
@@ -468,7 +468,6 @@ useEffect(() => {
   className="w-10 h-10 object-contain"
 />
 
-{/* NAME + CATEGORY */}
 {/* NAME, CATEGORY, PRICE + DISCOUNT */}
 <div className="flex flex-col">
   <div className="flex items-center gap-2 flex-wrap">
@@ -512,7 +511,7 @@ useEffect(() => {
     <>
       {/* Discounted Price */}
       <span className="text-sm font-semibold text-[#445D41]">
-        £{getDiscountedPrice(item.price, item.discountPercentage)}
+      £{getDiscountedPrice(item.price, item.discountPercentage).toFixed(2)}
       </span>
 
       {/* Original Price */}
@@ -744,8 +743,8 @@ useEffect(() => {
                 )}
                 {!searchLoading && results.map((item) => (
                   <Link
-                    key={item.id}
-                    href={`/products/${item.slug}`}
+                   key={item.sku}
+                    href={`/product/${item.slug}`}
                     onClick={() => { setShowSearchDropdown(false); setSearchValue(""); setMobileSearchOpen(false); }}
                     className="flex items-center gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-gray-50"
                   >

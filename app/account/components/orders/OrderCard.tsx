@@ -269,7 +269,7 @@ export default function OrderCard({
   const [customReason, setCustomReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
 const [showStoreModal, setShowStoreModal] = useState(false);
-
+const [showPriceModal, setShowPriceModal] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   const [showPayModal, setShowPayModal] = useState(false);
@@ -471,8 +471,8 @@ const refundedAmount =
       {/* HEADER */}
       <div className="flex flex-wrap justify-between gap-2">
         <div>
-          <p className="font-semibold">Order Id: #{order.orderNumber}</p>
-          <p className="text-sm text-gray-500">
+          <p className="font-semibold">Order Number: #{order.orderNumber}</p>
+          <p className="text-xs text-gray-500">
             Ordered on: {new Date(order.orderDate).toLocaleDateString()}
           </p>
         </div>
@@ -503,7 +503,7 @@ const refundedAmount =
         {order.items?.map((item: any) => (
           <Link
             key={item.id}
-            href={`/products/${item.productSlug}`}
+            href={`/product/${item.productSlug}`}
             className="flex items-center gap-4 border rounded-lg p-3 hover:bg-gray-50 transition"
           >
             <div className="w-16 h-16 flex-shrink-0 border rounded-md overflow-hidden bg-white">
@@ -565,6 +565,7 @@ const refundedAmount =
     value={
   <button
     onClick={() => setShowStoreModal(true)}
+    title="View store address"
     className="flex items-center gap-1 text-[#445D41] font-semibold hover:underline"
   >
     {order.collectionStoreName || "Selected Store"}
@@ -599,9 +600,17 @@ const refundedAmount =
           </>
         )}
 
-        <Info
+       <Info
   label="Total amount paid"
-  value={`£${order.totalPaidAmount?.toFixed(2) ?? "0.00"}`}
+  value={
+  <button
+  onClick={() => setShowPriceModal(true)}
+  title="View price breakdown"
+  className="text-[#445D41] font-semibold hover:underline"
+>
+  £{order.totalPaidAmount?.toFixed(2) ?? "0.00"}
+</button>
+  }
 />
  <Info
   label="Payment Status"
@@ -688,112 +697,127 @@ const refundedAmount =
           {historyLoading && <span className="ml-1 text-gray-400">Loading…</span>}
         </button>
 
-        {showHistory && (
-          <div className="mt-3 space-y-3">
-            {history.length === 0 ? (
-              <p className="text-xs text-gray-400">No changes recorded for this order.</p>
+      {showHistory && (
+  <div className="mt-3 space-y-3">
+
+    {(() => {
+      const filteredHistory = history.filter(
+        (h: any) => h.changeType === "OrderEdited"
+      );
+
+      if (filteredHistory.length === 0) {
+        return (
+          <p className="text-xs text-gray-400">
+            No changes recorded for this order.
+          </p>
+        );
+      }
+
+      return filteredHistory.map((h: any) => {
+        const ops: any[] = h.changeDetails?.Operations ?? [];
+        const priceDiff =
+          h.newTotalAmount != null && h.oldTotalAmount != null
+            ? h.newTotalAmount - h.oldTotalAmount
+            : null;
+
+        return (
+          <div key={h.id} className="bg-gray-50 border rounded-lg p-3 text-xs">
+            
+            {/* Header */}
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <span className="font-semibold text-gray-700">
+                  Order Updated
+                </span>
+                <span className="text-gray-400 ml-2">
+                  {new Date(h.changeDate).toLocaleString()}
+                </span>
+              </div>
+
+              {priceDiff != null && (
+                <span
+                  className={`font-semibold ${
+                    priceDiff > 0 ? "text-orange-600" : "text-green-600"
+                  }`}
+                >
+                  {priceDiff > 0 ? "+" : ""}£{priceDiff.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            {/* Item changes table */}
+            {ops.length > 0 ? (
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-gray-400 border-b">
+                    <th className="pb-1 font-medium">Product</th>
+                    <th className="pb-1 font-medium text-center">Change</th>
+                    <th className="pb-1 font-medium text-right">Old</th>
+                    <th className="pb-1 font-medium text-right">New</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {ops.map((op: any, i: number) => (
+                    <tr key={i} className="border-b last:border-0">
+                      <td className="py-1 text-gray-700 pr-2">
+                        {op.ProductName}
+                      </td>
+
+                      <td className="py-1 text-center">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                            op.ChangeType === "Added"
+                              ? "bg-green-100 text-green-700"
+                              : op.ChangeType === "Removed"
+                              ? "bg-red-100 text-red-700"
+                              : op.ChangeType === "PriceAdjusted"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {op.ChangeType}
+                        </span>
+                      </td>
+
+                      <td className="py-1 text-right text-gray-400">
+                        Qty: {op.OldQuantity ?? 0} <br />
+                        £{(op.OldTotalPrice ?? 0).toFixed(2)}
+                      </td>
+
+                      <td className="py-1 text-right text-gray-700 font-medium">
+                        Qty: {op.NewQuantity ?? 0} <br />
+                        £{(op.NewTotalPrice ?? 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
-             history
-  .filter((h: any) => h.changeType === "OrderEdited")
-  .map((h: any) => {
-                const ops: any[] = h.changeDetails?.Operations ?? [];
-                const priceDiff = h.newTotalAmount != null && h.oldTotalAmount != null
-                  ? h.newTotalAmount - h.oldTotalAmount
-                  : null;
+              <p className="text-xs text-gray-400">
+                No item-level changes available.
+              </p>
+            )}
 
-                return (
-                  <div key={h.id} className="bg-gray-50 border rounded-lg p-3 text-xs">
-                    {/* Header */}
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className="font-semibold text-gray-700">Order Updated</span>
-                        <span className="text-gray-400 ml-2">
-                          {new Date(h.changeDate).toLocaleString()}
-                        </span>
-                      </div>
-                      {priceDiff != null && (
-                        <span className={`font-semibold ${priceDiff > 0 ? "text-orange-600" : "text-green-600"}`}>
-                          {priceDiff > 0 ? "+" : ""}£{priceDiff.toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Item changes table */}
-    {ops.length > 0 ? (
-  <table className="w-full text-left">
-    <thead>
-      <tr className="text-gray-400 border-b">
-        <th className="pb-1 font-medium">Product</th>
-        <th className="pb-1 font-medium text-center">Change</th>
-        <th className="pb-1 font-medium text-right">Old</th>
-        <th className="pb-1 font-medium text-right">New</th>
-      </tr>
-    </thead>
-
-    <tbody>
-      {ops.map((op: any, i: number) => (
-        <tr key={i} className="border-b last:border-0">
-          
-          {/* ✅ Product Name FIX */}
-          <td className="py-1 text-gray-700 pr-2">
-            {op.ProductName}
-          </td>
-
-          {/* ✅ ChangeType FIX */}
-          <td className="py-1 text-center">
-            <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                op.ChangeType === "Added"
-                  ? "bg-green-100 text-green-700"
-                  : op.ChangeType === "Removed"
-                  ? "bg-red-100 text-red-700"
-                  : op.ChangeType === "PriceAdjusted"
-                  ? "bg-purple-100 text-purple-700"
-                  : "bg-blue-100 text-blue-700"
-              }`}
-            >
-              {op.ChangeType}
-            </span>
-          </td>
-
-          {/* ✅ OLD DATA */}
-          <td className="py-1 text-right text-gray-400">
-            Qty: {op.OldQuantity ?? 0} <br />
-            £{(op.OldTotalPrice ?? 0).toFixed(2)}
-          </td>
-
-          {/* ✅ NEW DATA */}
-          <td className="py-1 text-right text-gray-700 font-medium">
-            Qty: {op.NewQuantity ?? 0} <br />
-            £{(op.NewTotalPrice ?? 0).toFixed(2)}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-) : (
-  <p className="text-xs text-gray-400">
-    No item-level changes available.
-  </p>
-)}
-
-                    {/* Total summary */}
-               {h.oldTotalAmount != null && h.newTotalAmount != null && (
-  <div className="mt-2 flex justify-between text-xs">
-    <span className="text-gray-500">
-      Old total: <strong>£{h.oldTotalAmount.toFixed(2)}</strong>
-    </span>
-    <span className="text-gray-800 font-semibold">
-      New total: £{h.newTotalAmount.toFixed(2)}
-    </span>
-  </div>
-)}
-                  </div>
-                );
-              })
+            {/* Total summary */}
+            {h.oldTotalAmount != null && h.newTotalAmount != null && (
+              <div className="mt-2 flex justify-between text-xs">
+                <span className="text-gray-500">
+                  Old total:{" "}
+                  <strong>£{h.oldTotalAmount.toFixed(2)}</strong>
+                </span>
+                <span className="text-gray-800 font-semibold">
+                  New total: £{h.newTotalAmount.toFixed(2)}
+                </span>
+              </div>
             )}
           </div>
-        )}
+        );
+      });
+    })()}
+
+  </div>
+)}
       </div>
 
       {/* ACTIONS */}
@@ -997,6 +1021,62 @@ order.status !== "CancellationRequested" && (
       )}
     </div>
 
+  </DialogContent>
+</Dialog>
+<Dialog open={showPriceModal} onOpenChange={setShowPriceModal}>
+ <DialogContent
+  onOpenAutoFocus={(e) => e.preventDefault()}
+  className="max-w-md p-0 overflow-hidden border-none shadow-2xl 
+  [&>button]:text-white 
+  [&>button]:text-2xl 
+  [&>button]:right-4 
+  [&>button]:top-3 
+  [&>button]:bg-white/20 
+  [&>button]:rounded-full 
+  [&>button]:p-1.5"
+>
+
+    {/* HEADER (with DialogTitle FIX) */}
+    <DialogHeader className="bg-[#445D41] text-white px-5 py-3 space-y-0">
+      <DialogTitle className="text-lg font-semibold">
+        Price Breakdown
+      </DialogTitle>
+      <p className="text-xs text-white/80">
+        Order #{order.orderNumber}
+      </p>
+    </DialogHeader>
+
+    {/* BODY */}
+   <div className="pt-1 pb-5 px-5 space-y-3 text-sm">
+
+      <div className="flex justify-between">
+        <span className="text-gray-600">Subtotal (Incl. vat)</span>
+        <span>£{order.subtotalAmount?.toFixed(2) ?? "0.00"}</span>
+      </div>
+
+      <div className="flex justify-between">
+        <span className="text-gray-600">VAT</span>
+        <span>£{order.taxAmount?.toFixed(2) ?? "0.00"}</span>
+      </div>
+
+      <div className="flex justify-between">
+        <span className="text-gray-600">Shipping</span>
+        <span>£{order.shippingAmount?.toFixed(2) ?? "0.00"}</span>
+      </div>
+
+      {order.discountAmount > 0 && (
+        <div className="flex justify-between text-green-600">
+          <span>Discount</span>
+          <span>-£{order.discountAmount.toFixed(2)}</span>
+        </div>
+      )}
+
+      <div className="border-t pt-3 flex justify-between font-semibold text-base">
+        <span>Total amount paid:</span>
+        <span> £{order.totalPaidAmount?.toFixed(2) ?? "0.00"}</span>
+      </div>
+
+    </div>
   </DialogContent>
 </Dialog>
     </div>

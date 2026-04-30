@@ -33,6 +33,7 @@ export const RoleFilters = React.memo(function RoleFilters({
           <div className="relative mt-1">
             <Search className="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
+            type='search'
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="role name..."
@@ -45,14 +46,6 @@ export const RoleFilters = React.memo(function RoleFilters({
             )}
           </div>
         </div>
-        <button
-          disabled={loading}
-          onClick={onReset}
-          className="px-3 py-1.5 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 transition-all disabled:opacity-50"
-          type="button"
-        >
-          clear All
-        </button>
       </div>
     </div>
   );

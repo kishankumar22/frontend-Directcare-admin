@@ -65,10 +65,13 @@ const handleAddToCart = (item: WishlistItem) => {
     variantId: item.variantId ?? null,
 
     name: item.name,
-    price: item.price,
-    finalPrice: item.price,
-    priceBeforeDiscount: item.price,
-    discountAmount: 0,
+   price: item.finalPrice ?? item.price,
+finalPrice: item.finalPrice ?? item.price,
+priceBeforeDiscount:
+  item.priceBeforeDiscount ?? item.price,
+discountAmount: item.discountAmount ?? 0,
+appliedDiscountId: item.appliedDiscountId ?? null,
+couponCode: item.couponCode ?? null,
 
     quantity: finalQty,
 
@@ -127,7 +130,7 @@ const handleAddToCart = (item: WishlistItem) => {
             className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col"
           >
             {/* Image */}
-           <Link href={`/products/${item.slug}`}>
+           <Link href={`/product/${item.slug}`}>
               <div className="relative h-[130px] w-full rounded-lg overflow-hidden">
                 <Image
                   src={item.image}
@@ -140,7 +143,7 @@ const handleAddToCart = (item: WishlistItem) => {
             </Link>
 
             {/* Name */}
-          <Link href={`/products/${item.slug}`}>
+          <Link href={`/product/${item.slug}`}>
   <div className="mb-1">
     <p className="text-xs font-semibold text-gray-800 line-clamp-2 hover:text-[#445D41]">
       {item.variantId ? item.name.split(" - ")[0] : item.name}

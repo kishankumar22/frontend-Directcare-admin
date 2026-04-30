@@ -895,7 +895,7 @@ const validateAndBuildPayload = async (): Promise<any | null> => {
     errors.billingCity = "City is required";
 
   if (!billingState.trim())
-    errors.billingState = "County / State is required";
+    errors.billingState = "County is required";
   // ✅ SHIPPING VALIDATION (same as billing)
 if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
  // ✅ ADD THIS
@@ -913,7 +913,7 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
     errors.shippingCity = "Shipping city is required";
 
   if (!shippingState.trim())
-    errors.shippingState = "Shipping county / state is required";
+    errors.shippingState = "Shipping county is required";
 }
 
   
@@ -1138,7 +1138,7 @@ const effectivePostcode = (
   <ErrorText error={fieldErrors.billingCity} />
 </div>
 <div className="flex flex-col space-y-0.5 col-span-2">
-  <label className="text-xs font-medium text-gray-700">County / State *</label>
+  <label className="text-xs font-medium text-gray-700">County *</label>
   <input
     value={billingState}
     onChange={(e) => { setBillingState(e.target.value); clearFieldError("billingState"); }}
@@ -1309,7 +1309,7 @@ setShippingAddressQuery("");
           <ErrorText error={fieldErrors.shippingCity} />
         </div>
         <div className="flex flex-col space-y-0.5 col-span-2">
-          <label className="text-xs font-medium text-gray-700">County / State *</label>
+          <label className="text-xs font-medium text-gray-700">County *</label>
           <input value={shippingState} onChange={(e) => { setShippingState(e.target.value); clearFieldError("shippingState"); }} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />
           <ErrorText error={fieldErrors.shippingState} />
         </div>
@@ -1487,7 +1487,7 @@ setShippingAddressQuery("");
   return (
     <Link
       key={it.id + (it.variantId || "")}
-      href={`/products/${productSlug}`}
+      href={`/product/${productSlug}`}
       className="flex gap-2 items-start group"
     >
       <img
@@ -1542,10 +1542,10 @@ setShippingAddressQuery("");
   </div>
 )}
               {/* ===== PRICE SUMMARY ===== */}
-<div className="mt-2 rounded-lg border bg-gray-50 p-2 space-y-1.5 text-xs">
+<div className="mt-2 rounded-lg border bg-gray-50 p-2 space-y-1.5 text-sm">
   {/* Subtotal */}
   <div className="flex items-center justify-between">
-    <span className="text-gray-600">Subtotal (Incl. VAT)</span>
+    <span className="text-gray-700">Subtotal (Incl. VAT)</span>
     <span className="font-medium">{formatCurrency(cartSubtotal)}</span>
   </div>
   <div className="flex items-center justify-between border-t pt-2 mt-2 text-sm text-gray-700">
@@ -1602,7 +1602,7 @@ setShippingAddressQuery("");
 )}
 {pointsDiscount > 0 && (
   <div className="flex items-center justify-between text-green-700 text-xs">
-    <span>Points Discount ({pointsToRedeem} pts)</span>
+    <span>Loyalty Points Discount ({pointsToRedeem} pts)</span>
     <span>- {formatCurrency(pointsDiscount)}</span>
   </div>
 )}
