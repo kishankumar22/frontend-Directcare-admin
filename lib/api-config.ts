@@ -24,12 +24,14 @@ export const API_ENDPOINTS = {
   brands: '/api/Brands',
   uploadBrandLogo: '/api/Brands/upload-logo',
   deleteBrandLogo: '/api/ImageManagement/brand',
-
+  
   // Products
   products: '/api/Products',
   inventoryBulkUpdate: "/api/Products/inventory/bulk-update",
   inventoryBulkUpload: "/api/Products/inventory/bulk-upload",
   inventorySampleExcel: "/api/Products/inventory/sample-excel",
+  bulkUpdateTemplate: "/api/Products/bulk-update-template",
+  bulkUpdateExcel: "/api/Products/bulk-update-excel",
   PharmacyQuestions: '/api/pharmacy-questions',
 
   deliveryStrip: "/api/DeliveryStrip",

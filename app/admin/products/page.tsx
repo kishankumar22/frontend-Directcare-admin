@@ -120,33 +120,31 @@ const customSelectStyles = {
   control: (base: any, state: any) => ({
     ...base,
     backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    borderColor: state.selectProps.value && state.selectProps.value.value !== 'all' 
-      ? '#3b82f6' 
+    borderColor: state.selectProps.value && state.selectProps.value.value !== 'all'
+      ? '#3b82f6'
       : '#475569',
     borderWidth: state.selectProps.value && state.selectProps.value.value !== 'all' ? '2px' : '1px',
     borderRadius: '0.75rem',
     padding: '0.11rem',
     boxShadow: state.isFocused ? '0 0 0 2px rgba(139, 92, 246, 0.5)' : 'none',
-    '&:hover': {
-      borderColor: '#8b5cf6',
-    },
     minHeight: '42px',
-    cursor: 'pointer',
   }),
+
   menu: (base: any) => ({
     ...base,
     backgroundColor: '#1e293b',
     border: '1px solid rgba(139, 92, 246, 0.3)',
     borderRadius: '0.75rem',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
     overflow: 'hidden',
     zIndex: 9999,
   }),
+
   menuList: (base: any) => ({
     ...base,
     padding: 0,
     maxHeight: '300px',
   }),
+
   option: (base: any, state: any) => ({
     ...base,
     backgroundColor: state.isSelected
@@ -154,36 +152,48 @@ const customSelectStyles = {
       : state.isFocused
       ? '#334155'
       : 'transparent',
-    color: state.isSelected ? '#a78bfa' : '#ffffff',
-    padding: '0.625rem 1rem',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    '&:active': {
-      backgroundColor: 'rgba(139, 92, 246, 0.3)',
-    },
+    color: '#ffffff',
+    padding: '10px 12px',
+
+    // 🔥 IMPORTANT
+    whiteSpace: 'normal',
+    wordBreak: 'break-word',
+    lineHeight: '1.3',
   }),
+
   singleValue: (base: any) => ({
     ...base,
     color: '#ffffff',
-    fontSize: '0.875rem',
+
+    // 🔥 IMPORTANT
+    whiteSpace: 'normal',
+    overflow: 'visible',
+    textOverflow: 'unset',
   }),
+
+  valueContainer: (base: any) => ({
+    ...base,
+
+    // 🔥 IMPORTANT (prevents clipping)
+    whiteSpace: 'normal',
+    overflow: 'visible',
+  }),
+
   input: (base: any) => ({
     ...base,
     color: '#ffffff',
-    fontSize: '0.875rem',
   }),
+
   placeholder: (base: any) => ({
     ...base,
     color: '#94a3b8',
-    fontSize: '0.875rem',
   }),
+
   dropdownIndicator: (base: any) => ({
     ...base,
     color: '#94a3b8',
-    '&:hover': {
-      color: '#a78bfa',
-    },
   }),
+
   indicatorSeparator: () => ({
     display: 'none',
   }),
@@ -1005,16 +1015,24 @@ const hasActiveFilters = useMemo(
   }, [categories]);
 
   // ✅ FORMAT WITH TITLE
-  const formatOptionLabel = (option: SelectOption) => {
-    return (
-      <span 
-        title={option.label} 
-        className="block truncate cursor-pointer"
-      >
-        {option.label}
-      </span>
-    );
-  };
+const formatOptionLabel = (option: SelectOption) => {
+  const parts = option.label.split(" > ");
+  const depth = parts.length;
+
+  return (
+    <span
+      title={option.label}
+      className={`
+        block whitespace-normal break-words leading-tight
+        ${depth === 1 ? "text-sm" : ""}
+        ${depth === 2 ? "text-xs text-slate-200" : ""}
+        ${depth >= 3 ? "text-[11px] text-slate-400" : ""}
+      `}
+    >
+      {option.label}
+    </span>
+  );
+};
 
 const brandOptions: SelectOption[] = useMemo(() => {
   return [

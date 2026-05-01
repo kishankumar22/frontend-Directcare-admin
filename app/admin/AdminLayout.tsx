@@ -55,7 +55,8 @@ import {
   ClipboardList,
   PoundSterling,
   Warehouse,
-  ShieldCheck, // ✅ NEW ICON FOR SYSTEM GROUP
+  ShieldCheck,
+  FileSpreadsheet, // ✅ Added for Import/Export
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
@@ -143,6 +144,14 @@ const navigation: NavigationItem[] = [
     { name: 'Staff Roles', href: '/admin/staff-roles', icon: ShieldCheck },
   ],
 },
+  {
+    name: 'Import / Export',
+    icon: FileSpreadsheet,
+    children: [
+      { name: 'Products ', href: '/admin/import-export', icon: FileSpreadsheet },
+      { name: 'Orders ', href: '/admin/import-export-orders', icon: FileSpreadsheet },
+    ],
+  },
   {
     name: 'System',
     icon: Shield,

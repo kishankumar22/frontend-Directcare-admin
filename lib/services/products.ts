@@ -298,8 +298,6 @@ export interface BrandData {
   displayOrder?: number;
 }
 
-// lib/services/products.ts (or wherever SimpleProduct is defined)
-
 export interface SimpleProduct {
   id: string;
   name: string;
@@ -327,7 +325,6 @@ export interface SimpleProduct {
     isMain?: boolean;
   }[];
 }
-
 
 export interface CreateProductDto {
   name: string;
@@ -358,8 +355,7 @@ export interface CreateProductDto {
   metaDescription?: string;
   metaKeywords?: string;
   tags?: string;
-  allowCustomerReviews?: boolean;
-  
+  allowCustomerReviews?: boolean;  
   backInStockCount?: number; // ✅ ADD THIS
 }
 
@@ -774,6 +770,59 @@ downloadImportTemplate: async () => {
     `${API_ENDPOINTS.products}/import-template`,
     {
       responseType: "blob",   // ✅ VERY IMPORTANT
+    }
+  );
+},
+
+/**
+ * Download Bulk Update Template (Excel)
+ * GET: /api/Products/bulk-update-template
+ * Params: searchTerm, isPublished, stockStatus, categoryId, fields (comma-separated)
+ */
+downloadBulkUpdateTemplate: async (params: {
+  searchTerm?: string;
+  isPublished?: boolean;
+  stockStatus?: string;
+  categoryId?: string;
+  fields: string[]; // We'll convert this to comma-separated
+}) => {
+  const queryParams = new URLSearchParams();
+  
+  if (params.searchTerm) queryParams.append("searchTerm", params.searchTerm);
+  if (params.isPublished !== undefined) queryParams.append("isPublished", params.isPublished.toString());
+  if (params.stockStatus) queryParams.append("stockStatus", params.stockStatus);
+  if (params.categoryId) queryParams.append("categoryId", params.categoryId);
+  
+  // Convert array to comma-separated string
+  if (params.fields && params.fields.length > 0) {
+    queryParams.append("fields", params.fields.join(","));
+  }
+
+  const url = `${API_ENDPOINTS.bulkUpdateTemplate}${
+    queryParams.toString() ? `?${queryParams.toString()}` : ""
+  }`;
+
+  return apiClient.get(url, {
+    responseType: "blob", // ✅ For file download
+  });
+},
+
+/**
+ * Upload Bulk Update Excel File
+ * POST: /api/Products/bulk-update-excel
+ * Body: multipart/form-data (excelFile)
+ */
+bulkUpdateWithExcel: async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiClient.post<ApiResponse<any>>(
+    API_ENDPOINTS.bulkUpdateExcel,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     }
   );
 },
