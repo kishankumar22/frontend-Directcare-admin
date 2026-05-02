@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/app/admin/_components/CustomToast';
 import { useDebounce } from '@/app/admin/_hooks/useDebounce';
 import { staffService, type StaffItem, type StaffListQueryParams, type StaffRole } from '@/lib/services/staff';
+import { getBackendErrors, getBackendMessage } from '@/app/admin/_utils/errorUtils';
 import {
-  getBackendErrors,
   BulkSelectionBar,
   exportStaffToXlsx,
   ResetPasswordModal,

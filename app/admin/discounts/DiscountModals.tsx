@@ -333,53 +333,55 @@ const stats = useMemo(() => {
   let availableCount = 0;
 
   filteredProducts.forEach(opt => {
-    const product = productMap.get(opt.value);
+    const productIdStr = opt.value;
+    const product = productMap.get(productIdStr);
     if (!product) return;
 
-    const productIdStr = opt.value;
+    // 1. Check assignedDiscounts from product object (Backend source of truth)
+    const hasDirectConflict = Array.isArray((product as any).assignedDiscounts) &&
+      (product as any).assignedDiscounts.some((d: any) => d.id !== editingDiscount?.id && d.isActive);
 
-    const prodCatIds = [
+    if (hasDirectConflict) {
+      conflictCount++;
+      return;
+    }
+
+    // 2. Check all active discounts for category matches or product matches
+    const productCategoryIds = [
       (product as any).categoryId,
       ...(((product as any).categories || []) as any[])
         .map((c: any) => c.categoryId || c.id)
         .filter(Boolean)
     ].filter(Boolean);
 
-    const hasConflict =
-      allDiscounts.some((d: any) => {
-        if (d.id === editingDiscount?.id) return false;
-        if (!d.isActive || d.isDeleted) return false;
-        if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
+    const hasExternalConflict = allDiscounts.some((d: any) => {
+      if (d.id === editingDiscount?.id) return false;
+      if (!d.isActive || d.isDeleted) return false;
+      
+      const now = new Date();
+      if (new Date(d.startDate) > now || new Date(d.endDate) < now) return false;
 
-        if (
-          d.discountType === "AssignedToProducts" &&
-          d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr)
-        ) return true;
+      // Check Product Assignment
+      if (d.discountType === "AssignedToProducts") {
+        return d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr);
+      }
 
-        if (d.discountType === "AssignedToCategories") {
-          const dCatIds = (d.assignedCategoryIds || '')
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter(Boolean);
-
-          if (!prodCatIds.some(cid => dCatIds.includes(cid))) return false;
-
-          if (d.assignedProductIds && d.assignedProductIds.trim()) {
-            return d.assignedProductIds
-              .split(',')
-              .map((s: string) => s.trim())
-              .includes(productIdStr);
-          }
-
-          return true;
+      // Check Category Assignment
+      if (d.discountType === "AssignedToCategories") {
+        const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+        const categoryMatches = productCategoryIds.some(cid => dCatIds.includes(cid));
+        if (!categoryMatches) return false;
+        
+        // If category discount is limited to specific products
+        if (d.assignedProductIds && d.assignedProductIds.trim()) {
+          return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
         }
+        return true;
+      }
+      return false;
+    });
 
-        return false;
-      }) ||
-      (Array.isArray((product as any).assignedDiscounts) &&
-        (product as any).assignedDiscounts.some((d: any) => d.id !== editingDiscount?.id && d.isActive));
-
-    if (hasConflict) conflictCount++;
+    if (hasExternalConflict) conflictCount++;
     else availableCount++;
   });
 
@@ -740,66 +742,6 @@ onChange={(selectedOptions) => {
                           </button>
                         )}
                       </div>
-
-                      {/* ⚠️ CONFLICT WARNING FOR ASSIGNED-TO-PRODUCTS */}
-                      {formData.assignedProductIds.length > 0 && (() => {
-                        const allDiscounts = (props.discounts || []) as any[];
-                        const conflicted: { name: string; discountName: string; via: string }[] = [];
-
-                        formData.assignedProductIds.forEach(productId => {
-                          const product = productMap.get(productId);
-                          if (!product) return;
-                          const prodCatIds = [
-                            (product as any).categoryId,
-                            ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)
-                          ].filter(Boolean);
-
-                          const conflicts = allDiscounts.filter((d: any) => {
-                            if (d.id === editingDiscount?.id) return false;
-                            if (!d.isActive || d.isDeleted) return false;
-                            if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
-                            if (d.discountType === "AssignedToProducts" &&
-                                d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productId)) return true;
-                            if (d.discountType === "AssignedToCategories") {
-                              const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-                              if (!prodCatIds.some((cid: string) => dCatIds.includes(cid))) return false;
-                              if (d.assignedProductIds && d.assignedProductIds.trim())
-                                return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productId);
-                              return true;
-                            }
-                            return false;
-                          });
-                          const fromProduct = Array.isArray((product as any).assignedDiscounts)
-                            ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
-                            : [];
-                          const all = [...conflicts, ...fromProduct].filter((v, i, a) => a.findIndex((t: any) => t.id === v.id) === i);
-
-                          if (all.length > 0) {
-                            const productName = filteredProductOptions.find((o: any) => o.value === productId)?.label || productId;
-                            const via = all[0]?.discountType === "AssignedToCategories" ? "via Category" : "Direct";
-                            conflicted.push({ name: productName, discountName: all[0]?.name || 'Unknown', via });
-                          }
-                        });
-
-                        if (conflicted.length === 0) return null;
-
-                        return (
-                          <div className="mt-3 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-                            <p className="text-red-400 text-sm font-semibold flex items-center gap-2 mb-2">
-                              <AlertCircle className="h-4 w-4 shrink-0" />
-                              {conflicted.length} selected product{conflicted.length !== 1 ? 's' : ''} already {conflicted.length === 1 ? 'has' : 'have'} an active discount:
-                            </p>
-                            <div className="space-y-1 max-h-24 overflow-y-auto">
-                              {conflicted.map((item, i) => (
-                                <div key={i} className="flex items-center justify-between text-xs gap-2">
-                                  <span className="text-slate-300 truncate">{item.name.length > 35 ? item.name.slice(0, 35) + '...' : item.name}</span>
-                                  <span className="text-red-400 font-medium shrink-0">"{item.discountName}" <span className="text-slate-500">({item.via})</span></span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
                     </div>
                   )}
 
@@ -1481,73 +1423,52 @@ onChange={(selectedOptions) => {
           return (
             <div className="space-y-2">
               {filteredProducts.map((productOption) => {
-                const product = productMap.get(productOption.value);
+                // 🎯 CONFLICT CHECKING LOGIC
+                const productIdStr = productOption.value;
+                const product = productMap.get(productIdStr);
                 
-                // 🎯 CHECK 1: Is this product assigned to CURRENT discount (republic sale)?
-                const isAssignedToCurrentDiscount = editingDiscount?.id && 
-                  editingDiscount.assignedProductIds?.split(',').includes(productOption.value);
+                // A. Check Backend Assigned Discounts
+                const otherDiscounts = product && Array.isArray((product as any).assignedDiscounts) 
+                  ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
+                  : [];
                 
-                // 🎯 CHECK 2: Find ALL OTHER discounts for this product (excluding current discount)
-                const otherDiscounts = product && 
-                  Array.isArray((product as any).assignedDiscounts) ? 
-                  (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id) : [];
-                
-                // 🎯 CHECK 3: Check for category-level discounts from other sales
+                // B. Check Manual Overlaps (Products & Categories)
                 const productCategoryIds = product
                   ? [product.categoryId, ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)]
                   : [];
 
-                const categoryDiscounts = allDiscounts.filter((d: any) => {
-                  if (d.id === editingDiscount?.id) return false;
-                  if (d.discountType !== "AssignedToCategories") return false;
-                  if (!d.isActive || d.isDeleted) return false;
-                  if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
-                  const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-                  const categoryMatches = productCategoryIds.some(cid => dCatIds.includes(cid));
-                  if (!categoryMatches) return false;
-                  // If this category discount also restricts to specific products, only flag those products
-                  if (d.assignedProductIds && d.assignedProductIds.trim()) {
-                    return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productOption.value);
+                const manualConflicts = allDiscounts.filter((d: any) => {
+                  if (d.id === editingDiscount?.id || !d.isActive || d.isDeleted) return false;
+                  
+                  const now = new Date();
+                  if (new Date(d.startDate) > now || new Date(d.endDate) < now) return false;
+
+                  if (d.discountType === "AssignedToProducts") {
+                    return d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr);
                   }
-                  // No specific products → applies to whole category
-                  return true;
+
+                  if (d.discountType === "AssignedToCategories") {
+                    const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                    if (!productCategoryIds.some(cid => dCatIds.includes(cid))) return false;
+                    if (d.assignedProductIds && d.assignedProductIds.trim()) {
+                      return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
+                    }
+                    return true;
+                  }
+                  return false;
                 });
                 
-                // 🎯 CHECK 4: Check for product-specific discounts from other sales
-                const productDiscounts = allDiscounts.filter((d: any) =>
-                  d.id !== editingDiscount?.id && // Exclude current discount
-                  d.discountType === "AssignedToProducts" &&
-                  d.assignedProductIds?.split(',').includes(productOption.value) &&
-                  d.isActive &&
-                  !d.isDeleted &&
-                  new Date(d.startDate) <= new Date() &&
-                  new Date(d.endDate) >= new Date()
-                );
-                
-                // 🎯 COMBINE ALL CONFLICTING DISCOUNTS
-                const conflictingDiscounts = [
-                  ...otherDiscounts,
-                  ...categoryDiscounts,
-                  ...productDiscounts
-                ];
-                
-                // Remove duplicates by ID
-                const uniqueConflicts = conflictingDiscounts.filter((v, i, a) => 
+                const uniqueConflicts = [...otherDiscounts, ...manualConflicts].filter((v, i, a) => 
                   a.findIndex(t => t.id === v.id) === i
                 );
                 
                 const hasConflict = uniqueConflicts.length > 0;
-                
-                // 🎯 Check if this product is already selected in form
-                const isSelected = formData.assignedProductIds.includes(productOption.value);
-                
-                // 🎯 Disable if product has conflicting discount AND is not already selected
+                const isSelected = formData.assignedProductIds.includes(productIdStr);
                 const isDisabled = hasConflict && !isSelected;
-
-                // Get the primary conflict for display (first one)
                 const primaryConflict = uniqueConflicts[0];
-
                 const isChecked = isSelected;
+                const isAssignedToCurrentDiscount = editingDiscount?.id && 
+                  editingDiscount.assignedProductIds?.split(',').includes(productIdStr);
                const imageUrl = getProductImage(product?.images || []);
                 return (
                   <div

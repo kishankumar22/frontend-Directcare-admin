@@ -21,8 +21,10 @@ import {
   X,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import ConfirmDialog from '@/app/admin/_components/ConfirmDialog';
 import { formatDate } from '@/app/admin/_utils/formatUtils';
+import { getBackendErrors } from '@/app/admin/_utils/errorUtils';
 import type {
   CreateStaffRequest,
   StaffItem,
@@ -41,23 +43,6 @@ export type StaffAction =
   | { type: 'delete'; item: StaffItem }
   | { type: 'resetPassword'; item: StaffItem };
 
-export function getBackendErrors(err: any): string[] {
-  const data = err?.response?.data || err?.data;
-
-  if (data?.errors && typeof data.errors === 'object') {
-    return Object.entries(data.errors).flatMap(
-      ([field, msgs]: any) =>
-        msgs.map((msg: string) => `${field}: ${msg}`)
-    );
-  }
-
-  return [
-    data?.title ||
-    data?.message ||
-    err?.message ||
-    'Something went wrong'
-  ];
-}
 
 export const StaffFilters = React.memo(function StaffFilters({
   query,
@@ -465,13 +450,15 @@ export function StaffFormModal({
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [role, setRole] = useState('');
- const [password, setPassword] = useState('');
-const [confirmPassword, setConfirmPassword] = useState('');
-const [showPassword, setShowPassword] = useState(false);
-const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
+    setErrors([]);
     if (mode === 'edit' && initialValue) {
       setFirstName(initialValue.firstName || '');
       setLastName(initialValue.lastName || '');
@@ -492,36 +479,89 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   }, [isOpen, mode, initialValue]);
 
   const roleOptions = useMemo(() => roles.map((r) => r.name), [roles]);
+  const toast = useToast();
+
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const isFormValid = useMemo(() => {
+    if (!firstName.trim()) return false;
+    if (!lastName.trim()) return false;
+    if (!role) return false;
+
+    if (mode === 'create') {
+      if (!email.trim() || !validateEmail(email)) return false;
+      if (!password || password.length < 8) return false;
+      if (password !== confirmPassword) return false;
+    }
+
+    return true;
+  }, [firstName, lastName, role, mode, email, password, confirmPassword]);
 
   const handleSubmit = useCallback(() => {
-if (mode === 'create') {
-  if (!password || !confirmPassword) {
-    alert('Password required');
-    return;
-  }
+    const errs: string[] = [];
 
-  if (password !== confirmPassword) {
-    alert('Passwords do not match');
-    return;
-  }
+    if (!firstName.trim()) errs.push('First Name is required');
+    if (!lastName.trim()) errs.push('Last Name is required');
 
-  onSubmit({
-    firstName,
-    lastName,
-    email,
-    phoneNumber: phoneNumber || undefined,
-    role,
-    password,
-  });
-  return;
-}
+    if (mode === 'create') {
+      if (!email.trim()) {
+        errs.push('Email is required');
+      } else if (!validateEmail(email)) {
+        errs.push('Valid email address is required');
+      }
+
+      if (!password) {
+        errs.push('Password is required');
+      } else if (password.length < 8) {
+        errs.push("Password must be at least 8 characters long");
+      }
+
+      if (password !== confirmPassword) {
+        errs.push('Passwords do not match');
+      }
+    }
+
+    if (!role) errs.push('Role is required');
+
+    if (errs.length > 0) {
+      toast.error(
+        <div className="space-y-1">
+          <div className="font-bold mb-1">Please fill required fields:</div>
+          {errs.map((err, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <AlertCircle className="h-3 w-3" />
+              {err}
+            </div>
+          ))}
+        </div>
+      );
+      setErrors(errs);
+      return;
+    }
+
+    setErrors([]);
+
+    if (mode === 'create') {
+      onSubmit({
+        firstName,
+        lastName,
+        email,
+        phoneNumber: phoneNumber || undefined,
+        role,
+        password,
+      });
+      return;
+    }
+
     onSubmit({
       firstName,
       lastName,
       phoneNumber: phoneNumber || undefined,
       role,
     });
-  }, [mode, onSubmit, firstName, lastName, email, phoneNumber, role, password,confirmPassword]);
+  }, [mode, onSubmit, firstName, lastName, email, phoneNumber, role, password, confirmPassword, toast]);
 
   if (!isOpen) return null;
 
@@ -546,105 +586,108 @@ if (mode === 'create') {
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400">First Name</label>
+              <label className="text-xs text-slate-400">First Name <span className="text-red-500">*</span></label>
               <input
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full mt-1 px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+                placeholder="Enter first name"
+                className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                  errors.some(e => e.toLowerCase().includes('first name')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                }`}
               />
             </div>
             <div>
-              <label className="text-xs text-slate-400">Last Name</label>
+              <label className="text-xs text-slate-400">Last Name <span className="text-red-500">*</span></label>
               <input
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full mt-1 px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+                placeholder="Enter last name"
+                className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                  errors.some(e => e.toLowerCase().includes('last name')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                }`}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-slate-400">Email</label>
+            <label className="text-xs text-slate-400">Email {mode === 'create' && <span className="text-red-500">*</span>}</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={mode === 'edit'}
-              className="w-full mt-1 px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 disabled:opacity-60"
+              placeholder="staff@example.com"
+              className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                errors.some(e => e.toLowerCase().includes('email')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+              } disabled:opacity-60`}
             />
           </div>
 
           {mode === 'create' && (
-            <div>
-  <label className="text-xs text-slate-400">Password</label>
-
-  <div className="relative mt-1">
-    <input
-      type={showPassword ? 'text' : 'password'}
-      value={password}
-      onChange={(e) => setPassword(e.target.value)}
-      autoComplete="new-password"
-      placeholder="Enter password"
-      className="w-full px-3 py-2 pr-10 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
-    />
-
-    <button
-      type="button"
-      onClick={() => setShowPassword((v) => !v)}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-    >
-      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-    </button>
-  </div>
-</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-400">Password <span className="text-red-500">*</span></label>
+                <div className="relative mt-1">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Min 8 characters"
+                    className={`w-full px-3 py-2 pr-10 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                      errors.some(e => e.toLowerCase().includes('password')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400">Confirm Password <span className="text-red-500">*</span></label>
+                <div className="relative mt-1">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Re-enter password"
+                    className={`w-full px-3 py-2 pr-10 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                      confirmPassword && password !== confirmPassword ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {confirmPassword && (
+                  <p className={`mt-1 text-[10px] ${password === confirmPassword ? 'text-green-400' : 'text-red-400'}`}>
+                    {password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
+                  </p>
+                )}
+              </div>
+            </div>
           )}
-{mode === 'create' && (
-<div>
-  <label className="text-xs text-slate-400">Confirm Password</label>
-
-  <div className="relative mt-1">
-    <input
-      type={showConfirmPassword ? 'text' : 'password'}
-      value={confirmPassword}
-      onChange={(e) => setConfirmPassword(e.target.value)}
-      autoComplete="new-password"
-      placeholder="Re-enter password"
-      className="w-full px-3 py-2 pr-10 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
-    />
-
-    <button
-      type="button"
-      onClick={() => setShowConfirmPassword((v) => !v)}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-    >
-      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-    </button>
-  </div>
-
-  {/* 🔥 LIVE VALIDATION */}
-  {confirmPassword && (
-    <p
-      className={`mt-1 text-xs ${
-        password === confirmPassword ? 'text-green-400' : 'text-red-400'
-      }`}
-    >
-      {password === confirmPassword
-        ? 'Passwords match'
-        : 'Passwords do not match'}
-    </p>
-  )}
-</div>
-)}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400">Role</label>
+              <label className="text-xs text-slate-400">Role <span className="text-red-500">*</span></label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full mt-1 px-3 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+                className={`w-full mt-1 px-3 py-2 bg-slate-950/70 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                  errors.some(e => e.toLowerCase().includes('role')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                }`}
               >
                 <option value="">Select role</option>
                 {roleOptions.map((name) => (
@@ -659,6 +702,7 @@ if (mode === 'create') {
               <input
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="Optional"
                 className="w-full mt-1 px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
               />
             </div>
@@ -670,7 +714,7 @@ if (mode === 'create') {
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 disabled:opacity-50 transition-all"
           >
             Cancel
           </button>
@@ -678,10 +722,14 @@ if (mode === 'create') {
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white font-semibold shadow-lg disabled:opacity-50"
+            className={`flex items-center gap-2 px-6 py-2 rounded-xl font-semibold shadow-lg transition-all active:scale-[0.98] ${
+              isFormValid
+                ? 'bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white shadow-violet-500/20'
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+            }`}
           >
-            {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {saving ? 'Saving...' : mode === 'create' ? 'Create' : 'Update'}
+            {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : mode === 'create' ? <Plus className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
+            {saving ? 'Saving...' : mode === 'create' ? 'Create Staff' : 'Update Staff'}
           </button>
         </div>
       </div>

@@ -19,6 +19,7 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
 import { getImageUrl } from "../_utils/formatUtils";
 import ImagePreviewModal from "../_components/ImagePreviewModal";
+import { getBackendMessage, getBackendErrors } from "@/app/admin/_utils/errorUtils";
 
 
 
@@ -503,7 +504,7 @@ const handleStatusToggle = async () => {
     await fetchDiscounts();
 
   } catch (error: any) {
-    toast.error(error?.response?.data?.message || "Failed to update status");
+    toast.error(getBackendMessage(error));
   } finally {
     setIsUpdatingStatus(false);
     setStatusConfirm(null);
@@ -524,7 +525,7 @@ const handleRestore = async () => {
     toast.success("Discount restored successfully");
     await fetchDiscounts();
   } catch (error: any) {
-    toast.error(error?.response?.data?.message || "Failed to restore discount");
+    toast.error(getBackendMessage(error));
   } finally {
     setIsRestoring(false);
     setRestoreConfirm(null);
@@ -670,24 +671,8 @@ if (formData.requiresCouponCode) {
 
   } catch (error: any) {
     console.error("Error saving discount:", error);
-
-    // 🔥 Handle multiple backend formats
-    const backendErrors = error?.response?.data?.errors;
-
-    if (Array.isArray(backendErrors) && backendErrors.length > 0) {
-      backendErrors.forEach((err: any) => {
-        toast.error(typeof err === "string" ? err : err?.message || "Error");
-      });
-      return;
-    }
-
-    const message =
-      error?.response?.data?.message ||
-      error?.response?.data?.title ||
-      error?.message ||
-      "Something went wrong while saving discount";
-
-    toast.error(message);
+    const errors = getBackendErrors(error);
+    errors.forEach(msg => toast.error(msg));
   }
 };
 const handleEdit = (discount: Discount) => {

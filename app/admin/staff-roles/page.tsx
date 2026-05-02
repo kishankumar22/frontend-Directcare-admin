@@ -8,14 +8,7 @@ import { useDebounce } from '@/app/admin/_hooks/useDebounce';
 import { staffService, type StaffRole } from '@/lib/services/staff';
 import { BulkSelectionBar, exportRolesToXlsx, RoleConfirmDialogs, RoleFilters, RoleFormModal, RoleTable, RoleViewModal, type RoleAction } from './RoleComponents';
 
-function getBackendMessage(error: any): string | undefined {
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    (Array.isArray(error?.response?.data?.errors) ? error?.response?.data?.errors?.[0] : undefined) ||
-    error?.message
-  );
-}
+import { getBackendMessage } from '@/app/admin/_utils/errorUtils';
 
 export default function StaffRolesPage() {
   const toast = useToast();
@@ -55,10 +48,10 @@ export default function StaffRolesPage() {
       if (res.data?.success) {
         setRoles(res.data.data || []);
       } else {
-        toastRef.current.error(res.data?.message || 'Failed to load roles');
+        toastRef.current.error(getBackendMessage(res));
       }
     } catch (e: any) {
-      toastRef.current.error(getBackendMessage(e) || 'Failed to load roles');
+      toastRef.current.error(getBackendMessage(e));
     } finally {
       setLoading(false);
     }
@@ -163,15 +156,15 @@ export default function StaffRolesPage() {
         if (!res) return;
 
         if (res.data?.success) {
-          toastRef.current.success(res.data?.message || 'Operation successful');
+          toastRef.current.success(getBackendMessage(res));
           setFormOpen(false);
           setSelected(null);
           fetchRoles();
         } else {
-          toastRef.current.error(res.data?.message || 'Operation failed');
+          toastRef.current.error(getBackendMessage(res));
         }
       } catch (e: any) {
-        toastRef.current.error(getBackendMessage(e) || 'Operation failed');
+        toastRef.current.error(getBackendMessage(e));
       } finally {
         setMutating(false);
       }
@@ -185,15 +178,15 @@ export default function StaffRolesPage() {
       setMutating(true);
       const res = await staffService.deleteRole(selected.name);
       if (res.data?.success) {
-        toastRef.current.success(res.data?.message || 'Operation successful');
+        toastRef.current.success(getBackendMessage(res));
         setConfirmOpen({ delete: false });
         setSelected(null);
         fetchRoles();
       } else {
-        toastRef.current.error(res.data?.message || 'Operation failed');
+        toastRef.current.error(getBackendMessage(res));
       }
     } catch (e: any) {
-      toastRef.current.error(getBackendMessage(e) || 'Operation failed');
+      toastRef.current.error(getBackendMessage(e));
     } finally {
       setMutating(false);
     }

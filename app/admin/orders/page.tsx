@@ -838,7 +838,7 @@ if (initialLoading) {
   </button>
 )}
 
-    <button
+    {/* <button
       onClick={() => setImportWooCommerceModalOpen(true)}
       className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 
       text-white rounded-lg hover:shadow-lg hover:shadow-cyan-500/30 
@@ -846,7 +846,7 @@ if (initialLoading) {
     >
       <FileSpreadsheet className="w-4 h-4" />
       Import WooCommerce
-    </button>
+    </button> */}
 
     {/* Upload Shipments */}
       <button

@@ -40,7 +40,7 @@ import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/
 import ProductExcelImportModal from "./ProductExcelImportModal";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getProductImage } from "../_utils/formatUtils";
-import ImportWooCommerceModal from "./ImportWooCommerceModal";
+
 import { vatratesService } from "@/lib/services/vatrates";
 
 // ✅ INTERFACES
@@ -125,7 +125,7 @@ const customSelectStyles = {
       : '#475569',
     borderWidth: state.selectProps.value && state.selectProps.value.value !== 'all' ? '2px' : '1px',
     borderRadius: '0.75rem',
-    padding: '0.11rem',
+    padding: '0.10rem',
     boxShadow: state.isFocused ? '0 0 0 2px rgba(139, 92, 246, 0.5)' : 'none',
     minHeight: '42px',
   }),
@@ -192,6 +192,17 @@ const customSelectStyles = {
   dropdownIndicator: (base: any) => ({
     ...base,
     color: '#94a3b8',
+    padding: '0 8px',
+  }),
+
+  clearIndicator: (base: any) => ({
+    ...base,
+    color: '#94a3b8',
+    padding: '0 4px',
+    cursor: 'pointer',
+    '&:hover': {
+      color: '#ef4444',
+    },
   }),
 
   indicatorSeparator: () => ({
@@ -212,7 +223,6 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [showImportMenu, setShowImportMenu] = useState(false);
   const ALLOWED_SORT_FIELDS = ['name', 'price', 'createdAt'];
   
   // API Pagination state
@@ -224,12 +234,13 @@ export default function ProductsPage() {
   const [hasNext, setHasNext] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   // Add these near your other state declarations (around line where you have searchTerm)
 const [searchInput, setSearchInput] = useState("");
 const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
   // Export menu state
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
+
 
 const [bulkAction, setBulkAction] = useState<null | {
   type: "activate" | "deactivate" | "publish" | "unpublish" | "delete" | "restore";
@@ -298,9 +309,10 @@ const pharmaOptions: SelectOption[] = [
   ];
 
   const deliveryOptions: SelectOption[] = [
-    { value: "all", label: "All Delivery" },
-    { value: "nextDay", label: "Next Day" },
-    { value: "standard", label: "Standard" },
+    { value: "all", label: "All Delivery Method" },
+    { value: "nextDay", label: "Next Day Delivery" },
+    { value: "standard", label: "Standard Delivery" },
+    { value: "sameDay", label: "Same Day Delivery" },
   ];
 
   const markAsNewOptions: SelectOption[] = [
@@ -340,11 +352,11 @@ const deletedOptions = [
 ];
 
  const [deletedFilter, setDeletedFilter] = useState({
-  value: "active",
-  label: "Active Only",
+  value: "all",
+  label: "All Records",
 });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showWooModal, setShowWooModal] = useState(false);
+
 
   const [selectedDeleteProduct, setSelectedDeleteProduct] = useState<ToggleProduct | null>(null);
   const [selectedToggleProduct, setSelectedToggleProduct] = useState<ToggleProduct | null>(null);
@@ -925,7 +937,7 @@ const clearFilters = useCallback(() => {
   setRecurringFilter({ value: "all", label: "Subscription: All" });
   setVatFilter({ value: "all", label: "VAT: All" });
   setDeletedFilter({ value: "all", label: "All Records" });
-  setPharmaFilter({ value: "all", label: "All Products" });
+  setPharmaFilter({  value: "all", label: "All Products" });
  
   setSearchInput("");
 
@@ -951,7 +963,6 @@ const hasActiveFilters = useMemo(
     // inventoryFilter.value !== "all" ||
     recurringFilter.value !== "all" ||
     vatFilter.value !== "all" ||
-    deletedFilter.value !== "all" ||
     pharmaFilter.value !== "all" ||
     searchInput.trim() !== "" ||
     deletedFilter.value !== "all" || // 
@@ -965,13 +976,11 @@ const hasActiveFilters = useMemo(
     selectedBrand,
     selectedHomepage,
     selectedType,
-    statusFilter,
-    deletedFilter,
+    statusFilter,  
     publishedFilter,
     deliveryFilter,
     markAsNewFilter,
-    notReturnableFilter,
-    // inventoryFilter,
+    notReturnableFilter, 
     recurringFilter,
     vatFilter,
     deletedFilter,
@@ -1043,46 +1052,9 @@ const brandOptions: SelectOption[] = useMemo(() => {
     })),
   ];
 }, [brands]);
-const allDeletedSelected = useMemo(() => {
-  const selected = products.filter((p) =>
-    selectedProducts.includes(p.id)
-  );
 
-  if (selected.length === 0) return false;
 
-  return selected.every((p) => p.isDeleted === true);
-}, [selectedProducts, products]);
 
-  // CHECK IF SELECTED PRODUCTS HAVE SAME STATUS
-const selectionState = useMemo(() => {
-  const selected = products.filter((p) =>
-    selectedProducts.includes(p.id)
-  );
-
-  if (selected.length === 0) {
-    return { mixed: false, status: null, publishStatus: null };
-  }
-
-  const allActive = selected.every((p) => p.isActive);
-  const allInactive = selected.every((p) => !p.isActive);
-
-  const allPublished = selected.every((p) => p.isPublished);
-  const allUnpublished = selected.every((p) => !p.isPublished);
-
-  let status: "active" | "inactive" | null = null;
-  if (allActive) status = "active";
-  else if (allInactive) status = "inactive";
-
-  let publishStatus: "published" | "unpublished" | null = null;
-  if (allPublished) publishStatus = "published";
-  else if (allUnpublished) publishStatus = "unpublished";
-
-  const mixed =
-    !(allActive || allInactive) ||
-    !(allPublished || allUnpublished);
-
-  return { mixed, status, publishStatus };
-}, [selectedProducts, products]);
 
 const stats = useMemo(() => {
   if (!apiStats) {
@@ -1584,86 +1556,16 @@ const handleExportSelected = async () => {
 
 
 
-<div className="relative">
-
-  {/* MAIN BUTTON */}
   <button
-    onClick={() => setShowImportMenu(!showImportMenu)}
+    onClick={() => setShowImportModal(true)}
     className="flex items-center gap-2 px-4 py-2 text-sm
     bg-slate-800 border border-slate-700
     hover:bg-slate-700
     text-white rounded-xl font-medium transition"
   >
     <Upload className="w-4 h-4" />
-    Import
-    <ChevronDown className="w-4 h-4 opacity-70" />
+    Import Excel
   </button>
-
-  {/* DROPDOWN */}
-  {showImportMenu && (
-    <>
-      {/* OUTSIDE CLICK */}
-      <div
-        className="fixed inset-0 z-10"
-        onClick={() => setShowImportMenu(false)}
-        title="Import products (Excel or WooCommerce)"
-      />
-
-      <div className="absolute right-0 mt-2 w-56
-        bg-slate-900 border border-slate-700
-        rounded-xl shadow-xl z-20 overflow-hidden"
-      >
-        {/* EXCEL IMPORT */}
-        <button
-          onClick={() => {
-            setShowImportModal(true);
-            setShowImportMenu(false);
-          }}
-          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
-          
-            
-        >
-          <div className="flex items-center gap-3">
-            <FileSpreadsheet className="w-4 h-4 text-green-400" />
-            <div>
-              <p className="text-sm text-white font-medium">
-                Excel Import
-              </p>
-              <p className="text-xs text-slate-400">
-               Upload Excel file (.xlsx)
-              </p>
-            </div>
-          </div>
-        </button>
-
-        <div className="border-t border-slate-700" />
-
-        {/* WOOCOMMERCE IMPORT */}
-        <button
-          onClick={() => {
-            setShowWooModal(true);
-            setShowImportMenu(false);
-          }}
-          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
-        >
-          <div className="flex items-center gap-3">
-            <Upload className="w-4 h-4 text-blue-400" />
-            <div>
-              <p className="text-sm text-white font-medium">
-                WooCommerce Import
-              </p>
-              <p className="text-xs text-slate-400">
-                Upload WooCommerce excel file (.xlsx)
-              </p>
-            </div>
-          </div>
-        </button>
-
-      </div>
-    </>
-  )}
-
-</div>
 
   {/* REQUESTS */}
   {statusCounts.Pending > 0 && (
@@ -1928,10 +1830,14 @@ const handleExportSelected = async () => {
               publishedFilter.value !== "all",
               deliveryFilter.value !== "all",
               markAsNewFilter.value !== "all",
-              notReturnableFilter.value !== "all",
-              // inventoryFilter.value !== "all",
+              notReturnableFilter.value !== "all",          
               recurringFilter.value !== "all",
               vatFilter.value !== "all",
+              pharmaFilter.value !== "all",
+              searchInput.trim() !== "",
+              deletedFilter.value !== "all",
+              sortBy !== "createdAt",
+              sortDirection !== "desc",
             ].filter(Boolean).length} active filter
             {[
               selectedCategory.value !== "all",
@@ -1942,10 +1848,14 @@ const handleExportSelected = async () => {
               publishedFilter.value !== "all",
               deliveryFilter.value !== "all",
               markAsNewFilter.value !== "all",
-              notReturnableFilter.value !== "all",
-              // inventoryFilter.value !== "all",
+              notReturnableFilter.value !== "all",         
               recurringFilter.value !== "all",
               vatFilter.value !== "all",
+              pharmaFilter.value !== "all",
+              searchInput.trim() !== "",
+              deletedFilter.value !== "all",
+              sortBy !== "createdAt",
+              sortDirection !== "desc",
             ].filter(Boolean).length !== 1 && "s"}
           </span>
         )}
@@ -1990,11 +1900,12 @@ const handleExportSelected = async () => {
           <div className="flex-1 min-w-[120px] ">
             <Select
               value={selectedCategory}
-              onChange={(option) => setSelectedCategory(option as SelectOption)}
+              onChange={(option) => setSelectedCategory((option as SelectOption) || { value: "all", label: "All Categories" })}
               options={categoryOptions}
               styles={customSelectStyles}
               placeholder="All Categories"
               isSearchable
+              isClearable={selectedCategory.value !== "all"}
               formatOptionLabel={formatOptionLabel}
               menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
               menuPosition="fixed"
@@ -2004,11 +1915,12 @@ const handleExportSelected = async () => {
           <div className="flex-1 max-w-[150px]">
             <Select
               value={selectedBrand}
-              onChange={(option) => setSelectedBrand(option as SelectOption)}
+              onChange={(option) => setSelectedBrand((option as SelectOption) || { value: "all", label: "All Brands" })}
               options={brandOptions}
               styles={customSelectStyles}
               placeholder="All Brands"
               isSearchable
+              isClearable={selectedBrand.value !== "all"}
               menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
               menuPosition="fixed"
             />
@@ -2469,11 +2381,27 @@ onClick={async (e) => {
                       </td>
 
                       {/* SKU */}
-                      <td className="py-2 px-3 text-center">
-                        <span className="text-xs font-mono text-slate-300 bg-slate-800/50 px-2 py-0.5 rounded">
-                          {product.sku}
-                        </span>
-                      </td>
+
+<td className="py-2 px-3 text-center">
+  <span
+    onClick={() => {
+      navigator.clipboard.writeText(product.sku);
+      setCopiedId(product.id);
+
+      setTimeout(() => {
+        setCopiedId(null);
+      }, 1200);
+    }}
+    className="inline-flex items-center gap-1 text-xs font-mono text-slate-300 bg-slate-800/50 px-2 py-0.5 rounded cursor-pointer hover:bg-slate-700 transition"
+    title="Click to copy"
+  >
+    {copiedId === product.id ? (
+      <span className="text-emerald-400">Copied ✓</span>
+    ) : (
+      product.sku
+    )}
+  </span>
+</td>
 
                       {/* PRICE */}
                       <td className="py-2 px-3 text-center font-semibold text-white">
@@ -3112,10 +3040,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
             : "bg-gradient-to-r from-emerald-600 to-green-600"
         }
       />
-      <ImportWooCommerceModal
-  open={showWooModal}
-  onClose={() => setShowWooModal(false)}
-/>
+
     </div>
   );
 }

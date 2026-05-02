@@ -410,13 +410,12 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                     <InfoField
                       label="Display Order"
                       value={product.displayOrder?.toString() || '1'}
-                      icon={<FileText className="w-3.5 h-3.5" />}
+                      icon={<FileText className="w-3.5 h-3.5 text-slate-400" />}
                     />
-                    <InfoField label="Slug" value={product.slug} />
-<InfoField label="Status" value={product.status} />
-
-
-{/* <InfoField label="SEO URL" value={product.searchEngineFriendlyPageName} /> */}
+                    <InfoField label="Slug" value={product.slug} icon={<Globe className="w-3.5 h-3.5 text-slate-400" />} />
+                    <InfoField label="Status" value={product.status} icon={<AlertCircle className="w-3.5 h-3.5 text-slate-400" />} />
+                    {product.gender && <InfoField label="Gender" value={product.gender} />}
+                    {product.tags && <InfoField label="Tags" value={product.tags} icon={<Tag className="w-3.5 h-3.5 text-slate-400" />} />}
                   </div>
 
           
@@ -473,38 +472,39 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                     <ToggleField label="Visible" value={product.visibleIndividually} />
                     <ToggleField label="Homepage" value={product.showOnHomepage} />
                     <ToggleField label="Mark as New" value={product.markAsNew} />
-                    
                   </div>
 
-                  {/* IDs */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* IDs & Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                     {product.gtin && (
-                      <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 col-span-1">
                         <p className="text-xs text-slate-400 font-bold mb-1">GTIN</p>
-                        <p className="text-sm text-white font-bold font-mono">{product.gtin}</p>
+                        <p className="text-sm text-white font-bold font-mono truncate">{product.gtin}</p>
                       </div>
                     )}
-
                     {product.manufacturerPartNumber && (
-                      <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                      <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 col-span-1">
                         <p className="text-xs text-slate-400 font-bold mb-1">MPN</p>
-                        <p className="text-sm text-white font-bold font-mono">{product.manufacturerPartNumber}</p>
+                        <p className="text-sm text-white font-bold font-mono truncate">{product.manufacturerPartNumber}</p>
                       </div>
                     )}
+                    
+                    <InfoField label="Rating" value={product.averageRating || 'N/A'} icon={<Star className="w-3.5 h-3.5 text-yellow-400" />} />
+                    <InfoField label="Reviews" value={product.reviewCount || '0'} icon={<FileText className="w-3.5 h-3.5 text-blue-400" />} />
+                    <InfoField label="Views" value={product.viewCount || '0'} icon={<Eye className="w-3.5 h-3.5 text-cyan-400" />} />
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-  <InfoField label="Rating" value={product.averageRating} />
-  <InfoField label="Reviews" value={product.reviewCount} />
-  <InfoField label="Views" value={product.viewCount} />
-</div>
- <h1 className=' p-2 text-white '>Timleine</h1>
-                  <div className="grid grid-cols-4 gap-3 pt-1 ">
-  <InfoField label="Created By" value={product.createdBy}  />
-  <InfoField label="Created At" value={formatDate(product.createdAt)} />
-  <InfoField label="Update By" value={product.updatedBy} />
-  <InfoField label="Update At" value={formatDate(product.updatedAt)} />
-
-</div>
+                  {/* Timeline */}
+                  <div className="mt-6 mb-2 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-slate-400" />
+                    <h3 className="text-xs text-slate-400 font-bold uppercase tracking-wider">Timeline</h3>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <InfoField label="Created By" value={product.createdBy || 'System'} />
+                    <InfoField label="Created At" value={formatDate(product.createdAt)} />
+                    <InfoField label="Updated By" value={product.updatedBy || 'System'} />
+                    <InfoField label="Updated At" value={formatDate(product.updatedAt)} />
+                    {product.publishedAt && <InfoField label="Published At" value={formatDate(product.publishedAt)} />}
+                  </div>
 
                   {/* Admin Comment */}
                   {product.adminComment && (
@@ -550,14 +550,38 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <ToggleField label="Disable Buy Button" value={product.disableBuyButton} />
                     <ToggleField label="Disable Wishlist" value={product.disableWishlistButton} />
                     <ToggleField label="Call For Price" value={product.callForPrice} />
                     <ToggleField label="Customer Enters Price" value={product.customerEntersPrice} />
                     <InfoField label="Loyalty Points" value={product.loyaltyPointsEarnable?.toString()} />
-<InfoField label="Subscription Discount" value={`${product.subscriptionDiscountPercentage}%`} />
-<InfoField label="Loyalty Message" value={product.loyaltyPointsMessage} />
+                    <InfoField label="Subscription Discount" value={`${product.subscriptionDiscountPercentage || 0}%`} />
+                    <InfoField label="Loyalty Message" value={product.loyaltyPointsMessage} />
+                  </div>
+
+                  {/* Dates */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <InfoField label="Available Start" value={product.availableStartDate ? formatDate(product.availableStartDate) : 'N/A'} />
+                    <InfoField label="Available End" value={product.availableEndDate ? formatDate(product.availableEndDate) : 'N/A'} />
+                    <InfoField label="Mark New Start" value={product.markAsNewStartDate ? formatDate(product.markAsNewStartDate) : 'N/A'} />
+                    <InfoField label="Mark New End" value={product.markAsNewEndDate ? formatDate(product.markAsNewEndDate) : 'N/A'} />
+                  </div>
+
+                  {/* VAT & Baseprice */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <ToggleField label="VAT Exempt" value={product.vatExempt} />
+                    <InfoField label="VAT Rate" value={product.vatRateName ? `${product.vatRateName} (${product.vatRate}%)` : 'None'} />
+                
+                  </div>
+
+                  {/* Recurring & Rental */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <ToggleField label="Is Recurring" value={product.isRecurring} />
+                    {product.isRecurring && (
+                      <InfoField label="Recurring Cycle" value={`${product.recurringCycleLength} ${product.recurringCyclePeriod} (Total: ${product.recurringTotalCycles})`} />
+                    )}
+                 
                   </div>
                 </div>
 
@@ -611,6 +635,8 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                     <ToggleField label="Notify Admin" value={product.notifyAdminForQuantityBelow} />
                     <ToggleField label="Allow Backorder" value={product.allowBackorder} />
                     <ToggleField label="Not Returnable" value={product.notReturnable} />
+                    <ToggleField label="Display Availability" value={product.displayStockAvailability} />
+                    <ToggleField label="Display Quantity" value={product.displayStockQuantity} />
                   </div>
 
                   {/* Cart Limits */}
@@ -664,15 +690,21 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
 </div>
 
                   {/* Basic Shipping Toggles */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
                     <ToggleField label="Requires Shipping" value={product.requiresShipping} />
                     <ToggleField label="Ship Separately" value={product.shipSeparately} />
                     <ToggleField label="Free Shipping" value={product.isFreeShipping} />
+                    <ToggleField label="Same Day Delivery" value={product.sameDayDeliveryEnabled} />
+                    <ToggleField label="Next Day Delivery" value={product.nextDayDeliveryEnabled} />
+                    <ToggleField label="Next Day Free" value={product.nextDayDeliveryFree} />
+                    <ToggleField label="Standard Delivery" value={product.standardDeliveryEnabled} />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <InfoField label="Dispatch Days" value={product.estimatedDispatchDays?.toString()} />
-<ToggleField label="Ship Separately" value={product.shipSeparately} />
-<ToggleField label="Same Day Delivery" value={product.sameDayDeliveryEnabled} />
-<ToggleField label="Next Day Delivery" value={product.nextDayDeliveryEnabled} />
-<ToggleField label="Standard Delivery" value={product.standardDeliveryEnabled} />
+                    {product.deliveryDateId && <InfoField label="Delivery Date ID" value={product.deliveryDateId} />}
+                    {product.dispatchTimeNote && <InfoField label="Dispatch Note" value={product.dispatchTimeNote} />}
+                    {product.nextDayDeliveryCutoffTime && <InfoField label="Next Day Cutoff" value={product.nextDayDeliveryCutoffTime} />}
                   </div>
 
                   {/* ✅ NEW: DELIVERY OPTIONS SECTION */}

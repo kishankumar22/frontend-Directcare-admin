@@ -8,6 +8,7 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Banner, bannersService, BannerStats } from "@/lib/services";
 import { extractFilename, formatDate, getImageUrl } from "../_utils/formatUtils";
+import { getBackendMessage } from "@/app/admin/_utils/errorUtils";
 
 export default function ManageBanners() {
   const toast = useToast();
@@ -44,7 +45,7 @@ const handleRestore = async (id: string) => {
     toast.success("Banner restored successfully!");
     fetchBanners();
   } catch (error: any) {
-    toast.error(error?.response?.data?.message || "Restore failed");
+    toast.error(getBackendMessage(error));
   }
 };
 
@@ -161,7 +162,7 @@ const bannersData: Banner[] = Array.isArray(rawData)
     setBanners(bannersData);
     calculateStats(bannersData);
   } catch (error) {
-    toast.error("Failed to fetch banners");
+    toast.error(getBackendMessage(error));
   } finally {
     setLoading(false);
   }
@@ -170,23 +171,6 @@ useEffect(() => {
   fetchBanners();
 }, [statusFilter, bannerTypeFilter, deletedFilter]);
 
-const handleStatusToggle = async (banner: Banner) => {
-  try {
-    const payload = {
-      ...banner,
-      id: banner.id,
-      isActive: !banner.isActive,
-    };
-
-    await bannersService.update(banner.id, payload);
-
-    toast.success("Status updated");
-    await fetchBanners();
-
-  } catch (error: any) {
-    toast.error(error.message);
-  }
-};
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -377,7 +361,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 }
       } catch (uploadErr: any) {
         console.error("Error uploading image:", uploadErr);
-        toast.error(uploadErr?.response?.data?.message || "Failed to upload desktop image");
+        toast.error(getBackendMessage(uploadErr));
         return;
       }
     }
@@ -414,7 +398,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 }
       } catch (uploadErr: any) {
         console.error("Error uploading mobile image:", uploadErr);
-        toast.error(uploadErr?.response?.data?.message || "Failed to upload mobile image");
+        toast.error(getBackendMessage(uploadErr));
         return;
       }
     }
@@ -487,7 +471,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     resetForm();
   } catch (error: any) {
     console.error("Error:", error);
-    toast.error(error?.response?.data?.message || "Failed to save banner");
+    toast.error(getBackendMessage(error));
   }
 };
 
@@ -531,11 +515,11 @@ const handleSubmit = async (e: React.FormEvent) => {
         toast.success("Banner deleted successfully! 🗑️");
         await fetchBanners();
       } else {
-        toast.error(response.error || "Failed to delete banner");
+        toast.error(getBackendMessage(response));
       }
     } catch (error: any) {
       console.error("Error deleting banner:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete banner");
+      toast.error(getBackendMessage(error));
     } finally {
       setIsDeleting(false);
       setDeleteConfirm(null);

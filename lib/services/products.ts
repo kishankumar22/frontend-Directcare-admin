@@ -189,6 +189,21 @@ export interface Product {
   name: string;
   slug?: string;
   status?:string;
+  gender?:string;
+  requireOtherProducts?:boolean;
+  requiredProductIds?: string;
+  automaticallyAddProducts?:boolean;
+  recurringCycleLength?:string;
+  vatRate?:number;
+  recurringCyclePeriod?:string;
+  displayStockAvailability?:boolean;
+  displayStockQuantity?:boolean;
+vatRateName?:string;
+recurringTotalCycles?:number;
+deliveryDateId?:number;
+dispatchTimeNote?:string;
+nextDayDeliveryFree?:boolean;
+nextDayDeliveryCutoffTime?:string;
   sku: string;
   gtin?: string;
   isActive?: boolean;
@@ -776,36 +791,43 @@ downloadImportTemplate: async () => {
 
 /**
  * Download Bulk Update Template (Excel)
- * GET: /api/Products/bulk-update-template
- * Params: searchTerm, isPublished, stockStatus, categoryId, fields (comma-separated)
+ * POST: /api/Products/bulk-update-template
+ * Params: searchTerm, isPublished, stockStatus, categoryId, fields
  */
-downloadBulkUpdateTemplate: async (params: {
-  searchTerm?: string;
-  isPublished?: boolean;
-  stockStatus?: string;
-  categoryId?: string;
-  fields: string[]; // We'll convert this to comma-separated
-}) => {
-  const queryParams = new URLSearchParams();
-  
-  if (params.searchTerm) queryParams.append("searchTerm", params.searchTerm);
-  if (params.isPublished !== undefined) queryParams.append("isPublished", params.isPublished.toString());
-  if (params.stockStatus) queryParams.append("stockStatus", params.stockStatus);
-  if (params.categoryId) queryParams.append("categoryId", params.categoryId);
-  
-  // Convert array to comma-separated string
-  if (params.fields && params.fields.length > 0) {
-    queryParams.append("fields", params.fields.join(","));
-  }
+  downloadBulkUpdateTemplate: async (params: {
+    searchTerm?: string;
+    isPublished?: boolean;
+    stockStatus?: string;
+    categoryId?: string;
+    fields: string[];
+  }) => {
+    const queryParams = new URLSearchParams();
+    
+    if (params.searchTerm) queryParams.append("searchTerm", params.searchTerm);
+    if (params.isPublished !== undefined) queryParams.append("isPublished", params.isPublished.toString());
+    if (params.stockStatus) queryParams.append("stockStatus", params.stockStatus);
+    if (params.categoryId) {
+      const ids = params.categoryId.split(",");
+      ids.forEach(id => {
+        if (id.trim()) queryParams.append("categoryId", id.trim());
+      });
+    }
+    
+    // 💡 OPTIMIZATION: If too many fields are selected, the URL becomes too long.
+    // We only send the fields if the user has specifically filtered them.
+    // If they selected almost everything, we omit the param to let backend default to all.
+    if (params.fields && params.fields.length > 0 && params.fields.length < 100) {
+      queryParams.append("fields", params.fields.join(","));
+    }
 
-  const url = `${API_ENDPOINTS.bulkUpdateTemplate}${
-    queryParams.toString() ? `?${queryParams.toString()}` : ""
-  }`;
+    const url = `${API_ENDPOINTS.bulkUpdateTemplate}${
+      queryParams.toString() ? `?${queryParams.toString()}` : ""
+    }`;
 
-  return apiClient.get(url, {
-    responseType: "blob", // ✅ For file download
-  });
-},
+    return apiClient.get(url, {
+      responseType: "blob",
+    });
+  },
 
 /**
  * Upload Bulk Update Excel File

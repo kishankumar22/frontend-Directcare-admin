@@ -50,6 +50,8 @@ export const API_ENDPOINTS = {
 
   // Orders
   orders: '/api/Orders',
+  exportOrders: '/api/Orders/export',
+  bulkUpdateOrdersExcel: '/api/Orders/bulk-update-excel',
   orderCancellationrequests: '/api/Orders/cancellation-requests',
   AddressLookup: '/api/address-lookup',
 

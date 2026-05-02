@@ -311,6 +311,15 @@ export interface WooCommerceOrderImportResult {
   errors: string[];
 }
 
+export interface OrderBulkUpdateResult {
+  totalRows: number;
+  ordersUpdated: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+  warnings: string[];
+}
+
 // ==================== REQUEST DTOs ====================
 
 export interface MarkCollectedRequest {
@@ -641,6 +650,30 @@ async importWooCommerce(file: File) {
   }
 }
 
+  async bulkUpdateExcel(file: File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await apiClient.post<ApiResponse<OrderBulkUpdateResult>>(
+        API_ENDPOINTS.bulkUpdateOrdersExcel,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message || 'Failed to bulk update orders via Excel'
+      );
+    }
+  }
+
+
 async downloadInvoice(orderId: string): Promise<void> {
   try {
     const response = await apiClient.get<Blob>(
@@ -680,6 +713,42 @@ async downloadInvoice(orderId: string): Promise<void> {
   }
 }
 
+/**
+ * Export Orders to Excel
+ */
+async exportOrders(params: {
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  searchTerm?: string;
+  deliveryMethod?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  
+  if (params.status && params.status !== 'all') {
+    queryParams.append('status', params.status);
+  }
+  if (params.fromDate) {
+    queryParams.append('fromDate', params.fromDate);
+  }
+  if (params.toDate) {
+    queryParams.append('toDate', params.toDate);
+  }
+  if (params.searchTerm) {
+    queryParams.append('searchTerm', params.searchTerm);
+  }
+  if (params.deliveryMethod && params.deliveryMethod !== 'all') {
+    queryParams.append('deliveryMethod', params.deliveryMethod);
+  }
+
+  const url = `${API_ENDPOINTS.exportOrders}${
+    queryParams.toString() ? `?${queryParams.toString()}` : ''
+  }`;
+
+  return apiClient.get(url, {
+    responseType: 'blob',
+  });
+}
 
 }
 

@@ -75,6 +75,7 @@ interface NavigationItem {
 // Navigation with clean group organization
 const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+
   {
     name: 'Catalog',
     icon: Layers,
@@ -124,7 +125,8 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'VAT Rates', href: '/admin/vatRates', icon: PoundSterling },
     ],
-  },
+  }, 
+  { name: 'Import / Export', href: '/admin/import-export', icon: FileSpreadsheet },
   {
     name: 'Content',
     icon: FileText,
@@ -144,14 +146,8 @@ const navigation: NavigationItem[] = [
     { name: 'Staff Roles', href: '/admin/staff-roles', icon: ShieldCheck },
   ],
 },
-  {
-    name: 'Import / Export',
-    icon: FileSpreadsheet,
-    children: [
-      { name: 'Products ', href: '/admin/import-export', icon: FileSpreadsheet },
-      { name: 'Orders ', href: '/admin/import-export-orders', icon: FileSpreadsheet },
-    ],
-  },
+
+
   {
     name: 'System',
     icon: Shield,

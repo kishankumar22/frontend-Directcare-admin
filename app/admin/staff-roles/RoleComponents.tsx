@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Edit, Eye, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { Edit, Eye, Plus, RefreshCw, Search, Trash2, X, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import ConfirmDialog from '@/app/admin/_components/ConfirmDialog';
 import type { StaffRole } from '@/lib/services/staff';
 
@@ -246,6 +247,7 @@ export function RoleFormModal({
   onSubmit: (name: string) => void;
 }) {
   const [name, setName] = useState('');
+  const toast = useToast();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -253,7 +255,15 @@ export function RoleFormModal({
     if (mode === 'create') setName('');
   }, [isOpen, mode, initialValue]);
 
-  const handleSubmit = useCallback(() => onSubmit(name), [name, onSubmit]);
+  const isFormValid = useMemo(() => !!name.trim(), [name]);
+
+  const handleSubmit = useCallback(() => {
+    if (!isFormValid) {
+      toast.error('Role name is required');
+      return;
+    }
+    onSubmit(name);
+  }, [name, onSubmit, isFormValid, toast]);
 
   if (!isOpen) return null;
   return (
@@ -274,11 +284,13 @@ export function RoleFormModal({
         </div>
 
         <div className="p-4">
-          <label className="text-xs text-slate-400">Role Name</label>
+          <label className="text-xs text-slate-400">Role Name <span className="text-red-500">*</span></label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full mt-1 px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+            className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+              !name.trim() && name !== '' ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+            }`}
             placeholder="e.g. StoreManager"
           />
           {initialValue?.isSystem && mode === 'edit' && (
@@ -298,11 +310,15 @@ export function RoleFormModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving || !name}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white font-semibold shadow-lg disabled:opacity-50"
+            disabled={saving}
+            className={`flex items-center gap-2 px-6 py-2 rounded-xl font-semibold shadow-lg transition-all active:scale-[0.98] ${
+              isFormValid
+                ? 'bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white shadow-violet-500/20'
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+            }`}
           >
-            {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {saving ? 'Saving...' : mode === 'create' ? 'Create' : 'Update'}
+            {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : mode === 'create' ? <Plus className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
+            {saving ? 'Saving...' : mode === 'create' ? 'Create Role' : 'Update Role'}
           </button>
         </div>
       </div>
