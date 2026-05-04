@@ -165,30 +165,6 @@ export default function DiscountModals(props: DiscountModalsProps) {
     return true;
   });
 }, [categoryFilteredProductOptions]);
-const mergedOptions = useMemo(() => {
-  const map = new Map();
-
-  // current filtered API products
-  products.forEach((p) => {
-    map.set(p.id, {
-      value: p.id,
-      label: p.name,
-    });
-  });
-
-  // only keep selected items that user already selected
-  selectedProducts.forEach((p) => {
-    if (formData.assignedProductIds.includes(p.id)) {
-      map.set(p.id, {
-        value: p.id,
-        label: p.name,
-      });
-    }
-  });
-
-  return Array.from(map.values());
-}, [products, selectedProducts, formData.assignedProductIds]);
-
   useEffect(() => {
   if (editingDiscount?.assignedProductIds) {
     const ids = editingDiscount.assignedProductIds.split(",").map(id => id.trim());
@@ -212,6 +188,7 @@ const mergedOptions = useMemo(() => {
     fetchSelected();
   }
 }, [editingDiscount]);
+
 const productMap = useMemo(() => {
   const map = new Map();
 
@@ -221,6 +198,87 @@ const productMap = useMemo(() => {
 
   return map;
 }, [products, selectedProducts]);
+
+const checkProductConflicts = React.useCallback((productIdStr: string) => {
+  const allDiscounts = (props.discounts || []) as any[];
+  const product = productMap.get(productIdStr);
+  
+  if (!product) return { hasConflict: false, uniqueConflicts: [], isAssignedToCurrentDiscount: false };
+
+  // A. Check Backend Assigned Discounts
+  const otherDiscounts = Array.isArray((product as any).assignedDiscounts) 
+    ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
+    : [];
+  
+  // B. Check Manual Overlaps
+  const productCategoryIds = [
+    (product as any).categoryId, 
+    ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)
+  ].map(String);
+
+  const manualConflicts = allDiscounts.filter((d: any) => {
+    if (d.id === editingDiscount?.id || !d.isActive || d.isDeleted) return false;
+    
+    const now = new Date();
+    if (d.startDate && new Date(d.startDate) > now) return false;
+    if (d.endDate && new Date(d.endDate) < now) return false;
+
+    if (d.discountType === "AssignedToProducts") {
+      return d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr);
+    }
+
+    if (d.discountType === "AssignedToCategories") {
+      const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+      if (!productCategoryIds.some(cid => dCatIds.includes(cid))) return false;
+      if (d.assignedProductIds && d.assignedProductIds.trim()) {
+        return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
+      }
+      return true;
+    }
+    return false;
+  });
+  
+  const uniqueConflicts = [...otherDiscounts, ...manualConflicts].filter((v, i, a) => 
+    a.findIndex(t => t.id === v.id) === i
+  );
+  
+  const isAssignedToCurrentDiscount = !!(editingDiscount?.id && 
+    editingDiscount.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr));
+
+  return {
+    hasConflict: uniqueConflicts.length > 0,
+    uniqueConflicts,
+    isAssignedToCurrentDiscount
+  };
+}, [productMap, props.discounts, editingDiscount]);
+
+const mergedOptions = useMemo(() => {
+  const map = new Map();
+
+  // current filtered API products
+  products.forEach((p) => {
+    const conflicts = checkProductConflicts(p.id);
+    map.set(p.id, {
+      value: p.id,
+      label: p.name,
+      isDisabled: conflicts.hasConflict,
+    });
+  });
+
+  // only keep selected items that user already selected
+  selectedProducts.forEach((p) => {
+    if (formData.assignedProductIds.includes(p.id)) {
+      const conflicts = checkProductConflicts(p.id);
+      map.set(p.id, {
+        value: p.id,
+        label: p.name,
+        isDisabled: conflicts.hasConflict,
+      });
+    }
+  });
+
+  return Array.from(map.values());
+}, [products, selectedProducts, formData.assignedProductIds, checkProductConflicts]);
 
 useEffect(() => {
   const missingIds = formData.assignedProductIds.filter(
@@ -274,13 +332,18 @@ const ProductOption = (props: any) => {
 
   const product = productMap.get(data.value);
   const imageUrl = getProductImage(product?.images ?? []);
+  
+  const { hasConflict, uniqueConflicts, isAssignedToCurrentDiscount } = checkProductConflicts(data.value);
+  const primaryConflict = uniqueConflicts[0];
 
   return (
     <div
       {...props.innerProps}
-      className="flex items-center gap-3 px-3 py-2 hover:bg-slate-700 cursor-pointer"
+      className={`flex items-center gap-3 px-3 py-2 border-b border-slate-700/50 last:border-0 ${
+        props.isDisabled ? "bg-slate-800/30 cursor-not-allowed opacity-60" : "hover:bg-slate-700 cursor-pointer"
+      } ${isSelected ? "bg-violet-500/10" : ""}`}
     >
- {/* IMAGE */}
+  {/* IMAGE */}
   <div className="w-10 h-10 rounded-md overflow-hidden border border-slate-700 bg-slate-800 shrink-0">
     {imageUrl ? (
       <img src={imageUrl} className="w-full h-full object-cover" />
@@ -291,7 +354,7 @@ const ProductOption = (props: any) => {
     )}
   </div>
 
-  {/* LEFT SIDE (name + sku) */}
+  {/* LEFT SIDE (name + sku + conflicts) */}
   <div className="flex flex-col min-w-0 flex-1">
     <span className={`text-sm font-medium truncate ${
       isSelected ? "text-white" : "text-slate-300"
@@ -299,12 +362,27 @@ const ProductOption = (props: any) => {
       {data.label}
     </span>
 
-    <span className="text-[11px] text-slate-500">
-      SKU: {product?.sku ?? "N/A"}
-    </span>
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500">
+        SKU: {product?.sku ?? "N/A"}
+      </span>
+
+      {/* 🎯 CONFLICT BADGES */}
+      {isAssignedToCurrentDiscount && (
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium whitespace-nowrap">
+          Current Discount
+        </span>
+      )}
+      
+      {hasConflict && !isAssignedToCurrentDiscount && primaryConflict && (
+         <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium whitespace-nowrap truncate max-w-[150px]" title={`Assigned to: ${primaryConflict.name}`}>
+           Assigned to: {primaryConflict.name}
+         </span>
+      )}
+    </div>
   </div>
 
-  {/* RIGHT SIDE (price + stock) 🔥 */}
+  {/* RIGHT SIDE (price + stock) */}
   <div className="flex flex-col items-end shrink-0">
     
     <span className="text-xs text-cyan-400 font-semibold">
@@ -327,61 +405,13 @@ const ProductOption = (props: any) => {
 };
 
 const stats = useMemo(() => {
-  const allDiscounts = (props.discounts || []) as any[];
-
   let conflictCount = 0;
   let availableCount = 0;
 
   filteredProducts.forEach(opt => {
-    const productIdStr = opt.value;
-    const product = productMap.get(productIdStr);
-    if (!product) return;
-
-    // 1. Check assignedDiscounts from product object (Backend source of truth)
-    const hasDirectConflict = Array.isArray((product as any).assignedDiscounts) &&
-      (product as any).assignedDiscounts.some((d: any) => d.id !== editingDiscount?.id && d.isActive);
-
-    if (hasDirectConflict) {
-      conflictCount++;
-      return;
-    }
-
-    // 2. Check all active discounts for category matches or product matches
-    const productCategoryIds = [
-      (product as any).categoryId,
-      ...(((product as any).categories || []) as any[])
-        .map((c: any) => c.categoryId || c.id)
-        .filter(Boolean)
-    ].filter(Boolean);
-
-    const hasExternalConflict = allDiscounts.some((d: any) => {
-      if (d.id === editingDiscount?.id) return false;
-      if (!d.isActive || d.isDeleted) return false;
-      
-      const now = new Date();
-      if (new Date(d.startDate) > now || new Date(d.endDate) < now) return false;
-
-      // Check Product Assignment
-      if (d.discountType === "AssignedToProducts") {
-        return d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr);
-      }
-
-      // Check Category Assignment
-      if (d.discountType === "AssignedToCategories") {
-        const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-        const categoryMatches = productCategoryIds.some(cid => dCatIds.includes(cid));
-        if (!categoryMatches) return false;
-        
-        // If category discount is limited to specific products
-        if (d.assignedProductIds && d.assignedProductIds.trim()) {
-          return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
-        }
-        return true;
-      }
-      return false;
-    });
-
-    if (hasExternalConflict) conflictCount++;
+    const conflicts = checkProductConflicts(opt.value);
+    
+    if (conflicts.hasConflict) conflictCount++;
     else availableCount++;
   });
 
@@ -391,7 +421,7 @@ const stats = useMemo(() => {
     availableCount,
     selectedCount: formData.assignedProductIds.length
   };
-}, [filteredProducts, productMap, props.discounts, editingDiscount, formData.assignedProductIds]);
+}, [filteredProducts, checkProductConflicts, formData.assignedProductIds.length]);
 
   // ========== HELPER FUNCTIONS FOR USAGE HISTORY ==========
   const getFilteredUsageHistory = () => {
@@ -704,6 +734,8 @@ onChange={(selectedOptions) => {
   placeholder="Search and select products..."
   isSearchable
   closeMenuOnSelect={false}
+  hideSelectedOptions={false} // ALLOW TOGGLING
+  isOptionDisabled={(option: any) => option.isDisabled} // PREVENT SELECTING CONFLICTS
   styles={customSelectStyles}
   className="react-select-container"
   classNamePrefix="react-select"
@@ -1402,7 +1434,7 @@ onChange={(selectedOptions) => {
         {(() => {
   
           const allDiscounts = (props.discounts || []) as any[]; // Pass discounts array from parent
-
+          
           if (filteredProducts.length === 0) {
             return (
               <div className="text-center py-12 text-slate-400">
@@ -1427,48 +1459,12 @@ onChange={(selectedOptions) => {
                 const productIdStr = productOption.value;
                 const product = productMap.get(productIdStr);
                 
-                // A. Check Backend Assigned Discounts
-                const otherDiscounts = product && Array.isArray((product as any).assignedDiscounts) 
-                  ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
-                  : [];
-                
-                // B. Check Manual Overlaps (Products & Categories)
-                const productCategoryIds = product
-                  ? [product.categoryId, ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)]
-                  : [];
-
-                const manualConflicts = allDiscounts.filter((d: any) => {
-                  if (d.id === editingDiscount?.id || !d.isActive || d.isDeleted) return false;
-                  
-                  const now = new Date();
-                  if (new Date(d.startDate) > now || new Date(d.endDate) < now) return false;
-
-                  if (d.discountType === "AssignedToProducts") {
-                    return d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr);
-                  }
-
-                  if (d.discountType === "AssignedToCategories") {
-                    const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-                    if (!productCategoryIds.some(cid => dCatIds.includes(cid))) return false;
-                    if (d.assignedProductIds && d.assignedProductIds.trim()) {
-                      return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
-                    }
-                    return true;
-                  }
-                  return false;
-                });
-                
-                const uniqueConflicts = [...otherDiscounts, ...manualConflicts].filter((v, i, a) => 
-                  a.findIndex(t => t.id === v.id) === i
-                );
-                
-                const hasConflict = uniqueConflicts.length > 0;
-                const isSelected = formData.assignedProductIds.includes(productIdStr);
-                const isDisabled = hasConflict && !isSelected;
+                const { hasConflict, uniqueConflicts, isAssignedToCurrentDiscount } = checkProductConflicts(productIdStr);
                 const primaryConflict = uniqueConflicts[0];
-                const isChecked = isSelected;
-                const isAssignedToCurrentDiscount = editingDiscount?.id && 
-                  editingDiscount.assignedProductIds?.split(',').includes(productIdStr);
+                
+                const isSelected = formData.assignedProductIds.includes(productIdStr);
+                const isDisabled = hasConflict;
+                const isChecked = isSelected && !hasConflict;
                const imageUrl = getProductImage(product?.images || []);
                 return (
                   <div
@@ -1555,7 +1551,7 @@ onChange={(selectedOptions) => {
 </div>
 
                     {/* 🎯 CASE 1: CURRENT DISCOUNT - Show for assigned products */}
-                    {isAssignedToCurrentDiscount && (
+                    {isAssignedToCurrentDiscount && editingDiscount && (
                       <div className="flex items-center gap-2">
                         <div className="px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-lg">
                           <p className="text-xs font-bold text-orange-400 flex items-center gap-1.5">

@@ -4824,28 +4824,6 @@ useEffect(() => {
       📦 Enable Standard Delivery
     </span>
   </label>
-
-  {/* ✅ Conditional Field */}
-  {formData.standardDeliveryEnabled && (
-    <div className="transition-all duration-200 ease-in-out">
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Delivery Date
-      </label>
-
-      <select
-        name="deliveryDateId"
-        value={formData.deliveryDateId || ""}
-        onChange={handleChange}
-        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      >
-        <option value="">Select Delivery Time</option>
-        <option value="1">1-2 days</option>
-        <option value="2">3-5 days</option>
-        <option value="3">1 week</option>
-        <option value="4">2 weeks</option>
-      </select>
-    </div>
-  )}
 </div>
 
           <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">

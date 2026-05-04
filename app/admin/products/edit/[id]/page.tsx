@@ -33,6 +33,8 @@ import ProductLockModal from "../../_components/ProductLockModal";
 import VatRateSelector from "../../VatRateSelector";
 
 
+
+
 type CleanCartData = {
   orderMinimumQuantity: number | null;
   orderMaximumQuantity: number | null;
@@ -6961,26 +6963,7 @@ const uploadImagesToProductDirect = async (
     </span>
   </label>
 
-  {/* ✅ Show only when enabled */}
-  {formData.standardDeliveryEnabled && (
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Delivery Date
-      </label>
-      <select
-        name="deliveryDateId"
-        value={formData.deliveryDateId}
-        onChange={handleChange}
-        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      >
-        <option value="">None</option>
-        <option value="1">1-2 days</option>
-        <option value="2">3-5 days</option>
-        <option value="3">1 week</option>
-        <option value="4">2 weeks</option>
-      </select>
-    </div>
-  )}
+
 </div>
 
           <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">

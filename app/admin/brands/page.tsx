@@ -176,7 +176,7 @@ const handleStatusUpdate = async () => {
 
   useEffect(() => {
     fetchBrands();
-  }, [publishedFilter, activeFilter, deletedFilter]); // ✅ Re-fetch when filters change
+  }, [publishedFilter, activeFilter, deletedFilter,homepageFilter]); // ✅ Re-fetch when filters change
 
   
   // ✅ MODIFIED fetchBrands with API parameters

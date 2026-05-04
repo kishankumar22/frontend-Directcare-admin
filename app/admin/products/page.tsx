@@ -312,7 +312,6 @@ const pharmaOptions: SelectOption[] = [
     { value: "all", label: "All Delivery Method" },
     { value: "nextDay", label: "Next Day Delivery" },
     { value: "standard", label: "Standard Delivery" },
-    { value: "sameDay", label: "Same Day Delivery" },
   ];
 
   const markAsNewOptions: SelectOption[] = [
@@ -2582,7 +2581,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
 
   {/* VIEW */}
   {!isDeleted && (
-    <Link href={`/products/${product.slug}`} target="_blank">
+    <Link href={`/product/${product.slug}`} target="_blank">
       <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-md">
         <ExternalLink className="h-4 w-4" />
       </button>
