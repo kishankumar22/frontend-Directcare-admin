@@ -1131,7 +1131,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 
+border border-violet-500/20 rounded-3xl max-w-4xl w-full h-[90vh] 
+flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
             <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
               <div className="flex items-center justify-between">
                 <div>
@@ -1155,8 +1157,9 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-2 space-y-2 overflow-y-auto max-h-[calc(90vh-120px)]">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
               {/* Basic Information */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm">1</span>
@@ -1311,6 +1314,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </div>
                 </div>
               </div>
+
 
               {/* Banner Image Section */}
               <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
@@ -1591,8 +1595,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </label>
                 </div>
               </div>
+              </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+              <div className="shrink-0 bg-slate-900 border-t border-slate-700/50 px-4 py-3 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => {

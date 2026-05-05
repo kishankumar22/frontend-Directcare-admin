@@ -68,6 +68,7 @@ interface FormattedProduct {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+  variantsCount: number;
   
   // Inventory System
   trackQuantity: boolean;
@@ -617,6 +618,7 @@ if (vatFilter.value !== "all") {
 
       const formattedProducts: FormattedProduct[] = items.map((p: any) => {
         const primaryCategoryName = getPrimaryCategoryName(p.categories);
+        
 
         // Discount Logic
         const now = new Date();
@@ -663,7 +665,9 @@ if (vatFilter.value !== "all") {
           image: getProductImage(p.images),
           sales: 0,
           shortDescription: p.shortDescription || "",
-          sku: p.sku || "",
+       sku: p.sku || "",
+variantsCount: Array.isArray(p.variants) ? p.variants.length : 0,
+productType: p.productType || "simple",
           createdAt: formatDate(p.createdAt),
           updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
           updatedBy: p.updatedBy || "N/A",
@@ -671,7 +675,7 @@ if (vatFilter.value !== "all") {
           description: p.description || p.shortDescription || "",
           category: primaryCategoryName,
           isPublished: p.isPublished === true,
-          productType: p.productType || "simple",
+        
           brandName: p.brandName || "No Brand",
           brandId: p.brandId,
           slug: p.slug || "",
@@ -2380,10 +2384,11 @@ onClick={async (e) => {
                       </td>
 
                       {/* SKU */}
-
 <td className="py-2 px-3 text-center">
   <span
     onClick={() => {
+      // ❌ variable product में copy नहीं करना
+      if (product.productType === "variable") return;
       navigator.clipboard.writeText(product.sku);
       setCopiedId(product.id);
 
@@ -2391,13 +2396,23 @@ onClick={async (e) => {
         setCopiedId(null);
       }, 1200);
     }}
-    className="inline-flex items-center gap-1 text-xs font-mono text-slate-300 bg-slate-800/50 px-2 py-0.5 rounded cursor-pointer hover:bg-slate-700 transition"
-    title="Click to copy"
+    className={`inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded transition ${
+      product.productType === "variable"
+        ? "text-cyan-400 bg-slate-800/30 cursor-default"
+        : "text-slate-300 bg-slate-800/50 cursor-pointer hover:bg-slate-700"
+    }`}
+    title={
+      product.productType === "variable"
+        ? "Variant product"
+        : "Click to copy"
+    }
   >
-    {copiedId === product.id ? (
+    {product.productType === "variable" ? (
+      <span>{product.variantsCount} Variants</span>
+    ) : copiedId === product.id ? (
       <span className="text-emerald-400">Copied ✓</span>
     ) : (
-      product.sku
+      product.sku || "-"
     )}
   </span>
 </td>

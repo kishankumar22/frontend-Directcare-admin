@@ -288,6 +288,8 @@ const debouncedSearch = useDebounce(searchTerm, 400);
 const [allSelectedProducts, setAllSelectedProducts] = useState<Product[]>([]);
 const [productsLoading, setProductsLoading] = useState(false);
 const [categoriesLoading, setCategoriesLoading] = useState(false);
+const [desktopFile, setDesktopFile] = useState<File | null>(null);
+const [mobileFile, setMobileFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -610,43 +612,32 @@ const getProductDiscount = (product: any) => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // 🔥 Discount validation
+  if (formData.adminComment && formData.adminComment.length > 50) {
+  toast.error("Admin comment must be 50 characters or less");
+  return;
+}   
+
   if (!formData.discountPercentage) {
     toast.error("Discount percentage is required");
     return;
   }
- 
-  // 🔥 Admin comment validation
-  if (formData.adminComment && formData.adminComment.length > 500) {
-    toast.error("Admin comment must be 500 characters or less");
+
+
+if (!editingDiscount) {
+  if (!desktopFile || !mobileFile) {
+    toast.error("Desktop and Mobile banner images are required");
     return;
   }
-if (!formData.adminComment || formData.adminComment.trim() === "") {
-  toast.error("Admin comment is required");
-  return;
-}
-if (formData.requiresCouponCode) {
-  if (!formData.couponCode || formData.couponCode.trim() === "") {
-    toast.error("Coupon code is required");
+} else {
+  if (
+    (!desktopFile && !formData.desktopBannerImageUrl) ||
+    (!mobileFile && !formData.mobileBannerImageUrl)
+  ) {
+    toast.error("Desktop and Mobile banner images are required");
     return;
   }
 }
 
-  // 🔥 Assigned to PRODUCTS validation
-  if (formData.discountType === "AssignedToProducts") {
-    if (!formData.assignedProductIds || formData.assignedProductIds.length === 0) {
-      toast.error("At least one product must be selected from the products list");
-      return;
-    }
-  }
-
-  // 🔥 Assigned to CATEGORIES validation (FIXED ❗)
-  if (formData.discountType === "AssignedToCategories") {
-    if (!formData.assignedCategoryIds || formData.assignedCategoryIds.length === 0) {
-      toast.error("At least one category must be selected");
-      return;
-    }
-  }
 
   try {
     const payload = {
@@ -661,7 +652,24 @@ if (formData.requiresCouponCode) {
       await discountsService.update(editingDiscount.id, payload);
       toast.success("Discount updated successfully!");
     } else {
-      await discountsService.create(payload);
+      const res = await discountsService.create(payload);
+
+      const discountId = res?.data?.data?.id;
+
+      if (!discountId) {
+        toast.error("Failed to get discount ID");
+        return;
+      }
+
+      // 🔥 upload after create
+if (!editingDiscount && desktopFile) {
+  await handleUploadBannerImage(discountId, desktopFile, "desktop");
+}
+
+if (!editingDiscount && mobileFile) {
+  await handleUploadBannerImage(discountId, mobileFile, "mobile");
+}
+
       toast.success("Discount created successfully!");
     }
 
@@ -670,9 +678,8 @@ if (formData.requiresCouponCode) {
     resetForm();
 
   } catch (error: any) {
-    console.error("Error saving discount:", error);
-    const errors = getBackendErrors(error);
-    errors.forEach(msg => toast.error(msg));
+    console.error(error);
+    toast.error("Failed to save discount");
   }
 };
 const handleEdit = (discount: Discount) => {
@@ -744,7 +751,11 @@ setEditingDiscount(discount);
       assignedManufacturerIds: [],
       desktopBannerImageUrl: null,
       mobileBannerImageUrl: null,
+      
+      
     });
+    setDesktopFile(null);
+setMobileFile(null);
     setEditingDiscount(null);
     setProductCategoryFilter("");
     setProductBrandFilter("");
@@ -758,19 +769,17 @@ const handleUploadBannerImage = async (
   try {
     const res = await discountsService.uploadBannerImage(discountId, file, type);
 
-    const json = res.data as {
-      success: boolean;
-      data: string;
-    };
+    const json = res?.data as { success?: boolean; data?: string };
 
-    if (json.success) {
+    if (json?.success && json?.data) {
       setFormData((prev) => ({
         ...prev,
         [type === "desktop"
           ? "desktopBannerImageUrl"
           : "mobileBannerImageUrl"]: json.data,
       }));
-      fetchDiscounts();
+
+      fetchDiscounts(); // only once
     }
   } catch (err) {
     console.error(err);
@@ -783,12 +792,9 @@ const handleDeleteBannerImage = async (
 ) => {
   try {
     const res = await discountsService.deleteBannerImage(discountId, type);
+const json = res?.data as { success?: boolean };
 
-    const json = res.data as {
-      success: boolean;
-    };
-
-    if (json.success) {
+if (json?.success){
       setFormData((prev) => ({
         ...prev,
         [type === "desktop"
@@ -1683,7 +1689,6 @@ const filteredDiscounts = discounts.filter((discount) => {
       />
 
 <DiscountModals
-  
   key={`${showModal}-${editingDiscount?.id}-${formData.assignedProductIds.join(',')}`}
   discounts={discounts}
   getProductDiscount={getProductDiscount}
@@ -1703,21 +1708,20 @@ const filteredDiscounts = discounts.filter((discount) => {
   categories={categories}
   categoryOptions={categoryOptions}
   brandOptions={brandOptions}
-filteredProductOptions={[
-  ...productOptions,
-  ...allSelectedProducts.map(p => ({
-    value: p.id,
-    label: p.name
-  }))
-]}
-
-categoryFilteredProductOptions={[
-  ...productOptions,
-  ...allSelectedProducts.map(p => ({
-    value: p.id,
-    label: p.name
-  }))
-]}
+  filteredProductOptions={[
+    ...productOptions,
+    ...allSelectedProducts.map(p => ({
+      value: p.id,
+      label: p.name
+    }))
+  ]}
+  categoryFilteredProductOptions={[
+    ...productOptions,
+    ...allSelectedProducts.map(p => ({
+      value: p.id,
+      label: p.name
+    }))
+  ]}
   productCategoryFilter={productCategoryFilter}
   setProductCategoryFilter={setProductCategoryFilter}
   productBrandFilter={productBrandFilter}
@@ -1740,6 +1744,12 @@ categoryFilteredProductOptions={[
   handleViewUsageHistory={handleViewUsageHistory}
   handleUploadBannerImage={handleUploadBannerImage}
   handleDeleteBannerImage={handleDeleteBannerImage}
+
+  // 🔥 ADD THIS (MOST IMPORTANT)
+  desktopFile={desktopFile}
+  mobileFile={mobileFile}
+  setDesktopFile={setDesktopFile}
+  setMobileFile={setMobileFile}
 />
       <ConfirmDialog
   isOpen={!!statusConfirm}

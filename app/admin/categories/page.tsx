@@ -28,27 +28,7 @@ export default function CategoriesPage() {
 const [pendingFaqs, setPendingFaqs] = useState<Faq[]>([]);
   const [homepageFilter, setHomepageFilter] = useState<'all' | 'yes' | 'no'>('all');
 const [deletedFilter, setDeletedFilter] = useState<'all' | 'deleted' | 'notDeleted'>('all');
-const handleRestore = async (category: Category) => {
-  setIsRestoring(true);
 
-  try {
-    const response = await categoriesService.restore(category.id);
-
-    if (!response.error) {
-      toast.success("Category restored successfully! 🎉");
-      await fetchCategories();
-    } else {
-      toast.error(response.error || "Failed to restore category");
-    }
-  } catch (error: any) {
-    toast.error(
-      error?.response?.data?.message || "Restore failed"
-    );
-  } finally {
-    setIsRestoring(false);
-    setRestoreConfirm(null);
-  }
-};
   
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [selectedParentId, setSelectedParentId] = useState<string>("");
@@ -117,7 +97,27 @@ const toggleCategoryExpansion = (categoryId: string) => {
   });
 };
 
+const handleRestore = async (category: Category) => {
+  setIsRestoring(true);
 
+  try {
+    const response = await categoriesService.restore(category.id);
+
+    if (!response.error) {
+      toast.success("Category restored successfully! 🎉");
+      await fetchCategories();
+    } else {
+      toast.error(response.error || "Failed to restore category");
+    }
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message || "Restore failed"
+    );
+  } finally {
+    setIsRestoring(false);
+    setRestoreConfirm(null);
+  }
+};
 
 // Add this NEW helper function after getCategoryLevel
 const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): number => {

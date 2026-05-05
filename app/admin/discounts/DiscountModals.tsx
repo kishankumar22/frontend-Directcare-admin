@@ -103,8 +103,12 @@ interface DiscountModalsProps {
   dateRangeFilter: { startDate: string; endDate: string };
   setDateRangeFilter: (filter: { startDate: string; endDate: string }) => void;
   handleViewUsageHistory?: (discount: Discount) => void;
-  handleUploadBannerImage?: (discountId: string, file: File, type: "desktop" | "mobile") => Promise<void>;
-  handleDeleteBannerImage?: (discountId: string, type: "desktop" | "mobile") => Promise<void>;
+desktopFile: File | null;
+mobileFile: File | null;
+setDesktopFile: (file: File | null) => void;
+setMobileFile: (file: File | null) => void;
+  handleUploadBannerImage: (discountId: string, file: File, type: "desktop" | "mobile") => Promise<void>;
+  handleDeleteBannerImage: (discountId: string, type: "desktop" | "mobile") => Promise<void>;
 }
 
 export default function DiscountModals(props: DiscountModalsProps) {
@@ -150,6 +154,10 @@ export default function DiscountModals(props: DiscountModalsProps) {
     handleViewUsageHistory,
     handleUploadBannerImage,
     handleDeleteBannerImage,
+    desktopFile,
+mobileFile,
+setDesktopFile,
+setMobileFile,
   } = props;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -205,10 +213,10 @@ const checkProductConflicts = React.useCallback((productIdStr: string) => {
   
   if (!product) return { hasConflict: false, uniqueConflicts: [], isAssignedToCurrentDiscount: false };
 
-  // A. Check Backend Assigned Discounts
-  const otherDiscounts = Array.isArray((product as any).assignedDiscounts) 
-    ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
-    : [];
+  // // A. Check Backend Assigned Discounts
+  // const otherDiscounts = Array.isArray((product as any).assignedDiscounts) 
+  //   ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
+  //   : [];
   
   // B. Check Manual Overlaps
   const productCategoryIds = [
@@ -227,18 +235,32 @@ const checkProductConflicts = React.useCallback((productIdStr: string) => {
       return d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr);
     }
 
-    if (d.discountType === "AssignedToCategories") {
-      const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-      if (!productCategoryIds.some(cid => dCatIds.includes(cid))) return false;
-      if (d.assignedProductIds && d.assignedProductIds.trim()) {
-        return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
-      }
-      return true;
-    }
+if (d.discountType === "AssignedToCategories") {
+  const dCatIds = (d.assignedCategoryIds || '')
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+
+  if (!productCategoryIds.some(cid => dCatIds.includes(cid))) return false;
+
+  // ✅ ADD THIS LINE
+if (d.isCumulative && formData.isCumulative) return false;
+
+  const assignedIds = (d.assignedProductIds || '')
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+
+  if (assignedIds.length > 0) {
+    return assignedIds.includes(productIdStr);
+  }
+
+  return true;
+}
     return false;
   });
   
-  const uniqueConflicts = [...otherDiscounts, ...manualConflicts].filter((v, i, a) => 
+  const uniqueConflicts = [ ...manualConflicts].filter((v, i, a) => 
     a.findIndex(t => t.id === v.id) === i
   );
   
@@ -261,7 +283,7 @@ const mergedOptions = useMemo(() => {
     map.set(p.id, {
       value: p.id,
       label: p.name,
-      isDisabled: conflicts.hasConflict,
+     isDisabled: conflicts.hasConflict && !conflicts.isAssignedToCurrentDiscount,
     });
   });
 
@@ -310,6 +332,28 @@ useEffect(() => {
 
   fetchMissing();
 }, [formData.assignedProductIds, productMap]);
+// 🔥 PREVIEW (TOP OF COMPONENT)
+const desktopPreview = useMemo(() => {
+  if (!desktopFile) return null;
+  return URL.createObjectURL(desktopFile);
+}, [desktopFile]);
+
+const mobilePreview = useMemo(() => {
+  if (!mobileFile) return null;
+  return URL.createObjectURL(mobileFile);
+}, [mobileFile]);
+
+useEffect(() => {
+  return () => {
+    if (desktopPreview) URL.revokeObjectURL(desktopPreview);
+  };
+}, [desktopPreview]);
+
+useEffect(() => {
+  return () => {
+    if (mobilePreview) URL.revokeObjectURL(mobilePreview);
+  };
+}, [mobilePreview]);
 
   const MultiValueLabel = (props: any) => {
   const { data } = props;
@@ -537,35 +581,41 @@ useEffect(() => {
   return (
     <>
       {/* ========== ADD/EDIT DISCOUNT MODAL ========== */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            {/* Header */}
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    {editingDiscount ? "Edit Discount" : "Create New Discount"}
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">
-                    {editingDiscount ? "Update discount information" : "Add a new discount to your store"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
+{showModal && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-6">
+    
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full h-[90vh] flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
+      
+      {/* ================= HEADER ================= */}
+      <div className="p-4 border-b shrink-0 border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              {editingDiscount ? "Edit Discount" : "Create New Discount"}
+            </h2>
+            <p className="text-slate-400 text-sm mt-1">
+              {editingDiscount ? "Update discount information" : "Add a new discount to your store"}
+            </p>
+          </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="p-2 space-y-2 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <button
+            type="button"
+            onClick={() => {
+              setShowModal(false);
+              resetForm();
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* ================= FORM ================= */}
+      <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+
+        {/* 🔥 SCROLL AREA */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
               
               {/* SECTION 1: BASIC INFORMATION */}
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
@@ -1008,19 +1058,19 @@ onChange={(selectedOptions) => {
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Discount Percentage <span className="text-red-500">*</span></label>
                       <div className="relative">
-                        <input
-                          type="number"
-                          required
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          
-                          value={formData.discountPercentage}
-                          onChange={(e) => setFormData({...formData, discountPercentage: parseFloat(e.target.value) || 0})}
-                          placeholder="0.00"
-                      
+                       <input
+  type="number"
+  min="0"
+  max="100"
+  step="0.01"
+  value={formData.discountPercentage}
+  onChange={(e) => {
+    const value = Math.min(100, Math.max(0, Number(e.target.value)));
+    setFormData({ ...formData, discountPercentage: value });
+  }}
                           className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
-                        />
+
+/>
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">%</span>
                       </div>
                     </div>
@@ -1237,149 +1287,174 @@ onChange={(selectedOptions) => {
                 )}
               </div>
 
-              {/* BANNER IMAGES — only show when editing existing discount */}
-              {editingDiscount && (
-                <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm">🖼</span>
-                    <span>Banner Images</span>
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
+  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm">🖼</span>
+    <span>Banner Images</span>
+  </h3>
 
-                    {/* Desktop Image */}
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
-                        <Monitor size={16} className="text-violet-400" /> Desktop Banner
-                      </label>
-                      {formData.desktopBannerImageUrl ? (
-                        <div className="relative group rounded-xl overflow-hidden border border-slate-600">
-                          <img
-                            src={`${process.env.NEXT_PUBLIC_API_URL}${formData.desktopBannerImageUrl}`}
-                            alt="Desktop Banner"
-                            className="w-full h-32 object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
-                            <label className="cursor-pointer p-2 bg-violet-500 rounded-lg hover:bg-violet-600 transition-all">
-                              <Upload size={16} className="text-white" />
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file && handleUploadBannerImage)
-                                    handleUploadBannerImage(editingDiscount?.id, file, "desktop");
-                                }}
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBannerImage && handleDeleteBannerImage(editingDiscount.id, "desktop")}
-                              className="p-2 bg-red-500 rounded-lg hover:bg-red-600 transition-all"
-                            >
-                              <Trash2 size={16} className="text-white" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all bg-slate-900/50">
-                          <Upload size={20} className="text-slate-400 mb-1" />
-                          <span className="text-slate-400 text-xs">Click to upload desktop image</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file && handleUploadBannerImage)
-                                handleUploadBannerImage(editingDiscount.id, file, "desktop");
-                            }}
-                          />
-                        </label>
-                      )}
-                    </div>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                    {/* Mobile Image */}
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
-                        <Smartphone size={16} className="text-cyan-400" /> Mobile Banner
-                      </label>
-                      {formData.mobileBannerImageUrl ? (
-                        <div className="relative group rounded-xl overflow-hidden border border-slate-600">
-                          <img
-                            src={`${process.env.NEXT_PUBLIC_API_URL}${formData.mobileBannerImageUrl}`}
-                            alt="Mobile Banner"
-                            className="w-full h-32 object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
-                            <label className="cursor-pointer p-2 bg-cyan-500 rounded-lg hover:bg-cyan-600 transition-all">
-                              <Upload size={16} className="text-white" />
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file && handleUploadBannerImage)
-                                    handleUploadBannerImage(editingDiscount.id, file, "mobile");
-                                }}
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBannerImage && handleDeleteBannerImage(editingDiscount.id, "mobile")}
-                              className="p-2 bg-red-500 rounded-lg hover:bg-red-600 transition-all"
-                            >
-                              <Trash2 size={16} className="text-white" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-cyan-500 transition-all bg-slate-900/50">
-                          <Upload size={20} className="text-slate-400 mb-1" />
-                          <span className="text-slate-400 text-xs">Click to upload mobile image</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file && handleUploadBannerImage)
-                                handleUploadBannerImage(editingDiscount.id, file, "mobile");
-                            }}
-                          />
-                        </label>
-                      )}
-                    </div>
+{/* ================= DESKTOP ================= */}
+<div>
+  <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+    <Monitor size={16} className="text-violet-400" /> Desktop Banner
+  </label>
 
-                  </div>
-                  <p className="text-slate-500 text-xs mt-3">Hover over image to see change/delete options. Recommended: Desktop 1200×400px, Mobile 600×300px</p>
-                </div>
-              )}
+  {desktopPreview ? (
+    <div className="rounded-xl overflow-hidden border border-green-500">
+      <img
+        src={desktopPreview}
+        className="w-full h-32 object-cover"
+      />
+      <p className="text-green-400 text-xs text-center mt-1">
+        ✅ {desktopFile?.name}
+      </p>
+    </div>
+) : formData.desktopBannerImageUrl ? (
+  <div className="relative rounded-xl overflow-hidden border border-slate-600 group">
+    <img
+      src={`${process.env.NEXT_PUBLIC_API_URL}${formData.desktopBannerImageUrl}`}
+      className="w-full h-32 object-cover"
+    />
 
-              {/* SUBMIT BUTTONS */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105"
-                >
-                  {editingDiscount ? '✓ Update Discount' : '+ Create Discount'}
-                </button>
-              </div>
-            </form>
-          </div>
+    {/* 🔥 DELETE BUTTON */}
+    {editingDiscount && (
+      <button
+        type="button"
+        onClick={() =>
+          handleDeleteBannerImage(editingDiscount.id, "desktop")
+        }
+        className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition"
+      >
+        <Trash2 size={16} />
+      </button>
+    )}
+  </div>
+) : (
+    <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all bg-slate-900/50">
+      <Upload size={20} className="text-slate-400 mb-1" />
+      <span className="text-xs text-slate-400">
+        Click to upload desktop image
+      </span>
+
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          if (editingDiscount) {
+            handleUploadBannerImage(editingDiscount.id, file, "desktop");
+          } else {
+            setDesktopFile(file);
+          }
+        }}
+      />
+    </label>
+  )}
+</div>
+
+{/* ================= MOBILE ================= */}
+<div>
+  <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+    <Smartphone size={16} className="text-cyan-400" /> Mobile Banner
+  </label>
+
+  {mobilePreview ? (
+    <div className="rounded-xl overflow-hidden border border-green-500">
+      <img
+        src={mobilePreview}
+        className="w-full h-32 object-cover"
+      />
+      <p className="text-green-400 text-xs text-center mt-1">
+        ✅ {mobileFile?.name}
+      </p>
+    </div>
+) : formData.mobileBannerImageUrl ? (
+  <div className="relative rounded-xl overflow-hidden border border-slate-600 group">
+    <img
+      src={`${process.env.NEXT_PUBLIC_API_URL}${formData.mobileBannerImageUrl}`}
+      className="w-full h-32 object-cover"
+    />
+
+    {editingDiscount && (
+      <button
+        type="button"
+        onClick={() =>
+          handleDeleteBannerImage(editingDiscount.id, "mobile")
+        }
+        className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition"
+      >
+        <Trash2 size={16} />
+      </button>
+    )}
+  </div>
+) : (
+    <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-cyan-500 transition-all bg-slate-900/50">
+      <Upload size={20} className="text-slate-400 mb-1" />
+      <span className="text-xs text-slate-400">
+        Click to upload mobile image
+      </span>
+
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          if (editingDiscount) {
+            handleUploadBannerImage(editingDiscount.id, file, "mobile");
+          } else {
+            setMobileFile(file);
+          }
+        }}
+      />
+    </label>
+  )}
+</div>
+
+  </div>
+
+  <p className="text-slate-500 text-xs mt-3">
+    Recommended: Desktop 1200×400px, Mobile 600×300px
+  </p>
+</div>
+     
+
         </div>
-      )}
+
+        {/* ================= FOOTER (FIXED) ================= */}
+        <div className="shrink-0 bg-slate-900 border-t border-slate-700/50 px-4 py-3 flex justify-end gap-3">
+          
+          <button
+            type="button"
+            onClick={() => {
+              setShowModal(false);
+              resetForm();
+            }}
+            className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold"
+          >
+            {editingDiscount ? "✓ Update Discount" : "+ Create Discount"}
+          </button>
+
+        </div>
+
+      </form>
+    </div>
+  </div>
+)}
 
 
 {/* ========== PRODUCT SELECTION MODAL ========== */}
@@ -1463,8 +1538,8 @@ onChange={(selectedOptions) => {
                 const primaryConflict = uniqueConflicts[0];
                 
                 const isSelected = formData.assignedProductIds.includes(productIdStr);
-                const isDisabled = hasConflict;
-                const isChecked = isSelected && !hasConflict;
+           const isDisabled = hasConflict && !isAssignedToCurrentDiscount;
+          const isChecked = isSelected;
                const imageUrl = getProductImage(product?.images || []);
                 return (
                   <div
@@ -1486,8 +1561,7 @@ onChange={(selectedOptions) => {
                     }}
                   >
                     <input
-                      type="checkbox"
-                      // FIXED: Using explicit boolean value
+                      type="checkbox"                    
                       checked={isChecked}
                       disabled={isDisabled}
                       onChange={() => {}} // Handled by div click
