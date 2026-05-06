@@ -226,37 +226,54 @@ if (response.data?.success === false) {
             break;
         }
 
-      } else if (error?.request) {
-        // ✅ Request made but no response
-        switch (error.code) {
-          case 'ERR_NETWORK':
-            errorMessage = '🔴 Network Error - Cannot connect to server.\n\nCheck:\n' +
-              '1. Backend server is running\n' +
-              '2. API URL: ' + this.client.defaults.baseURL + '\n' +
-              '3. CORS enabled on backend\n' +
-              '4. Internet connection active\n' +
-              '5. Firewall not blocking';
-            break;
+} else if (error?.request) {
 
-          case 'ERR_FR_MAX_BODY_LENGTH_EXCEEDED':
-            errorMessage = 'Request data too large. Check server configuration.';
-            break;
+  // ✅ backend plain text response
+  if (typeof error?.response?.data === 'string') {
+    errorMessage = error.response.data;
+  }
 
-          case 'ECONNABORTED':
-            errorMessage = 'Request timeout (2 min). Connection slow or data too large.';
-            break;
+  // ✅ backend structured response
+  else if (error?.response?.data?.message) {
+    errorMessage = error.response.data.message;
+  }
 
-          case 'ECONNREFUSED':
-            errorMessage = 'Connection refused. Server not running or not accessible.';
-            break;
+  else {
+    switch (error.code) {
 
-          case 'ENOTFOUND':
-            errorMessage = 'Server not found. Check API URL: ' + this.client.defaults.baseURL;
-            break;
+    case 'ERR_NETWORK':
 
-          default:
-            errorMessage = 'No response from server. Please check your connection.';
-        }
+  // 🔥 If backend status exists
+  if (error?.request?.status === 503) {
+    errorMessage = 'The service is unavailable.';
+  }
+
+  else {
+    errorMessage = 'Unable to connect to server.';
+  }
+
+  break;
+
+      case 'ERR_FR_MAX_BODY_LENGTH_EXCEEDED':
+        errorMessage = 'Request data too large.';
+        break;
+
+      case 'ECONNABORTED':
+        errorMessage = 'Request timeout.';
+        break;
+
+      case 'ECONNREFUSED':
+        errorMessage = 'Connection refused.';
+        break;
+
+      case 'ENOTFOUND':
+        errorMessage = 'Server not found.';
+        break;
+
+      default:
+        errorMessage = 'No response from server.';
+    }
+  }
 
       } else {
         // ✅ Request setup error

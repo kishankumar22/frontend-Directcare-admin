@@ -31,6 +31,8 @@ interface ProductRow {
   id: string;
   variantId?: string;
   isVariant?: boolean;
+variantsCount?: number;
+productType?: string;
 
   parentId?: string;
   parentName?: string;
@@ -340,6 +342,8 @@ export default function InventoryPage() {
             rows.push({
               id: p.id,
               isVariant: false,
+              productType: p.productType || "simple",
+              variantsCount: variants.length,
 
               name: p.name,
               sku: p.sku,
@@ -402,6 +406,8 @@ export default function InventoryPage() {
             rows.push({
               id: p.id,
               isVariant: false,
+              productType: p.productType || "simple",
+variantsCount: variants.length,
 
               name: p.name,
               sku: p.sku,
@@ -1369,12 +1375,41 @@ export default function InventoryPage() {
                       </td>
 
                       {/* SKU */}
-                      <td className="p-3 text-center">
-                        <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded">
-                          {p.sku}
-                        </span>
-                      </td>
+<td className="p-3 text-center">
+  <div className="flex flex-col items-center gap-1">
 
+    {/* VARIABLE PRODUCT */}
+    {!p.isVariant &&
+    p.productType === "variable" &&
+    (p.variantsCount ?? 0) > 0 ? (
+
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300 text-[10px] font-semibold border border-violet-500/20">
+        <TrendingUp className="h-2.5 w-2.5" />
+        {p.variantsCount} Variants
+      </span>
+
+    ) : (
+
+      /* SKU */
+      <span
+        onClick={() => {
+          navigator.clipboard.writeText(p.sku || "");
+
+          toast.success("SKU copied", {
+            position: "top-center",
+            autoClose: 1200,
+          });
+        }}
+        className="text-xs font-mono text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
+        title="Click to copy SKU"
+      >
+        {p.sku || "—"}
+      </span>
+
+    )}
+
+  </div>
+</td>
                       {/* CURRENT STOCK */}
                       <td className="p-3 text-center">
                         <StockBadge
@@ -1574,11 +1609,22 @@ export default function InventoryPage() {
                             </td>
 
                             {/* SKU */}
-                            <td className="p-3 text-center">
-                              <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded">
-                                {v.sku}
-                              </span>
-                            </td>
+                         <td className="p-3 text-center">
+  <span
+    onClick={() => {
+      navigator.clipboard.writeText(v.sku || "");
+
+      toast.success("SKU copied", {
+        position: "top-center",
+        autoClose: 1200,
+      });
+    }}
+    className="text-xs font-mono text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
+    title="Click to copy SKU"
+  >
+    {v.sku || "—"}
+  </span>
+</td>
 
                             {/* CURRENT STOCK */}
                             <td className="p-3 text-center">

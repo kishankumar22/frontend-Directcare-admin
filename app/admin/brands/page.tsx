@@ -201,6 +201,13 @@ const handleStatusUpdate = async () => {
       }
 
       const response = await brandsService.getAll({ params });
+      // ✅ SHOW BACKEND/API ERROR
+if (response.error) {
+  toast.error(response.error);
+  setBrands([]);
+  return;
+}
+
 const brandsData = response.data?.data?.items || [];
 const statsData = response.data?.data?.stats;
 

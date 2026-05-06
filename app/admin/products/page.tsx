@@ -42,6 +42,7 @@ import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getProductImage } from "../_utils/formatUtils";
 
 import { vatratesService } from "@/lib/services/vatrates";
+import { scrollCls } from "../_utils/styles";
 
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -2219,7 +2220,12 @@ const handleExportSelected = async () => {
   )}
 
   {/* TABLE (always render) */}
-  <div className={`overflow-auto max-h-[69vh] ${filterLoading ? "opacity-40" : ""}`}>
+  <div   className={`
+    overflow-auto
+   max-h-[69vh]
+  ${scrollCls}
+  ${filterLoading ? "opacity-40" : ""}
+`}>
     
     {products.length === 0 && !filterLoading ? (
       <div className="text-center py-12">

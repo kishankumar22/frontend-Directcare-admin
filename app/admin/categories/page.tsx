@@ -85,11 +85,19 @@ const toggleCategoryExpansion = (categoryId: string) => {
     } else {
       newSet.add(categoryId);
 
-      // 🔥 ADD THIS (key logic)
+      const expandChildren = (cats: any[]) => {
+        cats.forEach(cat => {
+          if (cat.subCategories?.length) {
+            newSet.add(cat.id);
+            expandChildren(cat.subCategories);
+          }
+        });
+      };
+
       const category = findCategoryById(categoryId, categories);
-      if (category) {
-        const parents = getParentChain(category, categories);
-        parents.forEach(p => newSet.add(p.id));
+
+      if (category?.subCategories?.length) {
+        expandChildren(category.subCategories);
       }
     }
 
@@ -972,18 +980,18 @@ const getParentChain = useCallback((category: Category, all: Category[]) => {
 const flattenedData = useMemo(() => {
   const flattened: Array<Category & { level: number }> = [];
 
-  const addRecursive = (category: Category, level: number) => {
-    flattened.push({ ...category, level });
+const addRecursive = (category: Category, level: number) => {
+  flattened.push({ ...category, level });
 
-    if (
-      expandedCategories.has(category.id) &&
-      category.subCategories?.length
-    ) {
-      category.subCategories.forEach(child =>
-        addRecursive(child, level + 1)
-      );
-    }
-  };
+  if (
+    expandedCategories.has(category.id) &&
+    category.subCategories?.length
+  ) {
+    category.subCategories.forEach(child =>
+      addRecursive(child, level + 1)
+    );
+  }
+};
 
   if (searchTerm.trim()) {
     return filteredCategories.map(cat => ({
@@ -1304,6 +1312,7 @@ useEffect(() => {
 <option value="level1">Main Category</option>
 <option value="level2">Sub Category</option>
 <option value="level3">Child Category</option>
+<option value="level4">Level 4 Category</option>
     </select>
 
     {/* Deleted */}

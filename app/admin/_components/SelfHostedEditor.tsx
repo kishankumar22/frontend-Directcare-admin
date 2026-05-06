@@ -2,7 +2,7 @@
 'use client';
 
 import { extractFileName, deleteEditorImage, uploadEditorImage } from '@/lib/services/editorService';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 
 interface SelfHostedTinyMCEProps {
   value: string;
@@ -36,7 +36,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   const isUpdatingRef = useRef(false);
   const lastNotificationTimeRef = useRef<number>(0);
   const contentFromEditorRef = useRef<string>('');
-  const [isLoaded, setIsLoaded] = useState(false);
+ 
   const [isMounted, setIsMounted] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [charCount, setCharCount] = useState(0);
@@ -222,7 +222,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
       const script = document.createElement('script');
       script.src = '/tinymce/tinymce.min.js';
       script.onload = () => {
-        setIsLoaded(true);
+    
         setTimeout(() => {
           initializeEditor();
         }, 100);
@@ -838,7 +838,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     setTimeout(() => {
       isUpdatingRef.current = false;
     }, 100);
-  }, [value, isReady, maxLength]);
+}, [value, isReady, maxLength]);
 
   if (!isMounted) {
     return (
@@ -951,7 +951,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   );
 };
 
-export const ProductDescriptionEditor = ({ 
+export const ProductDescriptionEditor = memo(({
   label, 
   value, 
   onChange, 
@@ -1000,4 +1000,4 @@ export const ProductDescriptionEditor = ({
       )}
     </div>
   );
-};
+});

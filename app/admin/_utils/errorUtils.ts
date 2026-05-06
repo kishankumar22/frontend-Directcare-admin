@@ -66,7 +66,6 @@ export function getBackendErrors(input: any): string[] {
       return messageArray.map((msg: string) => `${field}: ${msg}`);
     });
   }
-
   // 🔥 ARRAY ERRORS
   if (Array.isArray(data?.errors) && data.errors.length > 0) {
     return data.errors;

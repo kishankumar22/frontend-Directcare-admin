@@ -56,13 +56,15 @@ import {
   PoundSterling,
   Warehouse,
   ShieldCheck,
-  FileSpreadsheet, // ✅ Added for Import/Export
+  FileSpreadsheet,
+  Monitor, // ✅ Added for Import/Export
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
 import { authService } from "@/lib/services/auth";
 import ErrorBoundary from "@/app/admin/_components/ErrorBoundary";
 import ScrollToTopButton from "./_components/ScrollToTopButton";
+import { useAdminLogoutShortcut } from "./_hooks/useAdminLogoutShortcut";
 
 interface NavigationItem {
   name: string;
@@ -127,17 +129,21 @@ const navigation: NavigationItem[] = [
     ],
   }, 
   { name: 'Import / Export', href: '/admin/import-export', icon: FileSpreadsheet },
-  {
-    name: 'Content',
-    icon: FileText,
-    children: [
-      { name: 'Banners', href: '/admin/banners', icon: ImageIcon },
-      { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban },
-      { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText },
-      { name: 'Comments', href: '/admin/comments', icon: MessageSquare },
-      { name: 'Contacts', href: '/admin/contact', icon: Mail },
-    ],
-  },
+{
+  name: 'Content',
+  icon: FileText,
+  children: [
+    { name: 'Banners', href: '/admin/banners', icon: ImageIcon },
+
+    // ✅ ADDED
+    { name: 'Homepage Preview', href: '/admin/HomepagePreview', icon: Monitor },
+
+    { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban },
+    { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText },
+    { name: 'Comments', href: '/admin/comments', icon: MessageSquare },
+    { name: 'Contacts', href: '/admin/contact', icon: Mail },
+  ],
+},
   {
   name: 'Staff Management',
   icon: Users,
@@ -182,7 +188,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // ✅ NEW STATE FOR HOVER-BASED EXPANSION
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  useAdminLogoutShortcut();
   // Token expiry countdown state
   const [timeRemaining, setTimeRemaining] = useState<{
     hours: number;

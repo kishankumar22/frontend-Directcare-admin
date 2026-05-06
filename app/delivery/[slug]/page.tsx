@@ -51,7 +51,7 @@ export default async function DeliveryPage({
   <h1 className="text-xl md:text-3xl font-bold text-[#445D41]">
     {data.pageTitle}
   </h1>
-  <p className="text-gray-600 mt-2 text-lg max-w-2xl mx-auto">
+  <p className="text-gray-700 mt-4 text-[17px] leading-8 text-left">
     {data.pageSubtitle}
   </p>
 </div>
@@ -93,6 +93,37 @@ export default async function DeliveryPage({
       {/* 🔥 DYNAMIC CONTENT */}
       {parsedContent?.sections?.map((section: any, i: number) => {
         switch (section.type) {
+          case "heading": {
+  const Tag = section.level || "h2";
+
+  return (
+    <Tag
+      key={i}
+      className={`
+        mb-5
+        ${
+          section.level === "h1"
+            ? "text-4xl"
+            : section.level === "h2"
+            ? "text-3xl"
+            : section.level === "h3"
+            ? "text-2xl"
+            : section.level === "h4"
+            ? "text-xl"
+            : section.level === "h5"
+            ? "text-lg"
+            : "text-base"
+        }
+        ${section.bold ? "font-bold" : "font-normal"}
+        ${section.italic ? "italic" : ""}
+        ${section.strike ? "line-through" : ""}
+        text-black
+      `}
+    >
+      {section.text}
+    </Tag>
+  );
+}
           case "intro":
             return (
               <p key={i} className="mb-6 text-gray-700">
@@ -181,7 +212,7 @@ export default async function DeliveryPage({
 
           case "support":
             return (
-              <div key={i} className="border-t pt-6 mt-6">
+              <div key={i} className="border-t pt-6 mt-6 pb-10">
                 <h2 className="text-xl font-bold mb-2">
                   {section.heading}
                 </h2>

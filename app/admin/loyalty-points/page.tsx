@@ -136,7 +136,7 @@ export default function LoyaltyPointsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearchTerm, tierFilter, sortBy, sortDirection, toast]);
+  }, [currentPage, pageSize, debouncedSearchTerm, tierFilter, sortBy, sortDirection]);
 
   useEffect(() => {
     fetchUsers();

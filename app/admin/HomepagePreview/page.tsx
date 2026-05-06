@@ -2,7 +2,7 @@
 
 export default function HomepagePreview() {
   return (
-    <div className="w-full min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="w-full min-h-screen bg-white flex items-center justify-center">
       <img
         src="/DirectCarePreview.png"
         alt="Homepage Preview"

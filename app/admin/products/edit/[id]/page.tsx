@@ -3761,9 +3761,9 @@ console.log("🚀 FINAL PAYLOAD:", productData);
         //   }
         // }
 
-        setTimeout(() => {
-          router.push('/admin/products');
-        }, 1500);
+        // setTimeout(() => {
+        //   router.push('/admin/products');
+        // }, 1500);
       } else if (apiResponse.success === false) {
         throw new Error(apiResponse.message || 'Update failed');
       }
