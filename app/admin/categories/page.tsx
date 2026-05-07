@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import CategoryModal from "./CategoryModal";
 import { categoryFaqsService, Faq } from "@/lib/services/categoryFaqs";
 import { extractFilename, formatDate, getImageUrl } from "../_utils/formatUtils";
+import React from "react";
 
 export default function CategoriesPage() {
   const toast = useToast();
@@ -126,6 +127,52 @@ const handleRestore = async (category: Category) => {
     setRestoreConfirm(null);
   }
 };
+const getCategoryHierarchyArray = (
+  category: Category,
+  allCategories: Category[]
+): string[] => {
+  const hierarchy: string[] = [];
+
+  const findParent = (
+    parentId?: string
+  ): Category | undefined => {
+    if (!parentId) return undefined;
+
+    const searchRecursive = (
+      cats: Category[]
+    ): Category | undefined => {
+      for (const cat of cats) {
+        if (cat.id === parentId) {
+          return cat;
+        }
+
+        if (cat.subCategories?.length) {
+          const found = searchRecursive(
+            cat.subCategories
+          );
+
+          if (found) return found;
+        }
+      }
+
+      return undefined;
+    };
+
+    return searchRecursive(allCategories);
+  };
+
+  let current: Category | undefined = category;
+
+  while (current) {
+    hierarchy.unshift(current.name);
+
+    current = findParent(
+      current.parentCategoryId
+    );
+  }
+
+  return hierarchy;
+};
 
 // Add this NEW helper function after getCategoryLevel
 const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): number => {
@@ -144,7 +191,7 @@ const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): nu
 
 useEffect(() => {
   fetchCategories();
-}, [statusFilter, homepageFilter, levelFilter, debouncedSearch, deletedFilter]);
+}, [statusFilter, homepageFilter, deletedFilter]);
 
 
 
@@ -184,10 +231,6 @@ const fetchCategories = async () => {
 
  
 
-    // Level
-    if (levelFilter !== "all") {
-      params.level = Number(levelFilter.replace("level", ""));
-    }
 
     // API CALL
     const response = await categoriesService.getAll({ params });
@@ -348,6 +391,48 @@ const fetchCategories = async () => {
     });
     setShowModal(true);
   };
+const getCategoryLevelCounts = (
+  categories: Category[]
+) => {
+  const counts = {
+    level1: 0,
+    level2: 0,
+    level3: 0,
+    level4: 0,
+  };
+
+  const traverse = (
+    cats: Category[],
+    level: number
+  ) => {
+    cats.forEach((cat) => {
+      if (level === 1) counts.level1++;
+      if (level === 2) counts.level2++;
+      if (level === 3) counts.level3++;
+      if (level === 4) counts.level4++;
+
+      if (cat.subCategories?.length) {
+        traverse(cat.subCategories, level + 1);
+      }
+    });
+  };
+
+  traverse(categories, 1);
+
+  return {
+    ...counts,
+    total:
+      counts.level1 +
+      counts.level2 +
+      counts.level3 +
+      counts.level4,
+  };
+};
+
+const levelCounts = useMemo(
+  () => getCategoryLevelCounts(categories),
+  [categories]
+);
 // Calculate homepage categories count
 useEffect(() => {
   const categoriesOnHomepage = categories.filter(cat => cat.showOnHomepage);
@@ -954,12 +1039,46 @@ const findMatchingNodes = useCallback((categories: Category[], search: string): 
 
   // ✅ Smart search in hierarchy
 
-
-// NEW – pass the 5th argument
 const filteredCategories = useMemo(() => {
-  return findMatchingNodes(categories, debouncedSearch);
-}, [categories, debouncedSearch, findMatchingNodes]);
+  let result = findMatchingNodes(
+    categories,
+    debouncedSearch
+  );
 
+  // LEVEL FILTER
+  if (levelFilter !== "all") {
+    const targetLevel =
+      Number(levelFilter.replace("level", ""));
+
+    const matched: Category[] = [];
+
+    const traverse = (cats: Category[]) => {
+      cats.forEach(cat => {
+        const level =
+          getCategoryLevel(cat, categories) + 1;
+
+        if (level === targetLevel) {
+          matched.push(cat);
+        }
+
+        if (cat.subCategories?.length) {
+          traverse(cat.subCategories);
+        }
+      });
+    };
+
+    traverse(result);
+
+    result = matched;
+  }
+
+  return result;
+}, [
+  categories,
+  debouncedSearch,
+  levelFilter,
+  findMatchingNodes,
+]);
 const getParentChain = useCallback((category: Category, all: Category[]) => {
   const chain: Category[] = [];
   let current = category;
@@ -993,12 +1112,15 @@ const addRecursive = (category: Category, level: number) => {
   }
 };
 
-  if (searchTerm.trim()) {
-    return filteredCategories.map(cat => ({
-      ...cat,
-      level: getCategoryLevel(cat, categories)
-    }));
-  }
+if (
+  searchTerm.trim() ||
+  levelFilter !== "all"
+) {
+  return filteredCategories.map(cat => ({
+    ...cat,
+    level: getCategoryLevel(cat, categories)
+  }));
+}
 
   categories.forEach(cat => addRecursive(cat, 0));
 
@@ -1308,11 +1430,25 @@ useEffect(() => {
           : "border-slate-700"
       }`}
     >
-<option value="all">All Category Levels</option>
-<option value="level1">Main Category</option>
-<option value="level2">Sub Category</option>
-<option value="level3">Child Category</option>
-<option value="level4">Level 4 Category</option>
+<option value="all">
+  All Category Levels ({levelCounts.total})
+</option>
+
+<option value="level1">
+  Main Category ({levelCounts.level1})
+</option>
+
+<option value="level2">
+  Sub Category ({levelCounts.level2})
+</option>
+
+<option value="level3">
+  Child Category ({levelCounts.level3})
+</option>
+
+<option value="level4">
+  Level 4 Category ({levelCounts.level4})
+</option>
     </select>
 
     {/* Deleted */}
@@ -1570,7 +1706,33 @@ useEffect(() => {
                   <h2 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent truncate">
                     {viewingCategory.name}
                   </h2>
-                  <p className="text-slate-400 text-xs mt-0.5">View category information</p>
+<p className="text-xs mt-0.5 flex flex-wrap items-center">
+  {getCategoryHierarchyArray(viewingCategory, categories).map(
+    (item, index, arr) => {
+      const isLast = index === arr.length - 1;
+
+      return (
+        <React.Fragment key={index}>
+          <span
+            className={
+              isLast
+                ? "text-cyan-400 font-medium"
+                : "text-slate-400"
+            }
+          >
+            {item}
+          </span>
+
+          {!isLast && (
+            <span className="mx-1 text-slate-500">
+              {">".repeat(index + 1)}
+            </span>
+          )}
+        </React.Fragment>
+      );
+    }
+  )}
+</p>
                 </div>
 
                 {/* Close Button */}

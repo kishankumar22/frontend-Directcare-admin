@@ -171,6 +171,7 @@ export interface Order {
   orderNumber: string;
   status: OrderStatus;
   orderDate: string;
+  productSavingsAmount?: number;
 
   estimatedDispatchDate?: string;
   dispatchedAt?: string;

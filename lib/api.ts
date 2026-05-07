@@ -43,7 +43,15 @@ class ApiClient {
         config.maxContentLength = Infinity;
         config.maxBodyLength = Infinity;
 
-        const fullUrl = `${config.baseURL}${config.url}`;
+ const queryString = config.params
+  ? `?${new URLSearchParams(config.params).toString()}`
+  : "";
+
+const fullUrl = `${config.baseURL}${config.url}${queryString}`;
+
+console.log(
+  `🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`
+);
         console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
 
         if (typeof window !== 'undefined') {

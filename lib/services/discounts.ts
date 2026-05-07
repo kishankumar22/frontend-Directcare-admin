@@ -20,6 +20,7 @@ export interface Discount {
   name: string;
   slug: string;
   isActive: boolean;
+  isDeleted: boolean;          // ✅ ADD THIS LINE
   discountType: DiscountType;
   usePercentage: boolean;
   discountAmount: number;

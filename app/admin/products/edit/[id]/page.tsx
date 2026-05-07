@@ -4892,194 +4892,177 @@ const uploadImagesToProductDirect = async (
 // }
 
   return (
-    <div className="space-y-2">
-{/* ✅ HEADER SECTION - Updated */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-    
-    {/* ========== LEFT SIDE - Title + Product Name ========== */}
-    <div className="flex items-center gap-4">
-      {/* ========== BACK BUTTON ========== */}
-<Link 
-  href="/admin/products"
-  onClick={(e) => {
-    if (hasUnsavedChanges) {
-      e.preventDefault();
-      handleNavigateAway('/admin/products');
-    }
-  }}
->
-  <button className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
-    <ArrowLeft className="h-5 w-5" />
-  </button>
-</Link>
-      
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Edit Product
-          </h1>
-          
-          {/* ✅ PRODUCT NAME - Inline Display */}
-          {formData.name && (
-            <div className="flex items-center gap-2">
-              <span className="text-slate-600">•</span>
-              <span className="text-lg font-semibold text-white truncate max-w-2xl" title={formData.name}>
-                {formData.name}
-              </span>
-            </div>
-          )}
-        </div>
-        
-        <p className="text-sm text-slate-400 mt-1">
-          {isSubmitting 
-            ? submitProgress?.step || 'Processing...' 
-            : 'Update your product details'
-          }
-        </p>
+    <div className="space-y-2 ">
+
+<div className="sticky top-0 z-50 px-2">
+  {/* BACKGROUND */}
+  <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-xl"></div>
+
+  <div className="relative overflow-hidden rounded-2xl border border-slate-800/70 bg-[#071120]/90">
+
+    {/* ✅ THIN TOP SLIDER */}
+    {isSubmitting && submitProgress ? (
+      <div className="h-[2px] w-full bg-slate-800 overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-violet-500 via-cyan-400 to-pink-500 transition-all duration-500"
+          style={{ width: `${submitProgress.percentage}%` }}
+        />
       </div>
-    </div>
+    ) : (
+      <div className="h-[2px] w-full bg-gradient-to-r from-violet-500 via-cyan-400 to-pink-500 opacity-70" />
+    )}
 
-    {/* ========== RIGHT SIDE - Action Buttons ========== */}
-    <div className="flex items-center gap-3">
-      
-      {/* ✅ SAVE AS DRAFT BUTTON */}
-      <button
-        type="button"
-        onClick={(e) => handleSubmit(e, true)}
-        disabled={isSubmitting}
-        className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isSubmitting ? (
-          <>
-            <div className="w-2 h-2 border border-orange-400 border-t-transparent rounded-full animate-spin"></div>
-            <span>Saving...</span>
-          </>
-        ) : (
-          <>
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-            <span>Save as Draft</span>
-          </>
-        )}
-      </button>
+    <div className="px-3 py-2">
 
-{/* ✅ ULTRA COMPACT - Minimal */}
-{takeoverRequest && takeoverTimeLeft > 0 && (
-  <button
-    type="button"
-    onClick={() => setIsTakeoverModalOpen(true)}
-    className="relative px-2.5 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 transition-all group"
-    title={`Request from ${takeoverRequest.requestedByEmail}`}
-  >
-    <div className="flex items-center gap-1.5">
-      <Bell className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
-      <span className="text-xs font-mono font-bold text-blue-400">
-        {Math.floor(takeoverTimeLeft / 60)}:{String(takeoverTimeLeft % 60).padStart(2, '0')}
-      </span>
-    </div>
-    
-    {/* Pulse Indicator */}
-    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full animate-ping"></div>
-    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
-  </button>
-)}
+      {/* MAIN ROW */}
+      <div className="flex items-center justify-between gap-3">
 
+        {/* LEFT */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
 
+          {/* BACK */}
+          <Link
+            href="/admin/products"
+            onClick={(e) => {
+              if (hasUnsavedChanges) {
+                e.preventDefault();
+                handleNavigateAway("/admin/products");
+              }
+            }}
+          >
+            <button className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700/60 bg-slate-900/60 hover:bg-slate-800 transition-all">
+              <ArrowLeft className="h-4 w-4 text-slate-400 group-hover:text-white" />
+            </button>
+          </Link>
 
+          {/* TITLE */}
+          <div className="min-w-0 flex-1">
 
-   
-{/* ========== CANCEL BUTTON ========== */}
-<button
-  type="button"
-  onClick={() => handleCancel()}
-  disabled={isSubmitting}
-  className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800"
->
-  Cancel
-</button>
+            <div className="flex items-center gap-2 min-w-0">
 
-      {/* ✅ UPDATE BUTTON */}
-      <button
-        type="button"
-        onClick={(e) => handleSubmit(e, false)}
-        disabled={isSubmitting}
-        className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
-      >
-        {isSubmitting ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            <span>Updating...</span>
-          </>
-        ) : (
-          <>
-            <Save className="h-4 w-4" />
-            <span>Update Product</span>
-          </>
-        )}
+              <h1 className="shrink-0 text-[24px] leading-none font-black tracking-tight">
+                <span className="bg-gradient-to-r from-violet-400 via-cyan-400 to-sky-400 bg-clip-text text-transparent">
+                  Edit Product
+                </span>
+              </h1>
 
-        {/* Progress Bar Overlay */}
-        {isSubmitting && submitProgress && (
-          <div className="absolute bottom-0 left-0 h-1 bg-white/30 transition-all duration-500"
-            style={{ width: `${submitProgress.percentage}%` }}
-          ></div>
-        )}
-      </button>
+              {/* PRODUCT NAME */}
+              {formData.name && (
+                <div className="max-w-[420px] truncate rounded-lg border border-slate-700/50 bg-slate-800/50 px-2.5 py-1">
+                  <span
+                    className="truncate text-[13px] font-semibold text-slate-100"
+                    title={formData.name}
+                  >
+                    {formData.name}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* SUBTEXT */}
+            <div className="mt-0.5 flex items-center gap-2">
+
+              <p className="text-[11px] text-slate-400">
+                {isSubmitting
+                  ? submitProgress?.step || "Processing..."
+                  : "Update your product details"}
+              </p>
+
+              {hasUnsavedChanges && !isSubmitting && (
+                <div className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+
+                  <span className="text-[10px] font-medium text-amber-300">
+                    Unsaved
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT */}
+        <div className="flex items-center gap-2 shrink-0">
+
+          {/* SAVE DRAFT */}
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e, true)}
+            disabled={isSubmitting}
+            className="h-9 rounded-xl border border-orange-500/20 bg-orange-500/10 px-3.5 text-[13px] font-semibold text-orange-300 hover:bg-orange-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <div className="h-3 w-3 rounded-full border-2 border-orange-300 border-t-transparent animate-spin"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <div className="h-1.5 w-1.5 rounded-full bg-orange-400"></div>
+             Save Draft
+              </>
+            )}
+          </button>
+
+          {/* CANCEL */}
+          <button
+            type="button"
+            onClick={() => handleCancel()}
+            disabled={isSubmitting}
+            className="h-9 rounded-xl border border-slate-700 bg-slate-800/60 px-4 text-[13px] font-medium text-slate-200 hover:bg-slate-700/70 transition-all"
+          >
+            Cancel
+          </button>
+
+          {/* UPDATE BUTTON */}
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e, false)}
+            disabled={isSubmitting}
+            className="group relative overflow-hidden h-9 rounded-xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 px-4 text-[13px] font-bold text-white transition-all disabled:opacity-50"
+          >
+            <div className="relative flex items-center gap-2">
+              {isSubmitting ? (
+                <>
+                  <div className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+
+                  <span>
+                    Updating... {submitProgress?.percentage || 0}%
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" />
+                    Update Product
+                </>
+              )}
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* REQUIRED */}
+      {missingFields.length > 0 && (
+        <div className="mt-2 flex items-center gap-2 rounded-xl border border-orange-500/10 bg-orange-500/5 px-2.5 py-1.5 overflow-hidden">
+
+          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400"></div>
+
+          <span className="shrink-0 text-[11px] font-semibold text-orange-300">
+            {missingFields.length} Required
+          </span>
+
+          <span className="truncate text-[11px] text-orange-200/80">
+            {missingFields.join(", ")}
+          </span>
+        </div>
+      )}
     </div>
   </div>
-
-  {/* ✅ PROGRESS BAR BELOW HEADER */}
-  {isSubmitting && submitProgress && (
-    <div className="mt-3 pt-3 border-t border-slate-800">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-slate-400">
-          {submitProgress.step}
-        </span>
-        <span className="text-xs font-mono text-violet-400">
-          {submitProgress.percentage}%
-        </span>
-      </div>
-      <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-        <div
-          className="bg-gradient-to-r from-violet-500 via-cyan-500 to-pink-500 h-full transition-all duration-500 ease-out"
-          style={{ width: `${submitProgress.percentage}%` }}
-        ></div>
-      </div>
-    </div>
-  )}
 </div>
 
-
-
-
-      {/* Main Content */}
-      <div className="w-full">
-          {missingFields.length > 0 && (
-          <div className="flex items-center gap-2 mb-2 px-1 py-1 bg-orange-500/10 border border-orange-500/30 rounded-lg flex-wrap">
-            
-            <svg
-              className="w-4 h-4 text-orange-400 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-
-            <span className="text-xs font-medium text-orange-400">
-              {missingFields.length} required field
-              {missingFields.length !== 1 ? "s" : ""}:
-            </span>
-
-            <span className="text-xs text-orange-300">
-              {missingFields.join(", ")}
-            </span>
-          </div>
-          )}
+      
         {/* Main Form */}
-        <div className="w-full">
+
           <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
             <Tabs defaultValue="product-info" className="w-full">
               <div className="border-b border-slate-800 mb-3">
@@ -7661,8 +7644,8 @@ const uploadImagesToProductDirect = async (
 
             </Tabs>
           </div>
-        </div>
-      </div>
+ 
+
 {/* Add this before the final closing </div> of your return statement */}
 <GroupedProductModal
   isOpen={isGroupedModalOpen}

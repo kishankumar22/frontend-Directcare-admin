@@ -207,6 +207,33 @@ const productMap = useMemo(() => {
   return map;
 }, [products, selectedProducts]);
 
+const findCategoryById = (
+  categories: any[],
+  id: string
+): any | null => {
+  for (const category of categories) {
+
+    if (String(category.id).trim() === String(id).trim()) {
+      return category;
+    }
+
+    // 🔥 recursive children check
+    const children =
+      category.children ||
+      category.subCategories ||
+      category.subcategories ||
+      [];
+
+    if (children.length > 0) {
+      const found = findCategoryById(children, id);
+
+      if (found) return found;
+    }
+  }
+
+  return null;
+};
+
 const checkProductConflicts = React.useCallback((productIdStr: string) => {
   const allDiscounts = (props.discounts || []) as any[];
   const product = productMap.get(productIdStr);
@@ -273,6 +300,47 @@ if (d.isCumulative && formData.isCumulative) return false;
     isAssignedToCurrentDiscount
   };
 }, [productMap, props.discounts, editingDiscount]);
+
+useEffect(() => {
+  if (!viewingDiscount?.assignedProductIds) return;
+
+  const ids = viewingDiscount.assignedProductIds
+    .split(",")
+    .map(id => id.trim())
+    .filter(Boolean);
+
+  const missingIds = ids.filter(id => !productMap.has(id));
+
+  if (missingIds.length === 0) return;
+
+  const fetchViewProducts = async () => {
+    try {
+      const res = await Promise.all(
+        missingIds.map(id => productsService.getById(id))
+      );
+
+      const fetched: Product[] = res
+        .map(r => r?.data?.data)
+        .filter((p): p is Product => Boolean(p));
+
+      setSelectedProducts(prev => {
+        const map = new Map(prev.map(p => [p.id, p]));
+
+        fetched.forEach(p => {
+          map.set(p.id, p);
+        });
+
+        return Array.from(map.values());
+      });
+
+    } catch (e) {
+      console.error("Failed to fetch viewing products", e);
+    }
+  };
+
+  fetchViewProducts();
+
+}, [viewingDiscount, productMap]);
 
 const mergedOptions = useMemo(() => {
   const map = new Map();
@@ -598,16 +666,30 @@ useEffect(() => {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setShowModal(false);
-              resetForm();
-            }}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-          >
-            ✕
-          </button>
+        <button
+  type="button"
+  onClick={() => {
+    setShowModal(false);
+    resetForm();
+  }}
+  className="
+    group
+    relative
+    w-10 h-10
+    flex items-center justify-center
+    rounded-xl
+    border border-slate-700/60
+    bg-slate-800/60
+    text-slate-400
+    hover:text-white
+    hover:bg-red-500/15
+    hover:border-red-500/40
+    active:scale-95
+    transition-all duration-200
+  "
+>
+  <X className="w-5 h-5 transition-transform duration-200 group-hover:rotate-90" />
+</button>
         </div>
       </div>
 
@@ -1737,23 +1819,35 @@ onChange={(selectedOptions) => {
       {/* ========== VIEW DISCOUNT DETAILS MODAL ========== */}
       {viewingDiscount && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
             <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Discount Details
+                  {viewingDiscount.name}
                   </h2>
                   <p className="text-slate-300 text-xs mt-1 font-medium" title={viewingDiscount.id}>
                     View discount information
                   </p>
                 </div>
-                <button
-                  onClick={() => setViewingDiscount(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
+              <button
+  onClick={() => setViewingDiscount(null)}
+  className="
+    group
+    w-10 h-10
+    flex items-center justify-center
+    rounded-xl
+    border border-slate-700/60
+    bg-slate-800/50
+    text-slate-400
+    hover:text-white
+    hover:bg-red-500/15
+    hover:border-red-500/40
+    transition-all duration-200
+  "
+>
+  <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
+</button>
               </div>
             </div>
 
@@ -1762,16 +1856,6 @@ onChange={(selectedOptions) => {
                 
                 {/* Left Column */}
                 <div className="space-y-4">
-                  {/* Discount Name */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-sm text-slate-300 font-semibold whitespace-nowrap pt-1 flex items-center gap-2">
-                        <Gift className="w-4 h-4" />
-                        Name:
-                      </span>
-                      <p className="text-base font-bold text-white text-right flex-1">{viewingDiscount.name}</p>
-                    </div>
-                  </div>
 
                   {/* Type, Status & Limitation */}
                   <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
@@ -1957,28 +2041,98 @@ onChange={(selectedOptions) => {
                 {/* Right Column */}
                 <div className="space-y-4">
                   {/* Valid Period */}
-                  <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-                    <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-violet-400" />
-                      Valid Period
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-sm text-slate-300 font-semibold">Start Date:</span>
-                        <span className="text-slate-100 text-sm font-medium">
-                     
-                           {formatDate(viewingDiscount.startDate)}
-                        </span>
-                      </div>
+             {/* Valid Period */}
+<div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
 
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-sm text-slate-300 font-semibold">End Date:</span>
-                        <span className="text-slate-100 text-sm font-medium">
-                          {formatDate(viewingDiscount.endDate)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+  {(() => {
+    const now = new Date();
+
+    const start = new Date(viewingDiscount.startDate);
+    const end = new Date(viewingDiscount.endDate);
+
+    let status = "Active";
+    let statusClasses =
+      "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+
+    let dotClasses = "bg-emerald-400";
+
+    if (now < start) {
+      status = "Scheduled";
+
+      statusClasses =
+        "bg-amber-500/15 text-amber-400 border-amber-500/30";
+
+      dotClasses = "bg-amber-400";
+    }
+
+    if (now > end) {
+      status = "Expired";
+
+      statusClasses =
+        "bg-red-500/15 text-red-400 border-red-500/30";
+
+      dotClasses = "bg-red-400";
+    }
+
+    return (
+      <>
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-4">
+
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-violet-400" />
+            Valid Period
+          </h3>
+
+          {/* STATUS */}
+          <div
+            className={`
+              inline-flex items-center gap-2
+              px-3 py-1.5
+              rounded-xl
+              border
+              text-[11px]
+              font-bold
+              tracking-wide
+              ${statusClasses}
+            `}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${dotClasses}`}
+            />
+
+            {status}
+          </div>
+        </div>
+
+        {/* DATES */}
+        <div className="space-y-3">
+
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm text-slate-300 font-semibold">
+              Start Date:
+            </span>
+
+            <span className="text-slate-100 text-sm font-medium">
+              {formatDate(viewingDiscount.startDate)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm text-slate-300 font-semibold">
+              End Date:
+            </span>
+
+            <span className="text-slate-100 text-sm font-medium">
+              {formatDate(viewingDiscount.endDate)}
+            </span>
+          </div>
+
+        </div>
+      </>
+    );
+  })()}
+</div>
 
                   {/* Assignments */}
                   {(viewingDiscount.assignedProductIds || viewingDiscount.assignedCategoryIds || viewingDiscount.assignedManufacturerIds) && (
@@ -2053,65 +2207,178 @@ onChange={(selectedOptions) => {
                           </div>
                         )}
                         
-                        {/* FOR ASSIGNED TO CATEGORIES */}
-                        {viewingDiscount.discountType === 'AssignedToCategories' && (
-                          <>
-                            {viewingDiscount.assignedCategoryIds && (
-                              <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                  <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                                    <Target className="h-4 w-4 text-green-400" />
-                                  </div>
-                                  <p className="text-sm text-green-400 font-bold">Category Discount Applied on:</p>
-                                </div>
-                                <div className="flex flex-wrap gap-2 pl-10">
-                                  {viewingDiscount.assignedCategoryIds.split(',').filter(id => id.trim()).map((categoryId, index) => {
-                                    const category = categories.find(c => c.id === categoryId.trim());
-                                    return (
-                                      <span 
-                                        key={index} 
-                                        className="px-3 py-2 bg-green-500/10 text-green-400 rounded-lg text-xs font-semibold border border-green-500/30 hover:bg-green-500/20 transition-all flex items-center gap-2"
-                                      >
-                                        <span className="text-base">📁</span>
-                                        {category ? category.name : `Category ${index + 1}`}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
+                   {/* FOR ASSIGNED TO CATEGORIES */}
+{viewingDiscount.discountType === 'AssignedToCategories' && (
+  <>
+    {viewingDiscount.assignedCategoryIds && (
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+            <Target className="h-4 w-4 text-green-400" />
+          </div>
 
-                            {viewingDiscount.assignedProductIds && (
-                              <div className="mt-4 pt-4 border-t border-slate-700/50">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                                    <Package className="h-4 w-4 text-violet-400" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-violet-400 font-bold">Additional Products from Category:</p>
-                                    <p className="text-xs text-slate-400 mt-0.5">
-                                      Specific products get extra attention within this category
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2 pl-10">
-                                  {viewingDiscount.assignedProductIds.split(',').filter(id => id.trim()).map((productId, index) => {
-                                    const product = productMap.get(productId.trim());
-                                    return (
-                                      <span 
-                                        key={index} 
-                                        className="px-3 py-2 bg-violet-500/10 text-violet-400 rounded-lg text-xs font-semibold border border-violet-500/30 hover:bg-violet-500/20 transition-all flex items-center gap-2"
-                                      >
-                                        <Package className="h-3 w-3" />
-                                        {product ? product.name : `Product ${index + 1}`}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
+          <div>
+            <p className="text-sm text-green-400 font-bold">
+              Category Discount Applied on:
+            </p>
+
+            <p className="text-xs text-slate-400 mt-0.5">
+              {viewingDiscount.assignedProductIds &&
+              viewingDiscount.assignedProductIds.trim() !== ""
+                ? "This discount applies only to selected products from this category"
+                : "This discount applies to all products inside this category"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 pl-10">
+          {viewingDiscount.assignedCategoryIds
+            .split(',')
+            .filter(id => id.trim())
+            .map((categoryId, index) => {
+           const category = findCategoryById(
+  categories,
+  categoryId
+);
+
+              return (
+                <span
+                  key={index}
+                  className="
+                    px-3 py-2
+                    bg-green-500/10
+                    text-green-400
+                    rounded-lg
+                    text-xs
+                    font-semibold
+                    border border-green-500/30
+                    hover:bg-green-500/20
+                    transition-all
+                    flex items-center gap-2
+                  "
+                >
+                  <span className="text-base">📁</span>
+
+                  {category
+                    ? category.name
+                    : `Category ${index + 1}`}
+                </span>
+              );
+            })}
+        </div>
+      </div>
+    )}
+
+    {/* SPECIFIC PRODUCTS */}
+    {viewingDiscount.assignedProductIds &&
+      viewingDiscount.assignedProductIds.trim() !== "" && (
+        <div className="mt-4 pt-4 border-t border-slate-700/50">
+
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+              <Package className="h-4 w-4 text-violet-400" />
+            </div>
+
+            <div>
+              <p className="text-sm text-violet-400 font-bold">
+                Selected Products:
+              </p>
+
+              <p className="text-xs text-slate-400 mt-0.5">
+                Only these products receive the category discount
+              </p>
+            </div>
+          </div>
+
+        <div className="flex flex-wrap gap-2 pl-10">
+  {viewingDiscount.assignedProductIds
+    .split(',')
+    .filter(id => id.trim())
+    .map((productId, index) => {
+      const product = productMap.get(productId.trim());
+
+      return (
+        <div
+          key={index}
+          className="
+            flex items-center gap-2
+            px-3 py-2
+            bg-violet-500/10
+            text-violet-400
+            rounded-xl
+            text-xs
+            font-semibold
+            border border-violet-500/30
+            hover:bg-violet-500/20
+            transition-all
+
+          "
+        >
+          {/* COUNT */}
+          <div
+            className="
+              w-5 h-5
+              rounded-full
+              bg-violet-500/20
+              border border-violet-500/30
+              flex items-center justify-center
+              text-[10px]
+              font-bold
+              shrink-0
+            "
+          >
+            {index + 1}
+          </div>
+
+          {/* IMAGE */}
+          <div
+            className="
+              w-8 h-8
+              rounded-lg
+              overflow-hidden
+              bg-slate-800
+              border border-violet-500/20
+              shrink-0
+            "
+          >
+          {(() => {
+  const productImage =
+    product?.mainImageUrl ||
+    product?.images?.find((i: any) => i.isMain)?.imageUrl ||
+    product?.images?.[0]?.imageUrl ||
+    product?.variants?.find((v: any) => v.imageUrl)?.imageUrl;
+
+  return productImage ? (
+    <img
+      src={productImage}
+      alt={product?.name}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center">
+      <Package className="h-3 w-3 text-violet-400" />
+    </div>
+  );
+})()}
+          </div>
+
+          {/* NAME */}
+          <span
+            className="truncate"
+            title={product?.name}
+          >
+            {product
+              ? product.name
+              : `Product ${index + 1}`}
+          </span>
+        </div>
+      );
+    })}
+</div>
+        </div>
+      )}
+  </>
+)}
 
                         {/* FOR ORDER TOTAL / SHIPPING */}
                         {(viewingDiscount.discountType === 'AssignedToOrderTotal' || 
@@ -2233,34 +2500,74 @@ onChange={(selectedOptions) => {
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[97vh] overflow-hidden shadow-2xl">
             
             {/* Compact Header - Inline */}
-            <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-base">
-                    {getDiscountTypeIcon(selectedDiscountHistory.discountType)}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-white leading-tight">
-                      {selectedDiscountHistory.name}
-                    </h2>
-                    {selectedDiscountHistory.couponCode && (
-                      <span className="text-green-400 font-mono text-xs">
-                        {selectedDiscountHistory.couponCode}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setUsageHistoryModal(false);
-                    clearDateFilters();
-                  }}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
+     <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+  <div className="flex items-start justify-between gap-3">
+
+    {/* LEFT */}
+    <div className="flex items-start gap-3 min-w-0">
+
+      {/* ICON */}
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-lg shadow-lg shadow-violet-500/20 shrink-0">
+        {getDiscountTypeIcon(selectedDiscountHistory.discountType)}
+      </div>
+
+      {/* CONTENT */}
+      <div className="min-w-0">
+
+        {/* TITLE */}
+        <h2 className="text-lg font-bold text-white leading-tight truncate">
+          {selectedDiscountHistory.name}
+        </h2>
+
+        {/* HELPER TEXT */}
+        <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+          Track discount usage activity, customer redemptions,
+          and order-level analytics for this promotion.
+        </p>
+
+        {/* COUPON */}
+        {selectedDiscountHistory.couponCode && (
+          <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-green-500/10 border border-green-500/20">
+            <span className="text-[10px] uppercase tracking-wider text-green-400 font-bold">
+              Coupon
+            </span>
+
+            <span className="text-green-300 font-mono text-xs font-semibold">
+              {selectedDiscountHistory.couponCode}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* CLOSE BUTTON */}
+    <button
+      onClick={() => {
+        setUsageHistoryModal(false);
+        clearDateFilters();
+      }}
+      className="
+        group
+        relative
+        w-10 h-10
+        flex items-center justify-center
+        rounded-xl
+        border border-slate-700/60
+        bg-slate-800/60
+        text-slate-400
+        hover:text-white
+        hover:bg-red-500/15
+        hover:border-red-500/40
+        active:scale-95
+        transition-all duration-200
+        shrink-0
+      "
+    >
+      <X className="w-5 h-5 transition-transform duration-200 group-hover:rotate-90" />
+    </button>
+
+  </div>
+</div>
 
             {/* ✅ COMPACT DATE FILTER - INLINE */}
             <div className="p-3 border-b border-slate-800 bg-slate-900/30">
