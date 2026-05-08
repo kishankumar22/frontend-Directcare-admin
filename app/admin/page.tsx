@@ -15,6 +15,7 @@ import {
 import { dashboardService, DashboardPeriod, DashboardStats } from "@/lib/services/dashboard";
 
 import { formatCurrency, getOrderProductImage } from "./_utils/formatUtils";
+import { scrollCls } from "./_utils/styles";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -495,7 +496,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
+          <div className={`space-y-1.5 max-h-[400px] overflow-y-auto pr-1  ${scrollCls} `}>
             {d.recentOrders.length > 0 ? d.recentOrders.map((o, idx) => {
               const meta = STATUS_META[o.status] ?? DEFAULT_META;
               const Icon = meta.icon;
@@ -546,7 +547,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+          <div className={`space-y-2 max-h-[400px] overflow-y-auto pr-1   ${scrollCls}`}>
             {d.topProducts.length > 0 ? (() => {
               const maxSold = Math.max(...d.topProducts.map(p => p.totalSold), 1);
               return d.topProducts.map((p, i) => (
@@ -624,7 +625,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+          <div className={`space-y-2 max-h-[300px] overflow-y-auto pr-1  ${scrollCls}`}>
             {d.topCustomers.length > 0 ? d.topCustomers.map((c, i) => (
               <div
                 key={c.customerId || i}
@@ -672,7 +673,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+   <div className={`space-y-2 max-h-[300px] overflow-y-auto pr-1 ${scrollCls}`}>
             {d.outOfStockProducts > 0 && (
               <div className="space-y-1">
                 <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">Out of Stock</p>
@@ -849,7 +850,7 @@ export default function AdminDashboard() {
   <Activity className="h-4 w-4 text-blue-400" />
   Recent Activity
 </a>
-          <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+      <div className={`space-y-2 max-h-[250px] overflow-y-auto pr-1 ${scrollCls}`}>
             {d.recentActivity?.slice(0, 8).map((activity, i) => (
               <div key={i} className="p-2 rounded-lg bg-slate-800/30 border border-slate-700/50">
                 <div className="flex items-start gap-2">

@@ -68,9 +68,10 @@ import {
 import BulkShipmentUploadModal from './BulkShipmentUploadModal';
 import ImportWooCommerceOrdersModal from './ImportWooCommerceOrdersModal';
 
-import { formatNumber, getOrderProductImage } from '../_utils/formatUtils';
+import { formatNumber, getImageUrl, getOrderProductImage } from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
 import ImagePreviewModal from '../_components/ImagePreviewModal';
+import { scrollCls } from '../_utils/styles';
 
 const card = `
 bg-slate-900/40 border rounded-lg p-2
@@ -1428,7 +1429,7 @@ if (initialLoading) {
             <p className="text-slate-400 text-sm">No orders found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[70vh]">
+     <div className={`overflow-x-auto max-h-[70vh] ${scrollCls}`}>
 <table className="w-full">
 <thead className="sticky top-0 bg-slate-800/85 backdrop-blur-sm z-50">
 <tr className="border-b border-slate-700">
@@ -1516,16 +1517,24 @@ title="Select order"
 <td className="py-2 px-2">
   <div className="flex items-center justify-center gap-2.5">
 
-    {/* IMAGE */}
-    <img
-      src={getOrderProductImage(order.orderItems[0]?.productImageUrl)}
-      alt={order.orderItems[0]?.productName}
-      className="w-12 h-12 rounded-md object-cover border border-slate-700 flex-shrink-0 cursor-pointer hover:scale-105 transition"
-      onClick={() =>
-        setPreviewImage(order.orderItems[0]?.productImageUrl || null)
-      }
-      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-    />
+{/* IMAGE */}
+{order.orderItems?.length > 0 ? (
+  <img
+    src={getImageUrl(order.orderItems[0]?.productImageUrl)}
+    alt={order.orderItems[0]?.productName}
+    className="w-12 h-12 rounded-md object-cover border border-slate-700 flex-shrink-0 cursor-pointer hover:scale-105 transition"
+    onClick={() =>
+      setPreviewImage(order.orderItems[0]?.productImageUrl || null)
+    }
+    onError={(e) => {
+      e.currentTarget.src = "/placeholder.png";
+    }}
+  />
+) : (
+  <div className="w-12 h-12 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] text-slate-400">
+    No Image
+  </div>
+)}
 
     {/* CONTENT */}
     <div className="flex flex-col min-w-0 flex-1 gap-[2px]">

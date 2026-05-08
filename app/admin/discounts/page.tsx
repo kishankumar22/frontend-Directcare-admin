@@ -1,10 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, X, ExternalLink, FolderTree, Clock3, } from "lucide-react";
-
-
 import { useToast } from "@/app/admin/_components/CustomToast";
-
 import {
   Discount,
   DiscountLimitationType,
@@ -19,11 +16,7 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
 import { getImageUrl } from "../_utils/formatUtils";
 import ImagePreviewModal from "../_components/ImagePreviewModal";
-import { getBackendMessage, getBackendErrors } from "@/app/admin/_utils/errorUtils";
-
-
-
-
+import { getBackendMessage} from "@/app/admin/_utils/errorUtils";
 
 const extractProducts = (res: any): Product[] => {
   if (Array.isArray(res)) return res;

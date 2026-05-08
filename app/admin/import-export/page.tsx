@@ -18,10 +18,13 @@ import {
   Sparkles,
   ArrowDownToLine,
   UploadCloud,
+  Search,
 } from 'lucide-react';
 import { orderService } from '@/lib/services/orders';
 import productsService from '@/lib/services/products';
 import { categoriesService } from '@/lib/services/categories';
+import { scrollCls } from '../_utils/styles';
+import { useDebounce } from '../_hooks/useDebounce';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -435,6 +438,10 @@ function ProductsBulkUpdateTab() {
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState('');
   const [selectedFields, setSelectedFields] = useState<string[]>(EDITABLE_FIELDS.map(f => f.key));
+  const [categorySearch, setCategorySearch] = useState('');
+  const debouncedCategorySearch = useDebounce(categorySearch, 350);
+  const [fieldSearch, setFieldSearch] = useState('');
+  const debouncedFieldSearch = useDebounce(fieldSearch, 350);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateDone, setTemplateDone] = useState(false);
 
@@ -460,6 +467,33 @@ function ProductsBulkUpdateTab() {
   function clearCategories() {
     setTemplateFilters(prev => ({ ...prev, categoryIds: [] }));
   }
+  function selectAllCategories() {
+    setTemplateFilters(prev => ({ ...prev, categoryIds: categories.map(c => c.id) }));
+  }
+  function selectFilteredCategories() {
+    const query = debouncedCategorySearch.trim().toLowerCase();
+    if (!query) return;
+    const ids = categories
+      .filter(c => (c.path || c.name).toLowerCase().includes(query))
+      .map(c => c.id);
+    setTemplateFilters(prev => ({ ...prev, categoryIds: Array.from(new Set([...prev.categoryIds, ...ids])) }));
+  }
+  function selectFilteredFields() {
+    const query = debouncedFieldSearch.trim().toLowerCase();
+    if (!query) return;
+    const keys = EDITABLE_FIELDS
+      .filter(f => f.label.toLowerCase().includes(query))
+      .map(f => f.key);
+    setSelectedFields(prev => Array.from(new Set([...prev, ...keys])));
+  }
+
+  const filteredCategories = debouncedCategorySearch.trim().length === 0
+    ? categories
+    : categories.filter(c => (c.path || c.name).toLowerCase().includes(debouncedCategorySearch.trim().toLowerCase()));
+
+  const filteredFields = debouncedFieldSearch.trim().length === 0
+    ? EDITABLE_FIELDS
+    : EDITABLE_FIELDS.filter(f => f.label.toLowerCase().includes(debouncedFieldSearch.trim().toLowerCase()));
 
   useEffect(() => {
     let alive = true;
@@ -607,21 +641,47 @@ function ProductsBulkUpdateTab() {
             </Field>
           </div>
 
-          <div className="rounded-xl border border-slate-700/60 bg-slate-950/30 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3">
-              <div>
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Filter by Categories</p>
-                <p className="text-xs text-slate-500 mt-0.5">Select one or more categories. Leave empty to include products from every category.</p>
-              </div>
-              <div className="flex items-center gap-3">
+            <div className="rounded-xl border border-slate-700/60 bg-slate-950/30 overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Filter by Categories</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Select one or more categories. Leave empty to include products from every category.</p>
+                </div>
+              <div className="flex items-center gap-2">
                 {templateFilters.categoryIds.length > 0 && (
                   <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300">
                     {templateFilters.categoryIds.length} selected
                   </span>
                 )}
-                <button onClick={clearCategories} className="text-xs font-medium text-slate-400 hover:text-slate-300">All categories</button>
+
+                <div className="relative">
+                  <input
+                  type='search'
+                    value={categorySearch}
+                    onChange={(e) => setCategorySearch(e.target.value)}
+                    placeholder="Search categories..."
+                    className="h-8 w-52 rounded-lg border border-slate-700 bg-slate-900/60 pl-9 pr-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 transition"
+                  />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                </div>
+
+                {debouncedCategorySearch.trim().length > 0 && filteredCategories.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={selectFilteredCategories}
+                    className="text-xs font-medium text-emerald-300 hover:text-emerald-200"
+                    title="Select all categories from search results"
+                  >
+                    Select results ({filteredCategories.length})
+                  </button>
+                )}
+
+                <span className="text-slate-700">|</span>
+
+                <button onClick={selectAllCategories} className="text-xs font-medium text-slate-300 hover:text-slate-200">All categories</button>
+                <button onClick={clearCategories} className="text-xs font-medium text-slate-500 hover:text-slate-300">Clear</button>
               </div>
-            </div>
+            </div>  
             <div className="p-4">
               {categoriesLoading ? (
               <div className="flex min-h-24 items-center gap-2 text-xs text-slate-400">
@@ -629,11 +689,11 @@ function ProductsBulkUpdateTab() {
               </div>
             ) : categoriesError ? (
               <p className="text-xs text-amber-400">{categoriesError}</p>
-            ) : categories.length === 0 ? (
-              <p className="text-xs text-slate-500">No categories found.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1">
-                {categories.map(category => {
+             ) : categories.length === 0 ? (
+               <p className="text-xs text-slate-500">No categories found.</p>
+             ) : (
+                <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1 ${scrollCls}`}>
+                {filteredCategories.map(category => {
                   const checked = templateFilters.categoryIds.includes(category.id);
                   return (
                     <label
@@ -667,23 +727,45 @@ function ProductsBulkUpdateTab() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-700/60 bg-slate-950/30 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3">
-              <div>
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Fields to Include</p>
-                <p className="text-xs text-slate-500 mt-0.5">Checked fields will appear in Excel. Leave all unchecked to export every available field.</p>
-              </div>
+            <div className="rounded-xl border border-slate-700/60 bg-slate-950/30 overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Fields to Include</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Checked fields will appear in Excel. Leave all unchecked to export every available field.</p>
+                </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 font-semibold text-cyan-300">
                   {selectedFields.length || 'All'} fields
                 </span>
                 <button onClick={selectAllFields} className="text-cyan-400 hover:text-cyan-300 font-medium">Select all</button>
+
+                <div className="relative ml-1">
+                  <input
+                    type='search'
+                    value={fieldSearch}
+                    onChange={(e) => setFieldSearch(e.target.value)}
+                    placeholder="Search fields..."
+                    className="h-8 w-52 rounded-lg border border-slate-700 bg-slate-900/60 pl-9 pr-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/40 transition"
+                  />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                </div>
+
+                {debouncedFieldSearch.trim().length > 0 && filteredFields.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={selectFilteredFields}
+                    className="text-cyan-300 hover:text-cyan-200 font-medium"
+                    title="Select all fields from search results"
+                  >
+                    Select results ({filteredFields.length})
+                  </button>
+                )}
                 <span className="text-slate-600">|</span>
                 <button onClick={clearAllFields} className="text-slate-400 hover:text-slate-300 font-medium">All fields</button>
               </div>
             </div>
-            <div className="p-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2 max-h-72 overflow-y-auto">
-              {EDITABLE_FIELDS.map(f => {
+        <div className={`p-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2 max-h-72 overflow-y-auto ${scrollCls}`}>
+              {filteredFields.map(f => {
                 const checked = selectedFields.includes(f.key);
                 return (
                   <label

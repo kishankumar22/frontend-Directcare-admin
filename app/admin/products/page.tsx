@@ -5,17 +5,16 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import Select from "react-select";
 import {
-  Plus, Package, Edit, Trash2, Eye, Search, Filter, FilterX,
-  TrendingUp, AlertCircle, X, CheckCircle, XCircle, ChevronLeft,
-  ChevronRight, ChevronsLeft, ChevronsRight, Send, FolderTree,
-  Award, ShoppingCart, Star, Tag, ExternalLink, ChevronDown, ChevronUp,
-  Percent,
+  Plus, Package, Edit, Trash2, Eye, Search,  FilterX,
+   AlertCircle, X, CheckCircle, XCircle, ChevronLeft,
+  ChevronRight, ChevronsLeft, ChevronsRight, Send, 
+  Tag, ExternalLink, ChevronDown, ChevronUp,
   FileSpreadsheet,
   Upload,
   Download,
-  Boxes,
   Database,
-  EyeOff
+  EyeOff,
+  Pill
 } from "lucide-react";
 
 type ToggleProduct = {
@@ -70,6 +69,8 @@ interface FormattedProduct {
   updatedAt: string;
   updatedBy: string;
   variantsCount: number;
+    // ✅ ADD THIS
+  isPharmaProduct: boolean;
   
   // Inventory System
   trackQuantity: boolean;
@@ -381,7 +382,7 @@ const handleSelectProduct = (productId: string) => {
 
 const fetchVATRates = async () => {
   try {
-    setLoading(true);
+    
 
     const response = await vatratesService.getAll();
 
@@ -409,7 +410,7 @@ const fetchVATRates = async () => {
       { value: "all", label: "All VAT Rates" },
     ]);
   } finally {
-    setLoading(false);
+   
   }
 };
 
@@ -428,9 +429,7 @@ useEffect(() => {
     setSearchLoading(true);
   }
 }, [searchInput]);
-useEffect(() => {
-  fetchProducts();
-}, [sortBy, sortDirection]);
+
 const handleSelectAll = () => {
   if (selectedProducts.length === products.length) {
     setSelectedProducts([]);
@@ -653,6 +652,8 @@ if (vatFilter.value !== "all") {
         return {
           id: p.id,
           name: p.name,
+            // ✅ ADD THIS
+        isPharmaProduct: p.isPharmaProduct === true,
           categoryName: primaryCategoryName,
           price: p.price || 0,
           stock: p.stockQuantity || 0,
@@ -923,7 +924,9 @@ useEffect(() => {
   recurringFilter,
   vatFilter,
   statusFilter ,// ✅ ADD THIS
-  pharmaFilter 
+  pharmaFilter ,
+  sortBy,
+sortDirection
 ]);
 
 // ✅ CLEAR FILTERS
@@ -1178,7 +1181,7 @@ const handleExport = async (exportAll: boolean = false) => {
 
       const response = await productsService.getAll({
         page: 1,
-        pageSize: 10000,
+        pageSize: 5000,
       });
 
       const data = response.data as any;
@@ -1550,10 +1553,10 @@ const handleExportSelected = async () => {
       {/* ================= HEADER ================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Product Management
           </h1>
-          <p className="text-sm text-slate-400">Manage your product inventory</p>
+          <p className="text-xs text-slate-400">Manage your product inventory</p>
         </div>
 
 <div className="flex flex-wrap items-center gap-2">
@@ -1562,7 +1565,7 @@ const handleExportSelected = async () => {
 
   <button
     onClick={() => setShowImportModal(true)}
-    className="flex items-center gap-2 px-4 py-2 text-sm
+    className="flex items-center gap-2 px-3 py-1.5 text-[13px]
     bg-slate-800 border border-slate-700
     hover:bg-slate-700
     text-white rounded-xl font-medium transition"
@@ -1594,7 +1597,7 @@ const handleExportSelected = async () => {
 <div className="relative">
   <button
     onClick={() => setShowExportMenu(!showExportMenu)}
-    className="flex items-center gap-2 px-4 py-2 text-sm
+    className="flex items-center gap-2 px-3 py-1.5 text-[13px]
     bg-slate-800 border border-slate-700
     hover:bg-slate-700
     text-white rounded-xl font-medium transition"
@@ -1667,7 +1670,7 @@ const handleExportSelected = async () => {
 
   {/* ADD PRODUCT */}
   <Link href="/admin/products/add">
-    <button className="flex items-center gap-2 px-3 py-1.5 text-sm
+    <button className="flex items-center gap-2 px-3 py-1.5 text-[13px]
     bg-gradient-to-r from-violet-500 to-cyan-500
     text-white rounded-lg font-semibold shadow
     hover:shadow-violet-500/40 transition-all"
@@ -1682,24 +1685,24 @@ const handleExportSelected = async () => {
 
 
       {/* ================= STATS ================= */}
-<div className="grid gap-3 md:grid-cols-5">
+<div className="grid gap-2.5 md:grid-cols-5">
 
   {/* TOTAL */}
   <div
     onClick={() => handleStatClick("total")}
-    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
       !hasActiveFilters
         ? "bg-gradient-to-br from-violet-500/20 to-purple-500/20 border-violet-400 shadow-lg shadow-violet-500/20 ring-2 ring-violet-500/50"
         : "bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/20 hover:shadow-lg hover:shadow-violet-500/10"
     }`}
   >
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
+    <div className="flex items-center gap-2.5">
+      <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
         <Package className="w-4 h-4 text-white" />
       </div>
       <div>
         <p className="text-xs text-slate-400">Total Products</p>
-        <p className="text-xl font-bold text-white">{stats.totalCount}</p>
+        <p className="text-lg font-bold text-white">{stats.totalCount}</p>
       </div>
     </div>
   </div>
@@ -1707,19 +1710,19 @@ const handleExportSelected = async () => {
   {/* PUBLISHED */}
   <div
     onClick={() => handleStatClick("published")}
-    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
       publishedFilter.value === "published"
         ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-400 shadow-lg shadow-green-500/20 ring-2 ring-green-500/50"
         : "bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20 hover:shadow-lg hover:shadow-green-500/10"
     }`}
   >
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
+    <div className="flex items-center gap-2.5">
+      <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
         <CheckCircle className="w-4 h-4 text-white" />
       </div>
       <div>
         <p className="text-xs text-slate-400">Published</p>
-        <p className="text-xl font-bold text-white">{stats.publishedCount}</p>
+        <p className="text-lg font-bold text-white">{stats.publishedCount}</p>
       </div>
     </div>
   </div>
@@ -1727,19 +1730,19 @@ const handleExportSelected = async () => {
   {/* LOW STOCK */}
   <div
     onClick={() => handleStatClick("lowStock")}
-    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
       statusFilter.value === "LowStock"
         ? "bg-gradient-to-br from-orange-500/20 to-amber-500/20 border-orange-400 shadow-lg shadow-orange-500/20 ring-2 ring-orange-500/50"
         : "bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/10"
     }`}
   >
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
+    <div className="flex items-center gap-2.5">
+      <div className="p-1.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
         <AlertCircle className="w-4 h-4 text-white" />
       </div>
       <div>
         <p className="text-xs text-slate-400">Low Stock</p>
-        <p className="text-xl font-bold text-white">{stats.lowStockCount}</p>
+        <p className="text-lg font-bold text-white">{stats.lowStockCount}</p>
       </div>
     </div>
   </div>
@@ -1747,19 +1750,19 @@ const handleExportSelected = async () => {
   {/* UNPUBLISHED */}
   <div
     onClick={() => handleStatClick("unpublished")}
-    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
       publishedFilter.value === "unpublished"
         ? "bg-gradient-to-br from-slate-400/20 to-slate-500/20 border-slate-300 shadow-lg shadow-slate-500/20 ring-2 ring-slate-400/50"
         : "bg-gradient-to-br from-slate-500/10 to-slate-600/10 border-slate-500/20 hover:shadow-lg hover:shadow-slate-500/10"
     }`}
   >
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg">
+    <div className="flex items-center gap-2.5">
+      <div className="p-1.5 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg">
         <EyeOff className="w-4 h-4 text-white" />
       </div>
       <div>
         <p className="text-xs text-slate-400">Unpublished</p>
-        <p className="text-xl font-bold text-white">{stats.unpublishedCount}</p>
+        <p className="text-lg font-bold text-white">{stats.unpublishedCount}</p>
       </div>
     </div>
   </div>
@@ -1767,19 +1770,19 @@ const handleExportSelected = async () => {
   {/* OUT OF STOCK */}
   <div
     onClick={() => handleStatClick("outOfStock")}
-    className={`rounded-xl p-3 cursor-pointer transition-all border ${
+    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
       statusFilter.value === "OutOfStock"
         ? "bg-gradient-to-br from-red-500/20 to-rose-500/20 border-red-400 shadow-lg shadow-red-500/20 ring-2 ring-red-500/50"
         : "bg-gradient-to-br from-red-500/10 to-rose-500/10 border-red-500/20 hover:shadow-lg hover:shadow-red-500/10"
     }`}
   >
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
+    <div className="flex items-center gap-2.5">
+      <div className="p-1.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
         <XCircle className="w-4 h-4 text-white" />
       </div>
       <div>
         <p className="text-xs text-slate-400">Out of Stock</p>
-        <p className="text-xl font-bold text-white">{stats.outOfStockCount}</p>
+        <p className="text-lg font-bold text-white">{stats.outOfStockCount}</p>
       </div>
     </div>
   </div>
@@ -1787,7 +1790,7 @@ const handleExportSelected = async () => {
 </div>
 
       {/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-2.5 py-1.5">
   <div className="flex items-center justify-between gap-3 relative">
 
     {/* LEFT SIDE */}
@@ -1871,8 +1874,8 @@ const handleExportSelected = async () => {
 </div>
 
       {/* ✅ FILTERS SECTION - ROW 1 */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1.5">
-        <div className="flex items-center gap-1.5">
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1">
+        <div className="flex items-center gap-1">
    <div className="relative flex-1 min-w-[180px] max-w-[300px]">
      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
 
@@ -1881,7 +1884,7 @@ const handleExportSelected = async () => {
     placeholder="Search products by name or Sku..."
     value={searchInput}
     onChange={(e) => setSearchInput(e.target.value)}
-    className="w-full pl-8 pr-9 py-2 bg-slate-800/50 border border-slate-700 rounded-xl placeholder:text-xs text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    className="w-full pl-8 pr-9 py-1.5 bg-slate-800/50 border border-slate-700 rounded-xl placeholder:text-xs text-white text-[13px] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
   />
 
   {/* RIGHT ICON */}
@@ -2233,43 +2236,44 @@ const handleExportSelected = async () => {
         <p className="text-slate-400">No products found</p>
       </div>
     ) : (
-    <table className="w-full table-fixed text-sm">
+    <table className="w-full table-fixed text-[13px]">
     
     <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-800">
-      <tr>
-        <th className="text-left py-2 px-3 text-slate-400 w-[260px]">
+      <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <th className="text-left py-2 px-2 w-[260px]">
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={selectedProducts.length === products.length && products.length > 0}
               onChange={handleSelectAll}
-              className="accent-violet-500"
+              className="h-4 w-4 accent-violet-500"
             />
-          <span className="text-purple-500" onClick={() => handleSort('name')}>
-  Name {sortBy === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+          <span className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 cursor-pointer select-none" onClick={() => handleSort('name')} title="Sort by name">
+  Product Name {sortBy === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
 </span>
           </div>
         </th>
 
-        <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
-        <th className="text-center py-2 px-3 text-red-400 w-[80px]" onClick={() => handleSort('price')}>
+        <th className="text-center py-2 px-2 w-[110px]">SKU</th>
+        <th className="text-center py-2 px-2 text-red-400 w-[80px] cursor-pointer hover:text-red-300 select-none" onClick={() => handleSort('price')} title="Sort by price">
           Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
         </th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
-        <th className="text-center py-1 px-3 text-slate-400 w-[160px]">Stock Status</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Visibility</th>
+        <th className="text-center py-2 px-2 w-[70px]">Status</th>
+        <th className="text-center py-2 px-2 w-[160px]">Stock Status</th>
+        <th className="text-center py-2 px-2 w-[100px]">Visibility</th>
         <th
   onClick={() => handleSort('createdAt')}
-  className="text-left py-2 px-3 text-blue-400 w-[160px] cursor-pointer"
+  className="text-left py-2 px-2 text-blue-400 w-[160px] cursor-pointer hover:text-blue-300 select-none"
+  title="Sort by created date"
 >
   Created At
   {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
 </th>
 
-<th className="text-left py-2 px-3 text-slate-400 w-[160px]">
+ <th className="text-left py-2 px-2 w-[160px]">
   Updated At
 </th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[130px]">Actions</th>
+        <th className="text-center py-2 px-2 w-[130px]">Actions</th>
       </tr>
     </thead>
 
@@ -2305,7 +2309,7 @@ className={`border-b border-slate-800 transition-colors
 `}
                     >
                       {/* PRODUCT */}
-                      <td className="py-2 px-2">
+                      <td className="py-1.5 px-2">
                        <div className="flex items-center gap-2">
   <input
     type="checkbox"
@@ -2313,7 +2317,7 @@ className={`border-b border-slate-800 transition-colors
     onChange={() => handleSelectProduct(product.id)}
     className="accent-violet-500"
   />
-                          <div className="w-10 h-10 rounded-md cursor-zoom-in hover:scale-105 transition bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
+                           <div className="w-9 h-9 rounded-md cursor-zoom-in hover:scale-105 transition bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
                             {product.image ? (
                               <img
                               src={imageUrl}                                                          
@@ -2359,13 +2363,25 @@ onClick={async (e) => {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p
-                              className="text-white font-medium truncate cursor-pointer hover:text-violet-400"
-                              onClick={() => fetchProductDetails(product.id)}
-                              title={product.name}
-                            >
-                              {product.name}
-                            </p>
+                         <p
+  className="flex items-center gap-1.5 text-white font-medium truncate cursor-pointer hover:text-violet-400"
+  onClick={() => fetchProductDetails(product.id)}
+  title={product.name}
+>
+  <span className="truncate">
+    {product.name}
+  </span>
+
+  {/* ✅ PHARMA ICON */}
+  {product.isPharmaProduct && (
+    <span
+      className="shrink-0 inline-flex items-center justify-center rounded-md bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5"
+      title="Pharma Product"
+    >
+      <Pill className="w-3 h-3 text-cyan-400" />
+    </span>
+  )}
+</p>
                            <div className="flex items-center gap-2">
 
   {/* CATEGORY (secondary) */}
@@ -2390,7 +2406,7 @@ onClick={async (e) => {
                       </td>
 
                       {/* SKU */}
-<td className="py-2 px-3 text-center">
+ <td className="py-1.5 px-2 text-center">
   <span
     onClick={() => {
       // ❌ variable product में copy नहीं करना
@@ -2424,13 +2440,13 @@ onClick={async (e) => {
 </td>
 
                       {/* PRICE */}
-                      <td className="py-2 px-3 text-center font-semibold text-white">
+                      <td className="py-1.5 px-2 text-center font-semibold text-white">
                         £{product.price.toFixed(2)}
                       </td>
 
                       {/* Clickable Status Cell */}
                       <td
-                        className={`py-2 px-3 text-center ${
+                        className={`py-1.5 px-2 text-center ${
                           product.isDeleted ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                         }`}
                         onClick={() => openToggleConfirm(product)}
@@ -2459,7 +2475,7 @@ onClick={async (e) => {
                       </td>
 
                       {/* STOCK */}
-                      <td className="py-2 px-3 text-center">
+                       <td className="py-1.5 px-2 text-center">
                         {(() => {
                           const qty = product.stockQuantity ?? 0;
                           const track = product.trackQuantity ?? true;
@@ -2532,7 +2548,7 @@ Backorder: ${allowBackorder ? "Allowed" : "No"}
 
                     
                       {/* VISIBILITY */}
-                   <td className="py-1 px-3 text-center">
+                    <td className="py-1.5 px-2 text-center">
   <div className="flex flex-col items-center gap-1">
 
     <span
@@ -2571,8 +2587,8 @@ Backorder: ${allowBackorder ? "Allowed" : "No"}
 
   </div>
 </td>
-<td
-  className="py-2 px-3 text-xs text-slate-300 cursor-help"
+ <td
+   className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
   title={`Created At: ${product.createdAt || "N/A"}
 Created By: ${product.createdBy || "N/A"}`}
 >
@@ -2583,8 +2599,8 @@ Created By: ${product.createdBy || "N/A"}`}
     </span>
   </div>
 </td>
-<td
-  className="py-2 px-3 text-xs text-slate-300 cursor-help"
+ <td
+   className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
   title={`Updated At: ${product.updatedAt || "N/A"}
 Updated By: ${product.updatedBy || "N/A"}`}
 >
@@ -2597,33 +2613,33 @@ Updated By: ${product.updatedBy || "N/A"}`}
 </td>
 
                       {/* ACTIONS */}
-                      <td className="py-2 px-3">
-                    <div className="flex items-center justify-center gap-1">
+                      <td className="py-1.5 px-2">
+                    <div className="flex items-center justify-center gap-0.5">
 
   {/* VIEW */}
   {!isDeleted && (
     <Link href={`/product/${product.slug}`} target="_blank">
-      <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-md">
-        <ExternalLink className="h-4 w-4" />
+      <button className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md">
+        <ExternalLink className="h-3.5 w-3.5" />
       </button>
     </Link>
   )}
 
   {/* VIEW DETAILS */}
   {!isDeleted && (
-    <button
-      onClick={() => fetchProductDetails(product.id)}
-      className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
-    >
-      <Eye className="h-4 w-4" />
-    </button>
+      <button
+        onClick={() => fetchProductDetails(product.id)}
+        className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
+      >
+        <Eye className="h-3.5 w-3.5" />
+      </button>
   )}
 
   {/* EDIT */}
   {!isDeleted && (
     <Link href={`/admin/products/edit/${product.id}`}>
-      <button className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md">
-        <Edit className="h-4 w-4" />
+      <button className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md">
+        <Edit className="h-3.5 w-3.5" />
       </button>
     </Link>
   )}
@@ -2637,18 +2653,18 @@ Updated By: ${product.updatedBy || "N/A"}`}
       isDeleted: product.isDeleted,
     })
   }
-  className={`p-1.5 rounded-md transition-all ${
+  className={`p-1 rounded-md transition-all ${
     product.isDeleted
       ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
       : 'text-red-400 hover:bg-red-500/10'
   }`}
 >
   {isBusy ? (
-    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+    <div className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
   ) : product.isDeleted ? (
-    <CheckCircle className="h-4 w-4 shadow shadow-emerald-500/20" />
+    <CheckCircle className="h-3.5 w-3.5 shadow shadow-emerald-500/20" />
   ) : (
-    <Trash2 className="h-4 w-4" />
+    <Trash2 className="h-3.5 w-3.5" />
   )}
 </button>
 
@@ -2658,7 +2674,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
                   );
                 })}
               </tbody>
-            </table>
+    </table>
     )}
 
   </div>

@@ -851,7 +851,7 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
                     <Menu className="h-5 w-5" />
                   </button>
 
-                  <div className="flex-1 max-w-xl">
+                  {/* <div className="flex-1 max-w-xl">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-gray-600 transition-colors duration-150" />
                       <input
@@ -860,7 +860,7 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
                         className="w-full pl-10 pr-4 py-2 bg-slate-800/50 dark:bg-gray-800/70 border border-slate-700 dark:border-gray-700 rounded-lg text-sm text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-600 transition-all duration-150"
                       />
                     </div>
-                  </div>
+                  </div> */}
                 </div>
 
                 <div className="flex items-center gap-3">

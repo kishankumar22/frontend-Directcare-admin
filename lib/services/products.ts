@@ -185,6 +185,7 @@ export interface Product {
   assignedDiscounts(assignedDiscounts: any): unknown;
   discountLabel: string;
   discountTitle: string;
+  
   id: string;
   name: string;
   slug?: string;

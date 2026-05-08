@@ -4,7 +4,7 @@ import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Upload, X,History, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus } from "lucide-react";
-import Link from "next/link";
+
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
 import  {useToast } from "@/app/admin/_components/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
@@ -31,6 +31,7 @@ import AdminCommentHistory from "../../_components/AdminCommentHistory";
 import UnsavedChangesModal from "../../_components/UnsavedChangesModal";
 import ProductLockModal from "../../_components/ProductLockModal";
 import VatRateSelector from "../../VatRateSelector";
+import { scrollCls } from "../../../_utils/styles";
 
 
 
@@ -4892,13 +4893,13 @@ const uploadImagesToProductDirect = async (
 // }
 
   return (
-    <div className="space-y-2 ">
+    <div className="flex h-[calc(100svh-8rem)] min-h-0 flex-col gap-2 overflow-hidden">
 
-<div className="sticky top-0 z-50 px-2">
+<div className="sticky top-0 z-30 shrink-0 px-2 pt-2 relative isolate bg-slate-950">
   {/* BACKGROUND */}
-  <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-xl"></div>
+  <div className="pointer-events-none absolute inset-0 bg-slate-950 backdrop-blur-xl"></div>
 
-  <div className="relative overflow-hidden rounded-2xl border border-slate-800/70 bg-[#071120]/90">
+  <div className="relative overflow-hidden rounded-2xl border border-slate-800/70 bg-[#071120]">
 
     {/* ✅ THIN TOP SLIDER */}
     {isSubmitting && submitProgress ? (
@@ -4912,73 +4913,52 @@ const uploadImagesToProductDirect = async (
       <div className="h-[2px] w-full bg-gradient-to-r from-violet-500 via-cyan-400 to-pink-500 opacity-70" />
     )}
 
-    <div className="px-3 py-2">
+    <div className="px-1 py-1">
 
       {/* MAIN ROW */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2 ">
 
         {/* LEFT */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
 
           {/* BACK */}
-          <Link
-            href="/admin/products"
-            onClick={(e) => {
-              if (hasUnsavedChanges) {
-                e.preventDefault();
-                handleNavigateAway("/admin/products");
-              }
-            }}
-          >
-            <button className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700/60 bg-slate-900/60 hover:bg-slate-800 transition-all">
-              <ArrowLeft className="h-4 w-4 text-slate-400 group-hover:text-white" />
-            </button>
-          </Link>
+      <button
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+
+    if (hasUnsavedChanges) {
+      handleNavigateAway("/admin/products");
+      return;
+    }
+
+    handleCancel();
+  }}
+  className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700/60 bg-slate-900/60 hover:bg-slate-800 transition-all"
+>
+  <ArrowLeft className="h-4 w-4 text-slate-400 group-hover:text-white" />
+</button>
 
           {/* TITLE */}
-          <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0">
 
-            <div className="flex items-center gap-2 min-w-0">
+  <h1
+    className="truncate text-[18px] leading-none font-black tracking-tight"
+    title={formData.name || "Edit Product"}
+  >
+    <span className="bg-gradient-to-r from-violet-400 via-cyan-400 to-sky-400 bg-clip-text text-transparent">
+      Edit Product
+    </span>
 
-              <h1 className="shrink-0 text-[24px] leading-none font-black tracking-tight">
-                <span className="bg-gradient-to-r from-violet-400 via-cyan-400 to-sky-400 bg-clip-text text-transparent">
-                  Edit Product
-                </span>
-              </h1>
+    {/* ✅ CONDITIONAL PRODUCT NAME */}
+    {formData.name && (
+      <span className="ml-2 font-semibold text-slate-200">
+        - {formData.name}
+      </span>
+    )}
+  </h1>
 
-              {/* PRODUCT NAME */}
-              {formData.name && (
-                <div className="max-w-[420px] truncate rounded-lg border border-slate-700/50 bg-slate-800/50 px-2.5 py-1">
-                  <span
-                    className="truncate text-[13px] font-semibold text-slate-100"
-                    title={formData.name}
-                  >
-                    {formData.name}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* SUBTEXT */}
-            <div className="mt-0.5 flex items-center gap-2">
-
-              <p className="text-[11px] text-slate-400">
-                {isSubmitting
-                  ? submitProgress?.step || "Processing..."
-                  : "Update your product details"}
-              </p>
-
-              {hasUnsavedChanges && !isSubmitting && (
-                <div className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></div>
-
-                  <span className="text-[10px] font-medium text-amber-300">
-                    Unsaved
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+        </div>
         </div>
 
         {/* RIGHT */}
@@ -5060,39 +5040,38 @@ const uploadImagesToProductDirect = async (
   </div>
 </div>
 
-      
+      <div className={cn("min-h-0 flex-1 overflow-y-auto px-2 pb-3", scrollCls)}>
         {/* Main Form */}
-
           <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
             <Tabs defaultValue="product-info" className="w-full">
-              <div className="border-b border-slate-800 mb-3">
-                <TabsList className="flex gap-1 overflow-x-auto pb-px scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent bg-transparent h-auto p-0">
-                  <TabsTrigger value="product-info" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+              <div className="sticky top-0 z-40 mb-3 rounded-xl border border-slate-800/70 bg-[#071120]/95 backdrop-blur-xl px-2 py-1.5">
+                <TabsList className="flex flex-wrap items-center gap-1.5 bg-transparent h-auto p-0">
+                  <TabsTrigger value="product-info" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Info className="h-4 w-4" />
                     Info
                   </TabsTrigger>
-                  <TabsTrigger value="prices" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <TabsTrigger value="prices" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <PoundSterling className="h-4 w-4" />
                     Prices
                   </TabsTrigger>
-                  <TabsTrigger value="inventory" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <TabsTrigger value="inventory" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Package className="h-4 w-4" />
                     Inventory
                   </TabsTrigger>
-                  <TabsTrigger value="shipping" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <TabsTrigger value="shipping" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Truck className="h-4 w-4" />
                     Shipping
                   </TabsTrigger>
-                  <TabsTrigger value="related-products" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <TabsTrigger value="related-products" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <LinkIcon className="h-4 w-4" />
                     Related
                   </TabsTrigger>
-                   <TabsTrigger value="product-attributes" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                   <TabsTrigger value="product-attributes" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Tag className="h-4 w-4" />
                     Attributes
                   </TabsTrigger>
                   {formData.productType === "variable" && (
-                    <TabsTrigger value="variants" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                    <TabsTrigger value="variants" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                       <Package className="h-4 w-4" />
                       Variants
                       {productVariants.length > 0 && (
@@ -5102,11 +5081,11 @@ const uploadImagesToProductDirect = async (
                       )}
                     </TabsTrigger>
                   )}
-                  <TabsTrigger value="seo" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <TabsTrigger value="seo" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Globe className="h-4 w-4" />
                     SEO
                   </TabsTrigger>
-                  <TabsTrigger value="media" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <TabsTrigger value="media" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
   <Image className="h-4 w-4" />
   Media
 </TabsTrigger>
@@ -5115,7 +5094,7 @@ const uploadImagesToProductDirect = async (
               </div>
 
 {/* Product Info Tab */}
-<TabsContent value="product-info" className="space-y-2 mt-2">
+<TabsContent value="product-info" className="space-y-2 mt-1">
   {/* Basic Info Section */}
   
   <div className="space-y-2">
@@ -6911,23 +6890,40 @@ const uploadImagesToProductDirect = async (
     </label>
 
     {/* 🔥 CUTOFF TIME (ADD THIS) */}
-    <div className="ml-6 mt-2">
-      <label className="block text-md text-slate-400 mb-1">
-        Cutoff Time <span className="text-red-400">*</span>
-      </label>
+<div className="ml-6 mt-2">
+  <label className="block text-md text-slate-400 mb-1">
+    Cutoff Time (UK Time)
+    <span className="text-red-400">*</span>
+  </label>
 
-      <input
-        type="time"
-        name="nextDayDeliveryCutoffTime"
-        value={formData.nextDayDeliveryCutoffTime || ''}
-        onChange={handleChange}
-        className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
-      />
+  <input
+    type="time"
+    name="nextDayDeliveryCutoffTime"
+    value={formData.nextDayDeliveryCutoffTime || ""}
+    onChange={handleChange}
+    className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
+  />
 
-      <p className="text-xs text-slate-500 mt-1">
-        Order before this time for next-day delivery
-      </p>
-    </div>
+  <p className="text-xs text-slate-500 mt-1">
+    Enter UK local cutoff time for next-day delivery
+  </p>
+
+<div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+
+  <div className="rounded-md border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 text-yellow-300">
+    🌤 UK 2:30 PM → <span className="font-semibold">14:30</span>
+  </div>
+
+  <div className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-cyan-300">
+    🌙 UK 8:30 PM → <span className="font-semibold">20:30</span>
+  </div>
+
+  <div className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-violet-300">
+    🌅 UK 1:30 AM → <span className="font-semibold">01:30</span>
+  </div>
+
+</div>
+</div>
   </>
 )}
 
@@ -7644,6 +7640,7 @@ const uploadImagesToProductDirect = async (
 
             </Tabs>
           </div>
+      </div>
  
 
 {/* Add this before the final closing </div> of your return statement */}

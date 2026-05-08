@@ -71,7 +71,7 @@ import RefundModals from '../RefundModals';
 import PharmacyVerificationModal from '../PharmacyVerificationModal';
 
 import { API_BASE_URL } from '@/lib/api';
-import { getOrderProductImage } from '../../_utils/formatUtils';
+import { getImageUrl, getOrderProductImage } from '../../_utils/formatUtils';
 import PaymentModal from '../PaymentModal';
 
 // Types
@@ -522,6 +522,7 @@ const canUpdateStatus =
   order.deliveryMethod !== 'ClickAndCollect' && // 🔥 HARD BLOCK
   status !== 'Cancelled' &&
   status !== 'Refunded' &&
+  status !== 'CancellationRequested' &&
   status !== 'Collected' &&
   order.pharmacyVerificationStatus !== 'Pending' ;
  
@@ -566,7 +567,7 @@ const canUpdateStatus =
   });
 
   // 💰 PAYMENT ACTIONS
-const isOrderActive = !['Cancelled', 'Refunded'].includes(order.status);
+const isOrderActive = !['Cancelled', 'Refunded','CancellationRequested'].includes(order.status);
 
 if (order.paymentStatus === 'Pending' && isOrderActive) {
   actions.push({
@@ -626,9 +627,10 @@ if (
   (canRefund || canRefundShippingArg) &&
   order &&
   order.status !== "Refunded" &&
-  (
-    order.status === "Shipped" ||
-    order.collectionStatus === "Collected"
+  (order.status=== "Delivered" ||
+    order.status=== "Shipped" ||
+    order.status=== "PartiallyShipped" ||
+   order.status === "Returned"   
   )
 ) {
   actions.push({
@@ -1733,7 +1735,7 @@ const allActions = getAllAvailableActions(
     className="flex justify-between"
     title="Savings from product offers and price reductions"
   >
-    <span className="text-slate-400">You Saved</span>
+    <span className="text-slate-400">Product Savings</span>
 
     <span className="text-green-400 font-medium">
       {formatCurrency(order.productSavingsAmount ?? 0, order.currency)}
@@ -2093,7 +2095,7 @@ const allActions = getAllAvailableActions(
 
         {/* ✅ Product Image */}
         <img
-          src={getOrderProductImage(item.productImageUrl)}
+          src={getImageUrl(item.productImageUrl)}
           alt={item.productName}
           className="w-12 h-12 rounded-lg object-cover border border-slate-700"
            onError={(e) => (e.currentTarget.src = "/placeholder.png")}
