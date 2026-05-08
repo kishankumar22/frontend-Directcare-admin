@@ -15,7 +15,7 @@ import {
   getDiscountedPrice,
 } from "@/app/lib/discountHelpers";
 import { useToast } from "@/components/toast/CustomToast";
-
+import { getOldPriceDiscount } from "@/utils/pricing";
 import { Card, CardContent } from "../ui/card";
 import "swiper/css";
 import "swiper/css/navigation";
@@ -92,6 +92,18 @@ const basePrice =
 
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
+// 🔥 NEW: oldPrice fallback logic
+const oldPriceValue =
+  defaultVariant?.oldPrice ?? product.oldPrice;
+
+const oldPriceData =
+  product.displayDiscountType === "OldPrice"
+    ? getOldPriceDiscount(
+        basePrice,
+        oldPriceValue,
+        false
+      )
+    : null;
 // ---------- Active Coupon Indicator ----------
 const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
   if (!d.isActive) return false;
@@ -189,13 +201,23 @@ if (product.disableBuyButton) return;
       : product.name,
 
     price: finalPrice,
+
     priceBeforeDiscount: basePrice,
     finalPrice,
-    discountAmount: discountBadge
-      ? discountBadge.type === "percent"
-        ? +(basePrice * discountBadge.value / 100).toFixed(2)
-        : discountBadge.value
-      : 0,
+    oldPrice: oldPriceValue ?? null,
+
+displayDiscountType:
+  product.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  product.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  product.systemDiscountAmount ?? 0,
+   discountAmount:
+  product.displayDiscountType === "System"
+    ? +(basePrice - finalPrice).toFixed(2)
+    : 0,
 
     quantity: qty,
   vatRate: vatRate,
@@ -259,14 +281,22 @@ const handleToggleWishlist = () => {
     price: finalPrice,
     priceBeforeDiscount: basePrice,
     finalPrice: finalPrice,
-    discountAmount: discountBadge
-      ? discountBadge.type === "percent"
-        ? +(basePrice * discountBadge.value / 100).toFixed(2)
-        : discountBadge.value
-      : 0,
+   discountAmount:
+  product.displayDiscountType === "System"
+    ? +(basePrice - finalPrice).toFixed(2)
+    : 0,
     appliedDiscountId: null,
     couponCode: null,
+oldPrice: oldPriceValue ?? null,
 
+displayDiscountType:
+  product.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  product.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  product.systemDiscountAmount ?? 0,
     image: getRelatedProductImage(product, defaultVariant),
 
     vatRate: vatRate ?? null,
@@ -295,7 +325,8 @@ const handleToggleWishlist = () => {
       {/* IMAGE */}
     <div className="h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
       {/* Offer badge — smaller */}
-      {discountBadge && (
+      {product.displayDiscountType === "System" &&
+ discountBadge && (
         <div className="absolute top-1 right-2 z-20">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
             <div className="flex flex-col items-center leading-none">
@@ -309,6 +340,21 @@ const handleToggleWishlist = () => {
           </div>
         </div>
       )}
+      {/* 🔥 OLD PRICE BADGE */}
+{!discountBadge && !hasActiveCoupon && oldPriceData && (
+  <div className="absolute top-1 right-2 z-20">
+    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+      <div className="flex flex-col items-center leading-none">
+        <span className="text-[10px] sm:text-xs font-extrabold">
+          {oldPriceData.discount}%
+        </span>
+        <span className="text-[7px] sm:text-[8px] font-semibold">
+          OFF
+        </span>
+      </div>
+    </div>
+  </div>
+)}
       {/* Coupon badge — smaller */}
   {!discountBadge && hasActiveCoupon && (
   <div className="absolute top-1 md:top-2 right-1 md:right-2 z-20">
@@ -352,19 +398,22 @@ const handleToggleWishlist = () => {
       }
     }}
     className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all
-      ${(discountBadge || hasActiveCoupon) ? "top-12" : "top-2"}
+      ${(
+  product.displayDiscountType !== "None" ||
+  hasActiveCoupon
+) ? "top-12" : "top-2"}
       ${
         inWishlist
-          ? "bg-green-50 border-green-200"
-          : "bg-white border-gray-200 hover:bg-green-50 hover:border-green-200"
+          ? "bg-red-50 border-red-200"
+          : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
       }
     `}
   >
     <Heart
       className={`h-4 w-4 ${
         inWishlist
-          ? "fill-green-500 text-green-500"
-          : "text-gray-400 hover:text-green-400"
+          ? "fill-red-500 text-red-500"
+          : "text-gray-400 hover:text-red-400"
       }`}
     />
   </button>
@@ -423,8 +472,27 @@ const handleToggleWishlist = () => {
 
       {/* PRICE & VAT */}
       <div className="flex items-center gap-1 mb-0">
-        <span className="text-base font-bold text-[#445D41]">£{finalPrice.toFixed(2)}</span>
-        {discountBadge && <span className="line-through text-xs text-gray-400">£{basePrice.toFixed(2)}</span>}
+        <span className="text-base font-bold text-[#445D41]">£{
+  (
+    product.displayDiscountType === "System"
+      ? finalPrice
+      : basePrice
+  ).toFixed(2)
+}</span>
+        {/* 🔥 CASE 1: REAL DISCOUNT */}
+{product.displayDiscountType === "System" &&
+ discountBadge && (
+  <span className="line-through text-xs text-gray-400">
+    £{basePrice.toFixed(2)}
+  </span>
+)}
+
+{/* 🔥 CASE 2: OLD PRICE */}
+{!discountBadge && !hasActiveCoupon && oldPriceData && (
+  <span className="line-through text-xs text-gray-400">
+    £{oldPriceData.oldPrice.toFixed(2)}
+  </span>
+)}
         {!product.vatExempt && vatRate !== null && (
           <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
             {vatRate}% VAT

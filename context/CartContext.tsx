@@ -35,7 +35,13 @@ export interface CartItem {
   price: number;
   priceBeforeDiscount?: number;
   finalPrice?: number;
+ oldPrice?: number | null;
   discountAmount?: number;
+  displayDiscountType?: "None" | "OldPrice" | "System";
+
+hasSystemDiscount?: boolean;
+
+systemDiscountAmount?: number;
   appliedDiscountId?: string | null;
   couponCode?: string | null;
   image: string;
@@ -91,15 +97,30 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 // ─── Helper: map backend DTO → frontend CartItem ──────────────────────────────
 function backendToFrontend(dto: any): CartItem {
+
   return {
     id: dto.variantId ?? dto.productId,
     backendId: dto.id,
     productId: dto.productId,
     name: dto.productName,
     price: dto.price,
+  oldPrice:
+  dto.oldPrice ??
+  dto.product?.oldPrice ??
+  dto.productData?.oldPrice ??
+  dto.variant?.oldPrice ??
+  null,
     priceBeforeDiscount: dto.price,
     finalPrice: dto.finalPrice,
     discountAmount: dto.discountAmount,
+    displayDiscountType:
+  dto.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  dto.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  dto.systemDiscountAmount ?? 0,
     appliedDiscountId: dto.appliedDiscountId,
     couponCode: dto.couponCode,
 image: dto.productImageUrl
@@ -133,6 +154,21 @@ image: dto.productImageUrl
     nextDayDeliveryFree: dto.nextDayDeliveryFree ?? false, // 🔥 ADD THIS LINE
     sameDayDeliveryEnabled: dto.sameDayDeliveryEnabled,
     shipSeparately: dto.shipSeparately,
+  vatIncluded:
+  dto.vatIncluded ??
+  dto.productData?.vatIncluded ??
+  dto.product?.vatIncluded ??
+  false,
+
+productData:
+  dto.productData ??
+  dto.product ??
+  null,
+
+maxStock:
+  dto.variant?.stockQuantity ??
+  dto.product?.stockQuantity ??
+  undefined,
   };
 }
 
@@ -148,8 +184,19 @@ function frontendToBackend(item: CartItem, sessionId: string) {
     productImageUrl: item.image ?? null,
     quantity: item.quantity,
     price: item.price,
+    
     finalPrice: item.finalPrice ?? item.price,
     discountAmount: item.discountAmount ?? 0,
+    oldPrice: item.oldPrice ?? null,
+
+displayDiscountType:
+  item.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  item.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  item.systemDiscountAmount ?? 0,
     appliedDiscountId: item.appliedDiscountId ?? null,
     couponCode: item.couponCode ?? null,
     variantOption1: item.variantOptions?.option1 ?? null,
@@ -356,8 +403,23 @@ connection.on(
           (p.type ?? "one-time") === (item.type ?? "one-time") &&
           (p.purchaseContext ?? "standalone") === (item.purchaseContext ?? "standalone")
             ? { ...p, quantity: p.quantity + item.quantity, sku: item.sku ?? p.sku,
-                finalPrice: item.finalPrice ?? p.finalPrice,
-                discountAmount: item.discountAmount ?? p.discountAmount }
+               finalPrice: item.finalPrice ?? p.finalPrice,
+discountAmount: item.discountAmount ?? p.discountAmount,
+
+oldPrice:
+  item.oldPrice ?? p.oldPrice,
+
+displayDiscountType:
+  item.displayDiscountType ??
+  p.displayDiscountType,
+
+hasSystemDiscount:
+  item.hasSystemDiscount ??
+  p.hasSystemDiscount,
+
+systemDiscountAmount:
+  item.systemDiscountAmount ??
+  p.systemDiscountAmount, }
             : p
         );
       }
@@ -370,6 +432,16 @@ connection.on(
           priceBeforeDiscount: item.priceBeforeDiscount ?? item.price,
           finalPrice: item.finalPrice ?? item.price,
           discountAmount: item.discountAmount ?? 0,
+          oldPrice: item.oldPrice ?? null,
+
+displayDiscountType:
+  item.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  item.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  item.systemDiscountAmount ?? 0,
           type: item.type ?? "one-time",
             // 🔥🔥🔥 MAIN FIX
     nextDayDeliveryEnabled:
@@ -505,6 +577,16 @@ connection.on(
           quantity: item.quantity,
           finalPrice: item.finalPrice,
           discountAmount: item.discountAmount,
+          oldPrice: item.oldPrice ?? null,
+
+displayDiscountType:
+  item.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  item.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  item.systemDiscountAmount ?? 0,
           couponCode: item.couponCode,
           appliedDiscountId: item.appliedDiscountId,
         }),

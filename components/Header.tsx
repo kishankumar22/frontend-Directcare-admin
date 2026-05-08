@@ -12,7 +12,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { usePathname } from "next/navigation";
-
+import {
+  getDiscountBadge,
+  getDiscountedPrice,
+} from "@/app/lib/discountHelpers";
+import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
+import { getOldPriceDiscount } from "@/utils/pricing";
 const iconMap: Record<string, any> = {
   Zap: Zap,
   Truck: Truck,
@@ -101,10 +106,7 @@ const renderStars = (rating: number) => {
   );
 };
 
-const getDiscountedPrice = (price: number, discountPercentage: number) => {
-  const discounted = price - (price * discountPercentage) / 100;
-  return Number(discounted.toFixed(2));
-};
+
 
 const pathname = usePathname();
 useEffect(() => {
@@ -130,29 +132,36 @@ useEffect(() => {
   return () => clearInterval(t);
 }, [mobileTopMessages]);
 
-  const [results, setResults] = useState<any[]>([]);
+const [results, setResults] = useState<any[]>([]);
+const [flattenedResults, setFlattenedResults] = useState<any[]>([]);
 const [searchLoading, setSearchLoading] = useState(false);
 const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 const debouncedSearch = useDebounce(searchValue, 400);
 useEffect(() => {
-  if (!debouncedSearch || debouncedSearch.length < 1) {
-    setResults([]);
-    setShowSearchDropdown(false);
-    return;
-  }
+if (!debouncedSearch || debouncedSearch.length < 1) {
+  setResults([]);
+  setFlattenedResults([]);
+  setShowSearchDropdown(false);
+  return;
+}
   const fetchSearchResults = async () => {
     try {
       setSearchLoading(true);
-      const res = await fetch(
-       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/quick-search?query=${debouncedSearch}&limit=15`
-      );
+     const res = await fetch(
+`${process.env.NEXT_PUBLIC_API_URL}/api/Products?page=1&pageSize=10&searchTerm=${encodeURIComponent(debouncedSearch)}&sortDirection=asc`
+);
     const json = await res.json();
 console.log("SEARCH API RESPONSE 👉", json);
 
-      if (json.success) {
-        setResults(json.data);
-        setShowSearchDropdown(true);
-      }
+   const products = json?.data?.items || [];
+
+setResults(products);
+
+const flattened = flattenProductsForListing(products);
+
+setFlattenedResults(flattened);
+
+setShowSearchDropdown(true);
     } catch (error) {
       console.error("Search error:", error);
     } finally {
@@ -221,14 +230,20 @@ useEffect(() => {
     return () => { document.body.style.overflow = ''; };
   }, [menuOpen, mobileSearchOpen]);
 
-  const handleSearch = (e: React.FormEvent) => {
+const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
 
   if (!searchValue.trim()) return;
 
-  router.push(`/search?q=${encodeURIComponent(searchValue)}`);
+  const finalSearch = searchValue;
+
   setShowSearchDropdown(false);
   setMobileSearchOpen(false);
+
+
+  router.push(
+    `/search?q=${encodeURIComponent(finalSearch)}`
+  );
 };
 
 
@@ -415,7 +430,7 @@ useEffect(() => {
     type="button"
     onClick={() => {
       setSearchValue("");
-      setResults([]);
+    setFlattenedResults([]);
       setShowSearchDropdown(false);
     }}
     className="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
@@ -446,110 +461,172 @@ useEffect(() => {
       </div>
     )}
 
-    {!searchLoading &&
-      results.map((item) => (
-        <Link
-        key={item.sku}
-         href={`/product/${item.slug}`}
-          onClick={() => {
-            setShowSearchDropdown(false);
-            setSearchValue("");
-          }}
-          className="flex items-center gap-4 px-4 py-3 border-b last:border-b-0 hover:bg-gray-50"
-        >
-         {/* IMAGE FIX */}
-<img
-  src={
-    item.mainImageUrl?.startsWith("http")
-      ? item.mainImageUrl
-      : `${process.env.NEXT_PUBLIC_API_URL}${item.mainImageUrl}`
+ {!searchLoading &&
+     flattenedResults.map((item) => {
+
+const product = item.productData;
+const defaultVariant = item.variantForCard;
+const cardSlug = item.cardSlug;
+       
+
+        const basePrice =
+          typeof defaultVariant?.price === "number" &&
+          defaultVariant.price > 0
+            ? defaultVariant.price
+            : product.price;
+
+        const finalPrice = getDiscountedPrice(product, basePrice);
+
+        const discountBadge = getDiscountBadge(product);
+
+        const oldPriceValue =
+          defaultVariant?.oldPrice ?? product.oldPrice;
+
+        const oldPriceData =
+          product.displayDiscountType === "OldPrice"
+            ? getOldPriceDiscount(
+                basePrice,
+                oldPriceValue,
+                false
+              )
+            : null;
+
+        const productImage =
+          defaultVariant?.imageUrl ||
+          product.images?.find((img: any) => img.isMain)?.imageUrl ||
+          product.images?.[0]?.imageUrl;
+
+        return (
+          <Link
+            key={`${product.id}-${cardSlug}`}
+            href={`/product/${cardSlug}`}
+            onClick={() => {
+              setShowSearchDropdown(false);
+              setSearchValue("");
+            }}
+            className="flex items-center gap-4 px-4 py-3 border-b last:border-b-0 hover:bg-gray-50"
+          >
+
+            {/* IMAGE */}
+            <img
+              src={
+                productImage?.startsWith("http")
+                  ? productImage
+                  : `${process.env.NEXT_PUBLIC_API_URL}${productImage}`
+              }
+             alt={product.name}
+onError={(e) => {
+  (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+}}
+              className="w-10 h-10 object-contain"
+            />
+
+            {/* NAME, CATEGORY, PRICE + DISCOUNT */}
+            <div className="flex flex-col">
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-gray-800 line-clamp-1">
+                  {defaultVariant
+                    ? `${product.name} (${[
+                        defaultVariant.option1Value,
+                        defaultVariant.option2Value,
+                        defaultVariant.option3Value,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")})`
+                    : product.name}
+                </span>
+
+                {typeof product.averageRating === "number" &&
+                  product.averageRating > 0 && (
+                    <div className="flex items-center gap-0.5">
+                      {renderStars(product.averageRating)}
+                      <span className="text-[11px] text-gray-500">
+                        ({product.approvedReviewCount ?? product.reviewCount ?? 0})
+                      </span>
+                    </div>
+                  )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+               <span className="text-xs text-gray-500">
+  {
+    product.categories?.find((c: any) => c.isPrimary)?.categoryName ??
+    product.categories?.[0]?.categoryName ??
+    ""
   }
-  alt={"img"}
-  className="w-10 h-10 object-contain"
-/>
+</span>
 
-{/* NAME, CATEGORY, PRICE + DISCOUNT */}
-<div className="flex flex-col">
-  <div className="flex items-center gap-2 flex-wrap">
-  <span className="text-sm font-medium text-gray-800 line-clamp-1">
-    {item.name}
-  </span>
+                {/* DISCOUNT */}
+                {product.displayDiscountType === "System" &&
+                  discountBadge && (
+                    <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold whitespace-nowrap">
+                      {discountBadge.type === "percent"
+                        ? `${discountBadge.value}% OFF`
+                        : `£${discountBadge.value} OFF`}
+                    </span>
+                  )}
 
+                {!discountBadge && oldPriceData && (
+                  <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold whitespace-nowrap">
+                    {oldPriceData.discount}% OFF
+                  </span>
+                )}
+              </div>
 
+              {/* PRICE */}
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
 
-  {typeof item.averageRating === "number" &&
-    item.averageRating > 0 && (
-      <div className="flex items-center gap-0.5">
-        {renderStars(item.averageRating)}
-        <span className="text-[11px] text-gray-500">
-          ({item.approvedReviewCount ?? item.reviewCount ?? 0})
-        </span>
-      </div>
-    )}
-</div>
+                <span className="text-sm font-semibold text-[#445D41]">
+                  £
+                  {(
+                    product.displayDiscountType === "System"
+                      ? finalPrice
+                      : basePrice
+                  ).toFixed(2)}
+                </span>
 
+                {/* SYSTEM DISCOUNT */}
+                {product.displayDiscountType === "System" &&
+                  discountBadge && (
+                    <span className="text-xs text-gray-400 line-through">
+                      £{basePrice.toFixed(2)}
+                    </span>
+                  )}
 
- <div className="flex items-center gap-2 flex-wrap">
-  <span className="text-xs text-gray-500">
-    {item.categoryName}
-  </span>
+                {/* OLD PRICE */}
+                {!discountBadge && oldPriceData && (
+                  <span className="text-xs text-gray-400 line-through">
+                    £{oldPriceData.oldPrice.toFixed(2)}
+                  </span>
+                )}
 
-  {/* 🔴 DISCOUNT */}
-  {item.hasDiscount &&
-    typeof item.discountPercentage === "number" &&
-    item.discountPercentage > 0 && (
-      <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold whitespace-nowrap">
-        {item.discountPercentage}% Off
-      </span>
-    )}
-</div>
-  {/* PRICE */}
- <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-  {item.hasDiscount &&
-  typeof item.discountPercentage === "number" &&
-  item.discountPercentage > 0 ? (
-    <>
-      {/* Discounted Price */}
-      <span className="text-sm font-semibold text-[#445D41]">
-      £{getDiscountedPrice(item.price, item.discountPercentage).toFixed(2)}
-      </span>
+                {/* LOYALTY */}
+                {product.loyaltyPointsMessage && (
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium whitespace-nowrap">
+                    {product.loyaltyPointsMessage}
+                  </span>
+                )}
+              </div>
 
-      {/* Original Price */}
-      <span className="text-xs text-gray-400 line-through">
-        £{Number(item.price).toFixed(2)}
-      </span>
-    </>
-  ) : (
-    <span className="text-sm font-semibold text-[#445D41]">
-      £{Number(item.price).toFixed(2)}
-    </span>
-  )}
+            </div>
 
-  {/* 🎁 Loyalty Points */}
-  {item.loyaltyPointsMessage && (
-    <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium whitespace-nowrap">
-      {item.loyaltyPointsMessage}
-    </span>
-  )}
-</div>
+            {/* STOCK */}
+            <div className="ml-auto flex-shrink-0 self-start">
+              {product.inStock ? (
+                <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+                  In Stock
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold">
+                  Out of Stock
+                </span>
+              )}
+            </div>
 
-</div>
-{/* STOCK BADGE */}
-<div className="ml-auto flex-shrink-0 self-start">
-
-  {item.inStock ? (
-    <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
-      In Stock
-    </span>
-  ) : (
-    <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold">
-      Out of Stock
-    </span>
-  )}
-</div>
-
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
   </div>
 )}
 
@@ -568,11 +645,11 @@ useEffect(() => {
     <Heart
       size={24}
       className={`block ${
-        wishlistCount > 0 ? "fill-[#445D41] text-black" : ""
+        wishlistCount > 0 ? "fill-red-500 text-red-500" : ""
       }`}
     />
     {wishlistCount > 0 && (
-      <span className="absolute -top-0.5 -right-1 bg-[#445D41] text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+      <span className="absolute -top-0.5 -right-1 bg-red-400 text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
         {wishlistCount}
       </span>
     )}
@@ -741,88 +818,175 @@ useEffect(() => {
                 {!searchLoading && results.length === 0 && (
                   <div className="p-4 text-sm text-gray-500">No products found</div>
                 )}
-                {!searchLoading && results.map((item) => (
-                  <Link
-                   key={item.sku}
-                    href={`/product/${item.slug}`}
-                    onClick={() => { setShowSearchDropdown(false); setSearchValue(""); setMobileSearchOpen(false); }}
-                    className="flex items-center gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-gray-50"
-                  >
-                    <img
-                      src={item.mainImageUrl?.startsWith("http") ? item.mainImageUrl : `${process.env.NEXT_PUBLIC_API_URL}${item.mainImageUrl}`}
-                      alt="img"
-                      className="w-10 h-10 object-contain flex-shrink-0 rounded"
-                    />
-                   <div className="flex flex-col flex-1 min-w-0">
+               {!searchLoading && flattenedResults.map((item) => {
 
-  {/* 🔥 NAME + DISCOUNT + RATING */}
-  <div className="flex items-center gap-1 flex-wrap">
-    <span className="text-sm font-medium text-gray-800 line-clamp-1">
-      {item.name}
-    </span>
+const product = item.productData;
+const defaultVariant = item.variantForCard;
+const cardSlug = item.cardSlug;
 
+ 
 
-    {/* ⭐ RATING */}
-    {typeof item.averageRating === "number" &&
-      item.averageRating > 0 && (
-        <div className="flex items-center gap-0.5">
-          {renderStars(item.averageRating)}
-          <span className="text-[10px] text-gray-500">
-            ({item.approvedReviewCount ?? item.reviewCount ?? 0})
+  const basePrice =
+    typeof defaultVariant?.price === "number" &&
+    defaultVariant.price > 0
+      ? defaultVariant.price
+      : product.price;
+
+  const finalPrice = getDiscountedPrice(product, basePrice);
+
+  const discountBadge = getDiscountBadge(product);
+
+  const oldPriceValue =
+    defaultVariant?.oldPrice ?? product.oldPrice;
+
+  const oldPriceData =
+    product.displayDiscountType === "OldPrice"
+      ? getOldPriceDiscount(
+          basePrice,
+          oldPriceValue,
+          false
+        )
+      : null;
+
+  const productImage =
+    defaultVariant?.imageUrl ||
+    product.images?.find((img: any) => img.isMain)?.imageUrl ||
+    product.images?.[0]?.imageUrl;
+
+  return (
+    <Link
+      key={`${product.id}-${cardSlug}`}
+      href={`/product/${cardSlug}`}
+      onClick={() => {
+        setShowSearchDropdown(false);
+        setSearchValue("");
+        setMobileSearchOpen(false);
+      }}
+      className="flex items-center gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-gray-50"
+    >
+
+      {/* IMAGE */}
+      <img
+        src={
+          productImage?.startsWith("http")
+            ? productImage
+            : `${process.env.NEXT_PUBLIC_API_URL}${productImage}`
+        }
+       alt={product.name}
+onError={(e) => {
+  (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+}}
+        className="w-10 h-10 object-contain flex-shrink-0 rounded"
+      />
+
+      <div className="flex flex-col flex-1 min-w-0">
+
+        {/* NAME + RATING */}
+        <div className="flex items-center gap-1 flex-wrap">
+
+          <span className="text-sm font-medium text-gray-800 line-clamp-1">
+            {defaultVariant
+              ? `${product.name} (${[
+                  defaultVariant.option1Value,
+                  defaultVariant.option2Value,
+                  defaultVariant.option3Value,
+                ]
+                  .filter(Boolean)
+                  .join(", ")})`
+              : product.name}
           </span>
+
+          {/* ⭐ RATING */}
+          {typeof product.averageRating === "number" &&
+            product.averageRating > 0 && (
+              <div className="flex items-center gap-0.5">
+                {renderStars(product.averageRating)}
+                <span className="text-[10px] text-gray-500">
+                  ({product.approvedReviewCount ?? product.reviewCount ?? 0})
+                </span>
+              </div>
+            )}
         </div>
+
+        {/* CATEGORY + DISCOUNT */}
+        <div className="flex items-center gap-2 flex-wrap">
+
+          <span className="text-xs text-gray-500">
+            {
+    product.categories?.find((c: any) => c.isPrimary)?.categoryName ??
+    product.categories?.[0]?.categoryName ??
+    ""
+  }
+          </span>
+
+          {/* SYSTEM DISCOUNT */}
+          {product.displayDiscountType === "System" &&
+            discountBadge && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold">
+                {discountBadge.type === "percent"
+                  ? `${discountBadge.value}% OFF`
+                  : `£${discountBadge.value} OFF`}
+              </span>
+            )}
+
+          {/* OLD PRICE DISCOUNT */}
+          {!discountBadge && oldPriceData && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold">
+              {oldPriceData.discount}% OFF
+            </span>
+          )}
+        </div>
+
+        {/* PRICE + LOYALTY */}
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+
+          <span className="text-sm font-semibold text-[#445D41]">
+            £
+            {(
+              product.displayDiscountType === "System"
+                ? finalPrice
+                : basePrice
+            ).toFixed(2)}
+          </span>
+
+          {/* SYSTEM CUT PRICE */}
+          {product.displayDiscountType === "System" &&
+            discountBadge && (
+              <span className="text-xs text-gray-400 line-through">
+                £{basePrice.toFixed(2)}
+              </span>
+            )}
+
+          {/* OLD PRICE CUT */}
+          {!discountBadge && oldPriceData && (
+            <span className="text-xs text-gray-400 line-through">
+              £{oldPriceData.oldPrice.toFixed(2)}
+            </span>
+          )}
+
+          {/* LOYALTY */}
+          {product.loyaltyPointsMessage && (
+            <span className="text-[10px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium">
+              {product.loyaltyPointsMessage}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* STOCK */}
+      {product.inStock ? (
+        <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold flex-shrink-0">
+          In Stock
+        </span>
+      ) : (
+        <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold flex-shrink-0">
+          Out
+        </span>
       )}
-  </div>
 
-  {/* CATEGORY */}
- <div className="flex items-center gap-2 flex-wrap">
-  <span className="text-xs text-gray-500">
-    {item.categoryName}
-  </span>
-
-  {/* 🔴 DISCOUNT */}
-  {item.hasDiscount &&
-    typeof item.discountPercentage === "number" &&
-    item.discountPercentage > 0 && (
-      <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold">
-        {item.discountPercentage}% Off
-      </span>
-    )}
-</div>
-
-  {/* 💰 PRICE + 🎁 POINTS */}
-  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-    {item.hasDiscount &&
-    typeof item.discountPercentage === "number" &&
-    item.discountPercentage > 0 ? (
-      <>
-        <span className="text-sm font-semibold text-[#445D41]">
-          £{getDiscountedPrice(item.price, item.discountPercentage)}
-        </span>
-        <span className="text-xs text-gray-400 line-through">
-          £{Number(item.price).toFixed(2)}
-        </span>
-      </>
-    ) : (
-      <span className="text-sm font-semibold text-[#445D41]">
-        £{Number(item.price).toFixed(2)}
-      </span>
-    )}
-
-    {/* 🎁 LOYALTY */}
-    {item.loyaltyPointsMessage && (
-      <span className="text-[10px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium">
-        {item.loyaltyPointsMessage}
-      </span>
-    )}
-  </div>
-</div>
-                    {item.inStock
-                      ? <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold flex-shrink-0">In Stock</span>
-                      : <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold flex-shrink-0">Out</span>
-                    }
-                  </Link>
-                ))}
+    </Link>
+  );
+})}
               </div>
             )}
           </div>

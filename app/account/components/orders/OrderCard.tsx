@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Info from "../ui/Info";
-import { getOrderStatusBadge, getCollectionStatusTextColor } from "./orderUtils";
+import { getOrderStatusBadge, getCollectionStatusTextColor,  getOrderStatusLabel } from "./orderUtils";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast/CustomToast";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -15,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Download, RefreshCcw, XCircle } from "lucide-react";
 const CANCELLATION_REASONS = [
   "Ordered by mistake",
   "Found a better price elsewhere",
@@ -41,6 +43,7 @@ function StripePaymentForm({
   accessToken: string | null;
   onSuccess: () => void;
 }) {
+
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -89,18 +92,23 @@ function StripePaymentForm({
   return (
     <form onSubmit={handlePay} className="space-y-4">
       <div className="border rounded-lg p-4 bg-gray-50">
-        <CardElement
-          options={{
-            style: {
-              base: {
-                fontSize: "16px",
-                color: "#1a202c",
-                "::placeholder": { color: "#a0aec0" },
-              },
-              invalid: { color: "#e53e3e" },
-            },
-          }}
-        />
+       <CardElement
+  options={{
+    hidePostalCode: true,
+    style: {
+      base: {
+        fontSize: "16px",
+        color: "#1a202c",
+        "::placeholder": {
+          color: "#a0aec0",
+        },
+      },
+      invalid: {
+        color: "#e53e3e",
+      },
+    },
+  }}
+/>
       </div>
 
       {error && (
@@ -262,6 +270,7 @@ export default function OrderCard({
   targetOrderId?: string | null; 
 }) {
   const { accessToken, user } = useAuth();
+    const router = useRouter();
   const toast = useToast();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -458,6 +467,83 @@ const refundedAmount =
   order.payments?.[0]?.refundAmount ??
   order.payment?.refundAmount ??
   0;
+const handleReorder = async () => {
+  try {
+    toast.info("Preparing reorder...");
+
+    const results = await Promise.all(
+      order.items.map(async (item: any) => {
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/Products/${item.productId}`
+          );
+
+          const json = await res.json();
+
+          if (!json?.success || !json?.data) return null;
+
+          const p = json.data;
+
+          // ❌ inactive
+          if (!p.isActive) return null;
+
+          let stock = p.stockQuantity;
+
+          // 🔥 VARIANT STOCK
+          if (p.selectedVariantId && p.variants?.length) {
+            const variant = p.variants.find(
+              (v: any) => v.id === p.selectedVariantId
+            );
+
+            if (variant) {
+              stock = variant.stockQuantity;
+            }
+          }
+
+          // ❌ OUT OF STOCK
+          if (!stock || stock <= 0) {
+            return { skipped: true };
+          }
+
+          // ✅ ADJUST QTY
+          const qty = Math.min(item.quantity, stock);
+
+          return {
+            id: p.id,
+            productId: p.id,
+            variantId: p.selectedVariantId || null,
+            name: p.name,
+            image:
+              p.images?.find((img: any) => img.isMain)?.imageUrl ||
+              p.images?.[0]?.imageUrl ||
+              "",
+            price: p.price,
+            finalPrice: p.price,
+            quantity: qty,
+            productData: p,
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const valid = results.filter((x: any) => x && !x.skipped);
+
+    if (valid.length === 0) {
+      toast.error("Items are out of stock");
+      return;
+    }
+
+    sessionStorage.setItem("reorderItems", JSON.stringify(valid));
+
+    toast.success("Redirecting to checkout...");
+
+    router.push("/checkout?reorder=true");
+  } catch {
+    toast.error("Reorder failed");
+  }
+};
 
   return (
    <div
@@ -479,7 +565,7 @@ const refundedAmount =
 
         <span
           className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${getOrderStatusBadge( order.status )}`} >
-          {order.statusName ?? order.status}
+        {getOrderStatusLabel(order.status, order.statusName)}
         </span>
       </div>
 
@@ -619,7 +705,8 @@ const refundedAmount =
       className={`font-medium ${
         order.paymentStatus?.toLowerCase() === "successful"
           ? "text-green-600"
-          : order.paymentStatus?.toLowerCase() === "pending"
+          : order.paymentStatus?.toLowerCase() === "pending" ||
+            order.paymentStatus?.toLowerCase() === "partiallypaid"
           ? "text-orange-500"
           : order.paymentStatus?.toLowerCase() === "failed"
           ? "text-red-600"
@@ -822,24 +909,46 @@ const refundedAmount =
 
       {/* ACTIONS */}
       <div className="flex flex-wrap justify-end items-center gap-2 pt-3 border-t">
-       
+      
 
-        <Button
-          onClick={handleDownloadInvoice}
-          size="sm"
-          variant="outline"
-          disabled={invoiceLoading}
-          className="text-white bg-[#445D41] hover:bg-green-700"
-        >
-          {invoiceLoading ? "Generating Invoice..." : "Download Invoice"}
-        </Button>
+       <Button
+  onClick={handleDownloadInvoice}
+  size="sm"
+  variant="outline"
+  disabled={invoiceLoading}
+  className="text-white bg-[#445D41] hover:bg-black hover:text-white gap-1"
+>
+  <Download className="h-4 w-4" />
+
+  {invoiceLoading
+    ? "Generating Invoice..."
+    : "Download Invoice"}
+</Button>
 
         {["pending", "processing"].includes(order.status?.toLowerCase()) &&
 order.status !== "CancellationRequested" && (
-          <Button size="sm" variant="destructive" onClick={() => setShowCancelModal(true)}>
-            Cancel Order
-          </Button>
+         <Button
+  size="sm"
+  variant="destructive"
+  onClick={() => setShowCancelModal(true)}
+  className="gap-1"
+>
+  <XCircle className="h-4 w-4" />
+  Cancel Order
+</Button>
         )}
+
+         {order.status?.toLowerCase() !== "processing" && (
+<Button
+  size="sm"
+  variant="outline"
+  onClick={handleReorder}
+  className="text-white bg-black hover:bg-[#445D41] hover:text-white gap-1"
+>
+  <RefreshCcw className="h-4 w-4" />
+  Reorder
+</Button>
+)}
       </div>
 
       {/* PAY NOW MODAL */}
@@ -976,7 +1085,7 @@ order.status !== "CancellationRequested" && (
    <div className="pt-1 pb-5 px-5 space-y-3 text-sm">
 
       <div>
-        <p className="text-xs text-gray-500">Store</p>
+        <p className="text-xs text-gray-500">Store Name</p>
         <p className="font-semibold text-[#445D41]">
           {order.collectionStoreName}
         </p>

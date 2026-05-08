@@ -10,6 +10,7 @@ import "swiper/css/pagination";
 
 /* ================= TYPES ================= */
 interface Discount {
+   id?: string;
   isActive: boolean;
   usePercentage: boolean;
   discountPercentage: number;
@@ -27,6 +28,7 @@ interface Category {
   slug: string;
   imageUrl?: string | null;
   assignedDiscounts: Discount[];
+   subCategories?: Category[];
 }
 const stripHtml = (html?: string) => {
   if (!html) return "";
@@ -55,16 +57,40 @@ export default function CategoryOffersSlider({
   return true;
 };
 
-const offerCategories = categories.filter((c) => {
-  if (!c.assignedDiscounts?.length) return false;
+const flattenCategories = (
+  categoryList: Category[]
+): Category[] => {
+  return categoryList.flatMap((category) => [
+    category,
+    ...flattenCategories(
+      category.subCategories || []
+    ),
+  ]);
+};
 
-  const validDiscount = c.assignedDiscounts.find((d) =>
-    isDiscountValid(d)
+const flattenedCategories =
+  flattenCategories(categories);
+
+// ✅ Remove duplicates
+const uniqueCategories =
+  flattenedCategories.filter(
+    (cat, index, self) =>
+      index ===
+      self.findIndex((c) => c.id === cat.id)
   );
 
-  return !!validDiscount;
-});
+const offerCategories =
+  uniqueCategories.filter((c) => {
+    if (!c.assignedDiscounts?.length)
+      return false;
 
+    const validDiscount =
+      c.assignedDiscounts.find((d) =>
+        isDiscountValid(d)
+      );
+
+    return !!validDiscount;
+  });
 
   if (offerCategories.length === 0) return null;
 
@@ -141,7 +167,10 @@ const adminComment = stripHtml(validDiscount?.adminComment);
 const percentageDiscounts = validDiscounts
   .filter((d) => d.usePercentage)
   .map((d) => d.discountPercentage);
-
+const offerDiscountIds = validDiscounts
+  .map((d) => d.id)
+  .filter(Boolean)
+  .join(",");
 
             const maxDiscount =
               percentageDiscounts.length > 0
@@ -154,10 +183,16 @@ const percentageDiscounts = validDiscounts
 
             return (
               <SwiperSlide key={cat.id}>
-                <Link href={`/category/${cat.slug}?offer=true`}>
+                <Link
+  href={`/category/${cat.slug}?offer=true${
+    offerDiscountIds
+      ? `&discountIds=${encodeURIComponent(offerDiscountIds)}`
+      : ""
+  }`}
+>
                   <div className="relative bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col">
                     {/* OFFER BADGE */}
-                    <div className="absolute top-2 left-2 z-10 flex items-center justify-center text-center w-[52px] h-[52px] md:w-[70px] md:h-[70px] bg-gradient-to-br from-red-500 to-red-700 text-white text-[9px] md:text-[11px] font-extrabold leading-tight rounded-full shadow-lg ring-2 ring-white/70">
+                    <div className="absolute top-2 left-2 z-10 flex items-center justify-center text-center w-[52px] h-[52px] md:w-[70px] md:h-[70px] bg-gradient-to-br from-red-500 to-red-700 text-white text-[9px] md:text-[10px] font-extrabold leading-tight rounded-full shadow-lg ring-2 ring-white/70">
                       <span className="px-1">{offerText}</span>
                     </div>
 

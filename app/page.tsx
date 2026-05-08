@@ -175,7 +175,7 @@ return dataArray
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.direct-care.co.uk"),
 
-  title: "Direct Care UK - Buy Medicines & Healthcare Products Online",
+  title: "Direct Care UK - Shop Beauty, Health, Incontinence Items & More",
   
   description:
     "Shop medicines, healthcare, beauty, and personal care products online in the UK. Fast delivery, trusted brands, and best prices at Direct Care.",
@@ -282,13 +282,12 @@ const homeProducts = [...products].sort(
 <h1 className="sr-only">
   Buy Medicines & Healthcare Products Online in the UK - Direct Care
 </h1>
+
     {/* ===== HERO SLIDER ===== */}
     <section className="w-full">
       <HomeBannerSlider banners={homeBanners} baseUrl={baseUrl} />
-
     </section>
-
-  
+    
 {/* ===== CATEGORY OFFERS (NEW) ===== */}
 <CategoryOffersSlider categories={categories} baseUrl={baseUrl} />
     {/* ===== PROMO BANNER ===== */}

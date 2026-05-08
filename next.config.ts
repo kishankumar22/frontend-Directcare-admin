@@ -33,18 +33,18 @@ images: {
       pathname: '/**',
     },
     {
+  protocol: 'https',
+  hostname: 'api.astircare.co.uk',
+  pathname: '/**',
+},
+  {
+  protocol: 'https',
+  hostname: 'test.astircare.co.uk',
+  pathname: '/**',
+},
+    {
       protocol: 'https',
       hostname: 'testapi.knowledgemarkg.com',
-      pathname: '/**',
-    },
-    {
-      protocol: 'https',
-      hostname: 'api.astircare.co.uk',
-      pathname: '/**',
-    },
-    {
-      protocol: 'https',
-      hostname: 'test.astircare.co.uk',
       pathname: '/**',
     },
     {

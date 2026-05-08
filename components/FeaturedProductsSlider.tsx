@@ -17,7 +17,7 @@ import {
   getDiscountedPrice,
 } from "@/app/lib/discountHelpers";
 import GenderBadge from "@/components/shared/GenderBadge";
-
+import { getOldPriceDiscount } from "@/utils/pricing";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getBackorderUIState } from "@/app/lib/backorderHelpers";
@@ -49,6 +49,11 @@ orderMaximumQuantity?: number;
   slug: string;
   price: number;
   oldPrice?: number | null;
+  displayDiscountType?: "None" | "OldPrice" | "System";
+
+hasSystemDiscount?: boolean;
+
+systemDiscountAmount?: number;
   averageRating?: number;
   reviewCount?: number;
   images?: { imageUrl: string }[];
@@ -90,7 +95,7 @@ const { isAuthenticated } = useAuth();
 const flattenedProducts = useMemo(() => {
   return flattenProductsForListing(products);
 }, [products]);
-
+const shouldShowNav = flattenedProducts.length > 4;
 const [vatRates, setVatRates] = useState<any[]>([]);
 const [notifyProduct, setNotifyProduct] = useState<{
   productId: string;
@@ -160,7 +165,9 @@ const vatRate =
     ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate ?? null
     : null;
 const selected = defaultVariant ?? null;
-
+const oldPriceValue =
+  (defaultVariant as any)?.oldPrice ??
+  product.oldPrice;
 const stockQty =
   selected?.stockQuantity ??
   (product as any).stockQuantity ??
@@ -198,7 +205,20 @@ if (finalQty > maxQty) {
       price: finalPrice,
       priceBeforeDiscount: basePrice,
       finalPrice: finalPrice,
-      discountAmount: discountAmount,
+     discountAmount:
+  product.displayDiscountType === "System"
+    ? discountAmount
+    : 0,
+    oldPrice: oldPriceValue ?? null,
+
+displayDiscountType:
+  product.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  product.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  product.systemDiscountAmount ?? 0,
       quantity: finalQty,
         vatRate: vatRate,
   vatIncluded: vatRate !== null,
@@ -262,14 +282,23 @@ const shouldShowMinWarning = (product: any) => {
       <h2 className="text-xl md:text-3xl font-bold mb-4 md:mb-8 text-gray-900 text-center">
         {title}
       </h2>
+{shouldShowNav && (
+  <button
+    id="prevBtn"
+    className="hidden md:block absolute -left-4 top-1/2 -translate-y-1/2 z-20"
+  >
+    <ChevronLeft className="w-8 h-8 text-gray-700" />
+  </button>
+)}
 
-      <button id="prevBtn" className="hidden md:block absolute -left-4 top-1/2 -translate-y-1/2 z-20 p-0 m-0">
-        <ChevronLeft className="w-8 h-8 text-gray-700" />
-      </button>
-
-      <button id="nextBtn" className="hidden md:block absolute -right-4 top-1/2 -translate-y-1/2 z-20 p-0 m-0">
-        <ChevronRight className="w-8 h-8 text-gray-700" />
-      </button>
+{shouldShowNav && (
+  <button
+    id="nextBtn"
+    className="hidden md:block absolute -right-4 top-1/2 -translate-y-1/2 z-20"
+  >
+    <ChevronRight className="w-8 h-8 text-gray-700" />
+  </button>
+)}
 
       <Swiper
   modules={[Autoplay, Navigation, Pagination]}
@@ -289,7 +318,11 @@ const shouldShowMinWarning = (product: any) => {
     pauseOnMouseEnter: true,
   }}
 
-  navigation={{ prevEl: "#prevBtn", nextEl: "#nextBtn" }}
+  navigation={
+  shouldShowNav
+    ? { prevEl: "#prevBtn", nextEl: "#nextBtn" }
+    : false
+}
 
   pagination={{ clickable: true, dynamicBullets: true }}
 
@@ -333,6 +366,18 @@ const basePrice =
 
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
+// 🔥 NEW: oldPrice fallback logic
+const oldPriceValue =
+  (defaultVariant as any)?.oldPrice ?? product.oldPrice;
+
+const oldPriceData =
+  product.displayDiscountType === "OldPrice"
+    ? getOldPriceDiscount(
+        basePrice,
+        oldPriceValue,
+        false
+      )
+    : null;
 // ---------- Active Coupon (indicator only) ----------
 const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
   if (!d.isActive) return false;
@@ -399,7 +444,8 @@ const backorderState = getBackorderUIState({
   </span>
 )}
 {/* Offer badge — top right, smaller */}
-{discountBadge && (
+{product.displayDiscountType === "System" &&
+ discountBadge && (
   <div className="absolute top-1 right-2 z-20">
     <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
       <div className="flex flex-col items-center leading-none">
@@ -414,6 +460,21 @@ const backorderState = getBackorderUIState({
             <span className="text-[7px] sm:text-[8px] font-semibold">OFF</span>
           </>
         )}
+      </div>
+    </div>
+  </div>
+)}
+
+{!discountBadge && !hasActiveCoupon && oldPriceData && (
+  <div className="absolute top-1 right-2 z-20">
+    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+      <div className="flex flex-col items-center leading-none">
+        <span className="text-[10px] sm:text-xs font-extrabold">
+          {oldPriceData.discount}%
+        </span>
+        <span className="text-[7px] sm:text-[8px] font-semibold">
+          OFF
+        </span>
       </div>
     </div>
   </div>
@@ -464,9 +525,23 @@ const backorderState = getBackorderUIState({
 
   slug: cardSlug,
  price: finalPrice,
+ 
 priceBeforeDiscount: basePrice,
 finalPrice: finalPrice,
-discountAmount: discountAmount ?? 0,
+discountAmount:
+  product.displayDiscountType === "System"
+    ? discountAmount
+    : 0,
+oldPrice: oldPriceValue ?? null,
+
+displayDiscountType:
+  product.displayDiscountType ?? "None",
+
+hasSystemDiscount:
+  product.hasSystemDiscount ?? false,
+
+systemDiscountAmount:
+  product.systemDiscountAmount ?? 0,
 appliedDiscountId: null, // slider me coupon nahi hai
 couponCode: null,
   image: getProductDisplayImage(product, defaultVariant),
@@ -494,16 +569,19 @@ couponCode: null,
 }
   }}
   className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
-    (discountBadge || hasActiveCoupon) ? "top-12" : "top-2"
+    (
+  product.displayDiscountType !== "None" ||
+  hasActiveCoupon
+) ? "top-12" : "top-2"
   } ${
     isInWishlist(defaultVariant?.id ?? product.id)
-      ? "bg-green-50 border-green-200"
-      : "bg-white border-gray-200 hover:bg-green-50 hover:border-green-200"
+      ? "bg-red-50 border-red-200"
+      : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
   }`}
 >
   <Heart
     className={`h-4 w-4 transition-colors ${
-      isInWishlist(defaultVariant?.id ?? product.id) ? "fill-green-500 text-green-500" : "text-gray-400 hover:text-green-400"
+      isInWishlist(defaultVariant?.id ?? product.id) ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-400"
     }`}
   />
 </button>
@@ -567,14 +645,30 @@ couponCode: null,
 
   {/* PRICE ROW */}
   <div className="flex items-center gap-1 sm:gap-2">
-    <span className="text-lg font-bold text-[#445D41] leading-none">
-      £{finalPrice.toFixed(2)}
-    </span>
-    {discountBadge && (
-      <span className="text-xs text-gray-400 line-through leading-none">
-        £{basePrice.toFixed(2)}
-      </span>
-    )}
+   <span className="text-lg font-bold text-[#445D41] leading-none">
+ £{
+  (
+    product.displayDiscountType === "System"
+      ? finalPrice
+      : basePrice
+  ).toFixed(2)
+} 
+</span>
+
+{/* 🔥 CASE 1: REAL DISCOUNT */}
+{product.displayDiscountType === "System" &&
+ discountBadge && (
+  <span className="text-xs text-gray-400 line-through leading-none">
+    £{basePrice.toFixed(2)}
+  </span>
+)}
+
+{/* 🔥 CASE 2: OLD PRICE (NO DISCOUNT) */}
+{!discountBadge && !hasActiveCoupon && oldPriceData && (
+  <span className="text-xs text-gray-400 line-through leading-none">
+    £{oldPriceData.oldPrice.toFixed(2)}
+  </span>
+)}
     {!product.vatExempt && vatRate !== null && (
       <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap leading-none">
         {vatRate}% VAT
@@ -661,7 +755,32 @@ if (existingCartQty + finalQty > maxQty) {
     price: finalPrice,
     priceBeforeDiscount: basePrice,
     finalPrice: finalPrice,
-    discountAmount: discountAmount,
+    oldPrice:
+  defaultVariant?.oldPrice ??
+  oldPriceValue ??
+  product.oldPrice ??
+  undefined,
+    displayDiscountType:
+  defaultVariant?.displayDiscountType ??
+  product.displayDiscountType ??
+  "None",
+
+hasSystemDiscount:
+  defaultVariant?.hasSystemDiscount ??
+  product.hasSystemDiscount ??
+  false,
+
+systemDiscountAmount:
+  defaultVariant?.systemDiscountAmount ??
+  product.systemDiscountAmount ??
+  0,
+  discountAmount:
+  (
+    defaultVariant?.displayDiscountType ??
+    product.displayDiscountType
+  ) === "System"
+    ? discountAmount
+    : 0,
     quantity: finalQty,
       // ✅ ADD THESE 👇
  vatRate: vatRate,
