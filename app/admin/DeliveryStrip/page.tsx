@@ -1062,15 +1062,15 @@ const handleAutoScroll = (e: React.DragEvent) => {
                         <Trash2 size={15}/>
                       </button>
                       <a
-  href={`/delivery/${item.slug}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  title="View Page"
-  className="p-1.5 rounded-lg hover:bg-slate-700/60 text-slate-500 hover:text-green-400 transition"
->
-  <ExternalLink size={15} />
-</a>
-                    </div>
+                        href={`/delivery/${item.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="View Page"
+                        className="p-1.5 rounded-lg hover:bg-slate-700/60 text-slate-500 hover:text-green-400 transition"
+                        >
+                        <ExternalLink size={15} />
+                      </a>
+                  </div>
                   </td>
                 </tr>
               ))}

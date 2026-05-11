@@ -1691,7 +1691,7 @@ const filteredDiscounts = discounts.filter((discount) => {
             {assignedCats.map((cat) => (
               <span
                 key={cat.id}
-                title="Discount on Category"
+               title={`Category Name : ${cat.name}`}
                 className="
                   px-2 py-0.5
                   rounded-md
@@ -1702,8 +1702,8 @@ const filteredDiscounts = discounts.filter((discount) => {
                   truncate
                   max-w-[180px]
                 "
-              >
-                {cat.name}
+                >
+             Assigned to Categories
               </span>
             ))}
           </div>
@@ -1725,7 +1725,7 @@ const filteredDiscounts = discounts.filter((discount) => {
               text-blue-300 text-[10px]
             "
           >
-            {assignedProducts.length} Products
+         Assigned to Products
           </div>
         </div>
       );
@@ -1746,7 +1746,7 @@ const filteredDiscounts = discounts.filter((discount) => {
             font-medium
           "
         >
-          Order Total
+         Assigned to Order Total
         </div>
       );
     }
@@ -1766,7 +1766,7 @@ const filteredDiscounts = discounts.filter((discount) => {
             font-medium
           "
         >
-          Shipping
+        Assign to   Shipping
         </div>
       );
     }

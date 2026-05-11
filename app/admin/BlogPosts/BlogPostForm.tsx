@@ -417,26 +417,34 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
       toast.error("Please fix the errors before saving.");
       return;
     }
+    
     setSaving(true);
-    const payload: Partial<BlogPost> = {
-      title: title.trim(),
-      slug: slug.trim(),
-      bodyOverview: summary || undefined,
-      body,
-      isPublished: publish !== undefined ? publish : isPublished,
-      publishedAt: publishedAt || undefined,
-      blogCategoryId: blogCategoryId || null,
-      relatedBlogPostIds,
-      tags,
-      allowComments,
-      showOnHomePage,
-      includeInSitemap,
-      displayOrder,
-      metaTitle: metaTitle || undefined,
-      metaDescription: metaDescription || undefined,
-      metaKeywords: metaKeywords || undefined,
-      thumbnailImageUrl: thumbnailUrl || undefined,
-    };
+const currentUser =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("user") || "{}")
+    : {};
+
+const payload: Partial<BlogPost> = {
+  title: title.trim(),
+  slug: slug.trim(),
+  bodyOverview: summary || undefined,
+  body,
+  isPublished: publish !== undefined ? publish : isPublished,
+  publishedAt: publishedAt || undefined,
+  blogCategoryId: blogCategoryId || null,
+  relatedBlogPostIds,
+  tags,
+  allowComments,
+  showOnHomePage,
+  includeInSitemap,
+  displayOrder,
+  metaTitle: metaTitle || undefined,
+  metaDescription: metaDescription || undefined,
+  metaKeywords: metaKeywords || undefined,
+  thumbnailImageUrl: thumbnailUrl || undefined,
+  authorName: `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim(),
+  authorId: currentUser?.id || "",
+};
 
     try {
       if (mode === "create") {

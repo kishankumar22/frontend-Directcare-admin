@@ -704,7 +704,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                     <InfoField label="Dispatch Days" value={product.estimatedDispatchDays?.toString()} />
                     {product.deliveryDateId && <InfoField label="Delivery Date ID" value={product.deliveryDateId} />}
                     {product.dispatchTimeNote && <InfoField label="Dispatch Note" value={product.dispatchTimeNote} />}
-                    {product.nextDayDeliveryCutoffTime && <InfoField label="Next Day Cutoff" value={product.nextDayDeliveryCutoffTime} />}
+           
                   </div>
 
                   {/* ✅ NEW: DELIVERY OPTIONS SECTION */}
@@ -774,10 +774,20 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                             )}
                           </div>
                           <p className="text-xs font-bold text-slate-400">🚀 Next-Day</p>
+
                         </div>
-                        {(product as any).nextDayDeliveryEnabled && (
-                          <p className="text-xs text-blue-400 mt-2">Available</p>
-                        )}
+                   {(product as any).nextDayDeliveryEnabled && (
+  <div className="text-xs text-blue-400 mt-2">
+    <span>Available</span>
+
+    {product.nextDayDeliveryCutoffTime && (
+      <InfoField
+        label="Next Day Cutoff"
+        value={product.nextDayDeliveryCutoffTime}
+      />
+    )}
+  </div>
+)}
                         {!(product as any).nextDayDeliveryEnabled && (
                           <p className="text-xs text-slate-500 mt-2">Not available</p>
                         )}
@@ -804,6 +814,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                           <p className="text-xs font-bold text-slate-400">📦 Standard</p>
                         </div>
                         {(product as any).standardDeliveryEnabled && (
+                          
                           <p className="text-xs text-cyan-400 mt-2">Available</p>
                         )}
                         {!(product as any).standardDeliveryEnabled && (

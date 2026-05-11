@@ -266,156 +266,219 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         paste_tab_spaces: 4,
         smart_paste: true,
         
-        content_style: `
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px; 
-            line-height: 1.6;
-            color: #f1f5f9 !important;
-            background-color: #0f172a !important;
-            margin: 0;
-            padding: 12px 14px !important;
-            min-height: ${height - 100}px;
-            box-sizing: border-box;
-          }
-          
-          body:empty::before {
-            content: "${placeholder}";
-            color: #ffffff;
-            opacity: 0.6;
-          }
-          
-          * {
-            color: #f1f5f9 !important;
-          }
-          
-          p {
-            margin: 0 0 0.8em 0;
-            line-height: 1.6;
-            color: #e2e8f0 !important;
-            min-height: 1.4em;
-          }
-          
-          p:first-child {
-            margin-top: 0;
-          }
-          
-          p:last-child {
-            margin-bottom: 0;
-          }
-          
-          h1, h2, h3, h4, h5, h6 { 
-            color: #f8fafc !important; 
-            margin: 1em 0 0.5em 0;
-            font-weight: 600;
-            line-height: 1.4;
-          }
-          
-          strong, b {
-            color: #f8fafc !important;
-            font-weight: 600;
-          }
-          
-          em, i {
-            color: #e2e8f0 !important;
-            font-style: italic;
-          }
-          
-          u {
-            color: #e2e8f0 !important;
-            text-decoration: underline;
-          }
-          
-          a { 
-            color: #a855f7 !important; 
-            text-decoration: underline;
-          }
-          
-          a:hover {
-            color: #c084fc !important;
-          }
-          
-          ul, ol {
-            color: #e2e8f0 !important;
-            padding-left: 1.5em;
-            margin: 0.6em 0;
-          }
-          
-          li {
-            color: #e2e8f0 !important;
-            margin: 0.3em 0;
-            line-height: 1.6;
-          }
-          
-          table { 
-            border-collapse: collapse; 
-            width: 100%; 
-            margin: 0.8em 0;
-            background-color: #1e293b !important;
-            border: 1px solid #475569;
-          }
-          
-          th, td { 
-            border: 1px solid #475569; 
-            padding: 6px 10px;
-            text-align: left; 
-            color: #e2e8f0 !important;
-          }
-          
-          th { 
-            background-color: #334155 !important; 
-            font-weight: 600;
-            color: #f1f5f9 !important;
-          }
-          
-          code { 
-            background-color: #374151 !important; 
-            color: #fbbf24 !important; 
-            padding: 2px 5px;
-            border-radius: 4px;
-            font-family: 'SF Mono', Monaco, Consolas, monospace;
-          }
-          
-          pre {
-            background-color: #111827 !important;
-            color: #f3f4f6 !important;
-            padding: 12px;
-            border-radius: 8px;
-            overflow-x: auto;
-            border: 1px solid #374151;
-          }
-          
-          blockquote {
-            border-left: 4px solid #8b5cf6;
-            margin: 0.8em 0;
-            padding: 0.4em 0.8em;
-            color: #cbd5e1 !important;
-            background-color: #334155 !important;
-            border-radius: 0 8px 8px 0;
-          }
-          
-          hr {
-            border: none;
-            border-top: 2px solid #475569;
-            margin: 1.2em 0;
-          }
-          
-          img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            cursor: pointer;
-          }
-          
-          img:hover {
-            opacity: 0.8;
-            box-shadow: 0 0 0 2px #a855f7;
-          }
-          
-          img[data-mce-selected] {
-            box-shadow: 0 0 0 3px #a855f7 !important;
-          }
-        `,
+content_style: `
+  html,
+  body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.75) rgba(51, 65, 85, 0.22);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px; 
+    line-height: 1.6;
+    color: #f1f5f9 !important;
+    background-color: #0f172a !important;
+    margin: 0;
+    padding: 12px 14px !important;
+    min-height: ${height - 100}px;
+    box-sizing: border-box;
+  }
+
+  /* =========================
+     Premium Compact Scrollbar
+  ========================= */
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(51, 65, 85, 0.22);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      rgba(100, 116, 139, 0.82) 0%,
+      rgba(71, 85, 105, 0.92) 100%
+    );
+
+    border-radius: 9999px;
+
+    border: 1px solid rgba(15, 23, 42, 0.45);
+
+    transition:
+      background 0.2s ease,
+      opacity 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(148, 163, 184, 0.95) 0%,
+      rgba(100, 116, 139, 1) 100%
+    );
+
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04),
+      0 0 6px rgba(0,0,0,0.2);
+  }
+
+  ::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(
+      180deg,
+      rgba(168, 85, 247, 0.9) 0%,
+      rgba(139, 92, 246, 0.95) 100%
+    );
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  body:empty::before {
+    content: "${placeholder}";
+    color: #ffffff;
+    opacity: 0.6;
+  }
+
+  * {
+    color: #f1f5f9 !important;
+  }
+
+  p {
+    margin: 0 0 0.8em 0;
+    line-height: 1.6;
+    color: #e2e8f0 !important;
+    min-height: 1.4em;
+  }
+
+  p:first-child {
+    margin-top: 0;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 { 
+    color: #f8fafc !important; 
+    margin: 1em 0 0.5em 0;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  strong, b {
+    color: #f8fafc !important;
+    font-weight: 600;
+  }
+
+  em, i {
+    color: #e2e8f0 !important;
+    font-style: italic;
+  }
+
+  u {
+    color: #e2e8f0 !important;
+    text-decoration: underline;
+  }
+
+  a { 
+    color: #a855f7 !important; 
+    text-decoration: underline;
+  }
+
+  a:hover {
+    color: #c084fc !important;
+  }
+
+  ul, ol {
+    color: #e2e8f0 !important;
+    padding-left: 1.5em;
+    margin: 0.6em 0;
+  }
+
+  li {
+    color: #e2e8f0 !important;
+    margin: 0.3em 0;
+    line-height: 1.6;
+  }
+
+  table { 
+    border-collapse: collapse; 
+    width: 100%; 
+    margin: 0.8em 0;
+    background-color: #1e293b !important;
+    border: 1px solid #475569;
+  }
+
+  th, td { 
+    border: 1px solid #475569; 
+    padding: 6px 10px;
+    text-align: left; 
+    color: #e2e8f0 !important;
+  }
+
+  th { 
+    background-color: #334155 !important; 
+    font-weight: 600;
+    color: #f1f5f9 !important;
+  }
+
+  code { 
+    background-color: #374151 !important; 
+    color: #fbbf24 !important; 
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+  }
+
+  pre {
+    background-color: #111827 !important;
+    color: #f3f4f6 !important;
+    padding: 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid #374151;
+  }
+
+  blockquote {
+    border-left: 4px solid #8b5cf6;
+    margin: 0.8em 0;
+    padding: 0.4em 0.8em;
+    color: #cbd5e1 !important;
+    background-color: #334155 !important;
+    border-radius: 0 8px 8px 0;
+  }
+
+  hr {
+    border: none;
+    border-top: 2px solid #475569;
+    margin: 1.2em 0;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  img:hover {
+    opacity: 0.8;
+    box-shadow: 0 0 0 2px #a855f7;
+  }
+
+  img[data-mce-selected] {
+    box-shadow: 0 0 0 3px #a855f7 !important;
+  }
+`,
         
         branding: false,
         promotion: false,

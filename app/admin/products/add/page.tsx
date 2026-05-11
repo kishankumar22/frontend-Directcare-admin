@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useRef, useEffect, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +21,7 @@ import UnsavedChangesModal from "../_components/UnsavedChangesModal";
 import VatRateSelector from "../VatRateSelector";
 import { scrollCls } from "../../_utils/styles";
 import { cn } from "@/lib/utils";
+import { getBackendMessage } from "../../_utils/errorUtils";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -63,7 +64,7 @@ const hasCheckingVariantSku = Object.values(checkingVariantSku).some(checking =>
 const getPlainText = (html: string) =>
   html.replace(/<[^>]*>/g, '').trim();
 
-//   œ‚ï¸ Utility: truncate HTML by plain text length
+//Utility: truncate HTML by plain text length
 const truncateHtmlByTextLength = (html: string, maxLength: number) => {
   const div = document.createElement('div');
   div.innerHTML = html;
@@ -241,9 +242,6 @@ const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
   };
 };
 
-
-
-
 /**
  *   CHECK PUBLISH REQUIREMENTS (Complete)
  * All required fields for creating/publishing product
@@ -325,8 +323,8 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
 const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
   const title = isDraft ? 'Draft Requirements' : 'Required Fields Missing';
   const message = missing.length === 1 
-    ? `ðŸ“‹ Missing: ${missing[0]}`
-    : `ðŸ“‹ Missing ${missing.length} fields:\n\n${missing.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
+    ? `‹ Missing: ${missing[0]}`
+    : `‹ Missing ${missing.length} fields:\n\n${missing.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
 
   toast.warning(message, {
     autoClose: 8000,
@@ -381,7 +379,7 @@ const cleanVariantOptions = (variant: any, firstVariant: any) => {
 useEffect(() => {
   const fetchAllData = async () => {
     try {
-      console.log('ðŸ”„ Fetching all data (dropdowns + products)...');
+      console.log(' Fetching all data (dropdowns + products)...');
       
       const [
         brandsResponse, 
@@ -413,7 +411,7 @@ const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
        
       });
 
-      console.log('ðŸ“Š Dropdowns:', {
+      console.log('Dropdowns:', {
         brands: brandsData.length,
         categories: categoriesData.length,
  
@@ -479,7 +477,7 @@ const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
         
       //   //   DEBUG: Log sample product
       //   if (allItems.length > 0) {
-      //     console.log('ðŸ“¦ Sample Product:', {
+      //     console.log('¦ Sample Product:', {
       //       name: allItems[0].name,
       //       brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
       //       brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
@@ -489,7 +487,7 @@ const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
       // }
 
     } catch (error) {
-      console.error('  Œ Error fetching data:', error);
+      console.error('Error fetching data:', error);
       toast.error('Failed to load data');
       setAvailableProducts([]);
     }
@@ -789,7 +787,7 @@ useEffect(() => {
 useEffect(() => {
   if (!initialFormData) {
     setInitialFormData(JSON.parse(JSON.stringify(formData)));
-    console.log('ðŸ“¸ Initial form state captured');
+    console.log('Initial form state captured');
   }
 }, []); // Run once only
 
@@ -807,7 +805,7 @@ useEffect(() => {
   setHasUnsavedChanges(hasChanges);
   
   // Debug log
-  console.log('ðŸ” Change Detection:', {
+  console.log('Change Detection:', {
     mode: isEditMode ? 'EDIT' : 'CREATE',
     hasChanges,
     formDataName: formData.name,
@@ -936,10 +934,10 @@ const handleSubmit = async (
   setIsSubmitting(true); // START LOADER
 
   try {
-    console.log("ðŸš€ PRODUCT SUBMISSION START");
-    console.log("ðŸ“‹ Form Mode:", isDraft ? "DRAFT" : "PUBLISH");
-    console.log("ðŸ”„ Edit Mode:", isEditMode);
-    console.log("ðŸ†” Product ID:", productId);
+    console.log(" PRODUCT SUBMISSION START");
+    console.log("‹ Form Mode:", isDraft ? "DRAFT" : "PUBLISH");
+    console.log("„ Edit Mode:", isEditMode);
+    console.log(" Product ID:", productId);
 
     // SHOW PROGRESS
     setSubmitProgress({
@@ -1369,7 +1367,7 @@ if (!formData.nextDayDeliveryEnabled) {
     }
 
     if (categoryIdsArray.length === 0) {
-      console.error("  Œ VALIDATION: No valid categories selected");
+      console.error("VALIDATION: No valid categories selected");
       toast.error("Please select at least one category");
       target.removeAttribute("data-submitting");
       setIsSubmitting(false);
@@ -1557,7 +1555,7 @@ if (
 
       // Status & Visibility
       isPublished: isDraft ? false : formData.published ?? true,
-      status: isDraft ? 1 : formData.published ? 2 : 1,
+      status: isDraft ? 'Draft' : 'Active',
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
@@ -1796,7 +1794,7 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
     // Reviews
     if (formData.allowCustomerReviews) productData.allowCustomerReviews = true;
 
-    console.log("ðŸ“¦ FINAL PAYLOAD:");
+    console.log("¦ FINAL PAYLOAD:");
     console.log(JSON.stringify(productData, null, 2));
 
     // ============================================================
@@ -1812,7 +1810,7 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
 
     if (isEditMode && productId) {
       //   UPDATE MODE - Use PUT/PATCH endpoint
-      console.log("ðŸ”„ Updating existing product:", productId);
+      console.log("„ Updating existing product:", productId);
       response = await productsService.update(productId, productData);
       currentProductId = productId;
 
@@ -1821,7 +1819,7 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
       });
     } else {
       //   CREATE MODE - Use POST endpoint
-      console.log("  ž• Creating new product...");
+      console.log(" • Creating new product...");
       response = await productsService.create(productData);
 
       // Extract product ID from response
@@ -1849,14 +1847,18 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
     // ============================================================
     // SECTION 10: UPLOAD PRODUCT IMAGES
     // ============================================================
-    const imagesToUpload = formData.productImages.filter((img) => img.file);
+const imagesToUpload = formData.productImages.filter(
+  (img) =>
+    img.file instanceof File &&
+    img.imageUrl?.startsWith("blob:")
+);
     if (imagesToUpload.length > 0) {
       setSubmitProgress({
         step: `Uploading ${imagesToUpload.length} product images...`,
         percentage: 80,
       });
 
-      console.log(`ðŸ“¸ Uploading ${imagesToUpload.length} product images...`);
+      console.log(`¸ Uploading ${imagesToUpload.length} product images...`);
 
       try {
         const uploadedImages = await uploadImagesToProduct(currentProductId, imagesToUpload);
@@ -1873,7 +1875,11 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
     // SECTION 11: UPLOAD VARIANT IMAGES
     // ============================================================
     if (productVariants.length > 0) {
-      const variantsWithImages = productVariants.filter((v) => v.imageFile);
+  const variantsWithImages = productVariants.filter(
+  (v) =>
+    v.imageFile instanceof File &&
+    v.imageUrl?.startsWith("blob:")
+);
       if (variantsWithImages.length > 0) {
         setSubmitProgress({
           step: `Uploading ${variantsWithImages.length} variant images...`,
@@ -1928,62 +1934,17 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
 
     // Store last saved data for change tracking
     setLastSavedData({ ...formData });
-
-    // ============ CONDITIONAL REDIRECT ============
-    if (shouldRedirect) {
-      setTimeout(() => {
-        console.log("Redirecting to /admin/products...");
-        router.push("/admin/products");
-      }, 1500);
-    } else {
-      // Stay on page - clear progress after delay
-      setTimeout(() => {
-        setSubmitProgress(null);
-      }, 2000);
-    }
+setTimeout(() => {
+  setSubmitProgress(null);
+}, 2000);
+ 
   } catch (error: any) {
-    console.error("  Œ ERROR SUBMITTING FORM");
+    console.error("   Œ ERROR SUBMITTING FORM");
     console.error("Error object:", error);
     setSubmitProgress(null);
 
-    if (error.response) {
-      const errorData = error.response.data;
-      const status = error.response.status;
-
-      console.error("Error details:", { status, statusText: error.response.statusText, data: errorData });
-
-      if (status === 400 && errorData?.errors) {
-        let errorMessage = "Validation Errors:\n";
-        for (const [field, messages] of Object.entries(errorData.errors)) {
-          const fieldName = field.replace(/\./g, " ").replace(/_/g, " ").trim();
-          const msg = Array.isArray(messages) ? messages.join(", ") : messages;
-          errorMessage += `   ${fieldName}: ${msg}\n`;
-          console.error(`${fieldName}:`, msg);
-        }
-        toast.warning(errorMessage, { autoClose: 10000 });
-      } else if (status === 400) {
-        const msg = errorData?.message || errorData?.title || "Bad request. Please check your data.";
-        console.error("400 Error:", msg);
-        toast.error(msg);
-      } else if (status === 401) {
-        console.error("401: Unauthorized");
-        toast.error("Session expired. Please login again.");
-        setTimeout(() => router.push("/login"), 2000);
-      } else if (status === 404) {
-        console.error("404: Endpoint not found");
-        toast.error("API endpoint not found. Please check the server configuration.");
-      } else {
-        console.error(status, errorData?.message || error.response.statusText);
-        toast.error(`Error ${status}: ${errorData?.message || error.response.statusText}`);
-      }
-    } else if (error.request) {
-      console.error("Network error - No response from server");
-      console.error("Request:", error.request);
-      toast.error("Network error: No response from server.");
-    } else {
-      console.error("Error:", error.message);
-      toast.error(`Error: ${error.message}`);
-    }
+    const errorMessage = getBackendMessage(error);
+    toast.error(errorMessage, { autoClose: 10000 });
 
     console.error("========== END ERROR LOG ==========");
   } finally {
@@ -2558,7 +2519,7 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         productImages: [...prev.productImages, ...validImages]
       }));
       
-      toast.success(`${validImages.length} image(s) added for upload! ðŸ“·`);
+      toast.success(`${validImages.length} image(s) added for upload! ·`);
     }
 
     // Clear file input
@@ -2581,26 +2542,36 @@ const uploadImagesToProduct = async (
   images: ProductImage[]
 ) => {
   if (!productId) {
-    toast.error('Invalid product ID');
+    toast.error("Invalid product ID");
     return [];
   }
 
   if (!Array.isArray(images) || images.length === 0) {
-    toast.warning('No images selected');
+    toast.warning("No images selected");
     return [];
   }
 
   const MAX_IMAGES = 10;
   const MAX_FILE_SIZE = 1 * 1024 * 1024;
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
   const uploadFormData = new FormData();
   let validImageCount = 0;
 
-  images.forEach((image, index) => {
-    if (!image.file) return;
+  // ✅ ONLY UPLOAD NEW FILES
+  const newImages = images.filter(
+    (img) =>
+      img.file instanceof File &&
+      img.imageUrl?.startsWith("blob:")
+  );
 
-    const file = image.file;
+  if (newImages.length === 0) {
+    console.log("ℹ️ No new images to upload");
+    return [];
+  }
+
+  newImages.forEach((image, index) => {
+    const file = image.file as File;
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       toast.warning(`${file.name}: format not supported`);
@@ -2617,63 +2588,98 @@ const uploadImagesToProduct = async (
       return;
     }
 
-    //   REQUIRED FIELDS (missing in your code)
-    uploadFormData.append('images', file);
+    uploadFormData.append("images", file);
 
     uploadFormData.append(
-      'altText',
-      file.name.replace(/\.[^/.]+$/, '')
+      "altText",
+      image.altText?.trim() ||
+        file.name.replace(/\.[^/.]+$/, "")
     );
 
     uploadFormData.append(
-      'sortOrder',
-      (index + 1).toString()
+      "sortOrder",
+      String(image.sortOrder ?? index)
     );
 
     uploadFormData.append(
-      'isMain',
-      (index === 0).toString()
+      "isMain",
+      String(image.isMain ?? index === 0)
     );
 
     validImageCount++;
   });
 
   if (validImageCount === 0) {
-    toast.warning('No valid images to upload');
+    toast.warning("No valid images to upload");
     return [];
   }
 
   try {
-    const response = await productsService.addImages(productId, uploadFormData);
+    console.log(`🖼️ Uploading ${validImageCount} new images...`);
 
-    if (!response?.data?.success || !Array.isArray(response.data.data)) {
-      throw new Error(response?.data?.message || 'Invalid server response');
+    const response = await productsService.addImages(
+      productId,
+      uploadFormData
+    );
+
+    if (
+      !response?.data?.success ||
+      !Array.isArray(response.data.data)
+    ) {
+      throw new Error(
+        response?.data?.message || "Invalid server response"
+      );
     }
 
-    toast.success(`${response.data.data.length} images uploaded successfully`);
-    return response.data.data;
+    const uploadedImages = response.data.data || [];
+    // Clear file references after upload
+setFormData((prev) => ({
+  ...prev,
+  productImages: prev.productImages.map((img) => ({
+    ...img,
+    file: undefined,
+  })),
+}));
+
+    console.log(
+      `✅ ${uploadedImages.length} images uploaded successfully`
+    );
+
+    toast.success(
+      `${uploadedImages.length} images uploaded successfully`
+    );
+
+    return uploadedImages;
 
   } catch (error: any) {
-    console.error('  Œ Upload error:', error);
-    toast.error(`Failed to upload images: ${error.message}`);
+    console.error("❌ Upload error:", error);
+
+    toast.error(
+      `Failed to upload images: ${
+        error?.response?.data?.message ||
+        error.message ||
+        "Unknown error"
+      }`
+    );
+
     return [];
   }
 };
 // ==================== UPLOAD VARIANT IMAGES (SERVICE-BASED) ====================
 const uploadVariantImages = async (productResponse: any) => {
-  console.log('ðŸ“¤ Checking for variant images to upload...');
+  console.log(' Checking for variant images to upload...');
 
   try {
     // BASIC VALIDATIONS
     const createdVariants = productResponse?.variants;
 
     if (!Array.isArray(createdVariants) || createdVariants.length === 0) {
-      console.log('  „¹ï¸ No variants found in product response');
+      console.log(' No variants found in product response');
       return;
     }
 
     if (!Array.isArray(productVariants) || productVariants.length === 0) {
-      console.log('  „¹ï¸ No local variants available');
+      console.log(' No local variants available');
       return;
     }
 
@@ -2692,14 +2698,14 @@ const uploadVariantImages = async (productResponse: any) => {
       );
 
       if (!createdVariant?.id) {
-        console.warn('  š ï¸ Variant not matched:', localVariant.name);
+        console.warn('  Variant not matched:', localVariant.name);
         return null;
       }
 
       // Image validation
       const file = localVariant.imageFile;
       if (!file) {
-        console.log(`  „¹ï¸ No image for variant: ${localVariant.name}`);
+        console.log(`  No image for variant: ${localVariant.name}`);
         return null;
       }
 
@@ -2713,7 +2719,7 @@ const uploadVariantImages = async (productResponse: any) => {
         return null;
       }
 
-      console.log(`ðŸ“¤ Uploading image for variant: ${localVariant.name}`);
+      console.log(`Uploading image for variant: ${localVariant.name}`);
 
       try {
         const formData = new FormData();
@@ -2723,14 +2729,14 @@ const uploadVariantImages = async (productResponse: any) => {
         const response = await productsService.addVariantImage(createdVariant.id, formData);
 
         if (response.error) {
-          console.error(`  Œ Variant upload failed for ${localVariant.name}:`, response.error);
+          console.error(`Variant upload failed for ${localVariant.name}:`, response.error);
           return null;
         }
 
         console.log(`  Variant image uploaded: ${localVariant.name}`);
         return response.data;
       } catch (error: any) {
-        console.error(`  Œ Error uploading image for ${localVariant.name}:`, error);
+        console.error(`  Error uploading image for ${localVariant.name}:`, error);
         return null;
       }
     });
@@ -2745,7 +2751,7 @@ const uploadVariantImages = async (productResponse: any) => {
       toast.success(`${successfulUploads.length} variant images uploaded`);
     }
   } catch (error) {
-    console.error('  Œ Error uploading variant images:', error);
+    console.error('  Error uploading variant images:', error);
     toast.error('Failed to upload variant images');
   }
 };
@@ -3275,7 +3281,7 @@ useEffect(() => {
     selectedCategories={formData.categoryIds}
     availableCategories={dropdownsData.categories}
     onChange={(categoryIds) => {
-      console.log('ðŸ“ Categories changed:', categoryIds);
+      console.log(' Categories changed:', categoryIds);
       setFormData(prev => ({
         ...prev,
         categoryIds
@@ -4008,7 +4014,7 @@ useEffect(() => {
       className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
     >
       <span className="flex items-center gap-1">
-        ðŸ“¦ Bundle
+        ¦ Bundle
         <svg 
           className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
           fill="none" 
@@ -4955,8 +4961,8 @@ useEffect(() => {
                       {productAttributes.filter(a => a.isVariation).map((attr, idx) => (
                         <div key={attr.id} className="flex items-center gap-2 bg-slate-900/50 rounded-lg px-3 py-2">
                           <span className="text-xs text-slate-500 w-4">{idx + 1}.</span>
-                          <span className="text-sm font-medium text-white w-24 truncate">{attr.name || <span className="text-slate-500 italic">unnamed</span>}</span>
-                          <span className="text-slate-600">  †’</span>
+                          <span className="text-sm font-medium text-white w-60 truncate">{attr.name || <span className="text-slate-500 italic">unnamed</span>}</span>
+                          <span className="text-slate-600"> </span>
                           <span className="text-sm text-slate-300 flex-1 truncate">{attr.value || <span className="text-slate-500 italic">no values</span>}</span>
                           <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">{attr.displayType || 'buttons'}</span>
                         </div>
@@ -5022,10 +5028,10 @@ useEffect(() => {
                               {/* Display type (only for variation) */}
                               {attr.isVariation && (
                                 <div>
-                                  <label className="block text-xs font-medium text-slate-400 mb-1">Display As</label>
+                                  <label className="block  text-xs font-medium text-slate-400 mb-1">Display As</label>
                                   <select value={attr.displayType || 'buttons'}
                                     onChange={(e) => updateProductAttribute(attr.id, 'displayType', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent">
+                                    className="w-full  px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent">
                                     <option value="buttons">Buttons</option>
                                     <option value="dropdown">Dropdown</option>
                                     <option value="swatch">Color Swatch</option>
@@ -5043,7 +5049,7 @@ useEffect(() => {
                                     : 'bg-slate-800 text-slate-400 border border-slate-600 hover:bg-slate-700'
                                 }`}>
                                 <span className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${attr.isVariation ? 'bg-violet-400 border-violet-400' : 'border-slate-500'}`} />
-                                {attr.isVariation ? '  œ“ Used for variations' : 'Used for variations'}
+                                {attr.isVariation ? 'Used for variations' : 'Used for variations'}
                               </button>
                               {attr.isVariation && (
                                 <span className="text-xs text-slate-500 italic">Goes to Variants tab</span>
@@ -5111,8 +5117,8 @@ useEffect(() => {
             <div className="space-y-2">
               {varOptions.map((opt) => (
                 <div key={opt.id} className="flex items-center gap-3 bg-slate-900/50 rounded-lg px-3 py-2.5">
-                  <span className="text-sm font-semibold text-white w-24 flex-shrink-0">{opt.name}</span>
-                  <span className="text-slate-600 flex-shrink-0">  †’</span>
+                  <span className="text-sm font-semibold text-white w-60 flex-shrink-0">{opt.name}</span>
+                  <span className="text-slate-600 flex-shrink-0"> </span>
                   <div className="flex flex-wrap gap-1 flex-1">
                     {opt.values.map((v: string, i: number) => (
                       <span key={i} className="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded-full font-medium">{v}</span>
@@ -5147,8 +5153,8 @@ useEffect(() => {
     <div className="flex items-start gap-2">
       <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
       <ul className="text-xs text-slate-400 space-y-1">
-        <li>   <strong className="text-white">Step 1:</strong> Go to <strong className="text-violet-300">Attributes</strong> tab   †’ Add attribute (e.g., Color)   †’ enable <strong className="text-violet-300">Used for variations</strong></li>
-        <li>   <strong className="text-white">Step 2:</strong> Come back here   †’ click <strong className="text-white">Generate All Variants</strong></li>
+        <li>   <strong className="text-white">Step 1:</strong> Go to <strong className="text-violet-300">Attributes</strong> tab   Add attribute (e.g., Color)   †’ enable <strong className="text-violet-300">Used for variations</strong></li>
+        <li>   <strong className="text-white">Step 2:</strong> Come back here   click <strong className="text-white">Generate All Variants</strong></li>
         <li>   <strong className="text-white">Step 3:</strong> Set price, stock, SKU per variant (SKU auto-generates if left blank)</li>
         <li>   Variant images upload after product is first saved</li>
       </ul>

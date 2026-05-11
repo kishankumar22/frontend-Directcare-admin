@@ -544,9 +544,11 @@ if (deletedFilter.value === "inactive") {
   params.isActive = false;
 }
 
-    if (debouncedSearchTerm.trim() !== "") {
-      params.searchTerm = debouncedSearchTerm.trim();
-    }
+if (searchInput.trim() === "") {
+  delete params.searchTerm;
+} else if (debouncedSearchTerm.trim() !== "") {
+  params.searchTerm = debouncedSearchTerm.trim();
+}
 
     if (selectedCategory.value !== "all") {
   params.categoryId = selectedCategory.value;
@@ -910,6 +912,7 @@ useEffect(() => {
 }, [
   currentPage,
   itemsPerPage,
+  searchInput,
   deletedFilter,
   debouncedSearchTerm,
   selectedCategory,
@@ -920,7 +923,7 @@ useEffect(() => {
   selectedHomepage,
   deliveryFilter,
   notReturnableFilter,
-  // inventoryFilter,
+  debouncedSearchTerm,
   recurringFilter,
   vatFilter,
   statusFilter ,// ✅ ADD THIS
@@ -947,7 +950,7 @@ const clearFilters = useCallback(() => {
   setPharmaFilter({  value: "all", label: "All Products" });
  
   setSearchInput("");
-
+setSearchLoading(false);
   // 🔥 ADD THIS (IMPORTANT)
   setSortBy("createdAt");
   setSortDirection("desc");
@@ -2225,7 +2228,7 @@ const handleExportSelected = async () => {
   {/* TABLE (always render) */}
   <div   className={`
     overflow-auto
-   max-h-[69vh]
+   max-h-[70vh]
   ${scrollCls}
   ${filterLoading ? "opacity-40" : ""}
 `}>
@@ -2236,11 +2239,10 @@ const handleExportSelected = async () => {
         <p className="text-slate-400">No products found</p>
       </div>
     ) : (
-    <table className="w-full table-fixed text-[13px]">
-    
+    <table className="w-full table-fixed text-[12px]">
     <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-800">
       <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        <th className="text-left py-2 px-2 w-[260px]">
+        <th className="text-left py-2 px-2 w-[360px]">
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -2254,26 +2256,26 @@ const handleExportSelected = async () => {
           </div>
         </th>
 
-        <th className="text-center py-2 px-2 w-[110px]">SKU</th>
+        <th className="text-center py-2 px-2 w-[60px]">SKU</th>
         <th className="text-center py-2 px-2 text-red-400 w-[80px] cursor-pointer hover:text-red-300 select-none" onClick={() => handleSort('price')} title="Sort by price">
           Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
         </th>
         <th className="text-center py-2 px-2 w-[70px]">Status</th>
         <th className="text-center py-2 px-2 w-[160px]">Stock Status</th>
-        <th className="text-center py-2 px-2 w-[100px]">Visibility</th>
+        <th className="text-center py-2 px-2 w-[90px]">Visibility</th>
         <th
   onClick={() => handleSort('createdAt')}
-  className="text-left py-2 px-2 text-blue-400 w-[160px] cursor-pointer hover:text-blue-300 select-none"
+  className="text-left py-2 px-2 text-blue-400 w-[150px] cursor-pointer hover:text-blue-300 select-none"
   title="Sort by created date"
 >
   Created At
   {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
 </th>
 
- <th className="text-left py-2 px-2 w-[160px]">
+ <th className="text-left py-2 px-2 w-[150px]">
   Updated At
 </th>
-        <th className="text-center py-2 px-2 w-[130px]">Actions</th>
+        <th className="text-center py-2 px-2 w-[85px]">Actions</th>
       </tr>
     </thead>
 
@@ -2382,7 +2384,7 @@ onClick={async (e) => {
     </span>
   )}
 </p>
-                           <div className="flex items-center gap-2">
+   <div className="flex items-center gap-2">
 
   {/* CATEGORY (secondary) */}
   <span
@@ -2512,12 +2514,12 @@ onClick={async (e) => {
                             notifyEnabled && notifyBelow > 0 && qty <= notifyBelow;
 
                           const tooltip = `
-Tracking: ${track ? "Enabled" : "Disabled"}
-Low Threshold: ${lowThreshold || "-"}
-Notify Below: ${notifyBelow || "-"}
-Admin Alert: ${notifyEnabled ? "Enabled" : "Disabled"}
-Backorder: ${allowBackorder ? "Allowed" : "No"}
-                          `.trim();
+                                            Tracking: ${track ? "Enabled" : "Disabled"}
+                                            Low Threshold: ${lowThreshold || "-"}
+                                            Notify Below: ${notifyBelow || "-"}
+                                            Admin Alert: ${notifyEnabled ? "Enabled" : "Disabled"}
+                                            Backorder: ${allowBackorder ? "Allowed" : "No"}
+                                          `.trim();
 
                           return (
                             <div className="flex flex-col items-center gap-1">
@@ -2681,8 +2683,8 @@ Updated By: ${product.updatedBy || "N/A"}`}
 </div>
       {/* PAGINATION */}
       {totalPages > 1 && (
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
             <div className="text-sm text-slate-400">
               Page {currentPage} of {totalPages}
             </div>

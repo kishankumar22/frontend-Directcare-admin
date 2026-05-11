@@ -543,7 +543,7 @@ export default function BlogCategoriesPage() {
                   <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Posts</th>
                   <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Status</th>
                   <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Display Order</th>
-                  <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Created</th>
+                  <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Created At</th>
                   <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Updated By</th>
                   <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Actions</th>
                 </tr>
@@ -628,7 +628,7 @@ export default function BlogCategoriesPage() {
                         </div>
                       </td>
 
-                      {/* Posts count */}
+                    
                     {/* Posts count */}
 <td className="py-3 px-3 text-center">
   {isInactive ? (
@@ -681,13 +681,13 @@ export default function BlogCategoriesPage() {
                       </td>
 
                       {/* Updated By */}
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-3  w-[200px]">
                         {cat.updatedBy ? (
                           <div className="flex items-center gap-1.5">
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${isInactive ? "bg-slate-600" : "bg-gradient-to-br from-violet-500 to-cyan-500"}`}>
                               {cat.updatedBy.charAt(0).toUpperCase()}
                             </div>
-                            <span className={`text-xs truncate max-w-[100px] ${isInactive ? "text-slate-600" : "text-slate-400"}`} title={cat.updatedBy}>
+                            <span className={`text-xs  max-w-[140px] ${isInactive ? "text-slate-600" : "text-slate-400"}`} title={cat.updatedBy}>
                               {cat.updatedBy}
                             </span>
                           </div>
