@@ -1804,16 +1804,54 @@ const filteredDiscounts = discounts.filter((discount) => {
                 </td>
 
                 {/* STATUS (UNCHANGED LOGIC) */}
-                <td className="py-2.5 px-3 text-center text-xs">
-                  {(() => {
-                    const status = getDiscountStatus(discount);
-                    return (
-                      <span className="px-2 py-1 rounded-md text-[10px] bg-slate-700 text-slate-300">
-                        {status.label}
-                      </span>
-                    );
-                  })()}
-                </td>
+             <td className="py-2.5 px-3 text-center text-xs">
+  {(() => {
+    const status = getDiscountStatus(discount);
+
+    const statusStyles: Record<string, string> = {
+      green:
+        "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+
+      red:
+        "bg-red-500/15 text-red-300 border border-red-500/30",
+
+      orange:
+        "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+
+      gray:
+        "bg-slate-500/15 text-slate-300 border border-slate-500/30",
+    };
+
+    const statusTitles: Record<string, string> = {
+      green: "Discount is currently active",
+      red: "Discount has been manually disabled",
+      orange: "Discount is scheduled for future activation",
+      gray: "Discount validity period has expired",
+    };
+
+    return (
+      <span
+        title={statusTitles[status.color]}
+        className={`
+          inline-flex items-center justify-center
+          min-w-[82px]
+          px-2.5 py-1
+          rounded-full
+          text-[10px]
+          font-semibold
+          tracking-wide
+          shadow-sm
+          backdrop-blur-sm
+          transition-all duration-200
+          hover:scale-105
+          ${statusStyles[status.color]}
+        `}
+      >
+        {status.label}
+      </span>
+    );
+  })()}
+</td>
 
                 {/* ✅ VALIDITY WITH TOOLTIP */}
                 <td

@@ -116,7 +116,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
   // ✅ ADD THESE FUNCTIONS (around line 300-400, after other helper functions)
 
-
+const frequencyPresets: Record<string, string> = {
+  days: "7 days , 15 days , 30 days , 60 days, 90 days",
+  weeks: "1 weeks , 2 weeks , 3 weeks , 4 weeks",
+  months: "1 months , 2 months , 3 months , 4 months",
+};
 
 
   const handleVariantImageUpload = async (variantId: string, file: File) => {
@@ -3966,6 +3970,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       return;
     }
 
+    
+
     // ================================
     // ✅ SECTION 6: SEO SLUG
     // ================================
@@ -4173,30 +4179,41 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     // ================================
     // ✅ SECTION 15: IS RECURRING (WITH GROUPED VALIDATION)
     // ================================
-    if (name === "isRecurring") {
-      // ❌ BLOCK: Cannot enable subscription for grouped products
-      if (checked && formData.productType === 'grouped') {
-        toast.error('❌ Subscription is not available for grouped products', {
-          autoClose: 5000,
-          position: 'top-center'
-        });
-        return; // Prevent enabling
-      }
+if (name === "isRecurring") {
+  // ❌ BLOCK: Cannot enable subscription for grouped products
+  if (checked && formData.productType === 'grouped') {
+    toast.error('❌ Subscription is not available for grouped products', {
+      autoClose: 5000,
+      position: 'top-center'
+    });
+    return;
+  }
 
-      setFormData(prev => ({
-        ...prev,
-        isRecurring: checked,
-        ...(!checked && {
-          recurringCycleLength: "",
-          recurringCyclePeriod: "days",
-          recurringTotalCycles: "",
-          subscriptionDiscountPercentage: "",
-          allowedSubscriptionFrequencies: "",
-          subscriptionDescription: ""
-        })
-      }));
-      return;
-    }
+  setFormData(prev => ({
+    ...prev,
+    isRecurring: checked,
+
+    // ✅ DEFAULT VALUES WHEN ENABLED
+    ...(checked && {
+      recurringCyclePeriod: prev.recurringCyclePeriod || "days",
+      allowedSubscriptionFrequencies:
+        prev.allowedSubscriptionFrequencies ||
+        frequencyPresets[prev.recurringCyclePeriod || "days"]
+    }),
+
+    // ❌ CLEAR WHEN DISABLED
+    ...(!checked && {
+      recurringCycleLength: "",
+      recurringCyclePeriod: "days",
+      recurringTotalCycles: "",
+      subscriptionDiscountPercentage: "",
+      allowedSubscriptionFrequencies: "",
+      subscriptionDescription: ""
+    })
+  }));
+
+  return;
+}
 
 
     // ================================
@@ -4404,6 +4421,19 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       return;
     }
 
+    // ================================
+// ✅ SECTION 29: RECURRING PERIOD AUTO PREFILL
+// ================================
+if (name === "recurringCyclePeriod") {
+  setFormData(prev => ({
+    ...prev,
+    recurringCyclePeriod: value,
+    allowedSubscriptionFrequencies:
+      frequencyPresets[value] || ""
+  }));
+
+  return;
+}
     // ================================
     // ✅ SECTION 29: DEFAULT
     // ================================
@@ -5653,10 +5683,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                             onChange={handleChange}
                             className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                           >
-                            <option value="days">Days</option>
-                            <option value="weeks">Weeks</option>
-                            <option value="months">Months</option>
-                            <option value="years">Years</option>
+                          <option value="days">Days</option>
+                          <option value="weeks">Weeks</option>
+                          <option value="months">Months</option>
                           </select>
                         </div>
                         <div>

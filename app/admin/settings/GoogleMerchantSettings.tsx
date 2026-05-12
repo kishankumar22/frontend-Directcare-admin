@@ -3,6 +3,7 @@
 import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
+  Globe,
   Loader2,
   RefreshCw,
   Search,
@@ -191,6 +192,31 @@ export default function GoogleMerchantSettings() {
     action: ActionType | null;
   }>({ open: false, action: null });
   const [actionLoading, setActionLoading] = useState(false);
+
+  const handleOpenFeed = async () => {
+  try {
+const response = await googleMerchantService.getFeedXml();
+
+const xmlData = response.data as string;
+
+const xmlBlob = new Blob(
+  [xmlData],
+  {
+    type: "application/xml",
+  }
+);
+
+    const url = URL.createObjectURL(xmlBlob);
+
+    window.open(url, "_blank");
+
+    toast.success("Google Merchant feed opened");
+  } catch (error: any) {
+    toast.error(
+      error?.message || "Failed to load feed XML"
+    );
+  }
+};
 
   const loadProducts = async () => {
     try {
@@ -403,10 +429,18 @@ export default function GoogleMerchantSettings() {
               <Trash2 className="h-4 w-4" />
               Delete Products
             </button>
+            <button
+  type="button"
+  onClick={handleOpenFeed}
+  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg hover:shadow-cyan-500/20"
+>
+  <Globe className="h-4 w-4" />
+  View Feed XML
+</button>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-emerald-300">
               Sync All
@@ -431,10 +465,19 @@ export default function GoogleMerchantSettings() {
               Search products and remove selected SKUs from Google Merchant.
             </p>
           </div>
+          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+  <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">
+    Feed XML
+  </p>
+
+  <p className="mt-2 text-sm text-slate-200">
+    Open and verify generated Google Merchant XML feed.
+  </p>
+</div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+      <div className="rounded-2xl hidden border border-slate-700/50 bg-slate-800/30 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-2 text-cyan-300">

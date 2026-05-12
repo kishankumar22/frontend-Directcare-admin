@@ -1,800 +1,802 @@
-"use client";
-import { useState, useRef, useEffect, JSX, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag,  Globe,  Truck, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, Plus, Settings, ChevronDown } from "lucide-react";
-import Link from "next/link"
-import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
-import { useToast } from "@/app/admin/_components/CustomToast";
-import {   brandsService, DropdownsData, ProductAttribute, ProductImage,  ProductOption,  productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
-import { GroupedProductModal } from '../GroupedProductModal';
-import { MultiBrandSelector } from "../MultiBrandSelector";
-import { MultiCategorySelector } from "../MultiCategorySelector";
-import RelatedProductsSelector from "../RelatedProductsSelector";
-import ProductVariantsManager from "../ProductVariantsManager";
-import PharmacyQuestionAssignModal from "../PharmacyQuestionAssignModal";
-import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
-import ProductNameInput from "../ProductNameInput";
-import SKUInput from "../SKUInput";
-import { categoriesService } from "@/lib/services/categories";
-import UnsavedChangesModal from "../_components/UnsavedChangesModal";
-import VatRateSelector from "../VatRateSelector";
-import { scrollCls } from "../../_utils/styles";
-import { cn } from "@/lib/utils";
-import { getBackendMessage } from "../../_utils/errorUtils";
+  "use client";
+  import { useState, useRef, useEffect, JSX, useCallback } from "react";
+  import { useRouter } from "next/navigation";
+  import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag,  Globe,  Truck, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, Plus, Settings, ChevronDown } from "lucide-react";
+  import Link from "next/link"
+  import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
+  import { useToast } from "@/app/admin/_components/CustomToast";
+  import {   brandsService, DropdownsData, ProductAttribute, ProductImage,  ProductOption,  productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
+  import { GroupedProductModal } from '../GroupedProductModal';
+  import { MultiBrandSelector } from "../MultiBrandSelector";
+  import { MultiCategorySelector } from "../MultiCategorySelector";
+  import RelatedProductsSelector from "../RelatedProductsSelector";
+  import ProductVariantsManager from "../ProductVariantsManager";
+  import PharmacyQuestionAssignModal from "../PharmacyQuestionAssignModal";
+  import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
+  import ProductNameInput from "../ProductNameInput";
+  import SKUInput from "../SKUInput";
+  import { categoriesService } from "@/lib/services/categories";
+  import UnsavedChangesModal from "../_components/UnsavedChangesModal";
+  import VatRateSelector from "../VatRateSelector";
+  import { scrollCls } from "../../_utils/styles";
+  import { cn } from "@/lib/utils";
+  import { getBackendMessage } from "../../_utils/errorUtils";
 
-export default function AddProductPage() {
-  const router = useRouter();
-  const toast = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchTermCross, setSearchTermCross] = useState('');
-  const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
-  const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-//   Variant SKU Validation States
-const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
-const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
+  export default function AddProductPage() {
+    const router = useRouter();
+    const toast = useToast();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTermCross, setSearchTermCross] = useState('');
+    const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
+    const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+  //   Variant SKU Validation States
+  const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
+  const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
 
-const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
-const [quantityMode, setQuantityMode] = useState<'range' | 'fixed' | 'unlimited'>('unlimited');
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
+  const [quantityMode, setQuantityMode] = useState<'range' | 'fixed' | 'unlimited'>('unlimited');
 
-// ============================================================
-// ADD THESE STATES (After other useState declarations)
-// ============================================================
-const [showUnsavedModal, setShowUnsavedModal] = useState(false);
-const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
-const [showPharmacyModal, setShowPharmacyModal] = useState(false);
-const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
+  // ============================================================
+  // ADD THESE STATES (After other useState declarations)
+  // ============================================================
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [showPharmacyModal, setShowPharmacyModal] = useState(false);
+  const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
 
-const [nameError, setNameError] = useState(false);
-const [skuError, setSkuError] = useState(false);
-const [checkingSku, setCheckingSku] = useState(false);
+  const [nameError, setNameError] = useState(false);
+  const [skuError, setSkuError] = useState(false);
+  const [checkingSku, setCheckingSku] = useState(false);
 
-//   LOADING & SUBMISSION STATES
-// ================================
-const [isSubmitting, setIsSubmitting] = useState(false);
-const [submitProgress, setSubmitProgress] = useState<{
-  step: string;
-  percentage: number;
-} | null>(null);
+  //   LOADING & SUBMISSION STATES
+  // ================================
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState<{
+    step: string;
+    percentage: number;
+  } | null>(null);
 
-  //   Check for variant SKU errors before submitting
-const hasVariantSkuErrors = Object.keys(variantSkuErrors).length > 0;
-const hasCheckingVariantSku = Object.values(checkingVariantSku).some(checking => checking);
-const getPlainText = (html: string) =>
-  html.replace(/<[^>]*>/g, '').trim();
+    //   Check for variant SKU errors before submitting
+  const hasVariantSkuErrors = Object.keys(variantSkuErrors).length > 0;
+  const hasCheckingVariantSku = Object.values(checkingVariantSku).some(checking => checking);
+  const getPlainText = (html: string) =>
+    html.replace(/<[^>]*>/g, '').trim();
 
-//Utility: truncate HTML by plain text length
-const truncateHtmlByTextLength = (html: string, maxLength: number) => {
-  const div = document.createElement('div');
-  div.innerHTML = html;
+  //Utility: truncate HTML by plain text length
+  const truncateHtmlByTextLength = (html: string, maxLength: number) => {
+    const div = document.createElement('div');
+    div.innerHTML = html;
 
-  let count = 0;
-  const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT);
+    let count = 0;
+    const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT);
 
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    const remaining = maxLength - count;
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const remaining = maxLength - count;
 
-    if (remaining <= 0) {
-      node.textContent = '';
-    } else if (node.textContent!.length > remaining) {
-      node.textContent = node.textContent!.slice(0, remaining);
-      count = maxLength;
-    } else {
-      count += node.textContent!.length;
+      if (remaining <= 0) {
+        node.textContent = '';
+      } else if (node.textContent!.length > remaining) {
+        node.textContent = node.textContent!.slice(0, remaining);
+        count = maxLength;
+      } else {
+        count += node.textContent!.length;
+      }
     }
-  }
 
-  return div.innerHTML;
-};
-
+    return div.innerHTML;
+  };
 
 
 
-// Add this to your component state
-const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
-const [uploadingImages, setUploadingImages] = useState(false);
 
-  
-  // ============ NEW STATES FOR DRAFT/EDIT MODE ============
-  const [productId, setProductId] = useState<string | null>(null); // Track created product ID
-  const [isEditMode, setIsEditMode] = useState<boolean>(false); // Track if in edit mode
-  const [lastSavedData, setLastSavedData] = useState<any>(null); // Track last saved state
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
+  // Add this to your component state
+  const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
-const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
-  brands: [],
-  categories: [],
+    
+    // ============ NEW STATES FOR DRAFT/EDIT MODE ============
+    const [productId, setProductId] = useState<string | null>(null); // Track created product ID
+    const [isEditMode, setIsEditMode] = useState<boolean>(false); // Track if in edit mode
+    const [lastSavedData, setLastSavedData] = useState<any>(null); // Track last saved state
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
 
-});
- //   ADD THIS STATE FOR MODAL
-  const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
-const [missingFields, setMissingFields] = useState<string[]>([]);
-const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
-// ============================================================
-// ADD THIS NEW STATE (After other useState declarations)
-// ============================================================
-const [initialFormData, setInitialFormData] = useState<any>(null);
+  const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
+    brands: [],
+    categories: [],
 
-//   ADD THESE TWO STATES
-const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
-const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
-//   ADD THESE STATES AFTER YOUR OTHER useState DECLARATIONS
+  });
+  //   ADD THIS STATE FOR MODAL
+    const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  // ============================================================
+  // ADD THIS NEW STATE (After other useState declarations)
+  // ============================================================
+  const [initialFormData, setInitialFormData] = useState<any>(null);
 
-// Homepage Count State
-const [homepageCount, setHomepageCount] = useState<number | null>(null);
-const MAX_HOMEPAGE = 50;
+  //   ADD THESE TWO STATES
+  const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
+  const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
+  //   ADD THESE STATES AFTER YOUR OTHER useState DECLARATIONS
+
+  // Homepage Count State
+  const [homepageCount, setHomepageCount] = useState<number | null>(null);
+  const MAX_HOMEPAGE = 50;
 
 
 
-// ============================================================
-// ADD THIS useEffect AFTER YOUR OTHER useEffect HOOKS
-// (Near your other useEffect declarations, NOT inside JSX)
-// ============================================================
+  // ============================================================
+  // ADD THIS useEffect AFTER YOUR OTHER useEffect HOOKS
+  // (Near your other useEffect declarations, NOT inside JSX)
+  // ============================================================
 
-// ESC Key Support for Modal
-useEffect(() => {
-  const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && showUnsavedModal) {
-      handleModalCancel();
+  // ESC Key Support for Modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showUnsavedModal) {
+        handleModalCancel();
+      }
+    };
+    
+    if (showUnsavedModal) {
+      window.addEventListener('keydown', handleEscape);
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [showUnsavedModal]);
+
+  // ============================================================
+  // ADD THIS HANDLER FOR MODAL ACTIONS
+  // ============================================================
+  const handleModalSaveDraft = async () => {
+    setShowUnsavedModal(false);
+    
+    // Trigger draft save
+    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+    await handleDraftSave(fakeEvent);
+    
+    // After save, navigate
+    if (pendingNavigation) {
+      setTimeout(() => {
+        router.push(pendingNavigation);
+        setPendingNavigation(null);
+      }, 500);
     }
   };
-  
-  if (showUnsavedModal) {
-    window.addEventListener('keydown', handleEscape);
-  }
-  
-  return () => {
-    window.removeEventListener('keydown', handleEscape);
-  };
-}, [showUnsavedModal]);
 
-// ============================================================
-// ADD THIS HANDLER FOR MODAL ACTIONS
-// ============================================================
-const handleModalSaveDraft = async () => {
-  setShowUnsavedModal(false);
-  
-  // Trigger draft save
-  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-  await handleDraftSave(fakeEvent);
-  
-  // After save, navigate
-  if (pendingNavigation) {
-    setTimeout(() => {
+  const handleModalCreateProduct = async () => {
+    setShowUnsavedModal(false);
+    
+    // Trigger publish
+    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+    await handlePublish(fakeEvent);
+    
+    // Navigation will happen automatically in handleSubmit
+    setPendingNavigation(null);
+  };
+
+  const handleModalDiscard = () => {
+    setShowUnsavedModal(false);
+    setHasUnsavedChanges(false); // Clear flag to prevent further warnings
+    
+    if (pendingNavigation) {
       router.push(pendingNavigation);
       setPendingNavigation(null);
-    }, 500);
-  }
-};
+    }
+  };
 
-const handleModalCreateProduct = async () => {
-  setShowUnsavedModal(false);
-  
-  // Trigger publish
-  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-  await handlePublish(fakeEvent);
-  
-  // Navigation will happen automatically in handleSubmit
-  setPendingNavigation(null);
-};
-
-const handleModalDiscard = () => {
-  setShowUnsavedModal(false);
-  setHasUnsavedChanges(false); // Clear flag to prevent further warnings
-  
-  if (pendingNavigation) {
-    router.push(pendingNavigation);
+  const handleModalCancel = () => {
+    setShowUnsavedModal(false);
     setPendingNavigation(null);
-  }
-};
-
-const handleModalCancel = () => {
-  setShowUnsavedModal(false);
-  setPendingNavigation(null);
-};
-
-
-
-// ============================================================
-// UPDATE handleNavigateAway FUNCTION
-// ============================================================
-const handleNavigateAway = useCallback((targetPath?: string) => {
-  if (hasUnsavedChanges) {
-    setPendingNavigation(targetPath || '/admin/products');
-    setShowUnsavedModal(true);
-  } else {
-    router.push(targetPath || '/admin/products');
-  }
-}, [hasUnsavedChanges, router]);
-/**
- *   CHECK DRAFT REQUIREMENTS (Minimal)
- * Only basic fields required to save as draft
- */
-const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
-  const missing: string[] = [];
-
-  // 1. Product Name
-  if (!formData.name?.trim()) {
-    missing.push('Product Name');
-  }
-
-  // 2. SKU (optional for variable products   €” auto-generated)
-  if (!formData.sku?.trim() && formData.productType !== 'variable') {
-    missing.push('SKU');
-  }
-
-  // 3. At least one category
-  if (!formData.categoryIds || formData.categoryIds.length === 0) {
-    missing.push('Category');
-  }
-
-  // 4. At least one brand
-  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
-  if (!hasBrand) {
-    missing.push('Brand');
-  }
-
-  return {
-    isValid: missing.length === 0,
-    missing
-  };
-};
-
-/**
- *   CHECK PUBLISH REQUIREMENTS (Complete)
- * All required fields for creating/publishing product
- */
-const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => {
-  const missing: string[] = [];
-
-  // 1. Basic Info
-  if (!formData.name?.trim()) missing.push('Product Name');
-  if (!formData.sku?.trim() && formData.productType !== 'variable') missing.push('SKU');
-  if (!formData.shortDescription?.trim()) missing.push('Short Description');
-  if (!formData.fullDescription?.trim()) missing.push('full Description');
-  // 3. Categories
-  if (!formData.categoryIds || formData.categoryIds.length === 0) {
-    missing.push('Category (at least 1)');
-  }
-  // Price only required for non-variable products
-  if (formData.productType !== 'variable') {
-    const price = Number(formData.price);
-    if (isNaN(price) || price <= 0) missing.push('Valid Price');
-  }
-
-  // 4. Brands
-  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
-  if (!hasBrand) {
-    missing.push('Brand (at least 1)');
-  }
-
-  // 5. Images
-  if (!formData.productImages || formData.productImages.length < 5) {
-    missing.push(`Product Images (minimum 5, current: ${formData.productImages?.length || 0})`);
-  }
-
-  // 6. Stock (if tracking - skip for variable products, variants manage their own stock)
-  if (formData.productType !== 'variable' && formData.manageInventory === 'track') {
-    const stock = parseInt(formData.stockQuantity?.toString() || '0');
-    if (isNaN(stock) || stock < 0) {
-      missing.push('Stock Quantity (valid number)');
-    }
-  }
-
-  // 6b. Variable products: require at least 1 variant
-  if (formData.productType === 'variable' && productVariants.length === 0) {
-    missing.push('At least 1 variant (go to Variants tab)');
-  }
-
-  // 7. Shipping (if enabled)
-  // if (formData.isShipEnabled) {
-  //   if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
-  //     missing.push('Weight (required for shipping)');
-  //   }
-  // }
-
-  // 8. Grouped Product Requirements
-  if (formData.productType === 'grouped' && formData.requireOtherProducts) {
-    if (!formData.requiredProductIds?.trim()) {
-      missing.push('Grouped Products (at least 1)');
-    }
-  }
-
-   // IMPORTANT: Jab vatExempt true hai, toh yeh condition execute nahi hogi
-  if (!formData.vatExempt) {
-    if (!formData.vatRateId || formData.vatRateId.trim() === '') {
-      missing.push('VAT Rate (required when product is taxable)');
-    }
-  }
-
-  // VAT Validation - Only if NOT exempt
- 
-  return {
-    isValid: missing.length === 0,
-    missing
-  };
-};
-
-/**
- *   SHOW MISSING FIELDS TOAST
- */
-const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
-  const title = isDraft ? 'Draft Requirements' : 'Required Fields Missing';
-  const message = missing.length === 1 
-    ? `‹ Missing: ${missing[0]}`
-    : `‹ Missing ${missing.length} fields:\n\n${missing.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
-
-  toast.warning(message, {
-    autoClose: 8000,
-    position: 'top-center',
-  });
-};
-
-
-
-/**
- *   CLEAN VARIANT OPTIONS - Save only if BOTH name AND value exist
- */
-const cleanVariantOptions = (variant: any, firstVariant: any) => {
-  const cleaned = { ...variant };
-
-  //   Non-first variants: Inherit names from first variant
-  const option1Name = variant.option1Name || firstVariant.option1Name;
-  const option2Name = variant.option2Name || firstVariant.option2Name;
-  const option3Name = variant.option3Name || firstVariant.option3Name;
-
-  //   Option 1: Name aur Value DONO chahiye
-  if (option1Name && variant.option1Value) {
-    cleaned.option1Name = option1Name;
-    cleaned.option1Value = variant.option1Value;
-  } else {
-    cleaned.option1Name = null;
-    cleaned.option1Value = null;
-  }
-
-  //   Option 2: Name aur Value DONO chahiye
-  if (option2Name && variant.option2Value) {
-    cleaned.option2Name = option2Name;
-    cleaned.option2Value = variant.option2Value;
-  } else {
-    cleaned.option2Name = null;
-    cleaned.option2Value = null;
-  }
-
-  //   Option 3: Name aur Value DONO chahiye
-  if (option3Name && variant.option3Value) {
-    cleaned.option3Name = option3Name;
-    cleaned.option3Value = variant.option3Value;
-  } else {
-    cleaned.option3Name = null;
-    cleaned.option3Value = null;
-  }
-
-  return cleaned;
-};
-
-// Updated combined useEffect with manufacturers API
-useEffect(() => {
-  const fetchAllData = async () => {
-    try {
-      console.log(' Fetching all data (dropdowns + products)...');
-      
-      const [
-        brandsResponse, 
-        categoriesResponse, 
-      
-        // allProductsResponse,
-        simpleProductsResponse
-      ] = await Promise.all([
-        brandsService.getAll({ includeInactive: true }),
-        categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),    
-        // productsService.getAll({ pageSize: 100 }),
-        productsService.getSimpleProducts()
-      ]);
-
-      console.log('  All data fetched');
-
-  const brandsData = Array.isArray(brandsResponse?.data?.data?.items)
-  ? brandsResponse.data.data.items
-  : [];
-
-const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
-  ? categoriesResponse.data.data.items
-  : [];
-
-
-      setDropdownsData({
-        brands: brandsData,
-        categories: categoriesData,
-       
-      });
-
-      console.log('Dropdowns:', {
-        brands: brandsData.length,
-        categories: categoriesData.length,
- 
-      });
-
-  //     //   ==================== SET DEFAULT VAT RATE ====================
-  //  if (vatRatesData.length > 0 && !formData.vatRateId && !formData.vatExempt) {
-  //       const defaultRate = vatRatesData.find((v: any) => v.isDefault === true);
-        
-  //       if (defaultRate) {
-  //         console.log('  Setting default VAT rate:', defaultRate.name, `(${defaultRate.rate}%)`);
-  //         setFormData(prev => ({ 
-  //           ...prev, 
-  //           vatRateId: defaultRate.id,
-  //           vatExempt: false
-  //         }));
-  //       }
-  //     }
-
-      // ==================== HELPER FUNCTION ====================
-      const extractProducts = (response: any): any[] => {
-        const data = response?.data?.data || response?.data || {};
-        return data.items || (Array.isArray(data) ? data : []);
-      };
-
-      // ==================== SIMPLE PRODUCTS ====================
-      const simpleItems = extractProducts(simpleProductsResponse);
-
-      if (simpleItems.length > 0) {
-        setSimpleProducts(simpleItems.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          sku: p.sku,
-          price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-          stockQuantity: p.stockQuantity || 0,
-          
-          //   Brand & Category for filtering
-          brandId: p.brandId || p.brands?.[0]?.brandId || null,
-          brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
-          categories: p.categories || []
-        })));
-        
-        console.log('  Simple products:', simpleItems.length);
-      }
-
-      // ==================== ALL PRODUCTS (FIXED) ====================
-      // const allItems = extractProducts(allProductsResponse);
-      
-      // if (allItems.length > 0) {
-      //   setAvailableProducts(allItems.map((p: any) => ({
-      //     id: p.id,
-      //     name: p.name,
-      //     sku: p.sku,
-      //     price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', //   Fixed format
-          
-      //     //   ADD THESE 3 LINES FOR FILTERING
-      //     brandId: p.brandId || p.brands?.[0]?.brandId || null,
-      //     brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
-      //     categories: p.categories || []
-      //   })));
-        
-      //   console.log('  Available products:', allItems.length);
-        
-      //   //   DEBUG: Log sample product
-      //   if (allItems.length > 0) {
-      //     console.log('¦ Sample Product:', {
-      //       name: allItems[0].name,
-      //       brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
-      //       brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
-      //       categories: allItems[0].categories?.length || 0
-      //     });
-      //   }
-      // }
-
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data');
-      setAvailableProducts([]);
-    }
   };
 
-  fetchAllData();
-}, []); // Only run once on mount
 
 
- const [formData, setFormData] = useState({
-  // ===== BASIC INFO =====
-  name: '',
-  shortDescription: '',
-  fullDescription: '',
-  sku: '',
-  //   NEW - Add this:
-  categoryIds: [] as string[], // Multiple categories array
-  brand: '', // For backward compatibility (primary brand)
-  brandIds: [] as string[], //   NEW - Multiple brands array
-  
-  published: true,
-  productType: 'simple',
-  visibleIndividually: true,
-  gender: '',
-  customerRoles: 'all',
-  limitedToStores: false,
-  vendorId: '',
-  requireOtherProducts: false,
-  requiredProductIds: '',
-  automaticallyAddProducts: false,
-  showOnHomepage: false,
-  displayOrder: '1',
-  productTags: '',
-  gtin: '',
-  manufacturerPartNumber: '',
-  adminComment: '',
-  categoryName: '', // For clean category name display
-  // Delivery flags (charges managed via Shipping Methods)
-  sameDayDeliveryEnabled: false,
-  nextDayDeliveryEnabled: false,
-  nextDayDeliveryFree: false,   //   ADD THIS
-  standardDeliveryEnabled: true,
-  nextDayDeliveryCutoffTime: '',
-
-  // ===== RELATED PRODUCTS =====
-  relatedProducts: [] as string[],
-  crossSellProducts: [] as string[],
-    //   ADD THESE NEW BUNDLE DISCOUNT FIELDS
-  groupBundleDiscountType: 'None' as 'None' | 'Percentage' | 'FixedAmount' | 'SpecialPrice',
-  groupBundleDiscountPercentage: 0,
-  groupBundleDiscountAmount: 0,
-  groupBundleSpecialPrice: 0,
-  groupBundleSavingsMessage: '',
-  showIndividualPrices: true,
-  applyDiscountToAllItems: false,
-
-  // ===== MEDIA =====
-  productImages: [] as ProductImage[],
-  videoUrls: [] as string[],
-  specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
-
-  // ===== PRICING =====
-  price: '',
-  oldPrice: '',
-  cost: '',
-  disableBuyButton: false,
-  disableWishlistButton: false,
-  availableForPreOrder: false,
-  preOrderAvailabilityStartDate: '',
-
-
-  
-  // Base Price
-  basepriceEnabled: false,
-  basepriceAmount: '',
-  basepriceUnit: '',
-  basepriceBaseAmount: '',
-  basepriceBaseUnit: '',
-  
-  // Mark as New
-  markAsNew: false,
-  markAsNewStartDate: '',
-  markAsNewEndDate: '',
-
-  // ===== DISCOUNTS / AVAILABILITY =====
-  hasDiscountsApplied: false,
-  availableStartDate: '',
-  availableEndDate: '',
-
-  // ===== TAX =====
-  vatExempt: false,
-  vatRateId: '',
-
-  // ===== LOYALTY & PHARMA =====
-  excludeFromLoyaltyPoints: true,
-  isPharmaProduct: false,
-
-
-  // ===== RECURRING / SUBSCRIPTION =====
-  isRecurring: false,
-  recurringCycleLength: '',
-  recurringCyclePeriod: 'days',
-  recurringTotalCycles: '',
-  subscriptionDiscountPercentage: '',
-  allowedSubscriptionFrequencies: '',
-  subscriptionDescription: '',
-
-  // ===== PACK PRODUCT =====
-  isPack: false,
-  packSize: '',
-
-  // ===== INVENTORY =====   UPDATED
-  manageInventory: 'track',
-  stockQuantity: '',
-  displayStockAvailability: true,
-  displayStockQuantity: false,
-  minStockQuantity: '',
-  lowStockActivity: 'nothing',
-  
-  //   NOTIFICATION FIELDS - UPDATED
-  notifyAdminForQuantityBelow: true,  //   Backend boolean (always true)
-notifyQuantityBelow: "",          //   User input threshold
-  
-  //   BACKORDER FIELDS - UPDATED
-  allowBackorder: false,              //   Checkbox
-  backorderMode: 'no-backorders',     //   Dropdown (conditional)
-  backorders: 'no-backorders',        //   Keep for backward compatibility
-  
-  allowBackInStockSubscriptions: false,
-  productAvailabilityRange: '',
-  
-  // Cart Limits
-// Cart Limits
-orderMinimumQuantity: '1',      //   NEW (matches API)
-orderMaximumQuantity: '10',     //   NEW (matches API)
-allowedQuantities: '',
-
-  allowAddingOnlyExistingAttributeCombinations: false,
-  notReturnable: false,
-
-  // ===== SHIPPING =====
-  isShipEnabled: true,
-
-  shipSeparately: false,
-
-  deliveryDateId: '',
-  weight: '',
-  length: '',
-  width: '',
-  height: '',
-
-  // ===== GIFT CARDS =====
-  isGiftCard: false,
-  giftCardType: 'virtual',
-  overriddenGiftCardAmount: '',
-
-  // ===== DOWNLOADABLE PRODUCT =====
-  isDownload: false,
-  downloadId: '',
-  unlimitedDownloads: true,
-  maxNumberOfDownloads: '',
-  downloadExpirationDays: '',
-  downloadActivationType: 'when-order-is-paid',
-  hasUserAgreement: false,
-  userAgreementText: '',
-  hasSampleDownload: false,
-  sampleDownloadId: '',
-
-  // ===== RENTAL PRODUCT =====
-  isRental: false,
-  rentalPriceLength: '',
-  rentalPricePeriod: 'days',
-
-  // ===== REVIEWS =====
-  allowCustomerReviews: true,
-   metaTitle: '',
-  metaKeywords: '',
-  metaDescription: '',
-  searchEngineFriendlyPageName: '',
-});
-
-// Helper function to get list of changed fields
-const getChangedFieldsList = useCallback(() => {
-  const changes: string[] = [];
-  if (!initialFormData) return changes;
-  
-  if (formData.name !== initialFormData.name) changes.push('Product Name');
-  if (formData.sku !== initialFormData.sku) changes.push('SKU');
-  if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
-  if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
-  if (formData.productType !== initialFormData.productType) changes.push('Product Type');
-  if (formData.price !== initialFormData.price) changes.push('Price');
-  if (formData.oldPrice !== initialFormData.oldPrice) changes.push('Old Price');
-  if (formData.cost !== initialFormData.cost) changes.push('Cost');
-  if (JSON.stringify(formData.categoryIds) !== JSON.stringify(initialFormData.categoryIds)) 
-    changes.push('Categories');
-  if (JSON.stringify(formData.brandIds) !== JSON.stringify(initialFormData.brandIds)) 
-    changes.push('Brands');
-  if (formData.stockQuantity !== initialFormData.stockQuantity) changes.push('Stock');
-  if (formData.manageInventory !== initialFormData.manageInventory) changes.push('Inventory Management');
-  if (formData.isShipEnabled !== initialFormData.isShipEnabled) changes.push('Shipping Enabled');
-  if (formData.weight !== initialFormData.weight) changes.push('Weight');
-  if (formData.metaTitle !== initialFormData.metaTitle) changes.push('Meta Title');
-  if (formData.metaDescription !== initialFormData.metaDescription) changes.push('Meta Description');
-  if (formData.showOnHomepage !== initialFormData.showOnHomepage) changes.push('Show on Homepage');
-  if (formData.adminComment !== initialFormData.adminComment) changes.push('Admin Comment');
-  
-  return changes;
-}, [formData, initialFormData]);
-
-
-useEffect(() => {
-  const { missing } = checkPublishRequirements();
-  setMissingFields(missing);
-}, [
-  formData.name,
-  formData.sku,
-  formData.shortDescription,
-  formData.price,
-  formData.categoryIds,
-  formData.brandIds,
-  formData.brand,
-  formData.productImages,
-  formData.stockQuantity,
-  formData.manageInventory,
-  formData.isShipEnabled,
-  formData.productType,
-  formData.requireOtherProducts,
-  formData.requiredProductIds,
-  formData.vatExempt,
-  formData.vatRateId,
-  productVariants,
-]);
-
-/**
- *   HANDLE DRAFT SAVE
- */
-
-// ============ HANDLE DRAFT SAVE - NO REDIRECT ============
-const handleDraftSave = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // Check draft requirements (minimal fields only)
-  const { isValid, missing } = checkDraftRequirements();
-  if (!isValid) {
-    showMissingFieldsToast(missing, true);
-    return;
-  }
-  
-  // Pass: isDraft = true, shouldRedirect = false
-  handleSubmit(e, true, false);
-};
-
-// ============ HANDLE PUBLISH - WITH REDIRECT ============
-const handlePublish = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // Check FULL requirements for publishing
-  const { isValid, missing } = checkPublishRequirements();
-  if (!isValid) {
-    showMissingFieldsToast(missing, false);
-    return;
-  }
-  
-  // Pass: isDraft = false, shouldRedirect = true
-  handleSubmit(e, false, true);
-};
-// ============ FIX 3: Add Navigation Guard ============
-// Add this useEffect for unsaved changes warning:
-useEffect(() => {
-  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+  // ============================================================
+  // UPDATE handleNavigateAway FUNCTION
+  // ============================================================
+  const handleNavigateAway = useCallback((targetPath?: string) => {
     if (hasUnsavedChanges) {
-      e.preventDefault();
-      e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      setPendingNavigation(targetPath || '/admin/products');
+      setShowUnsavedModal(true);
+    } else {
+      router.push(targetPath || '/admin/products');
     }
+  }, [hasUnsavedChanges, router]);
+  /**
+   *   CHECK DRAFT REQUIREMENTS (Minimal)
+   * Only basic fields required to save as draft
+   */
+  const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
+    const missing: string[] = [];
+
+    // 1. Product Name
+    if (!formData.name?.trim()) {
+      missing.push('Product Name');
+    }
+
+    // 2. SKU (optional for variable products   €” auto-generated)
+    if (!formData.sku?.trim() && formData.productType !== 'variable') {
+      missing.push('SKU');
+    }
+
+    // 3. At least one category
+    if (!formData.categoryIds || formData.categoryIds.length === 0) {
+      missing.push('Category');
+    }
+
+    // 4. At least one brand
+    const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
+    if (!hasBrand) {
+      missing.push('Brand');
+    }
+
+    return {
+      isValid: missing.length === 0,
+      missing
+    };
   };
 
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-}, [hasUnsavedChanges]);
+  /**
+   *   CHECK PUBLISH REQUIREMENTS (Complete)
+   * All required fields for creating/publishing product
+   */
+  const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => {
+    const missing: string[] = [];
 
-useEffect(() => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const id = urlParams.get('id');
-  if (id) {
-    setProductId(id);
-    setIsEditMode(true);
-  }
-}, []);
+    // 1. Basic Info
+    if (!formData.name?.trim()) missing.push('Product Name');
+    if (!formData.sku?.trim() && formData.productType !== 'variable') missing.push('SKU');
+    if (!formData.shortDescription?.trim()) missing.push('Short Description');
+    if (!formData.fullDescription?.trim()) missing.push('full Description');
+    // 3. Categories
+    if (!formData.categoryIds || formData.categoryIds.length === 0) {
+      missing.push('Category (at least 1)');
+    }
+    // Price only required for non-variable products
+    if (formData.productType !== 'variable') {
+      const price = Number(formData.price);
+      if (isNaN(price) || price <= 0) missing.push('Valid Price');
+    }
 
+    // 4. Brands
+    const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
+    if (!hasBrand) {
+      missing.push('Brand (at least 1)');
+    }
 
-// ============================================================
-// REPLACE YOUR EXISTING "TRACK UNSAVED CHANGES" useEffect WITH THIS:
-// ============================================================
+    // 5. Images
+    if (!formData.productImages || formData.productImages.length < 5) {
+      missing.push(`Product Images (minimum 5, current: ${formData.productImages?.length || 0})`);
+    }
 
-// CAPTURE INITIAL STATE ON MOUNT
-useEffect(() => {
-  if (!initialFormData) {
-    setInitialFormData(JSON.parse(JSON.stringify(formData)));
-    console.log('Initial form state captured');
-  }
-}, []); // Run once only
+    // 6. Stock (if tracking - skip for variable products, variants manage their own stock)
+    if (formData.productType !== 'variable' && formData.manageInventory === 'track') {
+      const stock = parseInt(formData.stockQuantity?.toString() || '0');
+      if (isNaN(stock) || stock < 0) {
+        missing.push('Stock Quantity (valid number)');
+      }
+    }
 
-// TRACK UNSAVED CHANGES (Works for BOTH Create & Edit)
-useEffect(() => {
-  if (!initialFormData) return;
+    // 6b. Variable products: require at least 1 variant
+    if (formData.productType === 'variable' && productVariants.length === 0) {
+      missing.push('At least 1 variant (go to Variants tab)');
+    }
+
+    // 7. Shipping (if enabled)
+    // if (formData.isShipEnabled) {
+    //   if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
+    //     missing.push('Weight (required for shipping)');
+    //   }
+    // }
+
+    // 8. Grouped Product Requirements
+    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+      if (!formData.requiredProductIds?.trim()) {
+        missing.push('Grouped Products (at least 1)');
+      }
+    }
+
+    // IMPORTANT: Jab vatExempt true hai, toh yeh condition execute nahi hogi
+    if (!formData.vatExempt) {
+      if (!formData.vatRateId || formData.vatRateId.trim() === '') {
+        missing.push('VAT Rate (required when product is taxable)');
+      }
+    }
+
+    // VAT Validation - Only if NOT exempt
   
+    return {
+      isValid: missing.length === 0,
+      missing
+    };
+  };
+
+  /**
+   *   SHOW MISSING FIELDS TOAST
+   */
+  const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
+    const title = isDraft ? 'Draft Requirements' : 'Required Fields Missing';
+    const message = missing.length === 1 
+      ? `‹ Missing: ${missing[0]}`
+      : `‹ Missing ${missing.length} fields:\n\n${missing.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
+
+    toast.warning(message, {
+      autoClose: 8000,
+      position: 'top-center',
+    });
+  };
+
+
+
+  /**
+   *   CLEAN VARIANT OPTIONS - Save only if BOTH name AND value exist
+   */
+  const cleanVariantOptions = (variant: any, firstVariant: any) => {
+    const cleaned = { ...variant };
+
+    //   Non-first variants: Inherit names from first variant
+    const option1Name = variant.option1Name || firstVariant.option1Name;
+    const option2Name = variant.option2Name || firstVariant.option2Name;
+    const option3Name = variant.option3Name || firstVariant.option3Name;
+
+    //   Option 1: Name aur Value DONO chahiye
+    if (option1Name && variant.option1Value) {
+      cleaned.option1Name = option1Name;
+      cleaned.option1Value = variant.option1Value;
+    } else {
+      cleaned.option1Name = null;
+      cleaned.option1Value = null;
+    }
+
+    //   Option 2: Name aur Value DONO chahiye
+    if (option2Name && variant.option2Value) {
+      cleaned.option2Name = option2Name;
+      cleaned.option2Value = variant.option2Value;
+    } else {
+      cleaned.option2Name = null;
+      cleaned.option2Value = null;
+    }
+
+    //   Option 3: Name aur Value DONO chahiye
+    if (option3Name && variant.option3Value) {
+      cleaned.option3Name = option3Name;
+      cleaned.option3Value = variant.option3Value;
+    } else {
+      cleaned.option3Name = null;
+      cleaned.option3Value = null;
+    }
+
+    return cleaned;
+  };
+
+  // Updated combined useEffect with manufacturers API
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        console.log(' Fetching all data (dropdowns + products)...');
+        
+        const [
+          brandsResponse, 
+          categoriesResponse, 
+        
+          // allProductsResponse,
+          simpleProductsResponse
+        ] = await Promise.all([
+          brandsService.getAll({ includeInactive: true }),
+          categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),    
+          // productsService.getAll({ pageSize: 100 }),
+          productsService.getSimpleProducts()
+        ]);
+
+        console.log('  All data fetched');
+
+    const brandsData = Array.isArray(brandsResponse?.data?.data?.items)
+    ? brandsResponse.data.data.items
+    : [];
+
+  const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
+    ? categoriesResponse.data.data.items
+    : [];
+
+
+        setDropdownsData({
+          brands: brandsData,
+          categories: categoriesData,
+        
+        });
+
+        console.log('Dropdowns:', {
+          brands: brandsData.length,
+          categories: categoriesData.length,
+  
+        });
+
+    //     //   ==================== SET DEFAULT VAT RATE ====================
+    //  if (vatRatesData.length > 0 && !formData.vatRateId && !formData.vatExempt) {
+    //       const defaultRate = vatRatesData.find((v: any) => v.isDefault === true);
+          
+    //       if (defaultRate) {
+    //         console.log('  Setting default VAT rate:', defaultRate.name, `(${defaultRate.rate}%)`);
+    //         setFormData(prev => ({ 
+    //           ...prev, 
+    //           vatRateId: defaultRate.id,
+    //           vatExempt: false
+    //         }));
+    //       }
+    //     }
+
+        // ==================== HELPER FUNCTION ====================
+        const extractProducts = (response: any): any[] => {
+          const data = response?.data?.data || response?.data || {};
+          return data.items || (Array.isArray(data) ? data : []);
+        };
+
+        // ==================== SIMPLE PRODUCTS ====================
+        const simpleItems = extractProducts(simpleProductsResponse);
+
+        if (simpleItems.length > 0) {
+          setSimpleProducts(simpleItems.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+            stockQuantity: p.stockQuantity || 0,
+            
+            //   Brand & Category for filtering
+            brandId: p.brandId || p.brands?.[0]?.brandId || null,
+            brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+            categories: p.categories || []
+          })));
+          
+          console.log('  Simple products:', simpleItems.length);
+        }
+
+        // ==================== ALL PRODUCTS (FIXED) ====================
+        // const allItems = extractProducts(allProductsResponse);
+        
+        // if (allItems.length > 0) {
+        //   setAvailableProducts(allItems.map((p: any) => ({
+        //     id: p.id,
+        //     name: p.name,
+        //     sku: p.sku,
+        //     price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00', //   Fixed format
+            
+        //     //   ADD THESE 3 LINES FOR FILTERING
+        //     brandId: p.brandId || p.brands?.[0]?.brandId || null,
+        //     brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+        //     categories: p.categories || []
+        //   })));
+          
+        //   console.log('  Available products:', allItems.length);
+          
+        //   //   DEBUG: Log sample product
+        //   if (allItems.length > 0) {
+        //     console.log('¦ Sample Product:', {
+        //       name: allItems[0].name,
+        //       brandId: allItems[0].brandId || allItems[0].brands?.[0]?.brandId,
+        //       brandName: allItems[0].brandName || allItems[0].brands?.[0]?.brandName,
+        //       categories: allItems[0].categories?.length || 0
+        //     });
+        //   }
+        // }
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast.error('Failed to load data');
+        setAvailableProducts([]);
+      }
+    };
+
+    fetchAllData();
+  }, []); // Only run once on mount
+
+  const [formData, setFormData] = useState({
+    // ===== BASIC INFO =====
+    name: '',
+    shortDescription: '',
+    fullDescription: '',
+    sku: '',
+    categoryIds: [] as string[], // Multiple categories array
+    brand: '',            // For backward compatibility (primary brand)
+    brandIds: [] as string[], //   NEW - Multiple brands array
+    published: true,
+    productType: 'simple',
+    visibleIndividually: true,
+    gender: '',
+    customerRoles: 'all',
+    limitedToStores: false,
+    vendorId: '',
+    requireOtherProducts: false,
+    requiredProductIds: '',
+    automaticallyAddProducts: false,
+    showOnHomepage: false,
+    displayOrder: '1',
+    productTags: '',
+    gtin: '',
+    manufacturerPartNumber: '',
+    adminComment: '',
+    categoryName: '', // For clean category name display
+    // Delivery flags (charges managed via Shipping Methods)
+    sameDayDeliveryEnabled: false,
+    nextDayDeliveryEnabled: false,
+    nextDayDeliveryFree: false,   //   ADD THIS
+    standardDeliveryEnabled: true,
+    nextDayDeliveryCutoffTime: '',
+
+    // ===== RELATED PRODUCTS =====
+    relatedProducts: [] as string[],
+    crossSellProducts: [] as string[],
+      //   ADD THESE NEW BUNDLE DISCOUNT FIELDS
+    groupBundleDiscountType: 'None' as 'None' | 'Percentage' | 'FixedAmount' | 'SpecialPrice',
+    groupBundleDiscountPercentage: 0,
+    groupBundleDiscountAmount: 0,
+    groupBundleSpecialPrice: 0,
+    groupBundleSavingsMessage: '',
+    showIndividualPrices: true,
+    applyDiscountToAllItems: false,
+
+    // ===== MEDIA =====
+    productImages: [] as ProductImage[],
+    videoUrls: [] as string[],
+    specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
+
+    // ===== PRICING =====
+    price: '',
+    oldPrice: '',
+    cost: '',
+    disableBuyButton: false,
+    disableWishlistButton: false,
+    availableForPreOrder: false,
+    preOrderAvailabilityStartDate: '',
+    // Base Price
+    basepriceEnabled: false,
+    basepriceAmount: '',
+    basepriceUnit: '',
+    basepriceBaseAmount: '',
+    basepriceBaseUnit: '',
+    
+    // Mark as New
+    markAsNew: false,
+    markAsNewStartDate: '',
+    markAsNewEndDate: '',
+
+    // ===== DISCOUNTS / AVAILABILITY =====
+    hasDiscountsApplied: false,
+    availableStartDate: '',
+    availableEndDate: '',
+
+    // ===== TAX =====
+    vatExempt: false,
+    vatRateId: '',
+
+    // ===== LOYALTY & PHARMA =====
+    excludeFromLoyaltyPoints: true,
+    isPharmaProduct: false,
+
+
+    // ===== RECURRING / SUBSCRIPTION =====
+    isRecurring: false,
+    recurringCycleLength: '',
+    recurringCyclePeriod: 'days',
+    recurringTotalCycles: '',
+    subscriptionDiscountPercentage: '',
+  allowedSubscriptionFrequencies:
+    '7 days , 15 days , 30 days , 60 days, 90 days',
+    subscriptionDescription: '',
+
+    // ===== PACK PRODUCT =====
+    isPack: false,
+    packSize: '',
+
+    // ===== INVENTORY =====   UPDATED
+    manageInventory: 'track',
+    stockQuantity: '',
+    displayStockAvailability: true,
+    displayStockQuantity: false,
+    minStockQuantity: '',
+    lowStockActivity: 'nothing',
+    
+    //   NOTIFICATION FIELDS - UPDATED
+    notifyAdminForQuantityBelow: true,  //   Backend boolean (always true)
+  notifyQuantityBelow: "",          //   User input threshold
+    
+    //   BACKORDER FIELDS - UPDATED
+    allowBackorder: false,              //   Checkbox
+    backorderMode: 'no-backorders',     //   Dropdown (conditional)
+    backorders: 'no-backorders',        //   Keep for backward compatibility
+    
+    allowBackInStockSubscriptions: false,
+    productAvailabilityRange: '',
+    
+    // Cart Limits
+  // Cart Limits
+  orderMinimumQuantity: '1',      //   NEW (matches API)
+  orderMaximumQuantity: '10',     //   NEW (matches API)
+  allowedQuantities: '',
+
+    allowAddingOnlyExistingAttributeCombinations: false,
+    notReturnable: false,
+
+    // ===== SHIPPING =====
+    isShipEnabled: true,
+
+    shipSeparately: false,
+
+    deliveryDateId: '',
+    weight: '',
+    length: '',
+    width: '',
+    height: '',
+
+    // ===== GIFT CARDS =====
+    isGiftCard: false,
+    giftCardType: 'virtual',
+    overriddenGiftCardAmount: '',
+
+    // ===== DOWNLOADABLE PRODUCT =====
+    isDownload: false,
+    downloadId: '',
+    unlimitedDownloads: true,
+    maxNumberOfDownloads: '',
+    downloadExpirationDays: '',
+    downloadActivationType: 'when-order-is-paid',
+    hasUserAgreement: false,
+    userAgreementText: '',
+    hasSampleDownload: false,
+    sampleDownloadId: '',
+
+    // ===== RENTAL PRODUCT =====
+    isRental: false,
+    rentalPriceLength: '',
+    rentalPricePeriod: 'days',
+
+    // ===== REVIEWS =====
+    allowCustomerReviews: true,
+    metaTitle: '',
+    metaKeywords: '',
+    metaDescription: '',
+    searchEngineFriendlyPageName: '',
+  });
+
+
+  const frequencyPresets: Record<string, string> = {
+    days: "7 days , 15 days , 30 days , 60 days, 90 days",
+    weeks: "1 weeks , 2 weeks , 3 weeks , 4 weeks",
+    months: "1 months , 2 months , 3 months , 4 months",
+  };
+
+  // Helper function to get list of changed fields
+  const getChangedFieldsList = useCallback(() => {
+    const changes: string[] = [];
+    if (!initialFormData) return changes;
+    
+    if (formData.name !== initialFormData.name) changes.push('Product Name');
+    if (formData.sku !== initialFormData.sku) changes.push('SKU');
+    if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
+    if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
+    if (formData.productType !== initialFormData.productType) changes.push('Product Type');
+    if (formData.price !== initialFormData.price) changes.push('Price');
+    if (formData.oldPrice !== initialFormData.oldPrice) changes.push('Old Price');
+    if (formData.cost !== initialFormData.cost) changes.push('Cost');
+    if (JSON.stringify(formData.categoryIds) !== JSON.stringify(initialFormData.categoryIds)) 
+      changes.push('Categories');
+    if (JSON.stringify(formData.brandIds) !== JSON.stringify(initialFormData.brandIds)) 
+      changes.push('Brands');
+    if (formData.stockQuantity !== initialFormData.stockQuantity) changes.push('Stock');
+    if (formData.manageInventory !== initialFormData.manageInventory) changes.push('Inventory Management');
+    if (formData.isShipEnabled !== initialFormData.isShipEnabled) changes.push('Shipping Enabled');
+    if (formData.weight !== initialFormData.weight) changes.push('Weight');
+    if (formData.metaTitle !== initialFormData.metaTitle) changes.push('Meta Title');
+    if (formData.metaDescription !== initialFormData.metaDescription) changes.push('Meta Description');
+    if (formData.showOnHomepage !== initialFormData.showOnHomepage) changes.push('Show on Homepage');
+    if (formData.adminComment !== initialFormData.adminComment) changes.push('Admin Comment');
+    
+    return changes;
+  }, [formData, initialFormData]);
+
+
+  useEffect(() => {
+    const { missing } = checkPublishRequirements();
+    setMissingFields(missing);
+  }, [
+    formData.name,
+    formData.sku,
+    formData.shortDescription,
+    formData.price,
+    formData.categoryIds,
+    formData.brandIds,
+    formData.brand,
+    formData.productImages,
+    formData.stockQuantity,
+    formData.manageInventory,
+    formData.isShipEnabled,
+    formData.productType,
+    formData.requireOtherProducts,
+    formData.requiredProductIds,
+    formData.vatExempt,
+    formData.vatRateId,
+    productVariants,
+  ]);
+
+  /**
+   *   HANDLE DRAFT SAVE
+   */
+
+  // ============ HANDLE DRAFT SAVE - NO REDIRECT ============
+  const handleDraftSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Check draft requirements (minimal fields only)
+    const { isValid, missing } = checkDraftRequirements();
+    if (!isValid) {
+      showMissingFieldsToast(missing, true);
+      return;
+    }
+    
+    // Pass: isDraft = true, shouldRedirect = false
+    handleSubmit(e, true, false);
+  };
+
+  // ============ HANDLE PUBLISH - WITH REDIRECT ============
+  const handlePublish = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Check FULL requirements for publishing
+    const { isValid, missing } = checkPublishRequirements();
+    if (!isValid) {
+      showMissingFieldsToast(missing, false);
+      return;
+    }
+    
+    // Pass: isDraft = false, shouldRedirect = true
+    handleSubmit(e, false, true);
+  };
+  // ============ FIX 3: Add Navigation Guard ============
+  // Add this useEffect for unsaved changes warning:
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('id');
+    if (id) {
+      setProductId(id);
+      setIsEditMode(true);
+    }
+  }, []);
+
+
+  // ============================================================
+  // REPLACE YOUR EXISTING "TRACK UNSAVED CHANGES" useEffect WITH THIS:
+  // ============================================================
+
+  // CAPTURE INITIAL STATE ON MOUNT
+  useEffect(() => {
+    if (!initialFormData) {
+      setInitialFormData(JSON.parse(JSON.stringify(formData)));
+      console.log('Initial form state captured');
+    }
+  }, []); // Run once only
+
+  // TRACK UNSAVED CHANGES (Works for BOTH Create & Edit)
+  useEffect(() => {
+    if (!initialFormData) return;
+    
   // In EDIT mode: compare with lastSavedData
   // In CREATE mode: compare with initial empty state
   const compareWith = (isEditMode && lastSavedData) 
@@ -932,6 +934,16 @@ const handleSubmit = async (
 
   target.setAttribute("data-submitting", "true");
   setIsSubmitting(true); // START LOADER
+
+  // BACKUP TO LOCALSTORAGE
+  try {
+    localStorage.setItem("product_draft_backup", JSON.stringify(formData));
+    console.log("Form data backed up to localStorage");
+  } catch (e) {
+    console.warn("Failed to backup to localStorage:", e);
+  }
+
+  const isEditModeInitial = isEditMode; // CAPTURE INITIAL STATE
 
   try {
     console.log(" PRODUCT SUBMISSION START");
@@ -1798,50 +1810,96 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
     console.log(JSON.stringify(productData, null, 2));
 
     // ============================================================
-    // SECTION 9: DYNAMIC CREATE OR UPDATE
+    // SECTION 9: DYNAMIC CREATE OR UPDATE (DRAFT-FIRST ARCHITECTURE)
     // ============================================================
     setSubmitProgress({
-      step: isEditMode ? "Updating product..." : isDraft ? "Saving draft..." : "Creating product...",
+      step: isEditModeInitial ? "Updating product..." : "Creating safe draft...",
       percentage: 70,
     });
 
     let response: any;
-    let currentProductId: string;
+    let currentProductId: string | any = productId;
 
-    if (isEditMode && productId) {
-      //   UPDATE MODE - Use PUT/PATCH endpoint
-      console.log("„ Updating existing product:", productId);
-      response = await productsService.update(productId, productData);
-      currentProductId = productId;
+    if (!isEditModeInitial) {
+      // STEP 1: CREATE MINIMAL DRAFT
+      console.log(" • STEP 1: Creating minimal draft first...");
+      
+      const draftPayload: any = {
+        name: formData.name.trim(),
+        sku: formData.sku?.trim() || "",
+        status: "Draft",
+        isPublished: false,
+        productType: formData.productType || "simple",
+        brandId: brandIdsArray[0] || "",
+        categoryId: categoryIdsArray[0] || "",
+        // Required for basic creation
+        price: 0,
+        stockQuantity: 0,
+        description: formData.name.trim(),
+        shortDescription: formData.name.trim(),
+      };
 
-      toast.success(isDraft ? "Draft updated successfully!" : "Product updated successfully!", {
-        autoClose: 2000,
-      });
-    } else {
-      //   CREATE MODE - Use POST endpoint
-      console.log(" • Creating new product...");
-      response = await productsService.create(productData);
+      try {
+        const draftResponse = await productsService.create(draftPayload);
+        
+        // Extract product ID
+        currentProductId = (draftResponse.data as any)?.data?.id || (draftResponse.data as any)?.id || (draftResponse as any)?.id;
 
-      // Extract product ID from response
-      currentProductId = (response.data as any)?.data?.id || (response.data as any)?.id || (response as any)?.id || null;
+        if (!currentProductId) {
+          throw new Error("Product ID not found in draft response");
+        }
 
-      if (!currentProductId) {
-        console.error("Failed to extract product ID from response");
-        toast.error("Product created but ID not found.");
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        setTimeout(() => router.push("/admin/products"), 2000);
-        return;
+        // STEP 2: SWITCH TO EDIT MODE IMMEDIATELY
+        setProductId(currentProductId);
+        setIsEditMode(true);
+        
+        // Update URL without refresh (optional but recommended for persistence)
+        if (typeof window !== 'undefined') {
+          const newUrl = `${window.location.pathname}?id=${currentProductId}`;
+          window.history.replaceState(null, '', newUrl);
+        }
+
+        console.log("  Draft created successfully. ID:", currentProductId, "Switched to Edit Mode.");
+        
+        setSubmitProgress({
+          step: isDraft ? "Saving full draft..." : "Publishing full product...",
+          percentage: 75,
+        });
+      } catch (draftError: any) {
+        console.error("Critical Failure: Draft creation failed", draftError);
+        throw draftError; // Let main catch handle initial creation failure
       }
+    }
 
-      //   SWITCH TO EDIT MODE after first save
-      setProductId(currentProductId);
-      setIsEditMode(true);
+    // STEP 3: UPDATE FULL PRODUCT (Works for both existing and newly created drafts)
+    try {
+      console.log(isEditModeInitial ? "Updating existing product:" : "Updating newly created draft:", currentProductId);
+      
+      response = await productsService.update(currentProductId, productData);
 
-      console.log("  Product created with ID:", currentProductId);
-      toast.success(isDraft ? "Draft saved! Now in edit mode." : "Product created successfully!", {
+      toast.success(isDraft ? "Draft saved successfully!" : "Product published successfully!", {
         autoClose: 2000,
       });
+    } catch (updateError: any) {
+      console.error("Update failed after draft creation:", updateError);
+      
+      // If we just created the draft, show specialized message
+      if (!isEditModeInitial) {
+        toast.warning("Draft saved but some sections failed to update. You can fix and retry.", {
+          autoClose: 10000,
+        });
+      } else {
+        // Normal update failure
+        const errorMessage = getBackendMessage(updateError);
+        toast.error(`Update failed: ${errorMessage}`);
+      }
+      
+      // IMPORTANT: We do NOT throw here if we want to proceed to image uploads 
+      // OR we can throw if we want to stop. Industry standard is to keep trying images 
+      // if the ID exists, but usually update failure means something is wrong with the payload.
+      // However, per requirements: "Failed update must NOT delete draft, form should NOT reset, page should remain in edit mode".
+      // Throwing here will skip images but go to main catch which is fine.
+      throw updateError; 
     }
 
     // ============================================================
@@ -1858,7 +1916,7 @@ const imagesToUpload = formData.productImages.filter(
         percentage: 80,
       });
 
-      console.log(`¸ Uploading ${imagesToUpload.length} product images...`);
+      console.log(` Uploading ${imagesToUpload.length} product images...`);
 
       try {
         const uploadedImages = await uploadImagesToProduct(currentProductId, imagesToUpload);
@@ -1886,14 +1944,14 @@ const imagesToUpload = formData.productImages.filter(
           percentage: 90,
         });
 
-        console.log(`ðŸŽ¨ Uploading ${variantsWithImages.length} variant images...`);
+        console.log(`Uploading ${variantsWithImages.length} variant images...`);
 
         try {
           const createdVariants = (response.data as any)?.data?.variants || (response.data as any)?.variants;
           if (createdVariants && createdVariants.length > 0) {
             await uploadVariantImages({ variants: createdVariants });
           } else {
-            console.warn("  š ï¸ No variants found in response");
+            console.warn("No variants found in response");
           }
         } catch (variantError) {
           console.error("Error uploading variant images:", variantError);
@@ -1934,12 +1992,20 @@ const imagesToUpload = formData.productImages.filter(
 
     // Store last saved data for change tracking
     setLastSavedData({ ...formData });
+
+    // CLEAR BACKUP ON SUCCESS
+    try {
+      localStorage.removeItem("product_draft_backup");
+    } catch (e) {
+      console.warn("Failed to clear localStorage backup:", e);
+    }
+
 setTimeout(() => {
   setSubmitProgress(null);
 }, 2000);
  
   } catch (error: any) {
-    console.error("   Œ ERROR SUBMITTING FORM");
+    console.error("ERROR SUBMITTING FORM");
     console.error("Error object:", error);
     setSubmitProgress(null);
 
@@ -2065,7 +2131,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
 
     //   Show warning when switching to grouped with existing subscription
     if (value === 'grouped' && formData.isRecurring) {
-      toast.warning('  š ï¸ Subscription settings cleared for grouped product', {
+      toast.warning('Subscription settings cleared for grouped product', {
         autoClose: 4000,
       });
     }
@@ -2129,25 +2195,35 @@ if (name === 'nextDayDeliveryEnabled') {
   if (name === 'isRecurring') {
     //   Œ BLOCK: Cannot enable subscription for grouped products
     if (checked && formData.productType === 'grouped') {
-      toast.error('  Œ Subscription is not available for grouped products', {
+      toast.error('Subscription is not available for grouped products', {
         autoClose: 5000,
         position: 'top-center',
       });
       return; // Prevent enabling
     }
 
-    setFormData(prev => ({
-      ...prev,
-      isRecurring: checked,
-      ...(!checked && {
-        recurringCycleLength: '',
-        recurringCyclePeriod: 'days',
-        recurringTotalCycles: '',
-        subscriptionDiscountPercentage: '',
-        allowedSubscriptionFrequencies: '',
-        subscriptionDescription: '',
-      }),
-    }));
+setFormData(prev => ({
+  ...prev,
+  isRecurring: checked,
+
+  // ✅ DEFAULT VALUES
+  ...(checked && {
+    recurringCyclePeriod: prev.recurringCyclePeriod || "days",
+    allowedSubscriptionFrequencies:
+      prev.allowedSubscriptionFrequencies ||
+      frequencyPresets[prev.recurringCyclePeriod || "days"]
+  }),
+
+  // ❌ CLEAR WHEN DISABLED
+  ...(!checked && {
+    recurringCycleLength: "",
+    recurringCyclePeriod: "days",
+    recurringTotalCycles: "",
+    subscriptionDiscountPercentage: "",
+    allowedSubscriptionFrequencies: "",
+    subscriptionDescription: ""
+  })
+}));
     return;
   }
 
@@ -2353,6 +2429,20 @@ if (name === 'nextDayDeliveryEnabled') {
     }));
     return;
   }
+
+  // ================================
+// ✅ RECURRING PERIOD AUTO PREFILL
+// ================================
+if (name === "recurringCyclePeriod") {
+  setFormData(prev => ({
+    ...prev,
+    recurringCyclePeriod: value,
+    allowedSubscriptionFrequencies:
+      frequencyPresets[value] || ""
+  }));
+
+  return;
+}
 
   // ================================
   // 22. DEFAULT HANDLER
@@ -3316,10 +3406,10 @@ useEffect(() => {
   <div className="flex items-start gap-3 bg-violet-500/10 border border-violet-500/30 rounded-xl px-4 py-3">
     <Package className="h-5 w-5 text-violet-400 mt-0.5 flex-shrink-0" />
     <div className="text-sm">
-      <span className="font-semibold text-violet-300">Variable Product selected   €” </span>
-      <span className="text-slate-300">Price and stock are managed per variant. Go to the <strong className="text-violet-300">Variants</strong> tab to define options (Color, Size  €¦) and generate variants.</span>
+      <span className="font-semibold text-violet-300">Variable Product selected  </span>
+      <span className="text-slate-300">Price and stock are managed per variant. Go to the <strong className="text-violet-300">Variants</strong> tab to define options (Color, Size ) and generate variants.</span>
       {productVariants.length > 0 && (
-        <span className="ml-2 text-emerald-400 font-medium">  œ“ {productVariants.length} variant{productVariants.length !== 1 ? 's' : ''} added</span>
+        <span className="ml-2 text-emerald-400 font-medium">  {productVariants.length} variant{productVariants.length !== 1 ? 's' : ''} added</span>
       )}
     </div>
   </div>
@@ -3697,7 +3787,6 @@ useEffect(() => {
               <option value="days">Days</option>
               <option value="weeks">Weeks</option>
               <option value="months">Months</option>
-              <option value="years">Years</option>
             </select>
           </div>
           <div>
@@ -3738,7 +3827,7 @@ useEffect(() => {
               name="allowedSubscriptionFrequencies"
               value={formData.allowedSubscriptionFrequencies}
               onChange={handleChange}
-              placeholder="weekly,monthly,yearly"
+             placeholder="daily,weekly,monthly"
               className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
             <p className="text-xs text-slate-500 mt-1">Comma-separated</p>

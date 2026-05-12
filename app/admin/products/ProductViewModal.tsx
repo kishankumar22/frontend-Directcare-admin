@@ -571,7 +571,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                   {/* VAT & Baseprice */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <ToggleField label="VAT Exempt" value={product.vatExempt} />
-                    <InfoField label="VAT Rate" value={product.vatRateName ? `${product.vatRateName} (${product.vatRate}%)` : 'None'} />
+                    <InfoField label="VAT Rate" value={product.vatRateName ? `${product.vatRateName} (${product.vatRate}%)` : '0'} />
                 
                   </div>
 
