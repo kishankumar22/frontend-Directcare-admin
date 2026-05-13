@@ -3652,15 +3652,32 @@ useEffect(() => {
   <div className="space-y-4">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
 
-    <label className="flex items-center gap-2">
+    <label className="flex items-center gap-2 cursor-pointer">
       <input
         type="checkbox"
         name="markAsNew"
         checked={formData.markAsNew}
-        onChange={handleChange}
+        onChange={(e) => {
+          const checked = e.target.checked;
+          const now = new Date();
+          const fifteenDaysLater = new Date();
+          fifteenDaysLater.setDate(now.getDate() + 15);
+
+          const formatDate = (date: Date) => {
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+          };
+
+          setFormData(prev => ({
+            ...prev,
+            markAsNew: checked,
+            markAsNewStartDate: checked ? formatDate(now) : prev.markAsNewStartDate,
+            markAsNewEndDate: checked ? formatDate(fifteenDaysLater) : prev.markAsNewEndDate
+          }));
+        }}
         className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
       />
-      <span className="text-sm text-slate-300">Mark as new product</span>
+      <span className="text-sm text-slate-300 hover:text-white transition-colors">Mark as new product</span>
     </label>
 
     {formData.markAsNew && (

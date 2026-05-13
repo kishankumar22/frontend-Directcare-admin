@@ -1789,9 +1789,13 @@ const allActions = getAllAvailableActions(
 
 
 {/* NET PAID */}
-{order.totalRefundedAmount > 0 && (
+{Number(order.totalRefundedAmount) > 0 &&
+ Number(order.netAmountPaid) > 0 && (
   <div className="border-t border-slate-700 pt-2 flex justify-between">
-    <span className="text-green-400 font-bold">Net Paid</span>
+    <span className="text-green-400 font-bold">
+      Net Paid
+    </span>
+
     <span className="text-green-400 font-bold text-lg">
       {formatCurrency(order.netAmountPaid, order.currency)}
     </span>

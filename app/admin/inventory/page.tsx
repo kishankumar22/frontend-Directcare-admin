@@ -31,12 +31,12 @@ interface ProductRow {
   id: string;
   variantId?: string;
   isVariant?: boolean;
-variantsCount?: number;
-productType?: string;
-
+  variantsCount?: number;
+  productType?: string;
+  compareAtPrice?: number;
   parentId?: string;
   parentName?: string;
-
+oldPrice?:number;
   name: string;
   sku: string;
 
@@ -407,7 +407,7 @@ export default function InventoryPage() {
               id: p.id,
               isVariant: false,
               productType: p.productType || "simple",
-variantsCount: variants.length,
+              variantsCount: variants.length,
 
               name: p.name,
               sku: p.sku,
@@ -696,9 +696,22 @@ variantsCount: variants.length,
   };
 
   // ─── Select / deselect ─────────────────────────────────────────────────────
-  const toggleSelect = (rowKey: string) => {
+  const toggleSelect = (p: ProductRow) => {
     const s = new Set(selected);
-    s.has(rowKey) ? s.delete(rowKey) : s.add(rowKey);
+    const rowKey = getRowKey(p);
+    const isSelected = s.has(rowKey);
+
+    if (isSelected) {
+      s.delete(rowKey);
+      if (!p.isVariant && p.variants) {
+        p.variants.forEach((v) => s.delete(`${p.id}-${v.variantId}`));
+      }
+    } else {
+      s.add(rowKey);
+      if (!p.isVariant && p.variants) {
+        p.variants.forEach((v) => s.add(`${p.id}-${v.variantId}`));
+      }
+    }
     setSelected(s);
   };
   const toggleSelectAll = () => {
@@ -1041,82 +1054,82 @@ variantsCount: variants.length,
         </div>
       )}
 
-<div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3">
 
-  {/* LEFT: Title + Chips (same row) */}
-  <div className="flex items-center gap-3 flex-wrap">
+        {/* LEFT: Title + Chips (same row) */}
+        <div className="flex items-center gap-3 flex-wrap">
 
-    <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-      Inventory Management
-    </h1>
+          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            Inventory Management
+          </h1>
 
-    {/* CHIPS */}
-  <div className="flex items-center gap-2 flex-wrap">
+          {/* CHIPS */}
+          <div className="flex items-center gap-2 flex-wrap">
 
-  {outOfStock > 0 && (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs">
-      <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-      <span className="text-slate-400">Out of stock</span>
-      <span className="font-bold text-red-400">{outOfStock}</span>
-      <span className="text-slate-500">(this page)</span>
-    </div>
-  )}
+            {outOfStock > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs">
+                <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                <span className="text-slate-400">Out of stock</span>
+                <span className="font-bold text-red-400">{outOfStock}</span>
+                <span className="text-slate-500">(this page)</span>
+              </div>
+            )}
 
-  {lowStock > 0 && (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs">
-      <TrendingUp className="h-3.5 w-3.5 text-amber-400" />
-      <span className="text-slate-400">Low stock</span>
-      <span className="font-bold text-amber-400">{lowStock}</span>
-      <span className="text-slate-500">(this page)</span>
-    </div>
-  )}
+            {lowStock > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs">
+                <TrendingUp className="h-3.5 w-3.5 text-amber-400" />
+                <span className="text-slate-400">Low stock</span>
+                <span className="font-bold text-amber-400">{lowStock}</span>
+                <span className="text-slate-500">(this page)</span>
+              </div>
+            )}
 
-  {changedProducts.length > 0 && (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 border border-violet-500/30 rounded-lg text-xs">
-      <Save className="h-3.5 w-3.5 text-violet-400" />
-      <span className="text-violet-300 font-semibold">
-        {changedProducts.length} unsaved change(s)
-      </span>
-    </div>
-  )}
+            {changedProducts.length > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 border border-violet-500/30 rounded-lg text-xs">
+                <Save className="h-3.5 w-3.5 text-violet-400" />
+                <span className="text-violet-300 font-semibold">
+                  {changedProducts.length} unsaved change(s)
+                </span>
+              </div>
+            )}
 
-</div>
-  </div>
+          </div>
+        </div>
 
-  {/* RIGHT: Buttons */}
-  <div className="flex items-center gap-2 flex-wrap">
+        {/* RIGHT: Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
 
-    {/* FIXED PRODUCT BUTTON */}
-    <button
-      onClick={() => router.push("/admin/products")}
-      className="flex items-center gap-1.5 px-3 py-2 text-xs 
+          {/* FIXED PRODUCT BUTTON */}
+          <button
+            onClick={() => router.push("/admin/products")}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs 
       bg-emerald-500/15 border border-emerald-500/30
       hover:bg-emerald-500/25 
       text-emerald-400 rounded-lg font-semibold 
       transition-all"
-    >
-      <ShoppingCart className="w-3.5 h-3.5" />
-  Go to Products
-    </button>
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            Go to Products
+          </button>
 
-    {/* UPLOAD BUTTON (kept strong) */}
-    <button
-      onClick={() => setImportOpen(true)}
-      className="flex items-center gap-1.5 px-3 py-2 text-xs 
+          {/* UPLOAD BUTTON (kept strong) */}
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs 
       bg-violet-600 hover:bg-violet-700 
       text-white rounded-lg font-semibold transition-all"
-    >
-      <Upload className="w-3.5 h-3.5" />
-      Update Inventory
-    </button>
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Update Inventory
+          </button>
 
-  </div>
-</div>
+        </div>
+      </div>
 
-{/* SUBTEXT */}
-<p className="text-xs text-slate-400 mt-1">
-  Update stock & prices · {totalCount.toLocaleString()} products
-</p>
+      {/* SUBTEXT */}
+      <p className="text-xs text-slate-400 mt-1">
+        Update stock & prices · {totalCount.toLocaleString()} products
+      </p>
 
       {/* ══ FILTER BAR ══ */}
       <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl px-2 py-2">
@@ -1307,7 +1320,7 @@ variantsCount: variants.length,
                           type="checkbox"
                           checked={selected.has(getRowKey(p))}
                           onChange={() =>
-                            toggleSelect(getRowKey(p))
+                            toggleSelect(p)
                           }
                           className="rounded accent-violet-500"
                         />
@@ -1375,41 +1388,41 @@ variantsCount: variants.length,
                       </td>
 
                       {/* SKU */}
-<td className="p-3 text-center">
-  <div className="flex flex-col items-center gap-1">
+                      <td className="p-3 text-center">
+                        <div className="flex flex-col items-center gap-1">
 
-    {/* VARIABLE PRODUCT */}
-    {!p.isVariant &&
-    p.productType === "variable" &&
-    (p.variantsCount ?? 0) > 0 ? (
+                          {/* VARIABLE PRODUCT */}
+                          {!p.isVariant &&
+                            p.productType === "variable" &&
+                            (p.variantsCount ?? 0) > 0 ? (
 
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300 text-[10px] font-semibold border border-violet-500/20">
-        <TrendingUp className="h-2.5 w-2.5" />
-        {p.variantsCount} Variants
-      </span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300 text-[10px] font-semibold border border-violet-500/20">
+                              <TrendingUp className="h-2.5 w-2.5" />
+                              {p.variantsCount} Variants
+                            </span>
 
-    ) : (
+                          ) : (
 
-      /* SKU */
-      <span
-        onClick={() => {
-          navigator.clipboard.writeText(p.sku || "");
+                            /* SKU */
+                            <span
+                              onClick={() => {
+                                navigator.clipboard.writeText(p.sku || "");
 
-          toast.success("SKU copied", {
-            position: "top-center",
-            autoClose: 1200,
-          });
-        }}
-        className="text-xs font-mono text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
-        title="Click to copy SKU"
-      >
-        {p.sku || "—"}
-      </span>
+                                toast.success("SKU copied", {
+                                  position: "top-center",
+                                  autoClose: 1200,
+                                });
+                              }}
+                              className="text-xs font-mono text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                              title="Click to copy SKU"
+                            >
+                              {p.sku || "—"}
+                            </span>
 
-    )}
+                          )}
 
-  </div>
-</td>
+                        </div>
+                      </td>
                       {/* CURRENT STOCK */}
                       <td className="p-3 text-center">
                         <StockBadge
@@ -1462,11 +1475,19 @@ variantsCount: variants.length,
                         />
                       </td>
 
+
                       {/* CURRENT PRICE */}
                       <td className="p-3 text-center">
-                        <span className="text-sm font-semibold text-emerald-400">
-                          £{p.price.toFixed(2)}
-                        </span>
+                        <div className="flex flex-col items-center">
+                          <span className="text-sm font-semibold text-emerald-400 leading-none">
+                            £{p.price.toFixed(2)}
+                          </span>
+                          {(p.oldPrice ?? 0) > 0 && (
+                            <span className="text-[10px] text-slate-500 line-through mt-1">
+                              £{(p.oldPrice ?? 0).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* NEW PRICE */}
@@ -1507,8 +1528,7 @@ variantsCount: variants.length,
                             }
                           }}
                           className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5
-                ${p.newPrice !==
-                              p.price
+                            ${p.newPrice !== p.price
                               ? "border-amber-500/60 bg-amber-500/5"
                               : "border-slate-600"
                             }`}
@@ -1569,8 +1589,8 @@ variantsCount: variants.length,
                           <tr
                             key={`${p.id}-${v.variantId}`}
                             className={`bg-slate-950/60 border-b border-slate-800 transition-colors ${selected.has(`${p.id}-${v.variantId}`)
-                                ? "bg-violet-500/5"
-                                : "hover:bg-slate-900/60"
+                              ? "bg-violet-500/5"
+                              : "hover:bg-slate-900/60"
                               }`}
                           >
                             {/* CHECKBOX */}
@@ -1579,7 +1599,7 @@ variantsCount: variants.length,
                                 type="checkbox"
                                 checked={selected.has(`${p.id}-${v.variantId}`)}
                                 onChange={() =>
-                                  toggleSelect(`${p.id}-${v.variantId}`)
+                                  toggleSelect(v)
                                 }
                                 className="rounded accent-violet-500"
                               />
@@ -1609,22 +1629,22 @@ variantsCount: variants.length,
                             </td>
 
                             {/* SKU */}
-                         <td className="p-3 text-center">
-  <span
-    onClick={() => {
-      navigator.clipboard.writeText(v.sku || "");
+                            <td className="p-3 text-center">
+                              <span
+                                onClick={() => {
+                                  navigator.clipboard.writeText(v.sku || "");
 
-      toast.success("SKU copied", {
-        position: "top-center",
-        autoClose: 1200,
-      });
-    }}
-    className="text-xs font-mono text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
-    title="Click to copy SKU"
-  >
-    {v.sku || "—"}
-  </span>
-</td>
+                                  toast.success("SKU copied", {
+                                    position: "top-center",
+                                    autoClose: 1200,
+                                  });
+                                }}
+                                className="text-xs font-mono text-slate-300 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                                title="Click to copy SKU"
+                              >
+                                {v.sku || "—"}
+                              </span>
+                            </td>
 
                             {/* CURRENT STOCK */}
                             <td className="p-3 text-center">
@@ -1646,7 +1666,7 @@ variantsCount: variants.length,
                                   )
                                 }
                                 className={`w-20 bg-slate-800 border rounded text-white text-center
-      ${v.newStock !== v.stockQuantity
+                                  ${v.newStock !== v.stockQuantity
                                     ? "border-amber-500/60 bg-amber-500/5"
                                     : "border-slate-600"
                                   }`}
@@ -1655,9 +1675,16 @@ variantsCount: variants.length,
 
                             {/* CURRENT PRICE */}
                             <td className="p-3 text-center">
-                              <span className="text-emerald-400 font-medium">
-                                £{v.price.toFixed(2)}
-                              </span>
+                              <div className="flex flex-col items-center">
+                                <span className="text-emerald-400 font-medium leading-none">
+                                  £{v.price.toFixed(2)}
+                                </span>
+                                {(v.compareAtPrice ?? 0) > 0 && (
+                                  <span className="text-[10px] text-slate-500 line-through mt-1">
+                                    £{(v.compareAtPrice ?? 0).toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* NEW PRICE */}
@@ -1676,7 +1703,7 @@ variantsCount: variants.length,
                                   )
                                 }
                                 className={`w-20 bg-slate-800 border rounded text-white text-center
-      ${v.newPrice !== v.price
+                                  ${v.newPrice !== v.price
                                     ? "border-amber-500/60 bg-amber-500/5"
                                     : "border-slate-600"
                                   }`}
@@ -1731,8 +1758,8 @@ variantsCount: variants.length,
               {getPageNumbers().map(page => (
                 <button key={page} onClick={() => setCurrentPage(page)}
                   className={`min-w-[32px] h-8 text-xs rounded-lg transition-all ${currentPage === page
-                      ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white font-semibold shadow"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white font-semibold shadow"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
                     }`}>
                   {page}
                 </button>

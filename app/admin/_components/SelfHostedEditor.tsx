@@ -561,7 +561,26 @@ content_style: `
           // ✅ BLOCK TYPING when limit reached
           editor.on('keydown', (e: any) => {
             const allowedKeys = [8, 46, 37, 38, 39, 40, 35, 36, 33, 34]; // Backspace, Delete, Arrows, Home, End, PgUp, PgDn
+            // ✅ CTRL + SHIFT + V = NORMAL PASTE
+if (
+  e.ctrlKey &&
+  !e.shiftKey &&
+  e.key.toLowerCase() === 'v'
+) {
+  e.preventDefault();
 
+  navigator.clipboard.readText()
+    .then((text) => {
+
+      // preserve line breaks
+      const formattedText = text
+        .replace(/\n/g, '<br>');
+
+      editor.insertContent(formattedText);
+    });
+
+  return;
+}
             if (allowedKeys.includes(e.keyCode) || e.ctrlKey || e.metaKey) {
               return;
             }
