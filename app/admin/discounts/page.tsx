@@ -320,12 +320,13 @@ useEffect(() => {
 
 const fetchAssignedProducts = async (ids: string[]) => {
   try {
-    const res = await Promise.all(
+    const results = await Promise.allSettled(
       ids.map(id => productsService.getById(id))
     );
 
-    const data: Product[] = res
-      .map(r => r?.data?.data)
+    const data: Product[] = results
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+      .map(r => r.value?.data?.data)
       .filter((p): p is Product => Boolean(p));
 
     return data;
@@ -2042,7 +2043,7 @@ const filteredDiscounts = discounts.filter((discount) => {
       />
 
 <DiscountModals
-  key={`${showModal}-${editingDiscount?.id}-${formData.assignedProductIds.join(',')}`}
+  key={`${showModal}-${editingDiscount?.id}`}
   discounts={discounts}
   getProductDiscount={getProductDiscount}
   showModal={showModal}
@@ -2063,17 +2064,21 @@ const filteredDiscounts = discounts.filter((discount) => {
   brandOptions={brandOptions}
   filteredProductOptions={[
     ...productOptions,
-    ...allSelectedProducts.map(p => ({
-      value: p.id,
-      label: p.name
-    }))
+    ...allSelectedProducts
+      .filter(p => !productOptions.some(opt => opt.value === p.id))
+      .map(p => ({
+        value: p.id,
+        label: p.name
+      }))
   ]}
   categoryFilteredProductOptions={[
     ...productOptions,
-    ...allSelectedProducts.map(p => ({
-      value: p.id,
-      label: p.name
-    }))
+    ...allSelectedProducts
+      .filter(p => !productOptions.some(opt => opt.value === p.id))
+      .map(p => ({
+        value: p.id,
+        label: p.name
+      }))
   ]}
   productCategoryFilter={productCategoryFilter}
   setProductCategoryFilter={setProductCategoryFilter}

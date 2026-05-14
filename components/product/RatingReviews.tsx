@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { timeFromNow } from "@/lib/date";
 import Image from "next/image";
-import { Filter, ChevronDown, CheckCircle2, UploadCloud, MessageSquare, MessageSquarePlus, Edit3 } from "lucide-react";
+import { Filter, ChevronDown, CheckCircle2, UploadCloud, MessageSquare, MessageSquarePlus, Edit3, ChevronLeft, ChevronRight } from "lucide-react";
+
+// 🔹 SWIPER
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, FreeMode } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/free-mode';
 
 interface RatingReviewsProps {
   productId: string;
@@ -40,7 +47,10 @@ export interface Review {
 
 }
 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+
 export default function RatingReviews({ productId, allowCustomerReviews, highlightReviewId }: RatingReviewsProps) {
+  const [swiperInstance, setSwiperInstance] = useState<any>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const recentReviews = useMemo(() => {
     return reviews
@@ -106,7 +116,7 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
       imageFiles.forEach((file) => formData.append("images", file));
 
       const res = await fetch(
-        "https://test.astircare.co.uk/api/ProductReviews/upload-images",
+        `${API_BASE_URL}/api/ProductReviews/upload-images`,
         {
           method: "POST",
           headers: {
@@ -138,7 +148,7 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
       videoFiles.forEach((file) => formData.append("videos", file));
 
       const res = await fetch(
-        "https://test.astircare.co.uk/api/ProductReviews/upload-videos",
+        `${API_BASE_URL}/api/ProductReviews/upload-videos`,
         {
           method: "POST",
           headers: {
@@ -169,30 +179,6 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
     () => videoFiles.map((file) => URL.createObjectURL(file)),
     [videoFiles]
   );
-  useEffect(() => {
-    if (!highlightReviewId) return;
-
-    const el = document.getElementById(`review-${highlightReviewId}`);
-    if (!el) return;
-
-    el.scrollIntoView({ behavior: "instant", block: "start" });
-
-    el.classList.add(
-      "ring-2",
-      "ring-[#445D41]",
-      "bg-green-50"
-    );
-
-    const timeout = setTimeout(() => {
-      el.classList.remove(
-        "ring-2",
-        "ring-[#445D41]",
-        "bg-green-50"
-      );
-    }, 2500);
-
-    return () => clearTimeout(timeout);
-  }, [highlightReviewId]);
   useEffect(() => {
     const raw = sessionStorage.getItem("pendingReviewDraft");
     if (!raw) return;
@@ -247,7 +233,7 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
   const fetchReviews = useCallback(async () => {
     try {
       const res = await fetch(
-        `https://test.astircare.co.uk/api/ProductReviews/product/${productId}`, {
+        `${API_BASE_URL}/api/ProductReviews/product/${productId}`, {
         next: { revalidate: 60 },
       });
 
@@ -295,7 +281,7 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
 
       // 2️⃣ submit review
       const res = await fetch(
-        "https://test.astircare.co.uk/api/ProductReviews",
+        `${API_BASE_URL}/api/ProductReviews`,
         {
           method: "POST",
           headers: {
@@ -339,16 +325,12 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
       setLoading(false);
     }
   };
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
-
   const resolveMediaUrl = useCallback((url: string) => {
     if (!url) return "";
     if (url.startsWith("http")) return url;
-    return `${API_BASE_URL}${url}`;
-  }, [API_BASE_URL]);
-
-
-
+    const base = process.env.NEXT_PUBLIC_API_URL || "";
+    return `${base}${url}`.replace(/([^:]\/)\/+/g, "$1");
+  }, []);
 
   // FILTERED DATA (no logic changed, only UI view manipulation)
   const filteredReviews = useMemo(() => {
@@ -365,13 +347,43 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
       });
   }, [reviews, filterRating, sortBy, showVerifiedOnly]);
 
+  useEffect(() => {
+    if (!highlightReviewId) return;
+
+    // 1️⃣ Scroll Swiper to the correct slide
+    if (swiperInstance) {
+      const index = filteredReviews.findIndex((r) => r.id === highlightReviewId);
+      if (index !== -1) {
+        swiperInstance.slideTo(index);
+      }
+    }
+    // 2️⃣ Scroll page to the element
+    const el = document.getElementById(`review-${highlightReviewId}`);
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    el.classList.add(
+      "ring-2",
+      "ring-[#445D41]",
+      "bg-green-50"
+    );
+
+    const timeout = setTimeout(() => {
+      el.classList.remove(
+        "ring-2",
+        "ring-[#445D41]",
+        "bg-green-50"
+      );
+    }, 2500);
+
+    return () => clearTimeout(timeout);
+  }, [highlightReviewId, swiperInstance, filteredReviews]);
 
   return (
     <>
       <section id="reviews-section" className="mt-6 md:mt-10 bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-200 overflow-x-hidden w-full">
         <h2 className="text-lg md:text-2xl font-bold mb-3 text-gray-900">Ratings & Reviews</h2>
-
-
         {/* FILTER PANEL */}
         <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 md:gap-3 mb-4 p-3 bg-gray-50 rounded-lg border w-full overflow-x-hidden">
           <div className="flex items-center gap-1.5 font-semibold text-gray-700 text-sm">
@@ -413,9 +425,8 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
 
         {/* WRITE REVIEW FORM */}
         {allowCustomerReviews && (
-          <div className="mb-4 p-4 md:p-5 border rounded-xl bg-gray-50 shadow-sm">
+          <div className="mb-6 p-4 md:p-5 border rounded-xl bg-gray-50 shadow-sm">
             <h3 className="flex items-center gap-2 font-semibold text-base mb-4 text-gray-900">
-
               Write a Review
               <Edit3 className="w-4 h-4 text-black" />
             </h3>
@@ -423,17 +434,12 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
             {/* RATING */}
             <div className="flex flex-col gap-1 mb-3">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-700">
-                  Your Rating:
-                </span>
-
+                <span className="text-sm font-medium text-gray-700">Your Rating:</span>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <span
                       key={s}
-                      className={`cursor-pointer text-2xl transition-transform duration-150 ${rating >= s
-                          ? "text-yellow-500 scale-110"
-                          : "text-gray-300"
+                      className={`cursor-pointer text-2xl transition-transform duration-150 ${rating >= s ? "text-yellow-500 scale-110" : "text-gray-300"
                         }`}
                       onClick={() => setRating(s)}
                     >
@@ -442,12 +448,7 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
                   ))}
                 </div>
               </div>
-
-              {rating === 0 && (
-                <p className="text-xs text-black-500">
-                  Please select a rating first to submit your review
-                </p>
-              )}
+              {rating === 0 && <p className="text-xs text-gray-500">Please select a rating</p>}
             </div>
 
             {/* TITLE */}
@@ -458,12 +459,11 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
                 setTitle(value);
                 validateField("title", value);
               }}
-              placeholder="Review title* (min 5 characters required)"
+              placeholder="Review title*"
               className="w-full border rounded-lg p-2.5 text-sm mb-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]/40"
             />
-            {errors.title && (
-              <p className="text-xs text-red-500 mt-0">{errors.title}</p>
-            )}
+            {errors.title && <p className="text-xs text-red-500 mb-2">{errors.title}</p>}
+
             {/* COMMENT */}
             <textarea
               value={comment}
@@ -473,30 +473,18 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
                 validateField("comment", value);
               }}
               rows={3}
-              placeholder="Share your experience...(min 5 characters required)*"
+              placeholder="Share your experience..."
               className="w-full border rounded-lg p-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]/40"
             />
-            {errors.comment && (
-              <p className="text-xs text-red-500 mt-0">{errors.comment}</p>
-            )}
+            {errors.comment && <p className="text-xs text-red-500 mt-1">{errors.comment}</p>}
+
             {/* IMAGE UPLOAD */}
             <div className="mt-4">
-              <p className="text-sm font-semibold text-gray-800 mb-2">
-                Upload Images (optional)
-              </p>
-
+              <p className="text-sm font-semibold text-gray-800 mb-2">Upload Images (optional)</p>
               <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#445D41] hover:bg-white transition text-sm">
-
                 <UploadCloud className="h-4 w-4 text-gray-600" />
-
-                <span className="text-gray-700 font-medium">
-                  Add Images
-                </span>
-
-                <span className="text-gray-400 text-xs">
-                  Click to upload review images
-                </span>
-
+                <span className="text-gray-700 font-medium">Add Images</span>
+                <span className="text-gray-400 text-xs">Click to upload review images</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -512,24 +500,14 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
               <div className="mt-3 flex flex-wrap gap-2">
                 {imagePreviews.map((src, i) => (
                   <div key={`preview-image-${i}`} className="relative w-[90px] h-[90px]">
-
                     <div className="w-[90px] h-[90px] overflow-hidden rounded-lg border bg-gray-50">
-                      <img
-                        src={src}
-                        alt="Preview"
-                        className="w-full h-full object-contain"
-                      />
+                      <img src={src} alt="Preview" className="w-full h-full object-contain" />
                     </div>
-
                     <button
                       type="button"
-                      onClick={() =>
-                        setImageFiles((prev) => prev.filter((_, idx) => idx !== i))
-                      }
+                      onClick={() => setImageFiles((prev) => prev.filter((_, idx) => idx !== i))}
                       className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full h-5 w-5"
-                    >
-                      ✕
-                    </button>
+                    >✕</button>
                   </div>
                 ))}
               </div>
@@ -537,22 +515,11 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
 
             {/* VIDEO */}
             <div className="mt-4">
-              <p className="text-sm font-semibold text-gray-800 mb-2">
-                Upload Video (optional)
-              </p>
-
+              <p className="text-sm font-semibold text-gray-800 mb-2">Upload Video (optional)</p>
               <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#445D41] hover:bg-white transition text-sm">
-
                 <UploadCloud className="h-4 w-4 text-gray-600" />
-
-                <span className="text-gray-700 font-medium">
-                  Upload Review Video
-                </span>
-
-                <span className="text-gray-400 text-xs">
-                  Click to upload review video
-                </span>
-
+                <span className="text-gray-700 font-medium">Upload Review Video</span>
+                <span className="text-gray-400 text-xs">Click to upload review video</span>
                 <input
                   type="file"
                   accept="video/*"
@@ -567,29 +534,19 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
               <div className="mt-3">
                 {videoPreviews.map((src, i) => (
                   <div key={`preview-video-${i}`} className="relative w-32 sm:w-36">
-
                     <div className="aspect-video w-full overflow-hidden rounded-lg border bg-black">
-                      <video
-                        src={src}
-                        muted
-                        preload="metadata"
-                        className="w-full h-full object-contain"
-                      />
+                      <video src={src} muted preload="metadata" className="w-full h-full object-contain" />
                     </div>
-
                     <button
                       type="button"
                       onClick={() => setVideoFiles([])}
                       className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full h-5 w-5"
-                    >
-                      ✕
-                    </button>
+                    >✕</button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* SUBMIT */}
             <Button
               onClick={handleSubmitReview}
               disabled={rating === 0 || comment.trim().length < 5 || loading}
@@ -600,150 +557,193 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
           </div>
         )}
 
-        {/* REVIEWS LIST */}
-        <h3 className="text-sm md:text-base font-semibold mb-3 text-gray-900">Customer Reviews</h3>
+        {/* REVIEWS LIST - SWIPER UI */}
+        <h3 className="text-base md:text-lg font-bold mb-4 text-gray-900 px-1">Customer Reviews</h3>
 
         {filteredReviews.length === 0 ? (
-          <p className="text-gray-500 italic text-sm">No reviews matching filters.</p>
+          <p className="text-gray-500 italic text-sm px-1">No reviews matching filters.</p>
         ) : (
-          <div id="reviews-list" className="space-y-3 scroll-mt-24">
-            {filteredReviews.map((r) => (
-              <div
-                key={r.id}
-                id={`review-${r.id}`}
-                className="p-3 md:p-4 rounded-lg border bg-white shadow-sm scroll-mt-24"
-              >
-                <div className="flex flex-wrap items-center gap-1.5 w-full">
-                  <div className="flex gap-0.5 text-yellow-500 text-base">
-                    {"★".repeat(r.rating)}{" "}
-                    <span className="text-gray-300">{"★".repeat(5 - r.rating)}</span>
-                  </div>
+          <div className="relative group px-4 md:px-10">
+            <button
+              id="prev-btn"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full border bg-white shadow-md hover:bg-gray-50 transition cursor-pointer disabled:opacity-0 hidden md:flex items-center justify-center border-gray-200"
+            >
+              <ChevronLeft className="h-5 w-5 text-gray-700" />
+            </button>
+            <button
+              id="next-btn"
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full border bg-white shadow-md hover:bg-gray-50 transition cursor-pointer disabled:opacity-0 hidden md:flex items-center justify-center border-gray-200"
+            >
+              <ChevronRight className="h-5 w-5 text-gray-700" />
+            </button>
 
-                  <span className="text-xs font-semibold text-gray-800">{r.customerName}</span>
-
-                  {r.isVerifiedPurchase && (
-                    <span className="flex items-center gap-0.5 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
-                      <CheckCircle2 className="h-2.5 w-2.5" /> Verified
-                    </span>
-                  )}
-                </div>
-
-                <p className="font-semibold mt-1.5 text-sm text-gray-900">{r.title}</p>
-                <p className="text-xs text-gray-600 mt-1 leading-relaxed">{r.comment}</p>
-                {((r.imageUrls?.length ?? 0) > 0 ||
-                  (r.videoUrls?.length ?? 0) > 0) && (
-                    <div
-                      className="mt-2 grid gap-1"
-                      style={{
-                        gridTemplateColumns: "repeat(auto-fit, minmax(64px, max-content))",
-                      }}
-                    >
-                      {r.imageUrls?.map((url, i) => (
-                        <div
-                          key={`${r.id}-img-${i}`}
-                          onClick={() =>
-                            setActiveMedia({ type: "image", url: resolveMediaUrl(url) })
-                          }
-                          className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-md border overflow-hidden cursor-pointer bg-black"
-                        >
-                          <Image
-                            src={resolveMediaUrl(url)}
-                            alt="Review image"
-                            width={80}
-                            height={80}
-                            loading="lazy"
-                            quality={60}
-                            className="w-full h-full object-contain bg-gray-50"
-                          />
-                        </div>
-                      ))}
-
-                      {r.videoUrls?.map((url, i) => (
-                        <div
-                          key={`${r.id}-vid-${i}`}
-                          onClick={() =>
-                            setActiveMedia({ type: "video", url: resolveMediaUrl(url) })
-                          }
-                          className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-md border overflow-hidden cursor-pointer bg-black relative flex items-center justify-center"
-                        >
-                          <div className="absolute inset-0 bg-black flex items-center justify-center">
-                            <span className="text-white text-xs">▶</span>
+            <Swiper
+              onSwiper={setSwiperInstance}
+              modules={[Navigation, FreeMode]}
+              navigation={{
+                prevEl: '#prev-btn',
+                nextEl: '#next-btn',
+              }}
+              spaceBetween={12}
+              slidesPerView={1}
+              slidesPerGroup={1}
+              breakpoints={{
+                640: { slidesPerView: 2, spaceBetween: 16 },
+                1024: { slidesPerView: 3, spaceBetween: 16 },
+                1280: { slidesPerView: 4, spaceBetween: 16 },
+              }}
+              className="!pb-10 h-full"
+            >
+              {filteredReviews.map((r) => (
+                <SwiperSlide key={r.id} className="!h-auto">
+                  <div
+                    id={`review-${r.id}`}
+                    className="h-full p-4 md:p-5 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="w-7 h-7 rounded-full bg-[#445D41]/10 flex-shrink-0 flex items-center justify-center text-[#445D41] font-bold text-[10px] uppercase">
+                            {r.customerName.charAt(0)}
                           </div>
+                          <span className="text-xs font-bold text-gray-900 truncate">
+                            {r.customerName}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-
-                <p className="text-[10px] text-gray-400 mt-1.5">
-                  {timeFromNow(r.createdAt)}
-                </p>
-                {r.replies && r.replies.length > 0 && (
-                  <div className="mt-2 pl-3 border-l-2 border-gray-200">
-                    {r.replies.map((reply) => (
-                      <div key={reply.id} className="bg-gray-50 rounded-md p-2 mt-1.5 text-xs">
-
-                        <p className="text-gray-700">{reply.comment}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">
-                          — {reply.createdByName} •{" "}
-                          {timeFromNow(reply.createdAt)}
-                        </p>
+                        {r.isVerifiedPurchase && (
+                          <span className="flex-shrink-0 flex items-center gap-1 text-[8px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full border border-emerald-100 uppercase">
+                            <CheckCircle2 className="h-2 w-2" /> Verified
+                          </span>
+                        )}
                       </div>
-                    ))}
+
+                      <div className="flex gap-1 text-yellow-500 text-lg mb-1">
+                        {"★".repeat(r.rating)}
+                        <span className="text-gray-200">{"★".repeat(5 - r.rating)}</span>
+                      </div>
+
+                      <h4 className="font-extrabold text-sm text-gray-900 mb-1 line-clamp-1">{r.title}</h4>
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{r.comment}</p>
+
+                      {/* Media Section - Optimized for Performance */}
+                      {((r.imageUrls?.length ?? 0) > 0 || (r.videoUrls?.length ?? 0) > 0) && (
+                        <div className="mt-3 -mx-1">
+                          {(r.imageUrls?.length ?? 0) + (r.videoUrls?.length ?? 0) <= 3 ? (
+                            // 🚀 Grid Layout for 1-3 items (Ensures they fit without cutting)
+                            <div className="grid grid-cols-3 gap-1 px-1">
+                              {r.imageUrls?.map((url, i) => (
+                                <div
+                                  key={`${r.id}-img-${i}`}
+                                  onClick={() => setActiveMedia({ type: "image", url: resolveMediaUrl(url) })}
+                                  className="w-full aspect-square rounded-lg border border-gray-100 overflow-hidden cursor-pointer bg-gray-50 flex items-center justify-center transition-transform md:hover:scale-105"
+                                >
+                                  <Image
+                                    src={resolveMediaUrl(url)}
+                                    alt="Review"
+                                    width={100}
+                                    height={100}
+                                    className="w-full h-full object-contain"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              ))}
+                              {r.videoUrls?.map((url, i) => (
+                                <div
+                                  key={`${r.id}-vid-${i}`}
+                                  onClick={() => setActiveMedia({ type: "video", url: resolveMediaUrl(url) })}
+                                  className="w-full aspect-square rounded-lg border bg-black relative flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
+                                >
+                                  <span className="text-white text-xs">▶</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            // 🎡 Swiper only for 4+ items
+                            <Swiper
+                              nested={true}
+                              slidesPerView={3}
+                              spaceBetween={5}
+                              freeMode={true}
+                              modules={[FreeMode]}
+                              className="px-1 w-full"
+                            >
+                              {r.imageUrls?.map((url, i) => (
+                                <SwiperSlide key={`${r.id}-img-${i}`}>
+                                  <div
+                                    onClick={() => setActiveMedia({ type: "image", url: resolveMediaUrl(url) })}
+                                    className="w-full aspect-square rounded-lg border border-gray-100 overflow-hidden cursor-grab active:cursor-grabbing bg-gray-50 flex items-center justify-center transition-transform md:hover:scale-105"
+                                  >
+                                    <Image
+                                      src={resolveMediaUrl(url)}
+                                      alt="Review"
+                                      width={100}
+                                      height={100}
+                                      className="w-full h-full object-cover pointer-events-none"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                </SwiperSlide>
+                              ))}
+                              {r.videoUrls?.map((url, i) => (
+                                <SwiperSlide key={`${r.id}-vid-${i}`}>
+                                  <div
+                                    onClick={() => setActiveMedia({ type: "video", url: resolveMediaUrl(url) })}
+                                    className="w-full aspect-square rounded-lg border bg-black relative flex items-center justify-center cursor-grab active:cursor-grabbing transition-transform md:hover:scale-105"
+                                  >
+                                    <span className="text-white text-xs pointer-events-none">▶</span>
+                                  </div>
+                                </SwiperSlide>
+                              ))}
+                            </Swiper>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
+                      <p className="text-[10px] font-medium text-gray-400">{timeFromNow(r.createdAt)}</p>
+                      {r.replies && r.replies.length > 0 && (
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-[#445D41] uppercase">
+                          <MessageSquare className="w-3 h-3" /> {r.replies.length} Reply
+                        </div>
+                      )}
+                    </div>
+
+                    {r.replies && r.replies.length > 0 && (
+                      <div className="mt-3">
+                        {r.replies.slice(0, 1).map((reply) => (
+                          <div key={reply.id} className="bg-gray-50 rounded-xl p-2.5 text-[11px] border border-gray-100">
+                            <p className="text-gray-700 line-clamp-2"><span className="font-bold text-[#445D41]">Response:</span> {reply.comment}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+                </SwiperSlide>
+              ))}
+            </Swiper>
           </div>
         )}
       </section>
 
-      {/* 🔥 REVIEW IMAGE / VIDEO MODAL */}
+      {/* MEDIA MODAL */}
       {activeMedia && (
-        <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4"
-          onClick={() => setActiveMedia(null)}
-        >
-          <div
-            className="relative max-w-4xl w-full bg-black rounded-xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* CLOSE BUTTON */}
-            <button
-              onClick={() => setActiveMedia(null)}
-              className="absolute top-3 right-3 z-10 bg-black/70 text-white rounded-full h-8 w-8 flex items-center justify-center"
-            >
-              ✕
-            </button>
-
-            {/* IMAGE */}
-            {activeMedia.type === "image" && (
-              <img
-                src={activeMedia.url}
-                alt="Review full"
-                className="w-full max-h-[80vh] object-contain bg-gray-100"
-              />
-            )}
-
-            {/* VIDEO */}
-            {activeMedia.type === "video" && (
-              <video
-                src={activeMedia.url}
-                controls
-                autoPlay
-                className="w-full max-h-[80vh] bg-gray-100"
-              />
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4" onClick={() => setActiveMedia(null)}>
+          <div className="relative max-w-4xl w-full bg-black rounded-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setActiveMedia(null)} className="absolute top-3 right-3 z-10 bg-black/70 text-white rounded-full h-8 w-8 flex items-center justify-center">✕</button>
+            {activeMedia.type === "image" ? (
+              <img src={activeMedia.url} alt="Full" className="w-full max-h-[80vh] object-contain" />
+            ) : (
+              <video src={activeMedia.url} controls autoPlay className="w-full max-h-[80vh]" />
             )}
           </div>
         </div>
       )}
-
-
     </>
   );
-
-
 }
+
+
 // 🔹 PDP tooltip ke liye reusable helper
 export function getRecentApprovedReviews(reviews: Review[]) {
   return reviews

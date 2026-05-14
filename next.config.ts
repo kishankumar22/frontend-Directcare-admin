@@ -5,66 +5,66 @@ const isDev = process.env.NODE_ENV === 'development';
 const nextConfig: NextConfig = {
   // ✅ Strict Mode: OFF in dev (prevents double calls), ON in production
   reactStrictMode: !isDev,  // false in dev, true in production
-  
-  eslint: {    
+
+  eslint: {
     ignoreDuringBuilds: true,
   },
-  
+
   typescript: {
     ignoreBuildErrors: false,
   },
-  
+
   // ✅ OPTIMIZED IMAGE CONFIG
-images: {
-  remotePatterns: [
-    {
-      protocol: 'http',
-      hostname: 'localhost',
-      pathname: '/**',
-    },
-    {
-      protocol: 'http',
-      hostname: '127.0.0.1',
-      pathname: '/**',
-    },
-    {
-      protocol: 'https',
-      hostname: 'api.directcare.com',
-      pathname: '/**',
-    },
-    {
-  protocol: 'https',
-  hostname: 'api.astircare.co.uk',
-  pathname: '/**',
-},
-  {
-  protocol: 'https',
-  hostname: 'test.astircare.co.uk',
-  pathname: '/**',
-},
-    {
-      protocol: 'https',
-      hostname: 'testapi.knowledgemarkg.com',
-      pathname: '/**',
-    },
-    {
-      protocol: 'https',
-      hostname: 'directcare.knowledgemarkg.com',
-      pathname: '/**',
-    },
-    {
-  protocol: 'https',
-  hostname: 'www.direct-care.co.uk',
-  pathname: '/**',
-},
-    {
-      protocol: 'https',
-      hostname: 'example.com',   // 👈 ADD THIS
-      pathname: '/**',
-    },
-  ],
-}
-,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.directcare.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.astircare.co.uk',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'test.astircare.co.uk',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'testapi.knowledgemarkg.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'directcare.knowledgemarkg.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.direct-care.co.uk',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'example.com',   // 👈 ADD THIS
+        pathname: '/**',
+      },
+    ],
+  }
+  ,
 
   // ✅ COMPRESSION
   compress: true,
@@ -72,7 +72,7 @@ images: {
   // ✅ PRODUCTION OPTIMIZATIONS
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
-  
+
   // ✅ REDIRECTS
   async redirects() {
     return [];
@@ -99,11 +99,7 @@ images: {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
-          },
-          {
-            key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate',
-          },
+          }
         ],
       },
       {

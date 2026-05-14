@@ -38,10 +38,10 @@ export default function HomeBannerSlider({
         autoplay={
           enableAutoplay
             ? {
-                delay: 5000,
-                disableOnInteraction: false,
-                pauseOnMouseEnter: true,
-              }
+              delay: 5000,
+              disableOnInteraction: false,
+              pauseOnMouseEnter: true,
+            }
             : false
         }
         pagination={enableAutoplay ? { clickable: true } : false}

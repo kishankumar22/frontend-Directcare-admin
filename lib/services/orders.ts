@@ -751,6 +751,45 @@ async exportOrders(params: {
   });
 }
 
+/**
+ * Hard-delete (permanent) an order. Only allowed for orders with no successful payment
+ * and no generated invoice. Caller must pass the order number as a typo-guard.
+ */
+async hardDeleteOrder(orderId: string, confirmOrderNumber: string) {
+  try {
+    const response = await apiClient.delete<ApiResponse<any>>(
+      `${API_ENDPOINTS.orders}/${orderId}/hard`,
+      { data: { confirmOrderNumber } }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(
+      error?.response?.data?.message || 'Failed to hard-delete order'
+    );
+  }
+}
+
+async exportOrdersTravelbook(params: {
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  searchTerm?: string;
+  deliveryMethod?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params.status && params.status !== 'all') queryParams.append('status', params.status);
+  if (params.fromDate) queryParams.append('fromDate', params.fromDate);
+  if (params.toDate) queryParams.append('toDate', params.toDate);
+  if (params.searchTerm) queryParams.append('searchTerm', params.searchTerm);
+  if (params.deliveryMethod && params.deliveryMethod !== 'all') queryParams.append('deliveryMethod', params.deliveryMethod);
+
+  const url = `${API_ENDPOINTS.exportOrdersTravelbook}${
+    queryParams.toString() ? `?${queryParams.toString()}` : ''
+  }`;
+
+  return apiClient.get(url, { responseType: 'blob' });
+}
+
 }
 
 

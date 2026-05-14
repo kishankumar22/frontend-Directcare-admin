@@ -423,99 +423,6 @@ useEffect(() => {
   };
 }, [mobilePreview]);
 
-  const MultiValueLabel = (props: any) => {
-  const { data } = props;
-
-const product = productMap.get(data.value);
-const imageUrl = getProductImage(product?.images ?? []);
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-5 h-5 rounded overflow-hidden bg-slate-700">
-        {imageUrl && (
-          <img src={imageUrl} className="w-full h-full object-cover" />
-        )}
-      </div>
-      <span className="text-white">{data.label}</span>
-    </div>
-  );
-};
-const ProductOption = (props: any) => {
-  const { data, isSelected } = props;
-
-  const product = productMap.get(data.value);
-  const imageUrl = getProductImage(product?.images ?? []);
-  
-  const { hasConflict, uniqueConflicts, isAssignedToCurrentDiscount } = checkProductConflicts(data.value);
-  const primaryConflict = uniqueConflicts[0];
-
-  return (
-    <div
-      {...props.innerProps}
-      className={`flex items-center gap-3 px-3 py-2 border-b border-slate-700/50 last:border-0 ${
-        props.isDisabled ? "bg-slate-800/30 cursor-not-allowed opacity-60" : "hover:bg-slate-700 cursor-pointer"
-      } ${isSelected ? "bg-violet-500/10" : ""}`}
-    >
-  {/* IMAGE */}
-  <div className="w-10 h-10 rounded-md overflow-hidden border border-slate-700 bg-slate-800 shrink-0">
-    {imageUrl ? (
-      <img src={imageUrl} className="w-full h-full object-cover" />
-    ) : (
-      <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500">
-        No Img
-      </div>
-    )}
-  </div>
-
-  {/* LEFT SIDE (name + sku + conflicts) */}
-  <div className="flex flex-col min-w-0 flex-1">
-    <span className={`text-sm font-medium truncate ${
-      isSelected ? "text-white" : "text-slate-300"
-    }`}>
-      {data.label}
-    </span>
-
-    <div className="flex items-center gap-2">
-      <span className="text-[11px] text-slate-500">
-        SKU: {product?.sku ?? "N/A"}
-      </span>
-
-      {/* 🎯 CONFLICT BADGES */}
-      {isAssignedToCurrentDiscount && (
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium whitespace-nowrap">
-          Current Discount
-        </span>
-      )}
-      
-      {hasConflict && !isAssignedToCurrentDiscount && primaryConflict && (
-         <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium whitespace-nowrap truncate max-w-[150px]" title={`Assigned to: ${primaryConflict.name}`}>
-           Assigned to: {primaryConflict.name}
-         </span>
-      )}
-    </div>
-  </div>
-
-  {/* RIGHT SIDE (price + stock) */}
-  <div className="flex flex-col items-end shrink-0">
-    
-    <span className="text-xs text-cyan-400 font-semibold">
-      £{product?.price ?? "0.00"}
-    </span>
-
-    <span className={`text-[11px] font-medium ${
-      (product?.stockQuantity ?? 0) > 0
-        ? "text-green-400"
-        : "text-red-400"
-    }`}>
-      {(product?.stockQuantity ?? 0) > 0
-        ? `In Stock (${product?.stockQuantity})`
-        : "Out of Stock"}
-    </span>
-
-  </div>
-    </div>
-  );
-};
-
 const stats = useMemo(() => {
   let conflictCount = 0;
   let availableCount = 0;
@@ -796,95 +703,32 @@ useEffect(() => {
                         <span className="text-xs text-slate-400 ml-2">Choose which products this discount applies to</span>
                       </label>
 
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Filter by Category</label>
-                          <Select
-                            isClearable
-                            options={categoryOptions}
-                            value={categoryOptions.find(opt => opt.value === productCategoryFilter) || null}
-                            onChange={(selectedOption) => setProductCategoryFilter(selectedOption?.value || "")}
-                            placeholder="All categories..."
-                            isSearchable
-                            styles={customSelectStyles}
-                            className="react-select-container"
-                            classNamePrefix="react-select"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Filter by Brand</label>
-                          <Select
-                          
-                            isClearable
-                            options={brandOptions}
-                            value={brandOptions.find(opt => opt.value === productBrandFilter) || null}
-                            onChange={(selectedOption) => setProductBrandFilter(selectedOption?.value || "")}
-                            placeholder="All brands..."
-                            isSearchable
-                            styles={customSelectStyles}
-                            className="react-select-container"
-                            classNamePrefix="react-select"
-                          />
-                        </div>
-                      </div>
 
-<Select
-  isMulti
-  options={mergedOptions}
-value={formData.assignedProductIds.map(id => {
-  const p = productMap.get(id);
-  return p ? { value: p.id, label: p.name } : null;
-}).filter(Boolean)}
 
-onChange={(selectedOptions) => {
-  const ids = (selectedOptions || [])
-    .map((opt: any) => opt?.value)
-    .filter(Boolean);
+                      {/* Select All / Clear All Controls removed from here and moved inside dropdown */}
 
-  setFormData({
-    ...formData,
-    assignedProductIds: ids
-  });
+{/* INPUT BOX TO OPEN MODAL */}
+<div
+  onClick={() => setIsProductSelectionModalOpen(true)}
+  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-slate-400 cursor-pointer hover:border-violet-500 transition-all flex items-center justify-between"
+>
+  <span>
+    {formData.assignedProductIds.length > 0
+      ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? 's' : ''} selected`
+      : 'Select products...'
+    }
+  </span>
+  <ChevronDown className="h-5 w-5" />
+</div>
 
-  // 🔥 IMPORTANT: keep selectedProducts updated
-  const selected = ids
-    .map(id => productMap.get(id))
-    .filter(Boolean);
-
-  setSelectedProducts(selected as Product[]);
-}}
-
-  onInputChange={(input) => {
-    setProductSearchTerm(input);
-  }}
-
-  inputValue={productSearchTerm}
-
-  isLoading={productsLoading} // 🔥 ADD THIS
-  loadingMessage={() => "Loading products..."} // 🔥 ADD THIS
-
-  placeholder="Search and select products..."
-  isSearchable
-  closeMenuOnSelect={false}
-  hideSelectedOptions={false} // ALLOW TOGGLING
-  isOptionDisabled={(option: any) => option.isDisabled} // PREVENT SELECTING CONFLICTS
-  styles={customSelectStyles}
-  className="react-select-container"
-  classNamePrefix="react-select"
-
-  components={{
-    Option: ProductOption,
-    MultiValueLabel: MultiValueLabel,
-  }}
-
-  noOptionsMessage={() =>
-    productsLoading
-      ? "Loading..."
-      : productCategoryFilter || productBrandFilter
-      ? "No products match the selected filters"
-      : "No products found"
-  }
-/>
+<div className="flex items-center justify-between mt-2">
+  <p className="text-xs text-slate-400">
+    Click to view and select products
+  </p>
+  <p className="text-xs text-blue-400">
+    {mergedOptions.length} product{mergedOptions.length !== 1 ? 's' : ''} available
+  </p>
+</div>
 
                       <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-slate-400">
@@ -1542,15 +1386,16 @@ onChange={(selectedOptions) => {
 {/* ========== PRODUCT SELECTION MODAL ========== */}
 {isProductSelectionModalOpen && (
   <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden shadow-2xl">
       
       {/* Modal Header */}
-      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+      <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-bold text-white">Select Products</h3>
-            <p className="text-slate-400 text-sm mt-1">
-              Choose products from the selected category
+            <p className="text-slate-200 text-base font-semibold">
+              {formData.discountType === "AssignedToCategories" 
+                ? "Choose products from the selected category" 
+                : "Choose products to apply discount"}
             </p>
           </div>
           <button
@@ -1565,29 +1410,164 @@ onChange={(selectedOptions) => {
           </button>
         </div>
 
-        {/* Search Input */}
-       <div className="mt-3 relative">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <input
+                type="search"
+                placeholder="Search products..."
+                value={productSearchTerm}
+                onChange={(e) => setProductSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-sm"
+              />
+              {productsLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-violet-500/20 border-t-violet-500 rounded-full animate-spin"></div>
+                </div>
+              )}
+            </div>
 
-  <input
-    type="search"
-    placeholder="Search products by name..."
-    value={productSearchTerm}
-    onChange={(e) => setProductSearchTerm(e.target.value)}
-    className="w-full pl-10 pr-10 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-  />
+            {formData.discountType === "AssignedToProducts" && (
+              <div className="flex items-center gap-2">
+                <div className="w-[260px]">
+                  <Select
+                    isClearable
+                    options={categoryOptions}
+                    value={categoryOptions.find(opt => opt.value === productCategoryFilter) || null}
+                    onChange={(selectedOption) => setProductCategoryFilter(selectedOption?.value || "")}
+                    placeholder="Category..."
+                    isSearchable
+                    styles={customSelectStyles}
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                  />
+                </div>
+                <div className="w-[160px]">
+                  <Select
+                    isClearable
+                    options={brandOptions}
+                    value={brandOptions.find(opt => opt.value === productBrandFilter) || null}
+                    onChange={(selectedOption) => setProductBrandFilter(selectedOption?.value || "")}
+                    placeholder="Brand..."
+                    isSearchable
+                    styles={customSelectStyles}
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                  />
+                </div>
+              </div>
+            )}
 
-  {/* 🔥 LOADER INSIDE INPUT */}
-  {productsLoading && (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-      <div className="h-4 w-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  )}
-</div>
+            {(productSearchTerm || productCategoryFilter || productBrandFilter) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProductSearchTerm("");
+                  setProductCategoryFilter("");
+                  setProductBrandFilter("");
+                }}
+                className="p-2.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all"
+                title="Clear all filters"
+              >
+                <FilterX className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const availableOptions = filteredProducts.filter(opt => {
+                      const conflicts = checkProductConflicts(opt.value);
+                      return !(conflicts.hasConflict && !conflicts.isAssignedToCurrentDiscount);
+                    });
+                    const availableIds = availableOptions.map(opt => opt.value);
+                    const isAllSelected = availableIds.length > 0 && availableIds.every((id: string) => formData.assignedProductIds.includes(id));
+
+                    if (isAllSelected) {
+                      const newIds = formData.assignedProductIds.filter((id: string) => !availableIds.includes(id));
+                      setFormData({ ...formData, assignedProductIds: newIds });
+                    } else {
+                      const newIds = Array.from(new Set([...formData.assignedProductIds, ...availableIds]));
+                      setFormData({ ...formData, assignedProductIds: newIds });
+                    }
+                  }}
+                  className={(() => {
+                    const availableIds = filteredProducts.filter(opt => {
+                      const conflicts = checkProductConflicts(opt.value);
+                      return !(conflicts.hasConflict && !conflicts.isAssignedToCurrentDiscount);
+                    }).map(opt => opt.value);
+                    const isAllSelected = availableIds.length > 0 && availableIds.every((id: string) => formData.assignedProductIds.includes(id));
+                    
+                    return `w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                      isAllSelected 
+                        ? "bg-violet-500 border-violet-500 shadow-lg shadow-violet-500/20" 
+                        : "bg-slate-900 border-slate-600 group-hover:border-violet-400"
+                    }`;
+                  })()}
+                >
+                  {(() => {
+                    const availableIds = filteredProducts.filter(opt => {
+                      const conflicts = checkProductConflicts(opt.value);
+                      return !(conflicts.hasConflict && !conflicts.isAssignedToCurrentDiscount);
+                    }).map(opt => opt.value);
+                    const isAllSelected = availableIds.length > 0 && availableIds.every((id: string) => formData.assignedProductIds.includes(id));
+                    
+                    return isAllSelected && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" />
+                      </svg>
+                    );
+                  })()}
+                </div>
+                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider group-hover:text-violet-400 transition-colors">Select All Available</span>
+              </label>
+
+              <div className="h-4 w-px bg-slate-700 hidden sm:block"></div>
+
+              <div className="hidden lg:flex items-center gap-5 text-[11px] font-bold uppercase tracking-widest">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">Total:</span>
+                  <span className="text-slate-300">{stats.total}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">Discounted:</span>
+                  <span className="text-red-400">{stats.conflictCount}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">Available:</span>
+                  <span className="text-green-400">{stats.availableCount}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">Selected:</span>
+                  <span className="text-violet-400">{formData.assignedProductIds.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const filteredIds = filteredProducts.map(opt => opt.value);
+                const newIds = formData.assignedProductIds.filter((id: string) => !filteredIds.includes(id));
+                setFormData({ ...formData, assignedProductIds: newIds });
+              }}
+              className="text-[11px] font-bold text-red-400 hover:text-red-300 transition-all uppercase tracking-wider flex items-center gap-1.5 px-3 py-1.5 hover:bg-red-500/10 rounded-lg group"
+            >
+              <Trash2 className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+              Clear All From List
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Product List */}
-      <div className="p-4 overflow-y-auto max-h-[calc(80vh-240px)]">
+      <div className="p-2.5 overflow-y-auto max-h-[calc(80vh-200px)]">
         {(() => {
   
           const allDiscounts = (props.discounts || []) as any[]; // Pass discounts array from parent
@@ -1610,7 +1590,7 @@ onChange={(selectedOptions) => {
           }
 
           return (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {filteredProducts.map((productOption) => {
                 // 🎯 CONFLICT CHECKING LOGIC
                 const productIdStr = productOption.value;
@@ -1624,16 +1604,18 @@ onChange={(selectedOptions) => {
           const isChecked = isSelected;
                const imageUrl = getProductImage(product?.images || []);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={productOption.value}
-                    className={`relative flex items-center gap-3 p-2 rounded-xl border transition-all ${
+                    className={`relative flex items-center gap-3 p-1.5 rounded-xl border transition-all text-left w-full focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
                       isDisabled
                         ? 'bg-slate-800/30 border-slate-700/50 cursor-not-allowed opacity-60'
                         : isSelected
                         ? 'bg-violet-500/20 border-violet-500/50 cursor-pointer'
                         : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50 cursor-pointer'
                     }`}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       if (!isDisabled) {
                         const newIds = isSelected
                           ? formData.assignedProductIds.filter(id => id !== productOption.value)
@@ -1646,8 +1628,8 @@ onChange={(selectedOptions) => {
                       type="checkbox"                    
                       checked={isChecked}
                       disabled={isDisabled}
-                      onChange={() => {}} // Handled by div click
-                      className="w-4 h-4 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onChange={() => {}} // Handled by button click
+                      className="w-4 h-4 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed pointer-events-none"
                       readOnly
                     />
 
@@ -1711,9 +1693,9 @@ onChange={(selectedOptions) => {
                       <div className="flex items-center gap-2">
                         <div className="px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-lg">
                           <p className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
-                            <Percent className="h-3.5 w-3.5" />
+                   
                             {editingDiscount.usePercentage 
-                              ? `${editingDiscount.discountPercentage}% OFF`
+                              ? `${editingDiscount.discountPercentage} % OFF`
                               : `£${editingDiscount.discountAmount} OFF`
                             }
                           </p>
@@ -1760,7 +1742,7 @@ onChange={(selectedOptions) => {
                         Available
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1769,7 +1751,7 @@ onChange={(selectedOptions) => {
       </div>
 
       {/* Modal Footer */}
-      <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
+      <div className="p-3 border-t border-slate-700/50 bg-slate-800/30">
         {(() => {
           const allDiscounts = (props.discounts || []) as any[];
           let conflictCount = 0;
@@ -1780,24 +1762,7 @@ onChange={(selectedOptions) => {
           const selectedCount = formData.assignedProductIds.length;
 
           return (
-            <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 text-xs">
-  <span className="text-slate-400">
-    Total: <b className="text-white">{stats.total}</b>
-  </span>
-
-  <span className="text-red-400">
-    Already discounted: <b>{stats.conflictCount}</b>
-  </span>
-
-  <span className="text-green-400">
-    Available: <b>{stats.availableCount}</b>
-  </span>
-
-  <span className="text-violet-400">
-    Selected: <b>{stats.selectedCount}</b>
-  </span>
-</div>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => {

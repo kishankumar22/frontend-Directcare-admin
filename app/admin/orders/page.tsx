@@ -40,6 +40,10 @@ import {
   XCircle,
   Upload,
   BellRing,
+  Trash2,
+  Loader2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   orderService,
@@ -195,6 +199,14 @@ const [cancellationActionLoading, setCancellationActionLoading] = useState(false
 
 const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
 const [importWooCommerceModalOpen, setImportWooCommerceModalOpen] = useState(false);
+
+// Hard-delete confirmation modal state. Only the order id + number are needed; admin must
+// type the number back into the input to enable the destructive button.
+const [hardDeleteTarget, setHardDeleteTarget] = useState<Order | null>(null);
+const [hardDeleteTyped, setHardDeleteTyped] = useState("");
+const [hardDeleteLoading, setHardDeleteLoading] = useState(false);
+const [hardDeleteError, setHardDeleteError] = useState("");
+const [hardDeleteCopied, setHardDeleteCopied] = useState(false);
   // ✅ Order Actions Modal
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
@@ -789,6 +801,46 @@ const pendingCancellationRequestMap = useMemo(() => {
   const handleQuickFilter = (status: OrderStatus | '') => {
     setFilters({ ...filters, status: status });
     setCurrentPage(1);
+  };
+
+  // Hard-delete is destructive — opens a confirmation modal that requires the admin to
+  // re-type the order number before the delete API is called. Only orders whose payment is
+  // still Pending get the delete button rendered, so this is the second guardrail.
+  const openHardDeleteModal = (order: Order) => {
+    setHardDeleteTarget(order);
+    setHardDeleteTyped("");
+    setHardDeleteError("");
+    setHardDeleteCopied(false);
+  };
+
+  const closeHardDeleteModal = () => {
+    if (hardDeleteLoading) return; // don't allow closing mid-request
+    setHardDeleteTarget(null);
+    setHardDeleteTyped("");
+    setHardDeleteError("");
+    setHardDeleteCopied(false);
+  };
+
+  const confirmHardDelete = async () => {
+    if (!hardDeleteTarget) return;
+    if (hardDeleteTyped.trim() !== hardDeleteTarget.orderNumber) {
+      setHardDeleteError("Order number doesn't match. Type it exactly as shown.");
+      return;
+    }
+    setHardDeleteLoading(true);
+    setHardDeleteError("");
+    try {
+      const res = await orderService.hardDeleteOrder(hardDeleteTarget.id, hardDeleteTarget.orderNumber);
+      setHardDeleteTarget(null);
+      setHardDeleteTyped("");
+      await fetchOrders();
+      // Use a simple alert for the success summary — matches existing patterns in this page.
+      alert(res?.message || `Order ${hardDeleteTarget.orderNumber} deleted.`);
+    } catch (err: any) {
+      setHardDeleteError(err?.message || "Failed to delete order");
+    } finally {
+      setHardDeleteLoading(false);
+    }
   };
 
 if (initialLoading) {
@@ -1716,6 +1768,17 @@ title="Select order"
                 <Edit className="h-4 w-4" />
                 </button>
 
+                {/* Hard-delete is shown ONLY when the payment is still Pending. Mirrors the
+                    server-side rule so admins don't see a button that would always 409. */}
+                {order.paymentStatus === 'Pending' && (
+                  <button
+                    onClick={() => openHardDeleteModal(order)}
+                    className="p-1.5 text-red-400 hover:bg-red-500/10 border border-red-500/20 rounded-lg transition-all"
+                    title="Permanently delete (only for unpaid orders)"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
 
                 </div>
 
@@ -1882,6 +1945,88 @@ title="Select order"
     action={modalState.action}
     onSuccess={handleActionSuccess}
   />
+)}
+
+{/* Hard-delete confirmation modal — admin must type the order number to enable the button. */}
+{hardDeleteTarget && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="w-full max-w-md rounded-xl border border-red-500/40 bg-slate-900 shadow-2xl">
+      <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-2.5">
+        <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-red-500/15 border border-red-500/30">
+          <Trash2 className="h-4 w-4 text-red-400" />
+        </div>
+        <div>
+          <p className="text-base font-semibold text-white">Permanently delete order</p>
+          <p className="text-xs text-slate-400">This cannot be undone.</p>
+        </div>
+      </div>
+      <div className="px-5 py-4 space-y-3">
+        <div className="text-sm text-slate-300">
+          You're about to permanently delete order
+          <span className="inline-flex items-center gap-1 mx-1">
+            <span className="font-mono font-semibold text-red-300">{hardDeleteTarget.orderNumber}</span>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(hardDeleteTarget.orderNumber);
+                  setHardDeleteCopied(true);
+                  setTimeout(() => setHardDeleteCopied(false), 1500);
+                } catch { /* clipboard API failure — silent, admin can still type manually */ }
+              }}
+              title="Copy order number"
+              className="inline-flex items-center justify-center h-5 w-5 rounded text-slate-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"
+            >
+              {hardDeleteCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            </button>
+          </span>
+          along with its items, payment records, invoice, and history. Stock will be restored automatically.
+        </div>
+        <div className="text-xs text-slate-400 bg-slate-800/60 border border-slate-700/60 rounded-lg p-3 space-y-1">
+          <div><span className="text-slate-500">Customer:</span> {hardDeleteTarget.customerEmail || '—'}</div>
+          <div><span className="text-slate-500">Total:</span> £{Number(hardDeleteTarget.totalAmount || 0).toFixed(2)}</div>
+          <div><span className="text-slate-500">Payment status:</span> {hardDeleteTarget.paymentStatus || 'Pending'}</div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-300 mb-1.5">
+            Type <span className="font-mono text-red-300">{hardDeleteTarget.orderNumber}</span> to confirm
+          </label>
+          <input
+            type="text"
+            value={hardDeleteTyped}
+            onChange={(e) => { setHardDeleteTyped(e.target.value); setHardDeleteError(""); }}
+            disabled={hardDeleteLoading}
+            placeholder={hardDeleteTarget.orderNumber}
+            className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+            autoFocus
+          />
+          {hardDeleteError && (
+            <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5" /> {hardDeleteError}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="px-5 py-4 border-t border-slate-800 flex items-center justify-end gap-2">
+        <button
+          onClick={closeHardDeleteModal}
+          disabled={hardDeleteLoading}
+          className="px-4 py-2 text-sm rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-all disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={confirmHardDelete}
+          disabled={hardDeleteLoading || hardDeleteTyped.trim() !== hardDeleteTarget.orderNumber}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 hover:bg-red-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        >
+          {hardDeleteLoading
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</>
+            : <><Trash2 className="h-4 w-4" /> Delete permanently</>}
+        </button>
+      </div>
+    </div>
+  </div>
 )}
 
 {/* ✅ Bulk Status Modal */}

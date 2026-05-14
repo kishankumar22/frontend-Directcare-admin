@@ -2513,13 +2513,13 @@ onClick={async (e) => {
                           const showAdminAlert =
                             notifyEnabled && notifyBelow > 0 && qty <= notifyBelow;
 
-                          const tooltip = `
-                                            Tracking: ${track ? "Enabled" : "Disabled"}
-                                            Low Threshold: ${lowThreshold || "-"}
-                                            Notify Below: ${notifyBelow || "-"}
-                                            Admin Alert: ${notifyEnabled ? "Enabled" : "Disabled"}
-                                            Backorder: ${allowBackorder ? "Allowed" : "No"}
-                                          `.trim();
+                                const tooltip = [
+                                `Tracking: ${track ? "Enabled" : "Disabled"}`,
+                                `Low Threshold: ${lowThreshold || "-"}`,
+                                `Notify Below: ${notifyBelow || "-"}`,
+                                `Admin Alert: ${notifyEnabled ? "Enabled" : "Disabled"}`,
+                                `Backorder: ${allowBackorder ? "Allowed" : "No"}`
+                                ].join("\n");
 
                           return (
                             <div className="flex flex-col items-center gap-1">

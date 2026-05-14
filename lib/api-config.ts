@@ -7,6 +7,8 @@ export const API_ENDPOINTS = {
   contact: '/api/Contact',
   refreshToken: '/api/Auth/refresh-token',
   changePassword: '/api/Auth/change-password',
+ exportOrdersTravelbook: '/api/Orders/export-travelbook',
+
 
 
   // Categories

@@ -7,8 +7,7 @@ import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import QuantitySelector from "@/components/shared/QuantitySelector";
 import { Star, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart } from "lucide-react";
-import { useVatRates } from "@/app/hooks/useVatRates";
-import { getVatRate } from "@/app/lib/vatHelpers";
+
 import { useWishlist } from "@/context/WishlistContext";
 import {
   getDiscountBadge,
@@ -134,8 +133,8 @@ const getLoyaltyPoints = () => {
 };
 
   // VAT Rate / Exempt Logic
-  const vatRates = useVatRates(); // 👈 yaha dalna
-const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExempt);
+  // Use vatRate directly from API response
+  const vatRate: number | null = (product as any).vatRate ?? null;
 const [showPharmaModal, setShowPharmaModal] = useState(false);
 const [pendingAction, setPendingAction] = useState<"cart" | null>(null);
 
@@ -379,7 +378,7 @@ systemDiscountAmount:
   </div>
 )}
       {/* VAT Relief — bottom left on image */}
-      {product.vatExempt && (
+      {(product.vatExempt || (product as any).vatRate === 0) && (
         <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
           <BadgePercent className="h-2.5 w-2.5" />
           VAT Relief
@@ -493,7 +492,7 @@ systemDiscountAmount:
     £{oldPriceData.oldPrice.toFixed(2)}
   </span>
 )}
-        {!product.vatExempt && vatRate !== null && (
+        {vatRate !== null && vatRate > 0 && !product.vatExempt && (
           <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
             {vatRate}% VAT
           </span>

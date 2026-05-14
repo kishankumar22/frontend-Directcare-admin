@@ -330,7 +330,7 @@ mainEntity: {
       initialSortBy={searchParamsResolved.sortBy || "name"}
       initialSortDirection={searchParamsResolved.sortDirection || "asc"}
       brands={category.brands ?? []}
-      vatRates={vatRatesRes.data || []}
+
       discount={discount}
     />
 

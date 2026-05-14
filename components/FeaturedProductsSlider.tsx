@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, ShoppingCart, ChevronLeft, ChevronRight, BadgePercent, Zap, BellRing, Heart, CircleOff, PackageX, Award, Badge, Coins, AwardIcon } from "lucide-react";
@@ -58,6 +59,7 @@ interface Product {
   reviewCount?: number;
   images?: { imageUrl: string }[];
   vatExempt?: boolean;
+  vatRate?: number;
   gender?: string;
   variants?: Variant[];  // 🟢 ADD THIS
   stockQuantity?: number; // optional fallback if simple product
@@ -76,6 +78,28 @@ interface Product {
   isPharmaProduct?: boolean;
 }
 
+
+const ProductCardImage = ({ src, alt, className }: { src: string; alt: string; className?: string }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+  
+  useEffect(() => {
+    setImgSrc(src);
+  }, [src]);
+
+  return (
+    <div className="relative w-full h-full transform transition duration-300 md:group-hover:scale-110">
+      <Image
+        src={imgSrc}
+        alt={alt}
+        fill
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 250px"
+        className="object-contain"
+        onError={() => setImgSrc("/placeholder.jpg")}
+        loading="lazy"
+      />
+    </div>
+  );
+};
 
 export default function FeaturedProductsSlider({
   products,
@@ -96,11 +120,11 @@ export default function FeaturedProductsSlider({
     return flattenProductsForListing(products);
   }, [products]);
   const shouldShowNav = flattenedProducts.length > 4;
-  const [vatRates, setVatRates] = useState<any[]>([]);
   const [notifyProduct, setNotifyProduct] = useState<{
     productId: string;
     variantId?: string | null;
   } | null>(null);
+
   const [pharmaModal, setPharmaModal] = useState<{
     product: Product;
     variant?: Variant;
@@ -160,10 +184,8 @@ export default function FeaturedProductsSlider({
   ) => {
     const finalQty = getInitialQty(product);
 
-    const vatRate =
-      !product.vatExempt && (product as any).vatRateId
-        ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate ?? null
-        : null;
+    // Use vatRate directly from API response
+    const vatRate: number | null = (product as any).vatRate ?? null;
     const selected = defaultVariant ?? null;
     const oldPriceValue =
       (defaultVariant as any)?.oldPrice ??
@@ -232,6 +254,7 @@ export default function FeaturedProductsSlider({
           option2: (defaultVariant as any)?.option2Value ?? null,
           option3: (defaultVariant as any)?.option3Value ?? null,
         },
+        productData: JSON.parse(JSON.stringify(product)),
       })
     );
 
@@ -251,19 +274,6 @@ export default function FeaturedProductsSlider({
 
 
 
-  useEffect(() => {
-    const fetchVatRates = async () => {
-      try {
-        const res = await fetch("https://test.astircare.co.uk/api/VATRates?activeOnly=true");
-        const json = await res.json();
-        setVatRates(json.data || []);
-      } catch (error) {
-        console.error("VAT rates error:", error);
-      }
-    };
-
-    fetchVatRates();
-  }, []);
   const getInitialQty = (product: any) => {
     return product.orderMinimumQuantity ?? 1;
   };
@@ -403,10 +413,8 @@ export default function FeaturedProductsSlider({
           });
 
 
-          const vatRate =
-            !product.vatExempt && (product as any).vatRateId
-              ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate
-              : null;
+          // Use vatRate directly from API response
+          const vatRate: number | null = (product as any).vatRate ?? null;
 
           return (
             <SwiperSlide key={variantForCard?.id ?? product.id}>
@@ -426,18 +434,14 @@ export default function FeaturedProductsSlider({
                     <div className="group h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
 
 
-                      <img
+                      <ProductCardImage
                         src={getProductDisplayImage(product, defaultVariant)}
-                        loading="lazy"
-                        decoding="async"
                         alt={product.name}
-                        className="object-contain w-full h-full transform transition duration-300 md:group-hover:scale-110"
-                        onError={(e) => ((e.target as HTMLImageElement).src = "/placeholder.jpg")}
                       />
 
 
                       {/* VAT Relief — bottom left on image */}
-                      {product.vatExempt && (
+                      {(product.vatExempt || (product as any).vatRate === 0) && (
                         <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
                           <BadgePercent className="h-2.5 w-2.5" />
                           VAT Relief
@@ -666,7 +670,7 @@ export default function FeaturedProductsSlider({
                             £{oldPriceData.oldPrice.toFixed(2)}
                           </span>
                         )}
-                        {!product.vatExempt && vatRate !== null && (
+                        {vatRate !== null && vatRate > 0 && !product.vatExempt && (
                           <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap leading-none">
                             {vatRate}% VAT
                           </span>
@@ -987,10 +991,9 @@ export default function FeaturedProductsSlider({
                 toast.error(`Only ${stockQty - existingCartQty} items left in stock`);
                 return;
               }
-              const modalVatRate =
-                !product.vatExempt && (product as any).vatRateId
-                  ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate ?? null
-                  : null;
+              // Use vatRate directly from API response
+              const modalVatRate: number | null =
+                !product.vatExempt ? ((product as any).vatRate ?? null) : null;
 
               addToCart({
                 id: variant ? `${variant.id}-one` : product.id,

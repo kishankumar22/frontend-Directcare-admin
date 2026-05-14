@@ -11,7 +11,6 @@ import { useWishlist } from "@/context/WishlistContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { getDiscountBadge, getDiscountedPrice } from "@/app/lib/discountHelpers";
 import { getOldPriceDiscount } from "@/utils/pricing";
-import { getVatRate } from "@/app/lib/vatHelpers";
 import GenderBadge from "./shared/GenderBadge";
 const FALLBACK_IMAGE = "/placeholder-product.jpg";
 import { useState, useRef } from "react";
@@ -19,12 +18,10 @@ import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useRouter } from "next/navigation";
 export default function ProductCard({
   product,
-  vatRates,
   variantForCard = null,
   cardSlug,
 }: {
   product: any;
-  vatRates: any[];
   variantForCard?: any | null;
   cardSlug: string;
 })
@@ -106,11 +103,8 @@ const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
 });
 
   // ---------- VAT ----------
-  const vatRate = getVatRate(
-    vatRates,
-    product.vatRateId,
-    product.vatExempt
-  );
+  // Use vatRate directly from API response; fallback to null if not present
+  const vatRate: number | null = product.vatRate ?? null;
 
   // ---------- Stock ----------
   const stock =
@@ -335,7 +329,7 @@ if (product.orderMinimumQuantity > 1) {
   </div>
 )}
           {/* VAT Relief — bottom left on image */}
-          {product.vatExempt && (
+          {(product.vatExempt || product.vatRate === 0) && (
             <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
               <BadgePercent className="h-2.5 w-2.5" />
               VAT Relief
@@ -498,7 +492,7 @@ systemDiscountAmount:
     £{oldPriceData.oldPrice.toFixed(2)}
   </span>
 )}
-          {!product.vatExempt && vatRate !== null && (
+          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
             <span className="text-[9px] md:text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-1 md:px-2 py-0.5 rounded-md whitespace-nowrap">
               {vatRate}% VAT
             </span>

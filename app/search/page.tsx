@@ -110,6 +110,9 @@ return (
     const imageUrl = productImage?.startsWith("http")
       ? productImage
       : `${process.env.NEXT_PUBLIC_API_URL}${productImage}`;
+    
+    const stockQty = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
+    const isInStock = stockQty > 0;
 
     return (
       <Link
@@ -226,12 +229,12 @@ return (
           {/* STOCK */}
           <span
             className={`text-[10px] px-1 py-0.5 rounded font-semibold ${
-              product.inStock
+              isInStock
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-600"
             }`}
           >
-            {product.inStock ? "In Stock" : "Out of Stock"}
+            {isInStock ? "In Stock" : "Out of Stock"}
           </span>
 
         </div>

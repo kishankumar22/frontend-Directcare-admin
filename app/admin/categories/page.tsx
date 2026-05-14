@@ -338,7 +338,7 @@ const fetchCategories = async () => {
       if (currentCategoryId && cat.id === currentCategoryId) return;
       if (currentCategoryId && isDescendantOf(cat, currentCategoryId, categories)) return;
       
-      if (level < 2) {
+      if (level < 3) {
         availableParents.push({ ...cat, level } as any);
       }
       
@@ -370,8 +370,8 @@ const fetchCategories = async () => {
     
     const parentLevel = getCategoryLevel(parent, categories);
     
-    if (parentLevel >= 2) {
-      toast.error('🚫 Maximum 3 levels allowed! Cannot create subcategory here.');
+    if (parentLevel >= 3) {
+      toast.error('🚫 Maximum 4 levels allowed! Cannot create subcategory here.');
       return;
     }
     
@@ -720,9 +720,9 @@ const handleEdit = (category: Category) => {
   setImageFile(null);
   setImagePreview(null);
   
-  // ✅ Show warning if editing Level 3 category
-  if (currentLevel === 2) {
-    toast.info('ℹ️ Editing Level 3 category - Cannot change parent to create Level 4');
+  // ✅ Show warning if editing Level 4 category
+  if (currentLevel === 3) {
+    toast.info('ℹ️ Editing Level 4 category - Cannot change parent to create Level 5');
   }
   
   setShowModal(true);
@@ -824,7 +824,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   const totalSubCategories = getTotalSubCategories(category);
   const levelLabel = `L${level + 1}`;
 
-  const MAX_LEVEL = 2;
+  const MAX_LEVEL = 3;
   const canAddSubcategory = level < MAX_LEVEL;
 
   return (

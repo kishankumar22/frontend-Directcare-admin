@@ -738,8 +738,6 @@
       showMissingFieldsToast(missing, true);
       return;
     }
-    
-    // Pass: isDraft = true, shouldRedirect = false
     handleSubmit(e, true, false);
   };
 
