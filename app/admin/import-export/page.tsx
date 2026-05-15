@@ -447,11 +447,32 @@ function OrdersExportTab() {
 // ─── Products Bulk Update Tab ─────────────────────────────────────────────────
 
 function ProductsBulkUpdateTab() {
+  const DEFAULT_SELECTED_FIELDS = [
+  'productId',
+  'productType',
+  'sku',
+  'name',
+  'stock',
+  'status',
+  'isActive',
+  'isPublished',
+  'price',
+  'oldPrice',
+  'nextDayDeliveryEnabled',
+  'nextDayDeliveryCutoffTime',
+  'brandNames',
+  'categoryIds',
+  'gtin',
+  'orderMaximumQuantity',
+  'vatRateName',
+];
   const [templateFilters, setTemplateFilters] = useState({ searchTerm: '', isPublished: '', stockStatus: '', categoryIds: [] as string[] });
   const [categories, setCategories] = useState<{ id: string; name: string; path: string; isParent: boolean }[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState('');
-  const [selectedFields, setSelectedFields] = useState<string[]>(EDITABLE_FIELDS.map(f => f.key));
+const [selectedFields, setSelectedFields] = useState<string[]>(
+  DEFAULT_SELECTED_FIELDS
+);
   const [categorySearch, setCategorySearch] = useState('');
   const debouncedCategorySearch = useDebounce(categorySearch, 350);
   const [fieldSearch, setFieldSearch] = useState('');
@@ -508,6 +529,14 @@ function ProductsBulkUpdateTab() {
   const filteredFields = debouncedFieldSearch.trim().length === 0
     ? EDITABLE_FIELDS
     : EDITABLE_FIELDS.filter(f => f.label.toLowerCase().includes(debouncedFieldSearch.trim().toLowerCase()));
+const sortedFields = [
+  ...filteredFields.filter(f =>
+    DEFAULT_SELECTED_FIELDS.includes(f.key)
+  ),
+  ...filteredFields.filter(f =>
+    !DEFAULT_SELECTED_FIELDS.includes(f.key)
+  ),
+];
 
   useEffect(() => {
     let alive = true;
@@ -779,7 +808,7 @@ function ProductsBulkUpdateTab() {
               </div>
             </div>
         <div className={`p-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2 max-h-72 overflow-y-auto ${scrollCls}`}>
-              {filteredFields.map(f => {
+              {sortedFields.map(f => {
                 const checked = selectedFields.includes(f.key);
                 return (
                   <label

@@ -136,22 +136,23 @@ export default function Header({
   const [flattenedResults, setFlattenedResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const debouncedSearch = useDebounce(searchValue, 400);
+  const debouncedSearch = useDebounce(searchValue, 500);
   useEffect(() => {
-    if (!debouncedSearch || debouncedSearch.length < 1) {
+    if (!debouncedSearch || debouncedSearch.length < 3) {
       setResults([]);
       setFlattenedResults([]);
       setShowSearchDropdown(false);
       return;
     }
+    const controller = new AbortController();
     const fetchSearchResults = async () => {
       try {
         setSearchLoading(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/Products?page=1&pageSize=10&searchTerm=${encodeURIComponent(debouncedSearch)}&sortDirection=asc`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/Products?page=1&pageSize=10&searchTerm=${encodeURIComponent(debouncedSearch)}&sortDirection=asc`,
+          { signal: controller.signal }
         );
         const json = await res.json();
-        console.log("SEARCH API RESPONSE 👉", json);
 
         const products = json?.data?.items || [];
 
@@ -162,14 +163,17 @@ export default function Header({
         setFlattenedResults(flattened);
 
         setShowSearchDropdown(true);
-      } catch (error) {
-        console.error("Search error:", error);
+      } catch (error: any) {
+        if (error?.name !== "AbortError") {
+          console.error("Search error:", error);
+        }
       } finally {
         setSearchLoading(false);
       }
     };
 
     fetchSearchResults();
+    return () => controller.abort();
   }, [debouncedSearch]);
 
   const searchRef = useRef<HTMLDivElement>(null);
@@ -300,7 +304,7 @@ export default function Header({
 
         {/* Desktop Grid */}
         <div className="hidden lg:block h-full">
-          <div className="w-full grid grid-cols-4 items-center px-6 lg:px-10 xl:px-16 gap-8">
+          <div className="w-full flex items-center justify-center px-6 lg:px-10 xl:px-16 gap-8">
             {deliveryStrip.length > 0 &&
               deliveryStrip.map((item) => {
                 const Icon = iconMap[item.icon] || Truck;
@@ -480,10 +484,14 @@ export default function Header({
                       const discountBadge = getDiscountBadge(product);
 
                       const oldPriceValue =
-                        defaultVariant?.oldPrice ?? product.oldPrice;
+                        defaultVariant?.compareAtPrice ?? defaultVariant?.oldPrice ??
+                        product.compareAtPrice ?? product.oldPrice;
+
+                      const effectiveDisplayType =
+                        defaultVariant?.displayDiscountType ?? product.displayDiscountType;
 
                       const oldPriceData =
-                        product.displayDiscountType === "OldPrice"
+                        effectiveDisplayType === "OldPrice"
                           ? getOldPriceDiscount(
                             basePrice,
                             oldPriceValue,
@@ -561,7 +569,7 @@ export default function Header({
                               </span>
 
                               {/* DISCOUNT */}
-                              {product.displayDiscountType === "System" &&
+                              {effectiveDisplayType === "System" &&
                                 discountBadge && (
                                   <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold whitespace-nowrap">
                                     {discountBadge.type === "percent"
@@ -583,14 +591,14 @@ export default function Header({
                               <span className="text-sm font-semibold text-[#445D41]">
                                 £
                                 {(
-                                  product.displayDiscountType === "System"
+                                  effectiveDisplayType === "System"
                                     ? finalPrice
                                     : basePrice
                                 ).toFixed(2)}
                               </span>
 
                               {/* SYSTEM DISCOUNT */}
-                              {product.displayDiscountType === "System" &&
+                              {effectiveDisplayType === "System" &&
                                 discountBadge && (
                                   <span className="text-xs text-gray-400 line-through">
                                     £{basePrice.toFixed(2)}
@@ -837,10 +845,11 @@ export default function Header({
                   const discountBadge = getDiscountBadge(product);
 
                   const oldPriceValue =
-                    defaultVariant?.oldPrice ?? product.oldPrice;
+                    defaultVariant?.compareAtPrice ?? defaultVariant?.oldPrice ??
+                    product.compareAtPrice ?? product.oldPrice;
 
                   const oldPriceData =
-                    product.displayDiscountType === "OldPrice"
+                    (defaultVariant?.displayDiscountType ?? product.displayDiscountType) === "OldPrice"
                       ? getOldPriceDiscount(
                         basePrice,
                         oldPriceValue,

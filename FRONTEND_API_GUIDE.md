@@ -7,7 +7,7 @@
 
 ```
 Development:  http://localhost:5285
-Production:   https://test.astircare.co.uk
+Production:   https://api.direct-care.co.uk
 ```
 
 Set via env var: `NEXT_PUBLIC_API_URL`

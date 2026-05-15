@@ -188,8 +188,8 @@ export default function FeaturedProductsSlider({
     const vatRate: number | null = (product as any).vatRate ?? null;
     const selected = defaultVariant ?? null;
     const oldPriceValue =
-      (defaultVariant as any)?.oldPrice ??
-      product.oldPrice;
+      (defaultVariant as any)?.compareAtPrice ?? (defaultVariant as any)?.oldPrice ??
+      (product as any).compareAtPrice ?? product.oldPrice;
     const stockQty =
       selected?.stockQuantity ??
       (product as any).stockQuantity ??
@@ -378,7 +378,8 @@ export default function FeaturedProductsSlider({
           const finalPrice = getDiscountedPrice(product, basePrice);
           // 🔥 NEW: oldPrice fallback logic
           const oldPriceValue =
-            (defaultVariant as any)?.oldPrice ?? product.oldPrice;
+            (defaultVariant as any)?.compareAtPrice ?? (defaultVariant as any)?.oldPrice ??
+            (product as any).compareAtPrice ?? product.oldPrice;
 
           const oldPriceData =
             product.displayDiscountType === "OldPrice"
@@ -757,9 +758,9 @@ export default function FeaturedProductsSlider({
                                 priceBeforeDiscount: basePrice,
                                 finalPrice: finalPrice,
                                 oldPrice:
-                                  defaultVariant?.oldPrice ??
+                                  (defaultVariant as any)?.compareAtPrice ?? defaultVariant?.oldPrice ??
                                   oldPriceValue ??
-                                  product.oldPrice ??
+                                  (product as any).compareAtPrice ?? product.oldPrice ??
                                   undefined,
                                 displayDiscountType:
                                   defaultVariant?.displayDiscountType ??

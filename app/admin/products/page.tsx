@@ -511,6 +511,8 @@ const [pharmaFilter, setPharmaFilter] = useState<SelectOption>({
 
 useEffect(()=>{
  fetchVATRates();
+ fetchCategories();
+ fetchBrands();
 },[])
 // ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
 const fetchProducts = async () => {
@@ -544,9 +546,7 @@ if (deletedFilter.value === "inactive") {
   params.isActive = false;
 }
 
-if (searchInput.trim() === "") {
-  delete params.searchTerm;
-} else if (debouncedSearchTerm.trim() !== "") {
+if (debouncedSearchTerm.trim()) {
   params.searchTerm = debouncedSearchTerm.trim();
 }
 
@@ -856,7 +856,6 @@ if (p.crossSellProductIds) {
 };
 
 
-
   // ✅ MEDIA VIEWER
   const openMediaViewer = (media: MediaItem | MediaItem[], startIndex = 0) => {
     setMediaToView(Array.isArray(media) ? media : [media]);
@@ -895,8 +894,6 @@ url: img.imageUrl?.startsWith("http")
 
 // ✅ INITIAL DATA FETCH (runs once on component mount)
 useEffect(() => {
-  fetchCategories();
-  fetchBrands();
   fetchMyTakeoverRequests();
 
   const pollInterval = setInterval(() => {
@@ -912,24 +909,28 @@ useEffect(() => {
 }, [
   currentPage,
   itemsPerPage,
-  searchInput,
-  deletedFilter,
+
+  deletedFilter.value,
   debouncedSearchTerm,
-  selectedCategory,
-  selectedBrand,
-  selectedType,
-  publishedFilter,
-  markAsNewFilter,
-  selectedHomepage,
-  deliveryFilter,
-  notReturnableFilter,
-  debouncedSearchTerm,
-  recurringFilter,
-  vatFilter,
-  statusFilter ,// ✅ ADD THIS
-  pharmaFilter ,
+
+  selectedCategory.value,
+  selectedBrand.value,
+  selectedType.value,
+
+  publishedFilter.value,
+  markAsNewFilter.value,
+  selectedHomepage.value,
+
+  deliveryFilter.value,
+  notReturnableFilter.value,
+  recurringFilter.value,
+
+  vatFilter.value,
+  statusFilter.value,
+  pharmaFilter.value,
+
   sortBy,
-sortDirection
+  sortDirection
 ]);
 
 // ✅ CLEAR FILTERS
@@ -995,7 +996,6 @@ const hasActiveFilters = useMemo(
     vatFilter,
     deletedFilter,
     pharmaFilter,
-    searchInput,
 
     // 🔥 ADD DEPENDENCIES
     sortBy,

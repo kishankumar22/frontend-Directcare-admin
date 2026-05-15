@@ -39,7 +39,7 @@ interface ProductRow {
 oldPrice?:number;
   name: string;
   sku: string;
-
+  slug: string;
   stockQuantity: number;
   price: number;
 
@@ -175,6 +175,8 @@ export default function InventoryPage() {
     setConfirmOpen(true);
   };
 
+  
+
 
   const [expandedRows, setExpandedRows] =
     useState<Set<string>>(new Set());
@@ -208,6 +210,7 @@ export default function InventoryPage() {
   };
 
 
+  
   const downloadSampleTemplate = async () => {
     try {
       setSampleLoading(true);
@@ -313,6 +316,7 @@ export default function InventoryPage() {
               id: p.id,
               parentId: p.id,
               parentName: p.name,
+              slug: v.slug || p.slug,
 
               variantId: v.id,
               isVariant: true,
@@ -344,6 +348,7 @@ export default function InventoryPage() {
               isVariant: false,
               productType: p.productType || "simple",
               variantsCount: variants.length,
+              slug: p.slug,
 
               name: p.name,
               sku: p.sku,
@@ -369,7 +374,7 @@ export default function InventoryPage() {
                 id: p.id,
                 parentId: p.id,
                 parentName: p.name,
-
+                slug: v.slug || p.slug,
                 variantId: v.id,
                 isVariant: true,
 
@@ -408,7 +413,7 @@ export default function InventoryPage() {
               isVariant: false,
               productType: p.productType || "simple",
               variantsCount: variants.length,
-
+              slug: p.slug,
               name: p.name,
               sku: p.sku,
               image: mainImage,
@@ -1345,9 +1350,30 @@ export default function InventoryPage() {
                             {/* TOP LINE */}
                             <div className="flex items-center gap-2 flex-wrap">
 
-                              <p className="text-white text-sm font-semibold truncate max-w-[420px]">
-                                {p.name}
-                              </p>
+{(() => {
+  const firstVariantSlug =
+    p.variants?.[0]?.slug;
+
+  const productUrl =
+    p.productType === "variable" &&
+    firstVariantSlug
+      ? `/product/${firstVariantSlug}`
+      : `/product/${p.slug}`;
+
+  return (
+    <a
+      href={productUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group block max-w-[420px]"
+      title={`Open product: ${p.name}`}
+    >
+      <p className="truncate text-sm font-semibold text-white transition-colors group-hover:text-cyan-400">
+        {p.name}
+      </p>
+    </a>
+  );
+})()}
 
                               {(p.variants?.length ?? 0) > 0 && (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
@@ -1616,9 +1642,17 @@ export default function InventoryPage() {
                                 />
 
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <p className="text-sm text-white truncate">
-                                    {v.name}
-                                  </p>
+                             <a
+  href={`/product/${v.slug || p.slug}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="group block min-w-0"
+  title={`Open variant: ${v.name}`}
+>
+  <p className="truncate text-sm text-white transition-colors group-hover:text-cyan-400">
+    {v.name}
+  </p>
+</a>
 
                                   <span className="px-2 py-0.5 rounded text-[10px] bg-violet-500/15 text-violet-300 border border-violet-500/30 flex-shrink-0">
                                     Variant

@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://test.astircare.co.uk';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.direct-care.co.uk';
 
 export const API_ENDPOINTS = {
   // Auth
@@ -7,7 +7,7 @@ export const API_ENDPOINTS = {
   contact: '/api/Contact',
   refreshToken: '/api/Auth/refresh-token',
   changePassword: '/api/Auth/change-password',
- exportOrdersTravelbook: '/api/Orders/export-travelbook',
+  exportOrdersTravelbook: '/api/Orders/export-travelbook',
 
 
 
@@ -26,7 +26,7 @@ export const API_ENDPOINTS = {
   brands: '/api/Brands',
   uploadBrandLogo: '/api/Brands/upload-logo',
   deleteBrandLogo: '/api/ImageManagement/brand',
-  
+
   // Products
   products: '/api/Products',
   inventoryBulkUpdate: "/api/Products/inventory/bulk-update",
@@ -67,7 +67,7 @@ export const API_ENDPOINTS = {
 
   // Customers
   customers: '/api/customers',
-  GoogleMerchantCenter:'/api/GoogleMerchant',
+  GoogleMerchantCenter: '/api/GoogleMerchant',
 
   // Staff
   staff: '/api/Staff',
@@ -117,9 +117,9 @@ export const API_ENDPOINTS = {
     clear: '/api/ActivityLogs/clear',
   },
   dashboard: {
-  stats: '/api/Dashboard/stats',
-  overview: '/api/Dashboard/overview',
-},
+    stats: '/api/Dashboard/stats',
+    overview: '/api/Dashboard/overview',
+  },
 
   // Loyalty Config
   loyaltyConfig: '/api/admin/loyalty-config',

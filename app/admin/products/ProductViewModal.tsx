@@ -28,7 +28,7 @@ import {
 import { API_BASE_URL } from '@/lib/api-config';
 import productsService, { Product } from '../../../lib/services/products';
 import MediaViewerModal, { MediaItem } from './MediaViewerModal';
-import { formatDate } from '../_utils/formatUtils';
+import { formatDate, getImageUrl } from '../_utils/formatUtils';
 
 // ==========================================
 // HELPER COMPONENTS
@@ -228,15 +228,14 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
     const startIndex = variantsWithImages.findIndex(v => v.id === clickedVariant.id);
 
     // Create media items from all variants with images
-    const mediaItems: MediaItem[] = variantsWithImages.map((variant) => ({
-      type: 'image',
-      url: variant.imageUrl!,
-      title: variant.name,
-      description: `${product.name} - ${variant.name} (${variant.sku})`,
-      isMain: variant.isDefault,
-    }));
-
-    // Set media with proper start index
+const mediaItems: MediaItem[] = variantsWithImages.map((variant) => ({
+  type: 'image',
+url: getImageUrl(variant.imageUrl || undefined),
+  title: variant.name,
+  description: `${product.name} - ${variant.name} (${variant.sku})`,
+  isMain: variant.isDefault,
+}));
+ // Set media with proper start index
     setMediaToView(mediaItems);
     setMediaViewerOpen(true);
   };
@@ -290,7 +289,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
               <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
                 {product.images && product.images.length > 0 ? (
                   <img
-                    src={product.images[0].imageUrl}
+                    src={getImageUrl(product.images[0].imageUrl)}
                     alt={product.name}
                     className="w-8 h-8 object-cover rounded-md"
                   />
@@ -851,8 +850,8 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                             onClick={() => viewProductImages(idx)}
                           >
                             <img
-                              src={img.imageUrl?.startsWith('http') ? img.imageUrl : `${API_BASE_URL.replace('/api', '')}${img.imageUrl || ''}`}
-                              alt={img.altText || 'Product'}
+                              src={getImageUrl(img.imageUrl)}
+                                alt={img.altText || 'Product'}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                             />
@@ -928,7 +927,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                               title="Click to view all variant images"
                             >
                               <img
-                                src={variant.imageUrl?.startsWith('http') ? variant.imageUrl : `${API_BASE_URL.replace('/api', '')}${variant.imageUrl?.replace('\\\\', '/') || ''}`}
+                             src={getImageUrl(variant.imageUrl)}
                                 alt={variant.name}
                                 className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
                                  onError={(e) => (e.currentTarget.src = "/placeholder.png")}
@@ -1127,11 +1126,11 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {rp.image ? (
-                                  <img src={rp.image} alt={rp.name}  onError={(e) => (e.currentTarget.src = "/placeholder.png")} className="w-full h-full object-cover" />
+                                  <img src={getImageUrl(rp.image)} alt={rp.name}  onError={(e) => (e.currentTarget.src = "/placeholder.png")} className="w-full h-full object-cover" />
                                 ) : (
                                   <Package className="w-6 h-6 text-white" />
                                 )}
-                              </div>
+                              </div>    
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-white truncate">{rp.name}</p>
                                 <p className="text-xs text-slate-400 font-mono font-bold">{rp.sku}</p>
@@ -1159,7 +1158,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {cp.image ? (
-                                  <img src={cp.image} alt={cp.name} className="w-full h-full object-cover" />
+                                  <img src={getImageUrl(cp.image)} alt={cp.name} className="w-full h-full object-cover" />
                                 ) : (
                                   <Package className="w-6 h-6 text-white" />
                                 )}
@@ -1197,11 +1196,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
   <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 flex-shrink-0 bg-slate-900">
     {p.images?.[0]?.imageUrl ? (
       <img
-        src={
-          p.images[0].imageUrl.startsWith("http")
-            ? p.images[0].imageUrl
-            : `${API_BASE_URL.replace('/api','')}${p.images[0].imageUrl}`
-        }
+        src={getImageUrl(p.images?.[0]?.imageUrl)}
         className="w-full h-full object-cover"
         onError={(e) => (e.currentTarget.src = "/placeholder.png")}
       />
@@ -1283,11 +1278,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
   <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 flex-shrink-0 bg-slate-900">
     {p.images?.[0]?.imageUrl ? (
       <img
-        src={
-          p.images[0].imageUrl.startsWith("http")
-            ? p.images[0].imageUrl
-            : `${API_BASE_URL.replace('/api','')}${p.images[0].imageUrl}`
-        }
+      src={getImageUrl(p.images?.[0]?.imageUrl)}
         className="w-full h-full object-cover"
         onError={(e) => (e.currentTarget.src = "/placeholder.png")}
       />

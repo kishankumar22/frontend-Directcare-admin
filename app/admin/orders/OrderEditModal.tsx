@@ -39,7 +39,7 @@ import {
 import { Order } from '@/lib/services/orders';
 import { addressLookupService } from '@/lib/services/AddressLookup';
 import { API_BASE_URL } from '@/lib/api';
-import { getProductImage, getThumbnailImage } from '../_utils/formatUtils';
+import { getImageUrl, getProductImage, getThumbnailImage } from '../_utils/formatUtils';
 
 // ===========================
 // INTERFACES
@@ -1156,7 +1156,7 @@ useEffect(() => {
             <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800 border border-slate-700">
               {item.productImageUrl ? (
               <img
-  src={getThumbnailImage(item.productImageUrl)}
+  src={getImageUrl(item.productImageUrl)}
   alt={item.productName}
   className="w-full h-full object-cover"
     onError={(e) => (e.currentTarget.src = "/placeholder.png")}

@@ -47,7 +47,7 @@ import { useToast } from "@/app/admin/_components/CustomToast";
 import { Customer, CustomerQueryParams, customersService, CustomerStats } from "@/lib/services/customers";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
-import { formatDate, getOrderProductImage } from "../_utils/formatUtils";
+import { formatDate, getImageUrl, getOrderProductImage } from "../_utils/formatUtils";
 
 type CustomerTier = "all" | "gold" | "silver" | "bronze";
 
@@ -798,7 +798,7 @@ const modalTier = selectedCustomer
                   <div key={item.id} className="flex gap-3 items-center">
 
                     <img
-                      src={getOrderProductImage(item.productImageUrl)}
+                      src={getImageUrl(item.productImageUrl)}
                       className="w-11 h-11 rounded-md object-cover border border-slate-700"
                     />
 

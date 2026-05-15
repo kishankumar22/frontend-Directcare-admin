@@ -879,7 +879,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
   // 🔥 OLD PRICE FALLBACK (PDP SAFE)
   const oldPriceValue =
-    selectedVariant?.oldPrice ?? product.oldPrice;
+    selectedVariant?.compareAtPrice ?? selectedVariant?.oldPrice ??
+    product.compareAtPrice ?? product.oldPrice;
 
   const currentDisplayType =
     selectedVariant?.displayDiscountType ??

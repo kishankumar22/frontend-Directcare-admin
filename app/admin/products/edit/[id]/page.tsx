@@ -26,17 +26,12 @@ import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/li
 import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
 import { categoriesService } from "@/lib/services/categories";
-
 import AdminCommentHistory from "../../_components/AdminCommentHistory";
 import UnsavedChangesModal from "../../_components/UnsavedChangesModal";
 import ProductLockModal from "../../_components/ProductLockModal";
 import VatRateSelector from "../../VatRateSelector";
 import { scrollCls } from "../../../_utils/styles";
 import { getBackendMessage } from "../../../_utils/errorUtils";
-
-
-
-
 type CleanCartData = {
   orderMinimumQuantity: number | null;
   orderMaximumQuantity: number | null;
@@ -59,7 +54,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [initialFormData, setInitialFormData] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSavedData, setLastSavedData] = useState<any>(null);
+
 
   const [showPharmacyModal, setShowPharmacyModal] = useState(false);
   const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
@@ -692,7 +687,24 @@ const frequencyPresets: Record<string, string> = {
       setQuantityMode('unlimited');
     }
   }, [formData]);
+useEffect(() => {
+  if (!isGroupedModalOpen) return;
 
+  const loadSimpleProducts = async () => {
+    try {
+      const response = await productsService.getSimpleProducts();
+
+      const items = response?.data?.data || [];
+
+      setSimpleProducts(items);
+
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  loadSimpleProducts();
+}, [isGroupedModalOpen]);
   useEffect(() => {
     const fetchAllData = async () => {
       if (!productId) {
@@ -713,12 +725,12 @@ const frequencyPresets: Record<string, string> = {
           brandsResponse,
           categoriesResponse,
           // allProductsResponse,
-          simpleProductsResponse
+          // simpleProductsResponse
         ] = await Promise.allSettled([
           brandsService.getAll({ includeInactive: true }),
           categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
           // productsService.getAll({ pageSize: 1000 }),
-          productsService.getSimpleProducts()
+          // productsService.getSimpleProducts()
         ]);
 
         const brandsData =
@@ -732,10 +744,6 @@ const frequencyPresets: Record<string, string> = {
             Array.isArray(categoriesResponse.value?.data?.data?.items)
             ? categoriesResponse.value.data.data.items
             : [];
-
-
-
-
 
         setDropdownsData({
           brands: Array.isArray(brandsData) ? brandsData : [],
@@ -784,54 +792,54 @@ const frequencyPresets: Record<string, string> = {
 
 
         // ✅ Process SIMPLE products from service
-        if (simpleProductsResponse.status === 'fulfilled') {
-          const simpleItems = extractProducts(simpleProductsResponse.value);
+        // if (simpleProductsResponse.status === 'fulfilled') {
+        //   const simpleItems = extractProducts(simpleProductsResponse.value);
 
-          if (simpleItems.length > 0) {
-            // Filter out current product
-            const simpleProductsList = simpleItems
-              .filter((p: any) => p.id !== productId)
-              .map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                sku: p.sku,
-                price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-                stockQuantity: p.stockQuantity || 0
-              }));
+        //   if (simpleItems.length > 0) {
+        //     // Filter out current product
+        //     const simpleProductsList = simpleItems
+        //       .filter((p: any) => p.id !== productId)
+        //       .map((p: any) => ({
+        //         id: p.id,
+        //         name: p.name,
+        //         sku: p.sku,
+        //         price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+        //         stockQuantity: p.stockQuantity || 0
+        //       }));
 
-            setSimpleProducts(simpleProductsList);
-            console.log('✅ Simple products loaded:', simpleProductsList.length);
-          } else {
-            console.warn('⚠️ Simple products endpoint returned no data');
-            setSimpleProducts([]);
-          }
-        } else {
-          console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
+        //     setSimpleProducts(simpleProductsList);
+        //     console.log('✅ Simple products loaded:', simpleProductsList.length);
+        //   } else {
+        //     console.warn('⚠️ Simple products endpoint returned no data');
+        //     setSimpleProducts([]);
+        //   }
+        // } else {
+        //   console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
 
-          // ✅ FALLBACK: Filter from all products if separate endpoint fails
-          // if (allProductsResponse.status === 'fulfilled') {
-          //   const allItems = extractProducts(allProductsResponse.value);
+        //   // ✅ FALLBACK: Filter from all products if separate endpoint fails
+        //   // if (allProductsResponse.status === 'fulfilled') {
+        //   //   const allItems = extractProducts(allProductsResponse.value);
 
-          //   const simpleProductsList = allItems
-          //     .filter((product: any) => 
-          //       product.productType === 'simple' && 
-          //       product.isPublished === true &&
-          //       product.id !== productId
-          //     )
-          //     .map((product: any) => ({
-          //       id: product.id,
-          //       name: product.name,
-          //       sku: product.sku,
-          //       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-          //       stockQuantity: product.stockQuantity || 0
-          //     }));
+        //   //   const simpleProductsList = allItems
+        //   //     .filter((product: any) => 
+        //   //       product.productType === 'simple' && 
+        //   //       product.isPublished === true &&
+        //   //       product.id !== productId
+        //   //     )
+        //   //     .map((product: any) => ({
+        //   //       id: product.id,
+        //   //       name: product.name,
+        //   //       sku: product.sku,
+        //   //       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+        //   //       stockQuantity: product.stockQuantity || 0
+        //   //     }));
 
-          //   setSimpleProducts(simpleProductsList);
-          //   console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
-          // } else {
-          //   setSimpleProducts([]);
-          // }
-        }
+        //   //   setSimpleProducts(simpleProductsList);
+        //   //   console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
+        //   // } else {
+        //   //   setSimpleProducts([]);
+        //   // }
+        // }
 
         // ✅ Extract product data from service response
         const productData = (productResponse.data as any)?.data || productResponse.data;
@@ -1762,31 +1770,47 @@ const frequencyPresets: Record<string, string> = {
   // ADD THIS useEffect - Track unsaved changes
   // ============================================================
 
-  useEffect(() => {
-    if (!initialFormData) return;
+useEffect(() => {
+  if (!initialFormData || !formData) return;
 
-    // Compare with last saved data (after update) or initial data
-    const compareWith = lastSavedData || initialFormData;
+ const normalize = (data: any) => {
+  const clone = structuredClone(data);
 
-    const hasChanges = JSON.stringify(formData) !== JSON.stringify(compareWith);
-    setHasUnsavedChanges(hasChanges);
+  delete clone.productImages;
 
-    console.log('📊 Edit Mode - Change Detection:', {
-      hasChanges,
-      productName: formData.name,
-      compareWithName: compareWith?.name
-    });
-  }, [formData, lastSavedData, initialFormData]);
+  return clone;
+};
+
+  const hasChanges =
+    JSON.stringify(normalize(formData)) !==
+    JSON.stringify(normalize(initialFormData));
+
+  setHasUnsavedChanges(hasChanges);
+
+}, [formData, initialFormData]);
   // ============================================================
   // BROWSER CLOSE WARNING
   // ============================================================
   // Fix #2: Move initialFormData to useEffect (Add after line 850)
-  useEffect(() => {
-    if (!loading && formData.name && !initialFormData) {
-      setInitialFormData(JSON.parse(JSON.stringify(formData)));
-      console.log('✅ Initial form state captured:', formData.name);
-    }
-  }, [loading, formData.name, initialFormData]);
+useEffect(() => {
+  if (!loading && formData && !initialFormData) {
+    
+    setInitialFormData(JSON.parse(JSON.stringify(formData)));
+    console.log('✅ Initial form state captured');
+  }
+}, [loading, formData, initialFormData]);
+const hasFormChanged = useCallback(() => {
+  if (!initialFormData) return false;
+
+  return JSON.stringify({
+    ...formData,
+    productImages: undefined,
+  }) !== JSON.stringify({
+    ...initialFormData,
+    productImages: undefined,
+  });
+}, [formData, initialFormData]);
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -3755,7 +3779,17 @@ const frequencyPresets: Record<string, string> = {
           toast.success(
             isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
             { autoClose: 3000 }
-          );
+          ); 
+          const updatedSnapshot = JSON.parse(
+  JSON.stringify({
+    ...formData,
+    productImages: undefined,
+  })
+);
+
+setInitialFormData(updatedSnapshot);
+
+setHasUnsavedChanges(false);
           // await productLockService.releaseLock(productId);
           // if (releaseLockAfter) {
           //   try {
@@ -4890,16 +4924,16 @@ if (name === "recurringCyclePeriod") {
     }
   };
   // Add this before your main JSX return
-  // if (loading) {
-  //   return (
-  //     <div className="flex items-center justify-center min-h-screen bg-slate-950">
-  //       <div className="text-center">
-  //         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-violet-500 mx-auto mb-4"></div>
-  //         <p className="text-slate-400 text-lg">Loading product data...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-violet-500 mx-auto mb-4"></div>
+          <p className="text-slate-400 text-lg">Loading product data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[calc(100svh-8rem)] min-h-0 flex-col gap-2 overflow-hidden">
@@ -4996,7 +5030,16 @@ if (name === "recurringCyclePeriod") {
                 {/* CANCEL */}
                 <button
                   type="button"
-                  onClick={() => handleCancel()}
+                      onClick={(e) => {
+                    e.preventDefault();
+
+                    if (hasUnsavedChanges) {
+                      handleNavigateAway("/admin/products");
+                      return;
+                    }
+
+                    handleCancel();
+                  }}
                   disabled={isSubmitting}
                   className="h-9 rounded-xl border border-slate-700 bg-slate-800/60 px-4 text-[13px] font-medium text-slate-200 hover:bg-slate-700/70 transition-all"
                 >
@@ -7755,19 +7798,22 @@ if (name === "recurringCyclePeriod") {
       />
 
       {/* UNSAVED CHANGES MODAL */}
-      <UnsavedChangesModal
-        isOpen={showUnsavedModal}
-        missingFields={missingFields}
-        changedFieldsList={getChangedFieldsList()}
-        changedFieldsCount={getChangedFieldsList().length}
-        isSubmitting={isSubmitting}
-        onSaveDraft={handleModalSaveDraft}
-        onUpdate={handleModalUpdateProduct}
-        onDiscard={handleModalDiscard}
-        onCancel={handleModalCancel}
-        canSaveDraft={checkDraftRequirements().isValid}
-        canUpdate={missingFields.length === 0}
-      />
+<UnsavedChangesModal
+  isOpen={showUnsavedModal}
+  missingFields={missingFields}
+  changedFieldsList={getChangedFieldsList()}
+  changedFieldsCount={getChangedFieldsList().length}
+  isSubmitting={isSubmitting}
+
+  isEditMode={true}
+
+  onSaveDraft={handleModalSaveDraft}
+  onUpdate={handleModalUpdateProduct}
+  onDiscard={handleModalDiscard}
+  onCancel={handleModalCancel}
+  canSaveDraft={checkDraftRequirements().isValid}
+  canUpdate={missingFields.length === 0}
+/>
     </div>
   );
 }

@@ -1411,40 +1411,116 @@ if (initialLoading) {
             </div>
 
             {/* QUICK BUTTONS */}
-            <div className="flex gap-2 pt-2 border-t border-slate-700">
-              <button
-                onClick={() => {
-                  const today = new Date();
-                  const weekAgo = new Date(today);
-                  weekAgo.setDate(today.getDate() - 7);
-                  setFilters(prev => ({
-                    ...prev,
-                    fromDate: weekAgo.toISOString().split("T")[0],
-                    toDate: today.toISOString().split("T")[0]
-                  }));
-                  setShowDatePicker(false);
-                }}
-                className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-violet-400 rounded-lg text-xs font-medium"
-              >
-                Last 7 Days
-              </button>
-              <button
-                onClick={() => {
-                  const today = new Date();
-                  const monthAgo = new Date(today);
-                  monthAgo.setMonth(today.getMonth() - 1);
-                  setFilters(prev => ({
-                    ...prev,
-                    fromDate: monthAgo.toISOString().split("T")[0],
-                    toDate: today.toISOString().split("T")[0]
-                  }));
-                  setShowDatePicker(false);
-                }}
-                className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-cyan-400 rounded-lg text-xs font-medium"
-              >
-                Last 30 Days
-              </button>
-            </div>
+      <div className="grid grid-cols-5 gap-2 pt-2 border-t border-slate-700">
+
+  {/* 1 Day */}
+  <button
+    onClick={() => {
+      const today = new Date();
+
+      setFilters(prev => ({
+        ...prev,
+        fromDate: today.toISOString().split("T")[0],
+        toDate: today.toISOString().split("T")[0]
+      }));
+
+      setShowDatePicker(false);
+    }}
+    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-emerald-400 rounded-lg text-xs font-semibold"
+    title="Today"
+  >
+    1D
+  </button>
+
+  {/* 1 Week */}
+  <button
+    onClick={() => {
+      const today = new Date();
+      const date = new Date(today);
+
+      date.setDate(today.getDate() - 7);
+
+      setFilters(prev => ({
+        ...prev,
+        fromDate: date.toISOString().split("T")[0],
+        toDate: today.toISOString().split("T")[0]
+      }));
+
+      setShowDatePicker(false);
+    }}
+    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-cyan-400 rounded-lg text-xs font-semibold"
+    title="Last 1 Week"
+  >
+    1W
+  </button>
+
+  {/* 2 Week */}
+  <button
+    onClick={() => {
+      const today = new Date();
+      const date = new Date(today);
+
+      date.setDate(today.getDate() - 14);
+
+      setFilters(prev => ({
+        ...prev,
+        fromDate: date.toISOString().split("T")[0],
+        toDate: today.toISOString().split("T")[0]
+      }));
+
+      setShowDatePicker(false);
+    }}
+    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-violet-400 rounded-lg text-xs font-semibold"
+    title="Last 2 Weeks"
+  >
+    2W
+  </button>
+
+  {/* 3 Week */}
+  <button
+    onClick={() => {
+      const today = new Date();
+      const date = new Date(today);
+
+      date.setDate(today.getDate() - 21);
+
+      setFilters(prev => ({
+        ...prev,
+        fromDate: date.toISOString().split("T")[0],
+        toDate: today.toISOString().split("T")[0]
+      }));
+
+      setShowDatePicker(false);
+    }}
+    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-amber-400 rounded-lg text-xs font-semibold"
+    title="Last 3 Weeks"
+  >
+    3W
+  </button>
+
+  {/* 4 Week */}
+  <button
+    onClick={() => {
+      const today = new Date();
+      const date = new Date(today);
+
+      date.setDate(today.getDate() - 28);
+
+      setFilters(prev => ({
+        ...prev,
+        fromDate: date.toISOString().split("T")[0],
+        toDate: today.toISOString().split("T")[0]
+      }));
+
+      setShowDatePicker(false);
+    }}
+    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-pink-400 rounded-lg text-xs font-semibold"
+    title="Last 4 Weeks"
+  >
+    4W
+  </button>
+
+</div>
           </div>
         </>
       )}

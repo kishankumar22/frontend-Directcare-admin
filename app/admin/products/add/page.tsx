@@ -100,7 +100,7 @@
     // ============ NEW STATES FOR DRAFT/EDIT MODE ============
     const [productId, setProductId] = useState<string | null>(null); // Track created product ID
     const [isEditMode, setIsEditMode] = useState<boolean>(false); // Track if in edit mode
-    const [lastSavedData, setLastSavedData] = useState<any>(null); // Track last saved state
+
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
 
   const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
@@ -783,35 +783,32 @@
   // REPLACE YOUR EXISTING "TRACK UNSAVED CHANGES" useEffect WITH THIS:
   // ============================================================
 
-  // CAPTURE INITIAL STATE ON MOUNT
-  useEffect(() => {
-    if (!initialFormData) {
-      setInitialFormData(JSON.parse(JSON.stringify(formData)));
-      console.log('Initial form state captured');
-    }
-  }, []); // Run once only
+useEffect(() => {
+  if (!initialFormData) {
+    setInitialFormData(structuredClone(formData));
+    console.log('Initial form state captured');
+  }
+}, []);
 
   // TRACK UNSAVED CHANGES (Works for BOTH Create & Edit)
-  useEffect(() => {
-    if (!initialFormData) return;
-    
-  // In EDIT mode: compare with lastSavedData
-  // In CREATE mode: compare with initial empty state
-  const compareWith = (isEditMode && lastSavedData) 
-    ? lastSavedData 
-    : initialFormData;
-  
-  const hasChanges = JSON.stringify(formData) !== JSON.stringify(compareWith);
+useEffect(() => {
+  if (!initialFormData) return;
+
+  const normalize = (data: any) => {
+    const clone = structuredClone(data);
+
+    delete clone.productImages;
+
+    return clone;
+  };
+
+  const hasChanges =
+    JSON.stringify(normalize(formData)) !==
+    JSON.stringify(normalize(initialFormData));
+
   setHasUnsavedChanges(hasChanges);
-  
-  // Debug log
-  console.log('Change Detection:', {
-    mode: isEditMode ? 'EDIT' : 'CREATE',
-    hasChanges,
-    formDataName: formData.name,
-    compareWithName: compareWith?.name
-  });
-}, [formData, lastSavedData, isEditMode, initialFormData]);
+
+}, [formData, initialFormData]);
 
 // ============================================================
 // BROWSER CLOSE/REFRESH WARNING (Keep existing)
@@ -1878,6 +1875,13 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
       toast.success(isDraft ? "Draft saved successfully!" : "Product published successfully!", {
         autoClose: 2000,
       });
+      const snapshot = structuredClone({
+  ...formData,
+  productImages: undefined,
+});
+
+setInitialFormData(snapshot);
+setHasUnsavedChanges(false);
     } catch (updateError: any) {
       console.error("Update failed after draft creation:", updateError);
       
@@ -1988,8 +1992,7 @@ const imagesToUpload = formData.productImages.filter(
       percentage: 100,
     });
 
-    // Store last saved data for change tracking
-    setLastSavedData({ ...formData });
+  
 
     // CLEAR BACKUP ON SUCCESS
     try {
@@ -4110,7 +4113,7 @@ useEffect(() => {
   {/* Header */}
   <div className="flex justify-between items-center">
     <h4 className="text-sm font-semibold text-white">
-      ðŸ’° Pricing Breakdown
+      Pricing Breakdown
     </h4>
     <button
       type="button"
@@ -5786,11 +5789,13 @@ useEffect(() => {
 
 {/* UNSAVED CHANGES MODAL */}
 <UnsavedChangesModal
+
   isOpen={showUnsavedModal}
   missingFields={missingFields}
   changedFieldsList={getChangedFieldsList()}
   changedFieldsCount={getChangedFieldsList().length}
   isSubmitting={isSubmitting}
+  isEditMode={false}      
   onSaveDraft={handleModalSaveDraft}
   onUpdate={handleModalCreateProduct}  //   FIXED: Use create function
   onDiscard={handleModalDiscard}

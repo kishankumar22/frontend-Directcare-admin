@@ -93,10 +93,11 @@ const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
 // 🔥 NEW: oldPrice fallback logic
 const oldPriceValue =
-  defaultVariant?.oldPrice ?? product.oldPrice;
+  defaultVariant?.compareAtPrice ?? defaultVariant?.oldPrice ??
+  product.compareAtPrice ?? product.oldPrice;
 
 const oldPriceData =
-  product.displayDiscountType === "OldPrice"
+  (defaultVariant?.displayDiscountType ?? product.displayDiscountType) === "OldPrice"
     ? getOldPriceDiscount(
         basePrice,
         oldPriceValue,
