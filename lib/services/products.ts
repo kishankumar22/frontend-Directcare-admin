@@ -624,6 +624,7 @@ bulkUpdateInventory: async (
     variantId?: string;   // ✅ added
     newStock: number;
     newPrice: number;
+    newOldPrice: number;
   }[]
 ) => {
   return apiClient.put<
@@ -644,6 +645,8 @@ bulkUpdateInventory: async (
         newStock: number;
         oldPrice: number;
         newPrice: number;
+        oldOldPrice: number;
+        newOldPrice: number;
       }[];
     }>
   >(API_ENDPOINTS.inventoryBulkUpdate, items);

@@ -2109,7 +2109,7 @@ const allActions = getAllAvailableActions(
 
 
 <Link
-  href={`/products/${item.productSlug}`}
+  href={`/product/${item.productSlug}`}
   target="_blank"
   rel="noopener noreferrer"
 >

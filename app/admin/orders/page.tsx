@@ -69,20 +69,10 @@ import {
   CancellationDecisionModal,
 } from './CancellationRequestManager';
 
-import BulkShipmentUploadModal from './BulkShipmentUploadModal';
-import ImportWooCommerceOrdersModal from './ImportWooCommerceOrdersModal';
-
 import { formatNumber, getImageUrl, getOrderProductImage } from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
 import ImagePreviewModal from '../_components/ImagePreviewModal';
 import { scrollCls } from '../_utils/styles';
-
-const card = `
-bg-slate-900/40 border rounded-lg p-2
-hover:shadow-lg transition-all text-left
-`;
-
-
 
 // ✅ Get Available Actions based on Order Status (matching backend rules)
 const getAvailableActions = (order: Order) => {
@@ -178,7 +168,7 @@ const allSameStatus =
 
 const selectedStatus = selectedOrderObjects[0]?.status;
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false); 
+
   const [actionMenuOrder, setActionMenuOrder] = useState<string | null>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -197,8 +187,8 @@ const [cancellationDecisionState, setCancellationDecisionState] = useState<{
 const [cancellationAdminNotes, setCancellationAdminNotes] = useState("");
 const [cancellationActionLoading, setCancellationActionLoading] = useState(false);
 
-const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
-const [importWooCommerceModalOpen, setImportWooCommerceModalOpen] = useState(false);
+
+
 
 // Hard-delete confirmation modal state. Only the order id + number are needed; admin must
 // type the number back into the input to enable the destructive button.
@@ -498,107 +488,6 @@ const handleBulkExport = () => {
   setSelectedOrders([]);
 };
 
-  // Export functionality
-const handleExport = async (exportAll: boolean = false) => {
-  try {
-    let ordersToExport: Order[] = [];
-
-    if (exportAll) {
-      setLoading(true);
-      const response = await orderService.getAllOrders({
-        page: 1,
-        pageSize: 10000,
-      });
-      ordersToExport = response?.data?.items || [];
-      setLoading(false);
-    } else {
-      ordersToExport = orders;
-    }
-
-    if (ordersToExport.length === 0) {
-      toast.warning("No orders to export");
-      return;
-    }
-
-const data = ordersToExport.map((order) => ({
-  // 🔹 BASIC
-  "Order Number": order.orderNumber,
-  "Order Date": formatDate(order.orderDate),
-  "Status": order.status,
-
-  // 🔹 CUSTOMER
-  "Customer Name": order.customerName,
-  "Email": order.customerEmail,
-  "Phone": order.customerPhone,
-  "Guest Order": order.isGuestOrder ? "Yes" : "No",
-
-  // 🔹 AMOUNTS
-  "Subtotal": order.subtotalAmount,
-  "Tax": order.taxAmount,
-  "Shipping": order.shippingAmount,
-  "Discount": order.discountAmount,
-  "Total Amount": order.totalAmount,
-  "Currency": order.currency,
-
-  // 🔹 DELIVERY
-  "Delivery Method": order.deliveryMethod,
-  "Shipping Method": order.shippingMethodName,
-
-  // 🔹 PAYMENT (FULL)
-  "Payment Method": order.paymentMethod,
-  "Payment Status": order.paymentStatus,
-  "Transaction Id": order.payments?.[0]?.transactionId || "",
-  "Paid Amount": order.totalPaidAmount,
-
-  // 🔹 ADDRESS (FULL)
-  "Billing Address": `${order.billingAddress?.firstName} ${order.billingAddress?.lastName}, ${order.billingAddress?.addressLine1}, ${order.billingAddress?.city}, ${order.billingAddress?.state}, ${order.billingAddress?.country}, ${order.billingAddress?.postalCode}`,
-
-  "Shipping Address": `${order.shippingAddress?.firstName} ${order.shippingAddress?.lastName}, ${order.shippingAddress?.addressLine1}, ${order.shippingAddress?.city}, ${order.shippingAddress?.state}, ${order.shippingAddress?.country}, ${order.shippingAddress?.postalCode}`,
-
-  // 🔥 MOST IMPORTANT → ITEMS (FULL DETAILS)
-  "Products": order.orderItems
-    ?.map(
-      (item) =>
-        `${item.productName} | SKU: ${item.productSku} | Qty: ${item.quantity} | Price: ${item.unitPrice}`
-    )
-    .join("\n"),
-
-  // 🔹 SHIPMENTS
-  "Tracking Numbers": order.shipments
-    ?.map((s) => s.trackingNumber)
-    .join(", "),
-
-  "Carriers": order.shipments
-    ?.map((s) => s.carrier)
-    .join(", "),
-
-  // 🔹 EXTRA
-  "Notes": order.notes || "",
-}));
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-
-    const exportType = exportAll ? "all" : "filtered";
-
-    XLSX.writeFile(
-      workbook,
-      `orders_${exportType}_${new Date().toISOString().split("T")[0]}.xlsx`
-    );
-
-    toast.success(
-      `📥 ${ordersToExport.length} order${
-        ordersToExport.length > 1 ? "s" : ""
-      } exported successfully!`
-    );
-  } catch (error) {
-    console.error("Export error:", error);
-    toast.error("Failed to export orders");
-    setLoading(false);
-  }
-};
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
@@ -901,81 +790,7 @@ if (initialLoading) {
       Import WooCommerce
     </button> */}
 
-    {/* Upload Shipments */}
-      <button
-      onClick={() => setShipmentModalOpen(true)}
-        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-fuchsia-600 
-        text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/30 
-        transition-all flex items-center gap-2 text-sm font-medium"
-    >
-      <Upload className="w-4 h-4" />
-      Upload Shipments
-    </button>
 
-    {/* Export Dropdown */}
-    <div className="relative">
-      <button
-        onClick={() => setShowExportMenu(!showExportMenu)}
-        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 
-        text-white rounded-lg hover:shadow-lg hover:shadow-green-500/30 
-        transition-all flex items-center gap-2 text-sm font-medium"
-      >
-        <FileSpreadsheet className="w-4 h-4" />
-        Export Data
-        <ChevronDown className="w-3 h-3" />
-      </button>
-
-      {showExportMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setShowExportMenu(false)}
-          />
-
-          <div className="absolute right-0 mt-2 w-60 bg-slate-800 
-          border border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
-
-            <button
-              onClick={() => {
-                handleExport(false);
-                setShowExportMenu(false);
-              }}
-              disabled={orders.length === 0}
-              className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 
-              transition-all flex items-center gap-3 disabled:opacity-50 
-              border-b border-slate-700"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-green-400" />
-              <div>
-                <p className="text-sm font-medium">Export Current Page</p>
-                <p className="text-xs text-slate-400">
-                  {orders.length} orders
-                </p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                handleExport(true);
-                setShowExportMenu(false);
-              }}
-              disabled={totalCount === 0}
-              className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 
-              transition-all flex items-center gap-3 disabled:opacity-50"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-              <div>
-                <p className="text-sm font-medium">Export All Orders</p>
-                <p className="text-xs text-slate-400">
-                  {totalCount} total orders
-                </p>
-              </div>
-            </button>
-
-          </div>
-        </>
-      )}
-    </div>
   </div>
 
   </div>
@@ -1991,26 +1806,9 @@ title="Select order"
   onConfirm={handleCancellationDecision}
 />
 
-{importWooCommerceModalOpen && (
-  <ImportWooCommerceOrdersModal
-    open={true}
-    onClose={() => setImportWooCommerceModalOpen(false)}
-    onSuccess={() => {
-      fetchOrders();
-    }}
-  />
-)}
 
-{shipmentModalOpen && (
-  <BulkShipmentUploadModal
-    isOpen={true}
-    onClose={() => setShipmentModalOpen(false)}
-    onSuccess={() => {
-      fetchOrders();
-      setShipmentModalOpen(false);
-    }}
-  />
-)}
+
+
 
 {/* ✅ Order Actions Modal */}
 {modalState.isOpen && modalState.order && (

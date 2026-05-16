@@ -36,12 +36,13 @@ import { brandsService } from "@/lib/services/brands";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
-import ProductExcelImportModal from "./ProductExcelImportModal";
+
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getProductImage } from "../_utils/formatUtils";
 
 import { vatratesService } from "@/lib/services/vatrates";
 import { scrollCls } from "../_utils/styles";
+import ProductExcelImportModal from "./ProductExcelImportModal";
 
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -1173,69 +1174,7 @@ const handleStatClick = useCallback(
     return pages;
   }, [currentPage, totalPages]);
 
-  // ✅ EXPORT FUNCTION
-const handleExport = async (exportAll: boolean = false) => {
-  try {
-    let rawProductsData: any[] = [];
-    toast.info("Preparing Excel export...");
 
-    if (exportAll) {
-      setLoading(true);
-
-      const response = await productsService.getAll({
-        page: 1,
-        pageSize: 5000,
-      });
-
-      const data = response.data as any;
-
-      if (data?.success && data?.data?.items) {
-        rawProductsData = data.data.items;
-      }
-
-      setLoading(false);
-    } else {
-      const settledResults = await Promise.allSettled(
-        products.map((product) => fetchProductForExport(product.id))
-      );
-
-      rawProductsData = settledResults
-        .filter(
-          (result): result is PromiseFulfilledResult<any> =>
-            result.status === "fulfilled" && Boolean(result.value)
-        )
-        .map((result) => result.value);
-    }
-
-    if (rawProductsData.length === 0) {
-      toast.warning("No products to export");
-      return;
-    }
-
-    const excelData = rawProductsData.map((product: any) =>
-      mapProductToFullExportRow(product)
-    );
-    /*
-        "Price (£)": product.price || 0,
-    
-
-    */
-    const timestamp = new Date().toISOString().split("T")[0];
-    const exportType = exportAll ? "all" : "current-page";
-
-    writeProductsWorkbook(
-      excelData,
-      "Products",
-      `products-${exportType}-${timestamp}.xlsx`
-    );
-
-    toast.success(`✅ ${excelData.length} product(s) exported successfully!`);
-  } catch (error) {
-    console.error("Export error:", error);
-    toast.error("Failed to export products");
-    setLoading(false);
-  }
-};
 
 const normalizeExcelValue = (value: any): string | number | boolean => {
   if (value === null || value === undefined) return "";
@@ -1596,80 +1535,7 @@ const handleExportSelected = async () => {
     </button>
   )}
 
-  {/* EXPORT */}
-<div className="relative">
-  <button
-    onClick={() => setShowExportMenu(!showExportMenu)}
-    className="flex items-center gap-2 px-3 py-1.5 text-[13px]
-    bg-slate-800 border border-slate-700
-    hover:bg-slate-700
-    text-white rounded-xl font-medium transition"
-      title="Export products (current page or all)"
-  >
-    <FileSpreadsheet className="w-4 h-4" />
-    Export
-    <ChevronDown className="w-4 h-4 opacity-70" />
-  </button>
 
-  {showExportMenu && (
-    <>
-      <div
-        className="fixed inset-0 z-10"
-        onClick={() => setShowExportMenu(false)}
-      />
-
-      <div className="absolute right-0 mt-2 w-56
-        bg-slate-900 border border-slate-700
-        rounded-xl shadow-xl z-20 overflow-hidden"
-      >
-        {/* Current Page */}
-        <button
-          onClick={() => {
-            handleExport(false);
-            setShowExportMenu(false);
-          }}
-          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
-        >
-          <div className="flex items-center gap-3">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-            <div>
-              <p className="text-sm text-white font-medium">
-                Current Page
-              </p>
-              <p className="text-xs text-slate-400">
-                {products.length} products
-              </p>
-            </div>
-          </div>
-        </button>
-
-        <div className="border-t border-slate-700" />
-
-        {/* All Products */}
-        <button
-          onClick={() => {
-            handleExport(true);
-            setShowExportMenu(false);
-          }}
-          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
-        >
-          <div className="flex items-center gap-3">
-            <Database className="w-4 h-4 text-emerald-400" />
-            <div>
-              <p className="text-sm text-white font-medium">
-                All Products
-              </p>
-              <p className="text-xs text-slate-400">
-                {totalCount} total
-              </p>
-            </div>
-          </div>
-        </button>
-
-      </div>
-    </>
-  )}
-</div>
 
   {/* ADD PRODUCT */}
   <Link href="/admin/products/add">

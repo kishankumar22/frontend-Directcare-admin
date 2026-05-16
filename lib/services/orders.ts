@@ -790,6 +790,18 @@ async exportOrdersTravelbook(params: {
   return apiClient.get(url, { responseType: 'blob' });
 }
 
+async exportProcessingForShipment() {
+  return apiClient.get(API_ENDPOINTS.exportProcessingForShipment, { responseType: 'blob' });
+}
+
+async bulkShipFromExcel(file: File) {
+  const fd = new FormData();
+  fd.append('file', file);
+  return apiClient.post<any>(API_ENDPOINTS.bulkShipFromExcel, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+}
+
 }
 
 

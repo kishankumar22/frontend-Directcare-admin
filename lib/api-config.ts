@@ -8,6 +8,8 @@ export const API_ENDPOINTS = {
   refreshToken: '/api/Auth/refresh-token',
   changePassword: '/api/Auth/change-password',
   exportOrdersTravelbook: '/api/Orders/export-travelbook',
+  exportProcessingForShipment: '/api/Orders/export-processing-for-shipment',
+  bulkShipFromExcel: '/api/Orders/bulk-ship-from-excel',
 
 
 

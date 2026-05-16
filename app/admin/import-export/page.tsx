@@ -20,6 +20,7 @@ import {
   UploadCloud,
   Search,
   Plane,
+  Truck,
 } from 'lucide-react';
 import { orderService } from '@/lib/services/orders';
 import productsService from '@/lib/services/products';
@@ -29,7 +30,7 @@ import { useDebounce } from '../_hooks/useDebounce';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'orders-export' | 'products-bulk-update' | 'travelbook-export';
+type Tab = 'orders-export' | 'products-bulk-update' | 'travelbook-export' | 'create-shipment';
 
 type OrderStatus =
   | 'Pending' | 'Confirmed' | 'Processing' | 'Shipped'
@@ -447,7 +448,7 @@ function OrdersExportTab() {
 // ─── Products Bulk Update Tab ─────────────────────────────────────────────────
 
 function ProductsBulkUpdateTab() {
-  const DEFAULT_SELECTED_FIELDS = [
+   const DEFAULT_SELECTED_FIELDS = [
   'productId',
   'productType',
   'sku',
@@ -529,7 +530,7 @@ const [selectedFields, setSelectedFields] = useState<string[]>(
   const filteredFields = debouncedFieldSearch.trim().length === 0
     ? EDITABLE_FIELDS
     : EDITABLE_FIELDS.filter(f => f.label.toLowerCase().includes(debouncedFieldSearch.trim().toLowerCase()));
-const sortedFields = [
+    const sortedFields = [
   ...filteredFields.filter(f =>
     DEFAULT_SELECTED_FIELDS.includes(f.key)
   ),
@@ -537,7 +538,6 @@ const sortedFields = [
     !DEFAULT_SELECTED_FIELDS.includes(f.key)
   ),
 ];
-
   useEffect(() => {
     let alive = true;
 
@@ -808,7 +808,7 @@ const sortedFields = [
               </div>
             </div>
         <div className={`p-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-2 max-h-72 overflow-y-auto ${scrollCls}`}>
-              {sortedFields.map(f => {
+                {sortedFields.map(f => {
                 const checked = selectedFields.includes(f.key);
                 return (
                   <label
@@ -1137,6 +1137,197 @@ function TravelbookExportTab() {
   );
 }
 
+// ─── Create Shipment Tab ──────────────────────────────────────────────────────
+
+interface BulkShipResult {
+  totalRows: number;
+  shipped: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+  warnings: string[];
+}
+
+function CreateShipmentTab() {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadDone, setDownloadDone] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState<BulkShipResult | null>(null);
+  const [uploadError, setUploadError] = useState('');
+
+  async function handleDownload() {
+    setDownloading(true); setDownloadDone(false);
+    try {
+      const response = await orderService.exportProcessingForShipment();
+      const blob = response.data as Blob;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `processing-orders-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setDownloadDone(true);
+    } catch (err: any) {
+      alert(`Download failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleUpload() {
+    if (!uploadFile) return;
+    setUploading(true); setResult(null); setUploadError('');
+    try {
+      const response = await orderService.bulkShipFromExcel(uploadFile);
+      setResult(response.data?.data ?? response.data);
+    } catch (err: any) {
+      setUploadError(err?.response?.data?.message || err?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Info banner */}
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-3 flex items-start gap-3">
+        <Truck className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+        <div className="text-xs text-slate-300">
+          <span className="font-semibold text-amber-400">Bulk Shipment</span> — Download all Processing (Home Delivery) orders,
+          fill in the Tracking Number and Carrier columns, then re-upload to ship them all at once.
+        </div>
+      </div>
+
+      {/* Step 1 — Download */}
+      <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/60">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/20 text-xs font-bold text-amber-400 border border-amber-500/30 flex-shrink-0">1</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-200">Download Processing Orders</p>
+            <p className="text-xs text-slate-400">Exports all Processing + Home Delivery orders with empty Tracking Number &amp; Carrier columns</p>
+          </div>
+        </div>
+        <div className="p-5 flex items-center gap-4">
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 transition-all"
+          >
+            {downloading
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+              : <><ArrowDownToLine className="h-4 w-4" /> Download Processing Orders</>}
+          </button>
+          {downloadDone && !downloading && (
+            <span className="flex items-center gap-2 text-sm font-medium text-emerald-400">
+              <CheckCircle className="h-4 w-4" /> Downloaded
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Step 2 — Upload */}
+      <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/60">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/20 text-xs font-bold text-amber-400 border border-amber-500/30 flex-shrink-0">2</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-200">Upload Filled Excel</p>
+            <p className="text-xs text-slate-400">Fill Tracking Number &amp; Carrier columns then upload — orders will be marked Shipped and customers notified</p>
+          </div>
+        </div>
+        <div className="p-5 space-y-4">
+          <label className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-all py-10 border-slate-600 hover:border-amber-500/50 hover:bg-slate-800/60">
+            {uploadFile ? (
+              <>
+                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-amber-500/20 border border-amber-500/30">
+                  <FileSpreadsheet className="h-6 w-6 text-amber-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-amber-300">{uploadFile.name}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{(uploadFile.size / 1024).toFixed(0)} KB · click to change</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-slate-700/60 border border-slate-600">
+                  <UploadCloud className="h-6 w-6 text-slate-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-slate-300">Drop your filled Excel here, or <span className="text-amber-400 font-medium">browse</span></p>
+                  <p className="text-xs text-slate-500 mt-0.5">.xlsx files only</p>
+                </div>
+              </>
+            )}
+            <input type="file" accept=".xlsx" className="sr-only"
+              onChange={e => { setUploadFile(e.target.files?.[0] || null); setResult(null); setUploadError(''); }} />
+          </label>
+
+          {uploadFile && (
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/20 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 transition-all"
+            >
+              {uploading
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                : <><Truck className="h-4 w-4" /> Ship All Orders</>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Upload error */}
+      {uploadError && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
+          <div className="text-sm">
+            <p className="font-semibold text-red-300">Upload failed</p>
+            <p className="text-red-400 mt-0.5">{uploadError}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {result && (
+        <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-700/60">
+            <CheckCircle className="h-5 w-5 text-emerald-400" />
+            <p className="text-sm font-semibold text-slate-200">Shipment Complete</p>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                { label: 'Total Rows',  value: result.totalRows, grad: 'from-slate-800 to-slate-700',              text: 'text-slate-200' },
+                { label: 'Shipped',     value: result.shipped,   grad: 'from-emerald-900/60 to-green-900/40',      text: 'text-emerald-300' },
+                { label: 'Skipped',     value: result.skipped,   grad: 'from-amber-900/60 to-yellow-900/40',       text: 'text-amber-300' },
+                { label: 'Failed',      value: result.failed,    grad: 'from-red-900/60 to-rose-900/40',           text: 'text-red-300' },
+                { label: 'Warnings',    value: result.warnings?.length ?? 0, grad: 'from-orange-900/60 to-amber-900/40', text: 'text-orange-300' },
+              ].map(({ label, value, grad, text }) => (
+                <div key={label} className={`rounded-xl p-4 text-center bg-gradient-to-br ${grad} border border-slate-700/40`}>
+                  <p className={`text-2xl font-bold ${text}`}>{value}</p>
+                  <p className="text-[11px] text-slate-400 mt-1 uppercase tracking-wide">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {result.errors?.length > 0 && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 max-h-40 overflow-y-auto">
+                <p className="text-xs font-semibold text-red-300 mb-2">Errors ({result.errors.length})</p>
+                {result.errors.map((e, i) => <p key={i} className="text-xs text-red-400">{e}</p>)}
+              </div>
+            )}
+            {result.warnings?.length > 0 && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 max-h-40 overflow-y-auto">
+                <p className="text-xs font-semibold text-amber-300 mb-2">Warnings ({result.warnings.length})</p>
+                {result.warnings.map((w, i) => <p key={i} className="text-xs text-amber-400">{w}</p>)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ImportExportPage() {
@@ -1158,7 +1349,7 @@ export default function ImportExportPage() {
       </div>
 
       {/* Tab selector cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mb-2">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 mb-2">
         {([
           {
             id: 'orders-export' as Tab,
@@ -1196,6 +1387,18 @@ export default function ImportExportPage() {
             activeText: 'text-violet-400',
             dot: 'bg-violet-400',
           },
+          {
+            id: 'create-shipment' as Tab,
+            icon: <Truck className="h-6 w-6" />,
+            label: 'Create Shipment',
+            desc: 'Bulk ship Processing orders via Excel',
+            grad: activeTab === 'create-shipment'
+              ? 'from-amber-500/25 to-orange-500/15 border-amber-500/50'
+              : 'from-slate-800/60 to-slate-800/40 border-slate-700/50 hover:border-slate-600',
+            iconGrad: 'from-amber-500 to-orange-500',
+            activeText: 'text-amber-400',
+            dot: 'bg-amber-400',
+          },
         ] as const).map(tab => (
           <button
             key={tab.id}
@@ -1222,6 +1425,7 @@ export default function ImportExportPage() {
       {activeTab === 'orders-export'        && <OrdersExportTab />}
       {activeTab === 'travelbook-export'    && <TravelbookExportTab />}
       {activeTab === 'products-bulk-update' && <ProductsBulkUpdateTab />}
+      {activeTab === 'create-shipment'      && <CreateShipmentTab />}
     </div>
   );
 }

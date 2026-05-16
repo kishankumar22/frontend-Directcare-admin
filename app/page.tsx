@@ -1,8 +1,5 @@
 //app/page.tsx
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
@@ -19,13 +16,7 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
-// ✅ Static feature section
-const features = [
-  { icon: Zap, title: "Fast Delivery", description: "Get your orders in 24-48 hours" },
-  { icon: Shield, title: "Secure Payment", description: "100% secure transactions" },
-  { icon: Gift, title: "Gift Cards", description: "Perfect for any occasion" },
-  { icon: TrendingUp, title: "Best Prices", description: "Competitive pricing guaranteed" },
-];
+
 type BannerType = "Homepage" | "Seasonal" | string;
 
 interface Banner {
@@ -83,13 +74,7 @@ interface Brand {
   productCount: number;
 }
 
-interface HomeBanner {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  link?: string;
-}
+
 
 // ✅ Fetch Functions
 async function getBanners(baseUrl: string): Promise<Banner[]> {
@@ -107,7 +92,7 @@ async function getBanners(baseUrl: string): Promise<Banner[]> {
 async function getProducts(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Products?page=1&pageSize=10000&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
+      `${baseUrl}/api/Products?page=1&pageSize=50&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
       {
         cache: "no-store",
       }
