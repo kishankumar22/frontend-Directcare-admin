@@ -36,13 +36,13 @@ import { brandsService } from "@/lib/services/brands";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
-
+import ProductExcelImportModal from "./ProductExcelImportModal";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getProductImage } from "../_utils/formatUtils";
 
 import { vatratesService } from "@/lib/services/vatrates";
-import { scrollCls } from "../_utils/styles";
-import ProductExcelImportModal from "./ProductExcelImportModal";
+import { scrollCls, getSelectStyles } from "../_utils/styles";
+import { useTheme } from "@/app/admin/_context/theme-provider";
 
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -119,105 +119,13 @@ interface SelectOption {
   level?: number;
 }
 
-// ✅ REACT-SELECT CUSTOM STYLES
-const customSelectStyles = {
-  control: (base: any, state: any) => ({
-    ...base,
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    borderColor: state.selectProps.value && state.selectProps.value.value !== 'all'
-      ? '#3b82f6'
-      : '#475569',
-    borderWidth: state.selectProps.value && state.selectProps.value.value !== 'all' ? '2px' : '1px',
-    borderRadius: '0.75rem',
-    padding: '0.10rem',
-    boxShadow: state.isFocused ? '0 0 0 2px rgba(139, 92, 246, 0.5)' : 'none',
-    minHeight: '42px',
-  }),
-
-  menu: (base: any) => ({
-    ...base,
-    backgroundColor: '#1e293b',
-    border: '1px solid rgba(139, 92, 246, 0.3)',
-    borderRadius: '0.75rem',
-    overflow: 'hidden',
-    zIndex: 9999,
-  }),
-
-  menuList: (base: any) => ({
-    ...base,
-    padding: 0,
-    maxHeight: '300px',
-  }),
-
-  option: (base: any, state: any) => ({
-    ...base,
-    backgroundColor: state.isSelected
-      ? 'rgba(139, 92, 246, 0.2)'
-      : state.isFocused
-      ? '#334155'
-      : 'transparent',
-    color: '#ffffff',
-    padding: '10px 12px',
-
-    // 🔥 IMPORTANT
-    whiteSpace: 'normal',
-    wordBreak: 'break-word',
-    lineHeight: '1.3',
-  }),
-
-  singleValue: (base: any) => ({
-    ...base,
-    color: '#ffffff',
-
-    // 🔥 IMPORTANT
-    whiteSpace: 'normal',
-    overflow: 'visible',
-    textOverflow: 'unset',
-  }),
-
-  valueContainer: (base: any) => ({
-    ...base,
-
-    // 🔥 IMPORTANT (prevents clipping)
-    whiteSpace: 'normal',
-    overflow: 'visible',
-  }),
-
-  input: (base: any) => ({
-    ...base,
-    color: '#ffffff',
-  }),
-
-  placeholder: (base: any) => ({
-    ...base,
-    color: '#94a3b8',
-  }),
-
-  dropdownIndicator: (base: any) => ({
-    ...base,
-    color: '#94a3b8',
-    padding: '0 8px',
-  }),
-
-  clearIndicator: (base: any) => ({
-    ...base,
-    color: '#94a3b8',
-    padding: '0 4px',
-    cursor: 'pointer',
-    '&:hover': {
-      color: '#ef4444',
-    },
-  }),
-
-  indicatorSeparator: () => ({
-    display: 'none',
-  }),
-};
 
 // ✅ MAIN COMPONENT
 export default function ProductsPage() {
   const toast = useToast();
   const router = useRouter();
+  const { theme } = useTheme();
+  const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
 
   // STATE MANAGEMENT
   const [products, setProducts] = useState<FormattedProduct[]>([]);
@@ -1778,7 +1686,7 @@ const handleExportSelected = async () => {
               value={selectedCategory}
               onChange={(option) => setSelectedCategory((option as SelectOption) || { value: "all", label: "All Categories" })}
               options={categoryOptions}
-              styles={customSelectStyles}
+              styles={selectStyles}
               placeholder="All Categories"
               isSearchable
               isClearable={selectedCategory.value !== "all"}
@@ -1793,7 +1701,7 @@ const handleExportSelected = async () => {
               value={selectedBrand}
               onChange={(option) => setSelectedBrand((option as SelectOption) || { value: "all", label: "All Brands" })}
               options={brandOptions}
-              styles={customSelectStyles}
+              styles={selectStyles}
               placeholder="All Brands"
               isSearchable
               isClearable={selectedBrand.value !== "all"}

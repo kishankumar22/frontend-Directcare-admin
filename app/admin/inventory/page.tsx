@@ -17,6 +17,8 @@ import { useRouter } from "next/navigation";
 import MediaViewerModal, { MediaItem } from "../products/MediaViewerModal";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { getImageUrl } from "../_utils/formatUtils";
+import { getSelectStyles } from "../_utils/styles";
+import { useTheme } from "@/app/admin/_context/theme-provider";
 import React from "react";
 
 
@@ -61,63 +63,6 @@ interface SelectOption {
   label: string;
 }
 
-const selectStyles = {
-  control: (base: any, state: any) => ({
-    ...base,
-    backgroundColor: "#232e3f",
-    borderColor: state.isFocused ? "#8b5cf6" : "#2f4d76",
-    borderRadius: "0.5rem",
-    boxShadow: "none",
-    minHeight: "38px",
-    "&:hover": { borderColor: "#8b5cf6" },
-  }),
-
-  menu: (base: any) => ({
-    ...base,
-    backgroundColor: "#1d2a3d",
-    borderRadius: "0.5rem",
-    overflow: "hidden",
-  }),
-
-  option: (base: any, state: any) => ({
-    ...base,
-    backgroundColor: state.isSelected
-      ? "#6366f1"
-      : state.isFocused
-        ? "#334155"
-        : "#263650",
-    color: "white",
-    cursor: "pointer",
-    fontSize: "13px",
-  }),
-
-  singleValue: (base: any) => ({
-    ...base,
-    color: "white",
-    fontSize: "13px",
-  }),
-
-  placeholder: (base: any) => ({
-    ...base,
-    color: "#ecf0f6",
-    fontSize: "13px",
-  }),
-
-  input: (base: any) => ({
-    ...base,
-    color: "white",
-  }),
-
-  noOptionsMessage: (base: any) => ({
-    ...base,
-    color: "#cbd5e1",
-  }),
-
-  menuPortal: (base: any) => ({
-    ...base,
-    zIndex: 9999,
-  }),
-};
 
 
 function StockBadge({ qty }: { qty: number }) {
@@ -131,6 +76,8 @@ function StockBadge({ qty }: { qty: number }) {
 export default function InventoryPage() {
   const toast = useToast();
   const router = useRouter();
+  const { theme } = useTheme();
+  const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [products, setProducts] = useState<ProductRow[]>([]);

@@ -1,5 +1,8 @@
 //app/page.tsx
 import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
@@ -14,9 +17,15 @@ import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react
 import WhyChooseUs from "@/components/WhyChooseUs";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
-
+// ✅ Static feature section
+const features = [
+  { icon: Zap, title: "Fast Delivery", description: "Get your orders in 24-48 hours" },
+  { icon: Shield, title: "Secure Payment", description: "100% secure transactions" },
+  { icon: Gift, title: "Gift Cards", description: "Perfect for any occasion" },
+  { icon: TrendingUp, title: "Best Prices", description: "Competitive pricing guaranteed" },
+];
 type BannerType = "Homepage" | "Seasonal" | string;
 
 interface Banner {
@@ -74,13 +83,19 @@ interface Brand {
   productCount: number;
 }
 
-
+interface HomeBanner {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  link?: string;
+}
 
 // ✅ Fetch Functions
 async function getBanners(baseUrl: string): Promise<Banner[]> {
   try {
     const res = await fetch(`${baseUrl}/api/Banners`, {
-      cache: "no-store",
+      next: { revalidate: 3600 },
     });
     const result = await res.json();
     return result.success ? result.data : [];
@@ -92,9 +107,9 @@ async function getBanners(baseUrl: string): Promise<Banner[]> {
 async function getProducts(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Products?page=1&pageSize=50&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
+      `${baseUrl}/api/Products?page=1&pageSize=20&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
       {
-        cache: "no-store",
+        next: { revalidate: 3600 },
       }
     );
     const result = await res.json();
@@ -316,7 +331,7 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* ===== CATEGORIES ===== */}
+
         {/* ===== CATEGORIES ===== */}
         <section className="w-full bg-gray-100 py-4">
           <div className="max-w-7xl mx-auto px-4">

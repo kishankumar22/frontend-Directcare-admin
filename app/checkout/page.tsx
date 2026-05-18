@@ -12,7 +12,6 @@ import { Gift, ShoppingBag } from "lucide-react";
 import SavedAddressesSection from "@/components/checkout/SavedAddressesSection";
 import LoyaltyRedemptionBox from "@/components/checkout/LoyaltyRedemptionBox";
 import { getPharmaSessionId } from "@/app/lib/pharmaSession";
-import { trackAddPaymentInfo, trackBeginCheckout } from "@/lib/analytics";
 // ---------- Types ----------
 type AddressSuggestion = {
   id: string;
@@ -375,23 +374,6 @@ export default function CheckoutPage() {
     : isBuyNowFlow
       ? [buyNowItem]
       : cart;
-  const beginCheckoutTrackedRef = useRef("");
-  const paymentInfoTrackedRef = useRef("");
-
-  useEffect(() => {
-    const validItems = checkoutItems.filter(Boolean);
-    if (validItems.length === 0) return;
-
-    const signature = validItems
-      .map((item) => `${item.id}:${item.variantId ?? ""}:${item.quantity}:${item.finalPrice ?? item.price}`)
-      .join("|");
-
-    if (beginCheckoutTrackedRef.current === signature) return;
-
-    beginCheckoutTrackedRef.current = signature;
-    trackBeginCheckout(validItems);
-  }, [checkoutItems]);
-
   useEffect(() => {
     return () => {
       sessionStorage.removeItem("buyNowItem");
@@ -1902,15 +1884,6 @@ export default function CheckoutPage() {
                         }
 
                         // ✅ NORMAL PAID ORDER FLOW
-                        const paymentSignature = checkoutItems
-                          .filter(Boolean)
-                          .map((item) => `${item.id}:${item.variantId ?? ""}:${item.quantity}:${item.finalPrice ?? item.price}`)
-                          .join("|");
-                        if (paymentInfoTrackedRef.current !== paymentSignature) {
-                          paymentInfoTrackedRef.current = paymentSignature;
-                          trackAddPaymentInfo(checkoutItems.filter(Boolean), "Card");
-                        }
-
                         const orderResp = await fetch(
                           `${process.env.NEXT_PUBLIC_API_URL}/api/Orders`,
                           {

@@ -426,9 +426,9 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-slate-950 dark:bg-gray-950 relative overflow-hidden transition-colors duration-500">
+      <div data-admin className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-hidden transition-colors duration-500">
         {/* Background Effects */}
-        <div className="fixed inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
+        <div className="fixed inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
         <div className="fixed top-0 -left-4 w-96 h-96 bg-violet-500 dark:bg-violet-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob transition-all duration-500" />
         <div className="fixed top-0 -right-4 w-96 h-96 bg-cyan-500 dark:bg-cyan-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-2000 transition-all duration-500" />
         <div className="fixed -bottom-8 left-1/2 w-96 h-96 bg-pink-500 dark:bg-pink-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-4000 transition-all duration-500" />
@@ -642,8 +642,8 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
                     {userInitial}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate transition-colors duration-150">{userName}</p>
-                    <p className="text-xs text-slate-400 dark:text-gray-500 truncate transition-colors duration-150">{userEmail}</p>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-white truncate transition-colors duration-150">{userName}</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-500 truncate transition-colors duration-150">{userEmail}</p>
                   </div>
                   <button
                     onClick={handleLogout}
@@ -883,7 +883,7 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
                   )}
 <button
   onClick={() => {
-    toast.success("No Notificaton Right Now");
+    toast.success("No Notifications Right Now");;
   }}
   className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all duration-150"
 >
@@ -935,7 +935,7 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
                         {userInitial}
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-semibold text-white leading-tight transition-colors duration-150">{userName}</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-white leading-tight transition-colors duration-150">{userName}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-150"></div>
                           <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Online</p>
@@ -953,8 +953,8 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
                     {profileDropdownOpen && (
                       <div className="absolute right-0 mt-2 w-56 bg-slate-900 dark:bg-gray-900 border border-slate-800 dark:border-gray-800 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50">
                         <div className="p-3 border-b border-slate-800 dark:border-gray-800">
-                          <p className="text-sm font-semibold text-white">{userName}</p>
-                          <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{userEmail}</p>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-white">{userName}</p>
+                          <p className="text-xs text-slate-500 dark:text-gray-500 mt-0.5">{userEmail}</p>
                         </div>
 
                         <div className="p-2">
@@ -1024,11 +1024,11 @@ const isActiveRoute = (navHref: string, currentPath: string) => {
             background: rgba(148, 163, 184, 0.5); 
           }
           
-          .dark .custom-scrollbar::-webkit-scrollbar-thumb { 
-            background: rgba(107, 114, 128, 0.4); 
+          html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(107, 114, 128, 0.4);
           }
-          .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { 
-            background: rgba(107, 114, 128, 0.6); 
+          html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(107, 114, 128, 0.6);
           }
         `}</style>
       </div>

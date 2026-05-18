@@ -106,7 +106,7 @@ const handleSubscribe = async (e: React.FormEvent) => {
               <p className="mb-3 text-sm">Enter your email to receive our latest updates about our products.</p>
              <form
   onSubmit={handleSubscribe}
-  className="flex flex-col sm:flex-row gap-2">
+  className="flex flex-col  sm:flex-row gap-2">
   <input
     type="email"
     placeholder="Email address"

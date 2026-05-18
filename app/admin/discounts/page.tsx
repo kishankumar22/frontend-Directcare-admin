@@ -17,6 +17,8 @@ import { useDebounce } from "../_hooks/useDebounce";
 import { getImageUrl } from "../_utils/formatUtils";
 import ImagePreviewModal from "../_components/ImagePreviewModal";
 import { getBackendMessage} from "@/app/admin/_utils/errorUtils";
+import { getSelectStyles } from "../_utils/styles";
+import { useTheme } from "@/app/admin/_context/theme-provider";
 
 const extractProducts = (res: any): Product[] => {
   if (Array.isArray(res)) return res;
@@ -145,103 +147,12 @@ const processCategoryData = (categories: any[]): SelectOption[] => {
   return categories.map((cat) => ({ value: cat.id, label: cat.name }));
 };
 
-// ========== REACT-SELECT STYLES ==========
-const customSelectStyles = {
-  control: (provided: any, state: any) => ({
-    ...provided,
-    backgroundColor: "rgba(15, 23, 42, 0.5)",
-    border: state.isFocused
-      ? "1px solid rgb(139, 92, 246)"
-      : "1px solid rgb(71, 85, 105)",
-    borderRadius: "12px",
-    minHeight: "48px",
-    boxShadow: state.isFocused ? "0 0 0 2px rgba(139, 92, 246, 0.2)" : "none",
-    "&:hover": { borderColor: "rgb(139, 92, 246)" },
-  }),
-  menu: (provided: any) => ({
-    ...provided,
-    backgroundColor: "rgb(15, 23, 42)",
-    border: "1px solid rgb(71, 85, 105)",
-    borderRadius: "12px",
-    zIndex: 9999,
-    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
-  }),
-  menuList: (provided: any) => ({
-    ...provided,
-    maxHeight: "200px",
-    padding: "4px",
-  }),
-  option: (provided: any, state: any) => ({
-    ...provided,
-    backgroundColor: state.isSelected
-      ? "rgb(139, 92, 246)"
-      : state.isFocused
-      ? "rgba(139, 92, 246, 0.1)"
-      : "transparent",
-    color: "white",
-    borderRadius: "8px",
-    margin: "2px 0",
-    padding: "8px 12px",
-    "&:hover": {
-      backgroundColor: state.isSelected
-        ? "rgb(139, 92, 246)"
-        : "rgba(139, 92, 246, 0.2)",
-    },
-  }),
-  multiValue: (provided: any) => ({
-    ...provided,
-    backgroundColor: "rgba(139, 92, 246, 0.15)",
-    borderRadius: "6px",
-    border: "1px solid rgba(139, 92, 246, 0.3)",
-  }),
-  multiValueLabel: (provided: any) => ({
-    ...provided,
-    color: "rgb(196, 181, 253)",
-    fontSize: "14px",
-    fontWeight: "500",
-  }),
-  multiValueRemove: (provided: any) => ({
-    ...provided,
-    color: "rgb(196, 181, 253)",
-    borderRadius: "0 6px 6px 0",
-    "&:hover": { backgroundColor: "rgb(239, 68, 68)", color: "white" },
-  }),
-  placeholder: (provided: any) => ({
-    ...provided,
-    color: "rgb(148, 163, 184)",
-    fontSize: "14px",
-  }),
-  singleValue: (provided: any) => ({ ...provided, color: "white" }),
-  input: (provided: any) => ({ ...provided, color: "white" }),
-  indicatorSeparator: (provided: any) => ({
-    ...provided,
-    backgroundColor: "rgb(71, 85, 105)",
-  }),
-  dropdownIndicator: (provided: any) => ({
-    ...provided,
-    color: "rgb(148, 163, 184)",
-    "&:hover": { color: "white" },
-  }),
-  clearIndicator: (provided: any) => ({
-    ...provided,
-    color: "rgb(148, 163, 184)",
-    "&:hover": { color: "rgb(239, 68, 68)" },
-  }),
-  noOptionsMessage: (provided: any) => ({
-    ...provided,
-    color: "rgb(148, 163, 184)",
-    fontSize: "14px",
-  }),
-  loadingMessage: (provided: any) => ({
-    ...provided,
-    color: "rgb(148, 163, 184)",
-    fontSize: "14px",
-  }),
-};
 
 // ========== MAIN COMPONENT ==========
 export default function DiscountsPage() {
   const toast = useToast();
+  const { theme } = useTheme();
+  const customSelectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
 
   // State
   const [discounts, setDiscounts] = useState<Discount[]>([]);

@@ -187,37 +187,46 @@ export default function GoogleMerchantSettings() {
   const [selectedDeleteIds, setSelectedDeleteIds] = useState<string[]>([]);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [buttonLoading, setButtonLoading] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     action: ActionType | null;
   }>({ open: false, action: null });
   const [actionLoading, setActionLoading] = useState(false);
 
-  const handleOpenFeed = async () => {
+const handleOpenFeed = async () => {
   try {
-const response = await googleMerchantService.getFeedXml();
+    setButtonLoading("feed");
 
-const xmlData = response.data as string;
+    const response = await googleMerchantService.getFeedXml();
 
-const xmlBlob = new Blob(
-  [xmlData],
-  {
-    type: "application/xml",
-  }
-);
+    const xmlData = response.data as string;
+
+    const xmlBlob = new Blob([xmlData], {
+      type: "application/xml",
+    });
 
     const url = URL.createObjectURL(xmlBlob);
 
-    window.open(url, "_blank");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "google-merchant-feed.xml";
 
-    toast.success("Google Merchant feed opened");
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success("Google Merchant feed downloaded");
   } catch (error: any) {
     toast.error(
-      error?.message || "Failed to load feed XML"
+      error?.message || "Failed to download feed XML"
     );
+  } finally {
+    setButtonLoading(null);
   }
 };
-
   const loadProducts = async () => {
     try {
       setLoadingProducts(true);
@@ -429,13 +438,20 @@ const xmlBlob = new Blob(
               <Trash2 className="h-4 w-4" />
               Delete Products
             </button>
-            <button
+      <button
   type="button"
   onClick={handleOpenFeed}
+  disabled={buttonLoading === "feed"}
   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg hover:shadow-cyan-500/20"
 >
+  {buttonLoading === "feed" ? (
+  <Loader2 className="h-4 w-4 animate-spin" />
+) : (
   <Globe className="h-4 w-4" />
-  View Feed XML
+)}
+{buttonLoading === "feed"
+  ? "Downloading..."
+  : "Feed XML"}
 </button>
           </div>
         </div>

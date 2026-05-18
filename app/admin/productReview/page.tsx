@@ -29,6 +29,7 @@ import {
   RefreshCw,
   ImageIcon,
   Video,
+  CloudCog,
 } from "lucide-react";
 import ExcelImportModal from "./ExcelImportModal";
 import { Upload } from "lucide-react";
@@ -204,6 +205,7 @@ const fetchReviews = useCallback(async () => {
 }
 
   const res = await productReviewsService.getAll(filters);
+  console.log("ressssssssssssss",res);
 
 if (res.data?.success) {
   const paged = res.data.data;

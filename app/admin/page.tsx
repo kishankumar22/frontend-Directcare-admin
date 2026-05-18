@@ -124,7 +124,7 @@ export default function AdminDashboard() {
     );
   }
 
-  const d = data!;
+const d = data ?? ({} as DashboardStats);
 
   return (
     <div className="space-y-2 p-1">
@@ -339,7 +339,7 @@ export default function AdminDashboard() {
                 <YAxis stroke="#64748b" fontSize={9} tick={{ fill: "#94a3b8" }} tickLine={false} axisLine={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "10px", color: "#fff", fontSize: 11 }}
-                  formatter={(v: any, n: string) => [
+                  formatter={(v: any, n?: string | number) => [
                     n === "revenue" ? formatCurrency(v) : v,
                     n === "revenue" ? "Revenue" : "Orders",
                   ]}
@@ -382,7 +382,7 @@ export default function AdminDashboard() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(v: number) => [`${v} orders`, "Count"]}
+                      formatter={(v: any) => [`${v} orders`, "Count"]}
                       contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#fff", fontSize: 11 }}
                     />
                   </PieChart>

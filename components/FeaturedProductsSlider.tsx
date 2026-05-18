@@ -417,6 +417,11 @@ export default function FeaturedProductsSlider({
           // Use vatRate directly from API response
           const vatRate: number | null = (product as any).vatRate ?? null;
 
+          const hasGenderBadge = !!(
+            product.gender &&
+            ["male", "female", "unisex"].includes(product.gender.toLowerCase())
+          );
+
           return (
             <SwiperSlide key={variantForCard?.id ?? product.id}>
 
@@ -451,7 +456,7 @@ export default function FeaturedProductsSlider({
                       {/* Offer badge — top right, smaller */}
                       {product.displayDiscountType === "System" &&
                         discountBadge && (
-                          <div className="absolute top-1 right-2 z-20">
+                          <div className={`absolute z-20 left-2 ${hasGenderBadge ? "top-12" : "top-1"}`}>
                             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
                               <div className="flex flex-col items-center leading-none">
                                 {discountBadge.type === "percent" ? (
@@ -471,7 +476,7 @@ export default function FeaturedProductsSlider({
                         )}
 
                       {!discountBadge && !hasActiveCoupon && oldPriceData && (
-                        <div className="absolute top-1 right-2 z-20">
+                        <div className={`absolute z-20 left-2 ${hasGenderBadge ? "top-12" : "top-1"}`}>
                           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
                             <div className="flex flex-col items-center leading-none">
                               <span className="text-[10px] sm:text-xs font-extrabold">
@@ -486,7 +491,7 @@ export default function FeaturedProductsSlider({
                       )}
                       {/* Coupon badge — top right, smaller */}
                       {!discountBadge && hasActiveCoupon && (
-                        <div className="absolute top-1 md:top-2 right-1 md:right-2 z-20">
+                        <div className={`absolute z-20 ${hasGenderBadge ? "top-12 left-2" : "top-1 md:top-2 left-1 md:left-2"}`}>
                           <div className="relative bg-gradient-to-br from-red-50 to-red-100 text-red-800 text-[10px] font-semibold px-2.5 py-0.5 rounded-md shadow-lg rotate-[-6deg] border border-red-200 leading-tight">
 
                             <div className="flex flex-col items-center text-center">
@@ -576,7 +581,7 @@ export default function FeaturedProductsSlider({
                         className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${(
                             product.displayDiscountType !== "None" ||
                             hasActiveCoupon
-                          ) ? "top-12" : "top-2"
+                          ) ? "top-2" : "top-2"
                           } ${isInWishlist(defaultVariant?.id ?? product.id)
                             ? "bg-red-50 border-red-200"
                             : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"

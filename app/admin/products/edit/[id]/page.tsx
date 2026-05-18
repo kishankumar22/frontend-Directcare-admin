@@ -2561,65 +2561,110 @@ const hasFormChanged = useCallback(() => {
       // ═══════════════════════════════════════
       // SECTION 7: PRICE VALIDATIONS (FIXED)
       // ═══════════════════════════════════════
+const parsedPrice = parseNumber(formData.price, 'price');
 
-      const parsedPrice = parseNumber(formData.price, 'price');
+const isVariableProduct =
+  formData.productType === 'variable';
 
-      // ✅ Only validate in FINAL SAVE (NOT draft)
-      if (!isDraft) {
+// ✅ Only validate in FINAL SAVE (NOT draft)
+if (!isDraft) {
 
-        if (parsedPrice === null) {
-          toast.error('⚠️ Please enter a valid price');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
+  // ✅ Skip ALL price validations for variable products
+  if (!isVariableProduct) {
 
-        // 🚨 PRICE MUST BE GREATER THAN 0
-        if (parsedPrice <= 0) {
-          toast.error('❌ Price must be greater than 0');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
+    if (parsedPrice === null) {
+      toast.error('⚠️ Please enter a valid price');
 
-        if (parsedPrice > 10000000) {
-          toast.error('⚠️ Price seems unusually high. Please verify.');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
-      }
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
 
-      // ✅ These can run for BOTH draft + publish (safe checks)
-      const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
-      const parsedCost = parseNumber(formData.cost, 'cost');
+      return;
+    }
 
-      if (parsedOldPrice !== null && parsedOldPrice < 0) {
-        toast.error('❌ Old price cannot be negative');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
+    // 🚨 PRICE MUST BE GREATER THAN 0
+    if (parsedPrice <= 0) {
+      toast.error('❌ Price must be greater than 0');
 
-      if (parsedOldPrice !== null && parsedPrice !== null && parsedOldPrice < parsedPrice) {
-        toast.warning('⚠️ Old price is less than current price. Strikethrough won\'t show.');
-      }
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
 
-      if (parsedCost !== null && parsedCost < 0) {
-        toast.error('❌ Cost price cannot be negative');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
+      return;
+    }
 
-      if (parsedCost !== null && parsedPrice !== null && parsedCost > parsedPrice) {
-        toast.warning('⚠️ Cost is higher than selling price. Profit will be negative.');
-      }
+    if (parsedPrice > 10000000) {
+      toast.error('⚠️ Price seems unusually high. Please verify.');
+
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+
+      return;
+    }
+  }
+}
+
+// ✅ These can run for BOTH draft + publish
+const parsedOldPrice = parseNumber(
+  formData.oldPrice,
+  'oldPrice'
+);
+
+const parsedCost = parseNumber(
+  formData.cost,
+  'cost'
+);
+
+// ✅ Skip old/cost validations for variable products
+if (!isVariableProduct) {
+
+  if (
+    parsedOldPrice !== null &&
+    parsedOldPrice < 0
+  ) {
+    toast.error('❌ Old price cannot be negative');
+
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+
+    return;
+  }
+
+  if (
+    parsedOldPrice !== null &&
+    parsedPrice !== null &&
+    parsedOldPrice < parsedPrice
+  ) {
+    toast.warning(
+      '⚠️ Old price is less than current price. Strikethrough won\'t show.'
+    );
+  }
+
+  if (
+    parsedCost !== null &&
+    parsedCost < 0
+  ) {
+    toast.error('❌ Cost price cannot be negative');
+
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+
+    return;
+  }
+
+  if (
+    parsedCost !== null &&
+    parsedPrice !== null &&
+    parsedCost > parsedPrice
+  ) {
+    toast.warning(
+      '⚠️ Cost is higher than selling price. Profit will be negative.'
+    );
+  }
+}
       // ✅ PROGRESS: 35% - Category/Brand Validation
       setSubmitProgress({
         step: 'Validating categories and brands...',
@@ -5217,6 +5262,7 @@ if (name === "recurringCyclePeriod") {
                       isVariableProduct={formData.productType === 'variable'}
                       onErrorChange={setSkuError}
                       onCheckingChange={setCheckingSku}
+
                     />
                     {/* ✅ Multiple Brands Selector - EDIT PAGE */}
 
@@ -6031,17 +6077,35 @@ if (name === "recurringCyclePeriod") {
 
                 <div className="grid md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Price (£)<span className="text-red-500">*</span>
-                    </label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
+  Price (£)
+  {formData.productType !== 'variable' && (
+    <span className="text-red-500 ml-1">*</span>
+  )}
+</label>
                     <input
                       type="number"
                       name="price"
-                      value={formData.price || ""}
+                      disabled={formData.productType === 'variable'}
+                      title={
+  formData.productType === 'variable'
+    ? "Variable   product  requirs price in variable tab  "
+    : ''
+}
+                      value={
+  formData.productType === 'variable'
+    ? ""
+    : formData.price
+}
                       onChange={handleChange}
                       placeholder="0.00"
                       step="0.01"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className={`w-full px-3 py-2 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 
+  focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all
+  ${formData.productType === 'variable'
+    ? 'opacity-50 cursor-not-allowed'
+    : ''
+}`}
                       required
                     />
                   </div>
