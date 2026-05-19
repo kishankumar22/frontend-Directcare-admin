@@ -148,16 +148,16 @@ const frequencyPresets: Record<string, string> = {
     }
 
     // ✅ File validations
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+  const ALLOWED_TYPES = ['image/webp','image/avif'];
 
     if (!ALLOWED_TYPES.includes(file.type)) {
-      toast.warning('⚠️ Unsupported image format (JPG, PNG, WebP only)');
+      toast.warning('⚠️ Unsupported image format (`WebP , Avif only)');
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      toast.warning('⚠️ Image size must be under 5MB');
+      toast.warning('⚠️ Image size must be under 2MB');
       return;
     }
 
@@ -4648,15 +4648,7 @@ if (name === "recurringCyclePeriod") {
   };
 
   // ✅ REPLACE existing handleImageUpload function:
-  const ALLOWED_TYPES = [
-    "image/webp",
-    "image/jpeg",
-    "image/jpg"
-  ];
-
-  // ✅ REPLACE existing handleImageUpload function:
-
-
+  const ALLOWED_TYPES = ['image/webp','image/avif'];
 
   const MAX_SIZE = 500 * 1024;     // 500 KB hard limit
   const WARN_SIZE = 300 * 1024;    // 300 KB recommended
@@ -4731,7 +4723,7 @@ if (name === "recurringCyclePeriod") {
     for (const file of Array.from(files)) {
       /* ================= FORMAT & MIME ================= */
       if (!ALLOWED_TYPES.includes(file.type)) {
-        toast.error(`❌ ${file.name}: Only WebP or JPG images allowed`);
+        toast.error(`❌ ${file.name}: Only WebP or Avif images allowed`);
         continue;
       }
 
@@ -4811,7 +4803,7 @@ if (name === "recurringCyclePeriod") {
       }));
 
       toast.success(
-        `✅ ${uploadedImages.length} image(s) uploaded successfully`
+        `✅ ${uploadedImages.length} image uploaded successfully`
       );
 
       if (fileInputRef.current) {
@@ -4883,9 +4875,9 @@ if (name === "recurringCyclePeriod") {
       return [];
     }
 
-    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    const MAX_FILE_SIZE = 2 * 1024 * 1024;
     const MAX_IMAGES = 10;
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const ALLOWED_TYPES = ['image/webp','image/avif'];
 
     const baseLength = formData.productImages.length;
 
@@ -4902,7 +4894,7 @@ if (name === "recurringCyclePeriod") {
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`⚠️ ${file.name} exceeds 5MB`);
+        toast.warning(`⚠️ ${file.name} exceeds 2MB`);
         return;
       }
 
@@ -4917,7 +4909,7 @@ if (name === "recurringCyclePeriod") {
     if (validFiles.length === 0) return [];
 
     /* =======================
-       BUILD SINGLE FORM DATA (BATCH UPLOAD)
+       BUILD SINGLE FORM DATA 
     ======================= */
 
     const uploadFormData = new FormData();
@@ -6077,7 +6069,7 @@ if (name === "recurringCyclePeriod") {
 
                 <div className="grid md:grid-cols-3 gap-4">
                   <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
+                <label className="block text-sm mb-2 font-semibold text-slate-700 dark:text-slate-200">
   Price (£)
   {formData.productType !== 'variable' && (
     <span className="text-red-500 ml-1">*</span>
@@ -7510,7 +7502,7 @@ if (name === "recurringCyclePeriod") {
                 <div>
                   <h3 className="text-lg font-semibold text-white">Product Images <span className="text-red-500">*</span></h3>
                   <p className="text-xs text-red-400">
-                    Upload product images (WebP or JPG). Recommended size under 300 KB, maximum 500 KB per image.
+                    Upload product images (WebP or Avif). Recommended size under 300 KB, maximum 500 KB per image.
                     Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
                   </p>
 

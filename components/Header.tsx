@@ -136,12 +136,23 @@ export default function Header({
   const [flattenedResults, setFlattenedResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const debouncedSearch = useDebounce(searchValue, 500);
+
   useEffect(() => {
-    if (!debouncedSearch || debouncedSearch.length < 3) {
+    if (searchValue.trim().length >= 3) {
+      setSearchLoading(true);
+      setShowSearchDropdown(true);
+    } else {
+      setSearchLoading(false);
+      setShowSearchDropdown(false);
       setResults([]);
       setFlattenedResults([]);
-      setShowSearchDropdown(false);
+    }
+  }, [searchValue]);
+
+  const debouncedSearch = useDebounce(searchValue, 500);
+
+  useEffect(() => {
+    if (!debouncedSearch || debouncedSearch.trim().length < 3) {
       return;
     }
     const controller = new AbortController();
@@ -163,12 +174,12 @@ export default function Header({
         setFlattenedResults(flattened);
 
         setShowSearchDropdown(true);
+        setSearchLoading(false);
       } catch (error: any) {
         if (error?.name !== "AbortError") {
           console.error("Search error:", error);
+          setSearchLoading(false);
         }
-      } finally {
-        setSearchLoading(false);
       }
     };
 
@@ -421,7 +432,7 @@ export default function Header({
             >
               <input
                 type="text"
-                placeholder="Search products..."
+              placeholder="Search products..."
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 onFocus={() =>
@@ -804,7 +815,7 @@ export default function Header({
                 <input
                   type="text"
                   autoFocus
-                  placeholder="Search products…"
+                placeholder="Search products (min 3 characters)..."
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   onFocus={() => results.length > 0 && setShowSearchDropdown(true)}

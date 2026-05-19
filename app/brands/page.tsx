@@ -64,7 +64,7 @@ export default async function BrandsPage() {
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-100">
 
       {/* ===== HERO HEADER ===== */}
-      <div className="bg-white border-b">
+      <div className="bg-white border-b p-2">
         <div className="max-w-7xl mx-auto px-4 pt-2 pb-2 text-center">
 
           <h1 className="text-3xl md:text-4xl font-semibold mb-0 tracking-tight">

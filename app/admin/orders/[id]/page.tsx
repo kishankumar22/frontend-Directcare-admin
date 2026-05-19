@@ -1800,6 +1800,32 @@ const allActions = getAllAvailableActions(
     </span>
   </div>
 )}
+
+{/* STRIPE FEES */}
+{(() => {
+  const stripePayment = order.payments?.find(p => p.stripeFee != null && p.stripeFee > 0);
+  if (!stripePayment) return null;
+  const netAfterFee = (stripePayment.netAmount ?? (stripePayment.amount - (stripePayment.stripeFee ?? 0)));
+  return (
+    <div className="mt-2 pt-2 border-t border-slate-700/60 space-y-1.5">
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-slate-400 flex items-center gap-1">
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Stripe Fee
+        </span>
+        <span className="text-xs text-red-400 font-medium">
+          -{formatCurrency(stripePayment.stripeFee ?? 0, order.currency)}
+        </span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-slate-400">Net Received</span>
+        <span className="text-xs text-green-400 font-semibold">
+          {formatCurrency(netAfterFee, order.currency)}
+        </span>
+      </div>
+    </div>
+  );
+})()}
             
           </div>
 

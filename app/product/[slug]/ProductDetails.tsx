@@ -39,6 +39,11 @@ import { getOldPriceDiscount } from "@/utils/pricing";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useCartActivity } from "@/context/CartContext";
 import { trackViewItem } from "@/lib/analytics";
+
+// Natural / numeric-aware sort so "1 Pack" < "3 Pack" < "6 Pack"
+const naturalSort = (a: string | undefined, b: string | undefined): number =>
+  (a ?? '').localeCompare(b ?? '', undefined, { numeric: true, sensitivity: 'base' });
+
 // ---------- Types ----------
 interface ProductImage {
   id: string;
@@ -70,7 +75,6 @@ interface Variant {
   displayDiscountType?: "None" | "OldPrice" | "System";
   freeShippingThreshold?: number;
   hasSystemDiscount?: boolean;
-
   systemDiscountAmount?: number;
 }
 interface AssignedDiscount {
@@ -2187,11 +2191,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     <div className="flex flex-wrap gap-2">
                       {[
                         ...new Set(
-                          [...(product.variants ?? [])]
-                            .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-                            .map(v => v.option1Value)
+                          (product.variants ?? []).map(v => v.option1Value)
                         ),
-                      ].map((opt) => (
+                      ].sort((a, b) => naturalSort(a, b)).map((opt) => (
                         <button
                           key={opt}
                           onClick={() => updateSelection(1, opt)}
@@ -2220,7 +2222,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                         product.variants
                           ?.filter(v => v.option1Value === selectedOptions.option1)
                           .map(v => v.option2Value)
-                      )].map((opt) => (
+                      )].sort((a, b) => naturalSort(a, b)).map((opt) => (
                         <button
                           key={opt}
                           onClick={() => updateSelection(2, opt)}
@@ -2249,13 +2251,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                             v.option1Value === selectedOptions.option1 &&
                             v.option2Value === selectedOptions.option2
                           )
-                          .filter(v =>
-                            v.option1Value === selectedOptions.option1 &&
-                            v.option2Value === selectedOptions.option2
-                          )
                           .map(v => v.option3Value)
-
-                      )].map((opt) => (
+                      )].sort((a, b) => naturalSort(a, b)).map((opt) => (
                         <button
                           key={opt}
                           onClick={() => updateSelection(3, opt)}

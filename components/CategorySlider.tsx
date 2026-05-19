@@ -87,17 +87,17 @@ slidesPerView={2.2}
 
 breakpoints={{
   480: {
-    slidesPerView: 2.8,
+    slidesPerView: 2,
     spaceBetween: 20,
   },
 
   640: {
-    slidesPerView: 3.5,
+    slidesPerView:3,
     spaceBetween: 22,
   },
 
   768: {
-    slidesPerView: 4.2,
+    slidesPerView: 4,
     spaceBetween: 24,
   },
 
@@ -125,7 +125,7 @@ breakpoints={{
           dynamicBullets: true,
         }}
         loop={categories.length > 5}
-        className="pb-12"
+        className="pt-4 pb-12"
       >
         {categories.map((category) => (
           <SwiperSlide key={category.id}>
@@ -138,17 +138,17 @@ breakpoints={{
               <div
                 className="
                   relative
-                w-[120px] h-[120px]
-sm:w-[135px] sm:h-[135px]
-md:w-[150px] md:h-[150px]
-lg:w-[165px] lg:h-[165px]
+                  w-[130px] h-[130px]
+                  sm:w-[145px] sm:h-[145px]
+                  md:w-[160px] md:h-[160px]
+                  lg:w-[180px] lg:h-[180px]
                   rounded-[24px]
                   overflow-hidden
-                  border border-gray-200/80
+                  border-2 border-slate-600
                   bg-white
                   shadow-[0_4px_14px_rgba(0,0,0,0.05)]
                   transition-all duration-300
-                  group-hover:border-[#445D41]/40
+                  group-hover:border-[#445D41]
                   group-hover:shadow-[0_10px_24px_rgba(68,93,65,0.12)]
                   group-hover:-translate-y-1
                 "
@@ -177,6 +177,7 @@ lg:w-[165px] lg:h-[165px]
                     transition-transform duration-500
                     group-hover:scale-105
                   "
+                  title={category.name}
                 />
               </div>
 

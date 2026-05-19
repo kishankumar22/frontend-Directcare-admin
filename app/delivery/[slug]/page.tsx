@@ -46,12 +46,13 @@ export default async function DeliveryPage({
   return (
     <div className="max-w-6xl mx-auto px-4 py-2">
 
-      {/* 🔥 HERO */}
-     <div className="mb-10 text-center">
-  <h1 className="text-xl md:text-3xl font-bold text-[#445D41]">
+{/* 🔥 HERO */}
+<div className="mb-10">
+  <h1 className="text-xl  text-center  p-2 md:text-3xl font-bold text-[#445D41]">
     {data.pageTitle}
   </h1>
-  <p className="text-gray-600 mt-2 text-lg max-w-2xl mx-auto">
+
+  <p className="text-gray-700 mt-2 p-2  text-md w-full">
     {data.pageSubtitle}
   </p>
 </div>
@@ -181,7 +182,7 @@ export default async function DeliveryPage({
 
           case "support":
             return (
-              <div key={i} className="border-t pt-6 mt-6">
+              <div key={i} className="border-t  py-6 mt-6">
                 <h2 className="text-xl font-bold mb-2">
                   {section.heading}
                 </h2>

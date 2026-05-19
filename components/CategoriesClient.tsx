@@ -149,14 +149,40 @@ const filteredCount = filteredCategories.length;
             <Link
               key={category.id}
               href={`/category/${category.slug}`}
-              className="group relative bg-white/70 backdrop-blur-sm rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-6 flex flex-col items-center justify-center"
+              className="group flex flex-col items-center text-center"
             >
+              {/* ===== IMAGE WRAPPER ===== */}
+              <div
+                className="
+                  relative
+                  w-[130px] h-[130px]
+                  sm:w-[145px] sm:h-[145px]
+                  md:w-[160px] md:h-[160px]
+                  lg:w-[180px] lg:h-[180px]
+                  rounded-[24px]
+                  overflow-hidden
+                  border-2 border-slate-600
+                  bg-white
+                  shadow-[0_4px_14px_rgba(0,0,0,0.05)]
+                  transition-all duration-300
+                  group-hover:border-[#445D41]
+                  group-hover:shadow-[0_10px_24px_rgba(68,93,65,0.12)]
+                  group-hover:-translate-y-1
+                "
+              >
+                {/* Soft overlay */}
+                <div
+                  className="
+                    absolute inset-0 z-10
+                    bg-gradient-to-t
+                    from-black/[0.03]
+                    to-transparent
+                    opacity-0
+                    group-hover:opacity-100
+                    transition-opacity duration-300
+                  "
+                />
 
-              {/* Glow Effect */}
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-green-50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300" />
-
-              {/* Image */}
-              <div className="relative w-[120px] h-[120px] md:w-[140px] md:h-[140px] flex items-center justify-center mb-5">
                 <img
                   src={
                     !category.imageUrl
@@ -166,25 +192,33 @@ const filteredCount = filteredCategories.length;
                       : `${baseUrl}${category.imageUrl}`
                   }
                   alt={category.name}
+                  loading="lazy"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
                   }}
-                  className="w-auto h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                  className="
+                    h-full w-full
+                    object-cover
+                    transition-transform duration-500
+                    group-hover:scale-105
+                  "
+                  title={category.name}
                 />
               </div>
 
-              {/* Parent path */}
-              {/* {getCategoryPath(category) && (
-                <span className="relative text-[10.5px] uppercase font-bold tracking-wider text-gray-400 text-center mb-1.5 line-clamp-1 px-2 group-hover:text-[#445D41]/75 transition">
-                  {getCategoryPath(category)}
-                </span>
-              )} */}
-
-              {/* Name */}
-              <h3 className="relative text-sm md:text-base font-semibold text-gray-900 text-center group-hover:text-[#445D41] transition">
+              {/* ===== TITLE ===== */}
+              <h3
+                className="
+                  mt-3
+                  text-sm md:text-base
+                  font-semibold
+                  text-gray-800
+                  group-hover:text-[#445D41]
+                  transition-colors duration-300
+                "
+              >
                 {category.name}
               </h3>
-
             </Link>
           ))}
 

@@ -112,11 +112,41 @@ const filteredCount = filteredBrands.length;
             <Link
               key={brand.id}
               href={`/brands/${brand.slug}`}
-              className="group relative bg-white/70 backdrop-blur-sm rounded-3xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 p-6 flex flex-col items-center justify-center"
+              className="group flex flex-col items-center text-center"
             >
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300" />
+              {/* ===== LOGO WRAPPER ===== */}
+              <div
+                className="
+                  relative
+                  w-[130px] h-[130px]
+                  sm:w-[145px] sm:h-[125px]
+                  md:w-[160px] md:h-[140px]
+                  lg:w-[180px] lg:h-[160px]
+                  rounded-[24px]
+                  overflow-hidden
+                  border-2 border-slate-600
+                  bg-white
+                  shadow-[0_4px_14px_rgba(0,0,0,0.05)]
+                  transition-all duration-300
+                  group-hover:border-[#445D41]
+                  group-hover:shadow-[0_10px_24px_rgba(68,93,65,0.12)]
+                  group-hover:-translate-y-1
+                  flex items-center justify-center px-4
+                "
+              >
+                {/* Soft overlay */}
+                <div
+                  className="
+                    absolute inset-0 z-10
+                    bg-gradient-to-t
+                    from-black/[0.03]
+                    to-transparent
+                    opacity-0
+                    group-hover:opacity-100
+                    transition-opacity duration-300
+                  "
+                />
 
-              <div className="relative w-[120px] h-[120px] md:w-[140px] md:h-[140px] flex items-center justify-center mb-5">
                 <img
                   src={
                     brand.logoUrl?.startsWith("http")
@@ -124,13 +154,29 @@ const filteredCount = filteredBrands.length;
                       : `${baseUrl}${brand.logoUrl}`
                   }
                   alt={brand.name}
-                  className="w-auto h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                />
+                  loading="lazy"
+                  className="
+                    max-h-[70%] max-w-[90%]
+                    object-contain
+                    transition-transform duration-500
+                    group-hover:scale-105
+                  "
+                   title={brand.name}                />
               </div>
 
-              <h3 className="relative text-sm md:text-base font-semibold text-gray-900 text-center group-hover:text-[#445D41] transition">
+              {/* ===== TITLE ===== */}
+              {/* <h3
+                className="
+                  mt-3
+                  text-sm md:text-base
+                  font-semibold
+                  text-gray-800
+                  group-hover:text-[#445D41]
+                  transition-colors duration-300
+                "
+              >
                 {brand.name}
-              </h3>
+              </h3> */}
             </Link>
           ))}
         </div>

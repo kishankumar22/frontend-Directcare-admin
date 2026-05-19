@@ -58,6 +58,7 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Monitor, // ✅ Added for Import/Export
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
@@ -95,6 +96,7 @@ const navigation: NavigationItem[] = [
     icon: TrendingUp,
     children: [
       { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
+      { name: 'Payments', href: '/admin/payments', icon: CreditCard },
       { name: 'Customers', href: '/admin/customers', icon: Users },
     ],
   },

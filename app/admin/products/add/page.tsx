@@ -1061,24 +1061,91 @@ setSubmitProgress({
   percentage: 20,
 });
 
-    // 1.5 PRICE VALIDATION
-    if (formData.price && parseFloat(formData.price.toString()) < 0) {
-      toast.error("Price cannot be negative.");
-      target.removeAttribute("data-submitting");
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 6: NUMBER PARSING HELPER
+    // ═══════════════════════════════════════════════════════════════════════
+    const parseNumber = (value: any, fieldName: string): number | null => {
+      if (value === null || value === undefined || value === '') return null;
+      const cleaned = String(value).trim().replace(/[^0-9.-]/g, '');
+      const parsed = parseFloat(cleaned);
+      if (isNaN(parsed)) {
+        console.warn(`⚠️ Invalid number for ${fieldName}:`, value);
+        return null;
+      }
+      return parsed;
+    };
+
+    // ✅ PROGRESS: 30% - Price Validation
+    setSubmitProgress({
+      step: 'Validating pricing...',
+      percentage: 30,
+    });
+
+    // ═══════════════════════════════════════
+    // SECTION 7: PRICE VALIDATIONS (FIXED)
+    // ═══════════════════════════════════════
+    const parsedPrice = parseNumber(formData.price, 'price');
+    const isVariableProduct = formData.productType === 'variable';
+
+    // ✅ Only validate in FINAL SAVE (NOT draft)
+    if (!isDraft) {
+      // ✅ Skip ALL price validations for variable products
+      if (!isVariableProduct) {
+        if (parsedPrice === null) {
+          toast.error('⚠️ Please enter a valid price');
+          target.removeAttribute("data-submitting");
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+
+        // 🚨 PRICE MUST BE GREATER THAN 0
+        if (parsedPrice <= 0) {
+          toast.error('❌ Price must be greater than 0');
+          target.removeAttribute("data-submitting");
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+
+        if (parsedPrice > 10000000) {
+          toast.error('⚠️ Price seems unusually high. Please verify.');
+          target.removeAttribute("data-submitting");
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+      }
     }
 
-    // 1.5 PRICE VALIDATION (REQUIRED FOR PUBLISH - skip for variable products)
-    if (!isDraft && formData.productType !== 'variable') {
-      const price = Number(formData.price);
-      if (isNaN(price) ) {
-        toast.error("Price is required");
+    // ✅ These can run for BOTH draft + publish
+    const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
+    const parsedCost = parseNumber(formData.cost, 'cost');
+
+    // ✅ Skip old/cost validations for variable products
+    if (!isVariableProduct) {
+      if (parsedOldPrice !== null && parsedOldPrice < 0) {
+        toast.error('❌ Old price cannot be negative');
         target.removeAttribute("data-submitting");
         setIsSubmitting(false);
         setSubmitProgress(null);
         return;
+      }
+
+      if (parsedOldPrice !== null && parsedPrice !== null && parsedOldPrice < parsedPrice) {
+        toast.warning("⚠️ Old price is less than current price. Strikethrough won't show.");
+      }
+
+      if (parsedCost !== null && parsedCost < 0) {
+        toast.error('❌ Cost price cannot be negative');
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
+
+      if (parsedCost !== null && parsedPrice !== null && parsedCost > parsedPrice) {
+        toast.warning('⚠️ Cost is higher than selling price. Profit will be negative.');
       }
     }
 
@@ -2643,8 +2710,8 @@ const uploadImagesToProduct = async (
   }
 
   const MAX_IMAGES = 10;
-  const MAX_FILE_SIZE = 1 * 1024 * 1024;
-  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  const MAX_FILE_SIZE = 2 * 1024 * 1024;
+   const ALLOWED_TYPES = ['image/webp','image/avif'];
 
   const uploadFormData = new FormData();
   let validImageCount = 0;
@@ -2670,9 +2737,9 @@ const uploadImagesToProduct = async (
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      toast.warning(`${file.name}: exceeds 1MB`);
+      toast.warning(`${file.name}: exceeds 2MB`);
       return;
-    }
+    } 
 
     if (validImageCount >= MAX_IMAGES) {
       toast.warning(`Maximum ${MAX_IMAGES} images allowed`);
@@ -2774,8 +2841,8 @@ const uploadVariantImages = async (productResponse: any) => {
       return;
     }
 
-    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+    const ALLOWED_TYPES = ['image/webp','image/avif'];
 
     console.log(`  Found ${createdVariants.length} variants in response`);
 
@@ -2806,7 +2873,7 @@ const uploadVariantImages = async (productResponse: any) => {
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`${file.name} exceeds 1MB`);
+        toast.warning(`${file.name} exceeds 2MB`);
         return null;
       }
 
@@ -4023,17 +4090,34 @@ useEffect(() => {
     <div className="grid md:grid-cols-3 gap-4">
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-2">
-          Price (£) <span className="text-red-500">*</span>
+          Price (£)
+          {formData.productType !== 'variable' && (
+            <span className="text-red-500 ml-1">*</span>
+          )}
         </label>
         <input
           type="number"
           name="price"
-          value={formData.price}
+          disabled={formData.productType === 'variable'}
+          title={
+            formData.productType === 'variable'
+              ? "Variable product requires price in variable tab"
+              : ''
+          }
+          value={
+            formData.productType === 'variable'
+              ? ""
+              : formData.price
+          }
           onChange={handleChange}
           placeholder="0.00"
           step="0.01"
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          required
+          className={`w-full px-3 py-2 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all
+            ${formData.productType === 'variable'
+              ? 'opacity-50 border-slate-800 cursor-not-allowed'
+              : 'border-slate-700'
+            }`}
+          required={formData.productType !== 'variable'}
         />
       </div>
 
