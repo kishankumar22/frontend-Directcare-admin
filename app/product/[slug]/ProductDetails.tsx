@@ -622,7 +622,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     if (!product?.variants || product.variants.length === 0) return;
 
     // current slug from URL
-    const currentSlug = pathname.split("/products/")[1];
+    const currentSlug = pathname.split("/product/")[1];
 
     if (!currentSlug) return;
 
@@ -708,7 +708,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   // Update URL WITHOUT re-triggering auto-select
   const updateVariantInUrl = useCallback(
     (variant: Variant) => {
-      const newPath = `/products/${variant.slug}`;
+      const newPath = `/product/${variant.slug}`;
       if (pathname !== newPath) {
         window.history.pushState(null, '', newPath);
       }
@@ -1157,7 +1157,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
   // Handlers
   const handleRelatedProductClick = useCallback((slug: string) => {
-    router.push(`/products/${slug}`);
+    router.push(`/product/${slug}`);
   }, [router]);
 
   const scrollSlider = useCallback((direction: 'left' | 'right') => {

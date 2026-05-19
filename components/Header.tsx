@@ -862,6 +862,9 @@ export default function Header({
                     product.images?.find((img: any) => img.isMain)?.imageUrl ||
                     product.images?.[0]?.imageUrl;
 
+                  const stockQty = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
+                  const isInStock = stockQty > 0;
+
                   return (
                     <Link
                       key={`${product.id}-${cardSlug}`}
@@ -983,15 +986,17 @@ export default function Header({
                       </div>
 
                       {/* STOCK */}
-                      {product.inStock ? (
-                        <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold flex-shrink-0">
-                          In Stock
-                        </span>
-                      ) : (
-                        <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold flex-shrink-0">
-                          Out
-                        </span>
-                      )}
+                      <div className="ml-auto flex-shrink-0 self-start">
+                        {isInStock ? (
+                          <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+                            In Stock
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold">
+                            Out of Stock
+                          </span>
+                        )}
+                      </div>
 
                     </Link>
                   );

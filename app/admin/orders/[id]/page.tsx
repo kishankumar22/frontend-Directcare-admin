@@ -69,9 +69,8 @@ import RefundHistorySection from '../RefundHistorySection';
 import EditHistorySection from '../EditHistorySection';
 import RefundModals from '../RefundModals';
 import PharmacyVerificationModal from '../PharmacyVerificationModal';
-
 import { API_BASE_URL } from '@/lib/api';
-import { getImageUrl, getOrderProductImage } from '../../_utils/formatUtils';
+import { getImageUrl} from '../../_utils/formatUtils';
 import PaymentModal from '../PaymentModal';
 
 // Types
@@ -2491,7 +2490,7 @@ const allActions = getAllAvailableActions(
             {/* IMAGE */}
             <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center">
               <img
-                src={getOrderProductImage(orderItem?.productImageUrl) || '/placeholder.png'}
+                src={getImageUrl(orderItem?.productImageUrl) || '/placeholder.png'}
                 alt={orderItem?.productName || 'Product'}
                 className="w-full h-full object-cover"
                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}

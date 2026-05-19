@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Navigation, Pagination } from "swiper/modules";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -16,7 +15,6 @@ interface Category {
   name: string;
   slug: string;
   imageUrl?: string | null;
-  
 }
 
 export default function CategorySlider({
@@ -26,45 +24,98 @@ export default function CategorySlider({
   categories: Category[];
   baseUrl: string;
 }) {
-  /* 🔐 SAFE IMAGE RESOLVER */
+
+  // ✅ SAFE IMAGE URL
   const getImageSrc = (imageUrl?: string | null) => {
     if (!imageUrl) return "/placeholder-category.png";
+
     return imageUrl.startsWith("http")
       ? imageUrl
       : `${baseUrl}${imageUrl}`;
   };
 
   return (
-    <div className="relative">
-      {/* ===== ARROWS ===== */}
+    <div className="relative w-full">
+
+      {/* ===== LEFT ARROW ===== */}
       <button
         id="catPrev"
-        className="hidden md:block absolute left-[-15px] top-[40%] -translate-y-1/2 z-30
-                   bg-white p-2 md:p-3 shadow-md rounded-full border"
+        className="
+          hidden xl:flex
+          absolute left-0 top-[38%]
+          -translate-y-1/2 z-30
+          w-11 h-11
+          items-center justify-center
+          rounded-full
+          border border-gray-200/80
+          bg-white/95
+          shadow-[0_4px_14px_rgba(0,0,0,0.08)]
+          hover:shadow-lg
+          hover:scale-105
+          transition-all duration-300
+        "
       >
-        <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
+        <ChevronLeft className="w-5 h-5 text-gray-700" />
       </button>
 
+      {/* ===== RIGHT ARROW ===== */}
       <button
         id="catNext"
-        className="hidden md:block absolute right-[-15px] top-[40%] -translate-y-1/2 z-30
-                   bg-white p-2 md:p-3 shadow-md rounded-full border"
+        className="
+          hidden xl:flex
+          absolute right-0 top-[38%]
+          -translate-y-1/2 z-30
+          w-11 h-11
+          items-center justify-center
+          rounded-full
+          border border-gray-200/80
+          bg-white/95
+          shadow-[0_4px_14px_rgba(0,0,0,0.08)]
+          hover:shadow-lg
+          hover:scale-105
+          transition-all duration-300
+        "
       >
-        <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+        <ChevronRight className="w-5 h-5 text-gray-700" />
       </button>
 
       {/* ===== SLIDER ===== */}
       <Swiper
         modules={[Navigation, Pagination, Autoplay]}
-        spaceBetween={16}
-        slidesPerView={2}
-        breakpoints={{
-          640: { slidesPerView: 2 },
-          768: { slidesPerView: 3 },
-          1024: { slidesPerView: 4 },
-          1280: { slidesPerView: 5 },
+spaceBetween={20}
+slidesPerView={2.2}
+
+breakpoints={{
+  480: {
+    slidesPerView: 2.8,
+    spaceBetween: 20,
+  },
+
+  640: {
+    slidesPerView: 3.5,
+    spaceBetween: 22,
+  },
+
+  768: {
+    slidesPerView: 4.2,
+    spaceBetween: 24,
+  },
+
+  1024: {
+    slidesPerView: 5,
+    spaceBetween: 26,
+  },
+
+  1280: {
+    slidesPerView: 6,
+    spaceBetween: 28,
+  },
+}}
+        autoplay={{
+          delay: 2600,
+          disableOnInteraction: false,
+          pauseOnMouseEnter: true,
         }}
-        autoplay={{ delay: 2500, disableOnInteraction: false, pauseOnMouseEnter: true }}
         navigation={{
           prevEl: "#catPrev",
           nextEl: "#catNext",
@@ -73,40 +124,78 @@ export default function CategorySlider({
           clickable: true,
           dynamicBullets: true,
         }}
-        loop
+        loop={categories.length > 5}
         className="pb-12"
       >
         {categories.map((category) => (
           <SwiperSlide key={category.id}>
-            <Link href={`/category/${category.slug}`}>
-              <Card
-                className="w-full h-[160px] md:h-[200px] lg:h-[230px] bg-white rounded-2xl
-                           shadow-[0_4px_20px_rgba(0,0,0,0.08)]
-                           hover:shadow-[0_6px_25px_rgba(0,0,0,0.12)]
-                           transition-all duration-300
-                           flex flex-col items-center justify-between py-3 md:py-6"
-              >
-                <CardContent className="p-0 w-full flex flex-col items-center justify-between h-full">
-                  {/* ===== IMAGE ===== */}
-                  <div
-                    className="w-[80px] h-[80px] md:w-[120px] md:h-[120px] lg:w-[140px] lg:h-[140px]
-                               flex items-center justify-center overflow-hidden"
-                  >
-                    <img
-                      src={getImageSrc(category.imageUrl)}
-                      alt={category.name}
-                      loading="lazy"
-                      className="h-full w-auto object-contain"
-                      style={{ objectPosition: "center" }}
-                    />
-                  </div>
+            <Link
+              href={`/category/${category.slug}`}
+              className="group flex flex-col items-center text-center"
+            >
 
-                  {/* ===== TITLE ===== */}
-                  <h3 className="font-semibold text-gray-900 text-xs md:text-sm text-center pb-1 md:pb-2 px-1 line-clamp-2">
-                    {category.name}
-                  </h3>
-                </CardContent>
-              </Card>
+              {/* ===== IMAGE WRAPPER ===== */}
+              <div
+                className="
+                  relative
+                w-[120px] h-[120px]
+sm:w-[135px] sm:h-[135px]
+md:w-[150px] md:h-[150px]
+lg:w-[165px] lg:h-[165px]
+                  rounded-[24px]
+                  overflow-hidden
+                  border border-gray-200/80
+                  bg-white
+                  shadow-[0_4px_14px_rgba(0,0,0,0.05)]
+                  transition-all duration-300
+                  group-hover:border-[#445D41]/40
+                  group-hover:shadow-[0_10px_24px_rgba(68,93,65,0.12)]
+                  group-hover:-translate-y-1
+                "
+              >
+
+                {/* Soft overlay */}
+                <div
+                  className="
+                    absolute inset-0 z-10
+                    bg-gradient-to-t
+                    from-black/[0.03]
+                    to-transparent
+                    opacity-0
+                    group-hover:opacity-100
+                    transition-opacity duration-300
+                  "
+                />
+
+                <img
+                  src={getImageSrc(category.imageUrl)}
+                  alt={category.name}
+                  loading="lazy"
+                  className="
+                    h-full w-full
+                    object-cover
+                    transition-transform duration-500
+                    group-hover:scale-105
+                  "
+                />
+              </div>
+
+              {/* ===== TITLE ===== */}
+              <h3
+                className="
+                  mt-3
+                  text-[13px] md:text-[15px]
+                  font-semibold
+                  leading-snug
+                  text-gray-900
+                  line-clamp-2
+                  transition-colors duration-300
+                  group-hover:text-[#445D41]
+                "
+              >
+                {category.name}
+              </h3>
+
             </Link>
           </SwiperSlide>
         ))}
