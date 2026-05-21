@@ -3,6 +3,7 @@
 
 import { extractFileName, deleteEditorImage, uploadEditorImage } from '@/lib/services/editorService';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTheme } from '@/app/admin/_context/theme-provider';
 
 interface SelfHostedTinyMCEProps {
   value: string;
@@ -31,6 +32,8 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   maxLength = Infinity,
   showCharCount = true
 }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const editorRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   const isUpdatingRef = useRef(false);
@@ -255,8 +258,8 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         
         toolbar: 'undo redo | formatselect | bold italic underline | alignleft aligncenter alignright | bullist numlist | link image deleteimage | removeformat code',
         
-        skin: 'oxide-dark',
-        content_css: 'dark',
+        skin: isDark ? 'oxide-dark' : 'oxide',
+        content_css: isDark ? 'dark' : 'default',
 
         // Paste settings - preserve formatting exactly as copied
         paste_as_text: false,
@@ -271,8 +274,8 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 14px; 
             line-height: 1.6;
-            color: #f1f5f9 !important;
-            background-color: #0f172a !important;
+            color: ${isDark ? '#f1f5f9' : '#1e293b'} !important;
+            background-color: ${isDark ? '#0f172a' : '#ffffff'} !important;
             margin: 0;
             padding: 12px 14px !important;
             min-height: ${height - 100}px;
@@ -281,18 +284,18 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           
           body:empty::before {
             content: "${placeholder}";
-            color: #ffffff;
+            color: ${isDark ? '#ffffff' : '#94a3b8'};
             opacity: 0.6;
           }
           
           * {
-            color: #f1f5f9 !important;
+            color: ${isDark ? '#f1f5f9' : '#1e293b'} !important;
           }
           
           p {
             margin: 0 0 0.8em 0;
             line-height: 1.6;
-            color: #e2e8f0 !important;
+            color: ${isDark ? '#e2e8f0' : '#334155'} !important;
             min-height: 1.4em;
           }
           
@@ -305,24 +308,24 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           }
           
           h1, h2, h3, h4, h5, h6 { 
-            color: #f8fafc !important; 
+            color: ${isDark ? '#f8fafc' : '#0f172a'} !important; 
             margin: 1em 0 0.5em 0;
             font-weight: 600;
             line-height: 1.4;
           }
           
           strong, b {
-            color: #f8fafc !important;
+            color: ${isDark ? '#f8fafc' : '#0f172a'} !important;
             font-weight: 600;
           }
           
           em, i {
-            color: #e2e8f0 !important;
+            color: ${isDark ? '#e2e8f0' : '#334155'} !important;
             font-style: italic;
           }
           
           u {
-            color: #e2e8f0 !important;
+            color: ${isDark ? '#e2e8f0' : '#334155'} !important;
             text-decoration: underline;
           }
           
@@ -336,13 +339,13 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           }
           
           ul, ol {
-            color: #e2e8f0 !important;
+            color: ${isDark ? '#e2e8f0' : '#334155'} !important;
             padding-left: 1.5em;
             margin: 0.6em 0;
           }
           
           li {
-            color: #e2e8f0 !important;
+            color: ${isDark ? '#e2e8f0' : '#334155'} !important;
             margin: 0.3em 0;
             line-height: 1.6;
           }
@@ -351,52 +354,52 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             border-collapse: collapse; 
             width: 100%; 
             margin: 0.8em 0;
-            background-color: #1e293b !important;
-            border: 1px solid #475569;
+            background-color: ${isDark ? '#1e293b' : '#f8fafc'} !important;
+            border: 1px solid ${isDark ? '#475569' : '#cbd5e1'};
           }
           
           th, td { 
-            border: 1px solid #475569; 
+            border: 1px solid ${isDark ? '#475569' : '#cbd5e1'}; 
             padding: 6px 10px;
             text-align: left; 
-            color: #e2e8f0 !important;
+            color: ${isDark ? '#e2e8f0' : '#334155'} !important;
           }
           
           th { 
-            background-color: #334155 !important; 
+            background-color: ${isDark ? '#334155' : '#e2e8f0'} !important; 
             font-weight: 600;
-            color: #f1f5f9 !important;
+            color: ${isDark ? '#f1f5f9' : '#0f172a'} !important;
           }
           
           code { 
-            background-color: #374151 !important; 
-            color: #fbbf24 !important; 
+            background-color: ${isDark ? '#374151' : '#f1f5f9'} !important; 
+            color: ${isDark ? '#fbbf24' : '#7c3aed'} !important; 
             padding: 2px 5px;
             border-radius: 4px;
             font-family: 'SF Mono', Monaco, Consolas, monospace;
           }
           
           pre {
-            background-color: #111827 !important;
-            color: #f3f4f6 !important;
+            background-color: ${isDark ? '#111827' : '#f8fafc'} !important;
+            color: ${isDark ? '#f3f4f6' : '#1e293b'} !important;
             padding: 12px;
             border-radius: 8px;
             overflow-x: auto;
-            border: 1px solid #374151;
+            border: 1px solid ${isDark ? '#374151' : '#cbd5e1'};
           }
           
           blockquote {
             border-left: 4px solid #8b5cf6;
             margin: 0.8em 0;
             padding: 0.4em 0.8em;
-            color: #cbd5e1 !important;
-            background-color: #334155 !important;
+            color: ${isDark ? '#cbd5e1' : '#475569'} !important;
+            background-color: ${isDark ? '#334155' : '#f1f5f9'} !important;
             border-radius: 0 8px 8px 0;
           }
           
           hr {
             border: none;
-            border-top: 2px solid #475569;
+            border-top: 2px solid ${isDark ? '#475569' : '#cbd5e1'};
             margin: 1.2em 0;
           }
           
@@ -721,8 +724,8 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             // ✅ Styling
             const container = editor.getContainer();
             if (container) {
-              container.style.backgroundColor = '#1e293b';
-              container.style.border = '1px solid #475569';
+              container.style.backgroundColor = isDark ? '#1e293b' : '#ffffff';
+              container.style.border = `1px solid ${isDark ? '#475569' : '#cbd5e1'}`;
               container.style.borderRadius = '12px';
               container.style.overflow = 'hidden';
               
@@ -734,8 +737,9 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                 header.style.alignItems = 'center';
                 header.style.gap = '4px';
                 header.style.padding = '2px 6px';
-                header.style.borderBottom = '1px solid #475569';
+                header.style.borderBottom = `1px solid ${isDark ? '#475569' : '#cbd5e1'}`;
                 header.style.minHeight = 'auto';
+                header.style.backgroundColor = isDark ? '#1e293b' : '#f8fafc';
               }
               
               const menubar = container.querySelector('.tox-menubar') as HTMLElement;
@@ -744,6 +748,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                 menubar.style.padding = '2px 4px';
                 menubar.style.minHeight = 'auto';
                 menubar.style.borderBottom = 'none';
+                menubar.style.backgroundColor = isDark ? '#1e293b' : '#f8fafc';
               }
               
               const toolbar = container.querySelector('.tox-toolbar__primary') as HTMLElement;
@@ -753,11 +758,14 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                 toolbar.style.gap = '2px';
                 toolbar.style.borderTop = 'none';
                 toolbar.style.minHeight = 'auto';
+                toolbar.style.backgroundColor = isDark ? '#1e293b' : '#f8fafc';
               }
               
               const statusbar = container.querySelector('.tox-statusbar') as HTMLElement;
               if (statusbar) {
                 statusbar.style.padding = '3px 8px';
+                statusbar.style.backgroundColor = isDark ? '#1e293b' : '#f8fafc';
+                statusbar.style.borderTop = `1px solid ${isDark ? '#475569' : '#cbd5e1'}`;
               }
               
               const mediaQuery = window.matchMedia('(max-width: 768px)');
@@ -771,7 +779,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                     
                     const menubar = container.querySelector('.tox-menubar') as HTMLElement;
                     if (menubar) {
-                      menubar.style.borderBottom = '1px solid #475569';
+                      menubar.style.borderBottom = `1px solid ${isDark ? '#475569' : '#cbd5e1'}`;
                     }
                   } else {
                     header.style.flexDirection = 'row';
@@ -805,7 +813,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
       }
       editorRef.current = null;
     };
-  }, [isMounted, editorId, placeholder, height, minLength, maxLength]);
+  }, [isMounted, editorId, placeholder, height, minLength, maxLength, theme]);
 
   // ✅ Handle external value changes (only from outside, NOT from editor itself)
   useEffect(() => {
@@ -842,10 +850,10 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
 
   if (!isMounted) {
     return (
-      <div className={`border border-slate-700 rounded-xl bg-slate-800/50 p-4 ${className}`} style={{ height: height + 50 }}>
+      <div className={`border ${isDark ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50'} rounded-xl p-4 ${className}`} style={{ height: height + 50 }}>
         <div className="flex items-center justify-center h-full">
-          <div className="flex items-center gap-2 text-violet-400">
-            <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+          <div className={`flex items-center gap-2 ${isDark ? 'text-violet-400' : 'text-violet-600'}`}>
+            <div className={`w-4 h-4 border-2 ${isDark ? 'border-violet-400' : 'border-violet-600'} border-t-transparent rounded-full animate-spin`}></div>
             <span>Initializing editor...</span>
           </div>
         </div>
@@ -855,38 +863,38 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
 
   const getCharCountColor = () => {
     if (minLength > 0 && charCount < minLength) {
-      return 'text-red-400';
+      return isDark ? 'text-red-400' : 'text-red-600';
     }
     if (maxLength !== Infinity) {
       const percentage = (charCount / maxLength) * 100;
-      if (percentage >= 95) return 'text-red-500';
-      if (percentage >= 90) return 'text-red-400';
-      if (percentage >= 75) return 'text-orange-400';
+      if (percentage >= 95) return isDark ? 'text-red-500' : 'text-red-600';
+      if (percentage >= 90) return isDark ? 'text-red-400' : 'text-red-500';
+      if (percentage >= 75) return isDark ? 'text-orange-400' : 'text-orange-600';
     }
-    return 'text-slate-400';
+    return isDark ? 'text-slate-400' : 'text-slate-500';
   };
 
   return (
     <div className={className}>
       {!isReady && (
         <div 
-          className="border border-slate-700 rounded-xl bg-slate-800/50 p-4 flex items-center justify-center" 
+          className={`border ${isDark ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50'} rounded-xl p-4 flex items-center justify-center`} 
           style={{ height: height }}
         >
-          <div className="flex items-center gap-2 text-violet-400">
-            <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+          <div className={`flex items-center gap-2 ${isDark ? 'text-violet-400' : 'text-violet-600'}`}>
+            <div className={`w-4 h-4 border-2 ${isDark ? 'border-violet-400' : 'border-violet-600'} border-t-transparent rounded-full animate-spin`}></div>
             <span>Loading editor...</span>
           </div>
         </div>
       )}
       
       <div
-        className="rounded-xl overflow-hidden border border-slate-700"
+        className={`rounded-xl overflow-hidden border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
         style={{
           visibility: isReady ? 'visible' : 'hidden',
           opacity: isReady ? 1 : 0,
           transition: 'opacity 0.3s ease',
-          backgroundColor: '#1e293b'
+          backgroundColor: isDark ? '#1e293b' : '#ffffff'
         }}
       >
         <textarea 
@@ -924,7 +932,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           
           {maxLength !== Infinity && (
             <div className="flex items-center gap-2">
-              <div className="w-28 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div className={`w-28 h-1.5 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-full overflow-hidden`}>
                 <div 
                   className={`h-full transition-all duration-300 ${
                     charCount >= maxLength 
@@ -940,7 +948,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                   style={{ width: `${Math.min((charCount / maxLength) * 100, 100)}%` }}
                 />
               </div>
-              <span className={`text-xs font-medium ${charCount >= maxLength ? 'text-red-500' : 'text-slate-500'}`}>
+              <span className={`text-xs font-medium ${charCount >= maxLength ? 'text-red-500' : isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 {Math.max(0, maxLength - charCount)} left
               </span>
             </div>
@@ -976,10 +984,12 @@ export const ProductDescriptionEditor = ({
   maxLength?: number;
   showCharCount?: boolean;
 }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   return (
     <div className={className}>
       {label && (
-        <label className="block text-sm font-medium text-slate-300 mb-2">
+        <label className={`block text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'} mb-2`}>
           {label} {required && <span className="text-red-400">*</span>}
         </label>
       )}
@@ -994,7 +1004,7 @@ export const ProductDescriptionEditor = ({
         showCharCount={showCharCount}
       />
       {showHelpText && (
-        <p className="text-xs text-slate-400 mt-1">
+        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} mt-1`}>
           {showHelpText}
         </p>
       )}

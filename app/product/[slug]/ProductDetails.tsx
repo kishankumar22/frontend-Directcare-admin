@@ -365,9 +365,6 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     );
   }
 
-  console.log("🧪 productType:", product.productType);
-  console.log("🧪 requireOtherProducts:", product.requireOtherProducts);
-  console.log("🧪 groupedProducts:", product.groupedProducts);
   const toast = useToast();
   const { addToCart, cart, cartActivity } = useCart();
 

@@ -815,7 +815,7 @@ export default function Header({
                 <input
                   type="text"
                   autoFocus
-                placeholder="Search products (min 3 characters)..."
+                placeholder="Search products ..."
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   onFocus={() => results.length > 0 && setShowSearchDropdown(true)}

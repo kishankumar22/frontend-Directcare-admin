@@ -69,7 +69,7 @@ import {
   CancellationDecisionModal,
 } from './CancellationRequestManager';
 
-import { formatNumber, getImageUrl, getOrderProductImage } from '../_utils/formatUtils';
+import { formatNumber, getImageUrl} from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
 import ImagePreviewModal from '../_components/ImagePreviewModal';
 import { scrollCls } from '../_utils/styles';

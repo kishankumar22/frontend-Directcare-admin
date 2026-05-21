@@ -90,7 +90,7 @@ export default async function BlogCategoryPage({
 }) {
   const { slug } = await params;
 
-  const postsUrl = `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false`;
+  const postsUrl = `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false&isDeleted=false`;
   const categoriesUrl = `${API_BASE}/api/BlogCategories?includeInactive=false&includeSubCategories=true`;
 
   const [postsResp, categoriesResp] = await Promise.all([

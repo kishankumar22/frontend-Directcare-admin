@@ -1,10 +1,10 @@
 // app/offers/[slug]/page.tsx
-export const revalidate = 1800;
+export const dynamic = 'force-dynamic';
 
 import { notFound } from "next/navigation";
 import DiscountProductsClient from "./DiscountProductsClient";
 import { ChevronRight, Clock, ShoppingBag, Tag, BadgePercent } from "lucide-react";
-import Link from "next/link";
+
 
 const PAGE_SIZE = 24;
 
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
   try {
-    const res = await fetch(`${baseUrl}/api/Discounts/by-slug/${slug}`, { next: { revalidate: 1800 } });
+    const res = await fetch(`${baseUrl}/api/Discounts/by-slug/${slug}`, { cache: 'no-store' });
     if (res.ok) {
       const json = await res.json();
       const d = json?.data;
@@ -53,7 +53,7 @@ export default async function DiscountProductsPage({ params, searchParams }: Pag
   // Fetch discount info by slug
   let discount: any = null;
   try {
-    const res = await fetch(`${baseUrl}/api/Discounts/by-slug/${slug}`, { next: { revalidate: 1800 } });
+    const res = await fetch(`${baseUrl}/api/Discounts/by-slug/${slug}`, { cache: 'no-store' });
     if (res.ok) {
       const json = await res.json();
       discount = json?.data ?? null;
@@ -74,7 +74,7 @@ export default async function DiscountProductsPage({ params, searchParams }: Pag
   let initialItems: any[] = [];
   let initialHasMore = false;
   try {
-    const res = await fetch(`${baseUrl}/api/Products/discounted?${productParams.toString()}`, { next: { revalidate: 1800 } });
+    const res = await fetch(`${baseUrl}/api/Products/discounted?${productParams.toString()}`, { cache: 'no-store' });
     if (res.ok) {
       const json = await res.json();
       const items = json?.data?.items ?? [];

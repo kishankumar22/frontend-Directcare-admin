@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -13,7 +15,7 @@ interface SearchParams {
   page?: string;
   pageSize?: string;
   discount?: string;
-   discountIds?: string;
+  discountIds?: string;
   subCategorySlug?: string;
   brands?: string;    // brand slugs, comma-separated  e.g. "acme,bandaid"
   price?: string;     // price range e.g. "10-100"
@@ -62,7 +64,7 @@ function findCategoryPath(
   return null;
 }
 
-/* ==================
+/* =====================
    Products Fetch
 ===================== */
 
@@ -78,7 +80,7 @@ async function getProducts(
     sortDirection = "asc",
     price,
     minRating,
-     discountIds,
+    discountIds,
   } = params;
 
   const query = new URLSearchParams({
@@ -86,14 +88,11 @@ async function getProducts(
     pageSize,
     sortBy,
     sortDirection,
-      // ✅ ADD THESE FILTERS
-  isPublished: "true",
-  isActive: "true",
-  isDeleted: "false",
   });
 
   if (categorySlug) query.set("categorySlug", categorySlug);
   if (brandIds)     query.set("brandIds", brandIds);
+  if (discountIds)  query.set("discountIds", discountIds);
 
   if (price) {
     const [min, max] = price.split("-");
@@ -102,9 +101,7 @@ async function getProducts(
   }
 
   if (minRating) query.set("minRating", minRating);
-if (discountIds) {
-  query.set("discountIds", discountIds);
-}
+
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
     { cache: "no-store" }
@@ -328,7 +325,7 @@ mainEntity: {
       initialSortBy={searchParamsResolved.sortBy || "name"}
       initialSortDirection={searchParamsResolved.sortDirection || "asc"}
       brands={category.brands ?? []}
-
+      vatRates={vatRatesRes.data || []}
       discount={discount}
     />
 

@@ -3,14 +3,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Star, BadgePercent, AwardIcon, PackageX, Heart } from "lucide-react";
+import { ShoppingCart, Star, BadgePercent, AwardIcon, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
-
-import { useWishlist } from "@/context/WishlistContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { getDiscountBadge, getDiscountedPrice } from "@/app/lib/discountHelpers";
-import { getOldPriceDiscount } from "@/utils/pricing";
+import { getVatRate } from "@/app/lib/vatHelpers";
 import GenderBadge from "./shared/GenderBadge";
 const FALLBACK_IMAGE = "/placeholder-product.jpg";
 import { useState, useRef } from "react";
@@ -18,10 +16,12 @@ import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useRouter } from "next/navigation";
 export default function ProductCard({
   product,
+  vatRates,
   variantForCard = null,
   cardSlug,
 }: {
   product: any;
+  vatRates: any[];
   variantForCard?: any | null;
   cardSlug: string;
 })
@@ -29,7 +29,6 @@ export default function ProductCard({
   const router = useRouter();
   const toast = useToast();
   const { addToCart, cart } = useCart();
-  const { isInWishlist, toggleWishlist } = useWishlist();
   const [showPharmaModal, setShowPharmaModal] = useState(false);
 
 // 🔁 resume add after modal
@@ -81,15 +80,6 @@ const defaultVariant =
 
   const finalPrice = getDiscountedPrice(product, basePrice);
   const discountBadge = getDiscountBadge(product);
-  // 🔥 NEW: oldPrice fallback logic
-const oldPriceValue =
-  defaultVariant?.oldPrice ?? product.oldPrice;
-
-const oldPriceData = getOldPriceDiscount(
-  finalPrice,
-  oldPriceValue,
-  !!discountBadge
-);
 // ---------- Active Coupon (indicator only) ----------
 const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
   if (!d.isActive) return false;
@@ -102,14 +92,12 @@ const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
   return true;
 });
 
-const hasGenderBadge = !!(
-  product.gender &&
-  ["male", "female", "unisex"].includes(product.gender.toLowerCase())
-);
-
   // ---------- VAT ----------
-  // Use vatRate directly from API response; fallback to null if not present
-  const vatRate: number | null = product.vatRate ?? null;
+  const vatRate = getVatRate(
+    vatRates,
+    product.vatRateId,
+    product.vatExempt
+  );
 
   // ---------- Stock ----------
   const stock =
@@ -192,32 +180,7 @@ const finalQty = getInitialQty(product);
     price: finalPrice,
     priceBeforeDiscount: basePrice,
     finalPrice,
-   discountAmount:
-  (
-    defaultVariant?.displayDiscountType ??
-    product.displayDiscountType
-  ) === "System"
-    ? +(basePrice - finalPrice).toFixed(2)
-    : 0,
-   oldPrice:
-  defaultVariant?.oldPrice ??
-  product.oldPrice ??
-  undefined,
-
-displayDiscountType:
-  defaultVariant?.displayDiscountType ??
-  product.displayDiscountType ??
-  "None",
-
-hasSystemDiscount:
-  defaultVariant?.hasSystemDiscount ??
-  product.hasSystemDiscount ??
-  false,
-
-systemDiscountAmount:
-  defaultVariant?.systemDiscountAmount ??
-  product.systemDiscountAmount ??
-  0,
+    discountAmount: basePrice - finalPrice,
     quantity: finalQty,
     image: mainImage,
     sku: defaultVariant?.sku ?? product.sku,
@@ -269,7 +232,7 @@ if (product.orderMinimumQuantity > 1) {
   return (
     <div className="group border border-gray-200 rounded-lg hover:shadow-xl transition-all bg-white">
       {/* IMAGE */}
-      <Link href={`/product/${cardSlug}`}>
+      <Link href={`/products/${cardSlug}`}>
         <div className="relative h-44 md:h-56 bg-white rounded-t-lg overflow-hidden">
           <Image
             src={mainImage}
@@ -281,8 +244,8 @@ if (product.orderMinimumQuantity > 1) {
           />
 <GenderBadge gender={product.gender} />
           {/* DISCOUNT BADGE — smaller */}
-         {product.displayDiscountType === "System" && discountBadge && (
-            <div className={`absolute z-20 left-2 ${hasGenderBadge ? "top-12" : "top-1"}`}>
+          {discountBadge && (
+            <div className="absolute top-2 right-2 z-20">
               <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
                 <div className="flex flex-col items-center leading-none">
                   <span className="text-[10px] md:text-xs font-extrabold">
@@ -294,146 +257,30 @@ if (product.orderMinimumQuantity > 1) {
             </div>
           )}
           {/* COUPON BADGE — smaller */}
-{!discountBadge && hasActiveCoupon && (
-  <div className={`absolute z-20 ${hasGenderBadge ? "top-12 left-2" : "top-1 md:top-2 left-1 md:left-2"}`}>
-    <div className="relative bg-gradient-to-br from-red-50 to-red-100 text-red-800 text-[10px] font-semibold px-2.5 py-0.5 rounded-md shadow-lg rotate-[-6deg] border border-red-200 leading-tight">
-
-      <div className="flex flex-col items-center text-center">
-        <span className="flex items-center gap-1 text-[9px]">
-          Coupon
-        </span>
-        <span className="text-[9px] opacity-90">
-          Available
-        </span>
-      </div>
-
-      {/* hole */}
-      <span className="absolute -top-1 left-2 w-2 h-2 bg-white border border-red-200 rounded-full shadow-inner"></span>
-
-      {/* string effect */}
-      <span className="absolute -top-3 left-[10px] w-[1px] h-3 bg-gray-300"></span>
-
-    </div>
-  </div>
-)}
-{/* 🔥 OLD PRICE BADGE */}
-{product.displayDiscountType === "OldPrice" &&
- !hasActiveCoupon &&
- oldPriceData && (
-  <div className={`absolute z-20 left-2 ${hasGenderBadge ? "top-12" : "top-1"}`}>
-    <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
-      <div className="flex flex-col items-center leading-none">
-        <span className="text-[10px] md:text-xs font-extrabold">
-          {oldPriceData.discount}%
-        </span>
-        <span className="text-[7px] md:text-[8px] font-semibold">
-          OFF
-        </span>
-      </div>
-    </div>
-  </div>
-)}
+          {!discountBadge && hasActiveCoupon && (
+            <div className="absolute top-2 right-2 z-20">
+              <div className="w-10 h-10 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+                <div className="flex flex-col items-center leading-none text-center px-0.5">
+                  <span className="text-[8px] font-extrabold leading-tight">COUPON</span>
+                  <span className="text-[7px] font-semibold leading-tight">Avail</span>
+                </div>
+              </div>
+            </div>
+          )}
           {/* VAT Relief — bottom left on image */}
-          {(product.vatExempt || product.vatRate === 0) && (
+          {product.vatExempt && (
             <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
               <BadgePercent className="h-2.5 w-2.5" />
               VAT Relief
             </span>
           )}
-          {/* ❤️ WISHLIST BUTTON */}
-<button
-  onClick={(e) => {
-    e.preventDefault();
-
-const wishlistId = defaultVariant?.id ?? product.id;
-const inWishlist = isInWishlist(wishlistId);
-
-toggleWishlist({
-  id: wishlistId,
-  productId: product.id,
-  variantId: defaultVariant?.id ?? null,
-
-  // ✅ MATCH CART EXACTLY
-  name: defaultVariant
-    ? `${product.name} (${[
-        defaultVariant.option1Value,
-        defaultVariant.option2Value,
-        defaultVariant.option3Value,
-      ]
-        .filter(Boolean)
-        .join(", ")})`
-    : product.name,
-
-  slug: cardSlug,
-  
-  price: finalPrice,
-priceBeforeDiscount: basePrice,
-finalPrice: finalPrice,
-discountAmount:
-  product.displayDiscountType === "System"
-    ? +(basePrice - finalPrice).toFixed(2)
-    : 0,
-appliedDiscountId: null,
-couponCode: null,
-oldPrice:
-  defaultVariant?.oldPrice ??
-  product.oldPrice ??
-  null,
-
-displayDiscountType:
-  product.displayDiscountType ?? "None",
-
-hasSystemDiscount:
-  product.hasSystemDiscount ?? false,
-
-systemDiscountAmount:
-  product.systemDiscountAmount ?? 0,
-  image: mainImage,
-
-  vatRate: vatRate ?? null,
-  vatExempt: product.vatExempt,
-
-  sku: defaultVariant?.sku ?? product.sku,
-
-  stockQuantity:
-    defaultVariant?.stockQuantity ??
-    product.stockQuantity ??
-    null,
-    productData: JSON.parse(JSON.stringify(product)),
-
-  // 🔥 OPTIONAL BUT IMPORTANT
-  orderMaximumQuantity: product.orderMaximumQuantity ?? null,
-  orderMinimumQuantity: product.orderMinimumQuantity ?? null,
-});
-
-    if (inWishlist) {
-      toast.error("Product removed from wishlist");
-    } else {
-      toast.success("Product added to wishlist!");
-    }
-  }}
-  className={`absolute z-20 right-2 top-2 p-1.5 rounded-full shadow-sm border transition-all
-    ${
-      isInWishlist(defaultVariant?.id ?? product.id)
-        ? "bg-red-50 border-red-200"
-        : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
-    }`}
->
-  <Heart
-    className={`h-4 w-4 transition-colors ${
-      isInWishlist(defaultVariant?.id ?? product.id)
-        ? "fill-red-500 text-red-500"
-        : "text-gray-400 hover:text-red-400"
-    }`}
-  />
-</button>
         </div>
       </Link>
 
       {/* CONTENT */}
       <div className="p-2 md:p-4">
         {/* TITLE */}
-        <Link href={`/product/${cardSlug}`}>
+        <Link href={`/products/${cardSlug}`}>
           <h3 className="font-semibold text-xs md:text-sm mb-1 line-clamp-2 hover:text-[#445D41] transition min-h-[32px] md:min-h-[40px]">
             {defaultVariant
               ? `${product.name} (${[
@@ -468,33 +315,17 @@ systemDiscountAmount:
 
         {/* PRICE */}
         <div className="flex items-center gap-1 md:gap-2 mb-1">
-          <span className="text-sm md:text-xl font-bold text-[#445D41]">
-         £{
-  (
-    product.displayDiscountType === "System"
-      ? finalPrice
-      : basePrice
-  ).toFixed(2)
-}
+          <span className="text-base md:text-xl font-bold text-[#445D41]">
+            £{finalPrice.toFixed(2)}
           </span>
-         {/* 🔥 CASE 1: REAL DISCOUNT */}
-{product.displayDiscountType === "System" && discountBadge && (
-  <span className="text-xs md:text-sm text-gray-400 line-through">
-    £{basePrice.toFixed(2)}
-  </span>
-)}
-
-{/* 🔥 CASE 2: OLD PRICE */}
-{product.displayDiscountType === "OldPrice" &&
- !hasActiveCoupon &&
- oldPriceData && (
-  <span className="text-xs md:text-sm text-gray-400 line-through">
-    £{oldPriceData.oldPrice.toFixed(2)}
-  </span>
-)}
-          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
-            <span className="text-[9px] md:text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-1 md:px-2 py-0.5 rounded-md whitespace-nowrap">
-              {vatRate}% VAT
+          {finalPrice < basePrice && (
+            <span className="text-sm text-gray-400 line-through">
+              £{basePrice.toFixed(2)}
+            </span>
+          )}
+          {!product.vatExempt && vatRate !== null && (
+            <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+              ({vatRate}% VAT)
             </span>
           )}
         </div>

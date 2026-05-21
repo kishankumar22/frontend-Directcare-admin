@@ -2,48 +2,16 @@
 import { Suspense } from 'react';
 import ProductClient from './ProductDetails';
 import { notFound } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
 
-interface ProductImage {
-  id: string;
-  imageUrl: string;
-  altText: string;
-  sortOrder: number;
-  isMain: boolean;
-}
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  shortDescription: string;
-  slug: string;
-  sku: string;
-  price: number;
-  oldPrice: number;
-  stockQuantity: number;
-  categoryName: string;
-  brandName: string;
-  manufacturerName: string;
-  images: ProductImage[];
-  averageRating: number;
-  reviewCount: number;
-  tags: string;
-  weight: number;
-  weightUnit: string;
-  specificationAttributes: string;
-  relatedProductIds: string;
-   crossSellProductIds: string; // ✅ ADD THIS
-}
-
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 async function getProduct(slug: string) {
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-slug/${slug}`,
       {
-        next: { revalidate: 3600 },
+        cache: 'no-store',
       }
     );
 

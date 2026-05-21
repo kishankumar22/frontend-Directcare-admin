@@ -100,7 +100,7 @@ export default async function BlogDetailPage({
 
   // RECENT POSTS
   const recentResp = await fetchJSON(
-    `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false`
+    `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false&isDeleted=false`
   );
   const allPosts = recentResp?.data ?? [];
   const now = new Date();

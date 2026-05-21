@@ -104,20 +104,45 @@ const handleSubscribe = async (e: React.FormEvent) => {
             </button>
             <div className={`text-sm opacity-90 mt-2 ${open.subscribe ? "block" : "hidden md:block"}`}>
               <p className="mb-3 text-sm">Enter your email to receive our latest updates about our products.</p>
-             <form
+<form
   onSubmit={handleSubscribe}
-  className="flex flex-col  sm:flex-row gap-2">
+  className="flex flex-col sm:flex-row gap-2 w-full"
+>
   <input
     type="email"
-    placeholder="Email address"
+    placeholder="Enter your email"
     value={email}
     onChange={(e) => setEmail(e.target.value)}
-    className="flex-1 p-1 rounded text-xs text-black min-w-0"
+    className="
+      w-full
+      h-10
+      px-3
+      rounded
+      text-xs sm:text-sm
+      text-black
+      outline-none
+      border border-transparent
+      focus:border-[#005625]
+      placeholder:text-xs
+    "
   />
+
   <button
     type="submit"
     disabled={loading}
-    className="bg-[#005625] text-white px-4 py-2 rounded text-sm whitespace-nowrap hover:bg-black transition disabled:opacity-60"
+    className="
+      w-full sm:w-auto
+      h-10
+      bg-[#005625]
+      text-white
+      px-4
+      rounded
+      text-sm
+      whitespace-nowrap
+      hover:bg-black
+      transition
+      disabled:opacity-60
+    "
   >
     {loading ? "Submitting..." : "Subscribe"}
   </button>

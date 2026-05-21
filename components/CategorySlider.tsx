@@ -42,7 +42,7 @@ export default function CategorySlider({
         id="catPrev"
         className="
           hidden xl:flex
-          absolute left-0 top-[38%]
+          absolute left-[-24px] top-[38%]
           -translate-y-1/2 z-30
           w-11 h-11
           items-center justify-center
@@ -63,7 +63,7 @@ export default function CategorySlider({
         id="catNext"
         className="
           hidden xl:flex
-          absolute right-0 top-[38%]
+          absolute right-[-24px] top-[38%]
           -translate-y-1/2 z-30
           w-11 h-11
           items-center justify-center

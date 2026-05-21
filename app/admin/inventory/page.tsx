@@ -683,20 +683,48 @@ export default function InventoryPage() {
                       </td>
                       <td className="p-2.5 text-center"><StockBadge qty={p.stockQuantity} /></td>
                       <td className="p-2.5 text-center">
-                        <input type="number" min={0} value={p.newStock} onChange={(e) => handleChange(p.id, undefined, "newStock", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newStock !== p.stockQuantity ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"}`} />
+                        {p.productType === "variable" ? (
+                          <span className="text-slate-500">—</span>
+                        ) : (
+                          <input type="number" min={0} value={p.newStock} onChange={(e) => handleChange(p.id, undefined, "newStock", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newStock !== p.stockQuantity ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"}`} />
+                        )}
                       </td>
-                      <td className="p-2.5 text-center"><span className="text-sm font-bold text-emerald-400">£{p.price.toFixed(2)}</span></td>
-                      <td className="p-2.5 text-center relative">
-                        <input type="number" min={0} step="0.01" value={p.newPrice} onChange={(e) => handleChange(p.id, undefined, "newPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newPrice !== p.price ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
-                        {rowLoading === p.id && <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 rounded-lg"><div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>}
+                      <td className="p-2.5 text-center">
+                        {p.productType === "variable" ? (
+                          <span className="text-slate-500">—</span>
+                        ) : (
+                          <span className="text-sm font-bold text-emerald-400">£{p.price.toFixed(2)}</span>
+                        )}
                       </td>
-                      <td className="p-2.5 text-center"><span className="text-sm text-slate-500 line-through">£{(p.oldPrice ?? 0).toFixed(2)}</span></td>
                       <td className="p-2.5 text-center relative">
-                        <input type="number" min={0} step="0.01" value={p.newOldPrice} onChange={(e) => handleChange(p.id, undefined, "newOldPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newOldPrice !== (p.oldPrice ?? 0) ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
-                        {priceInvalid && (
-                          <div className="absolute -top-1 right-0 translate-x-1/2 bg-red-600 text-white text-[8px] px-1 rounded shadow-lg z-10 font-bold" title="Old Price must be greater than New Price">
-                            ?
-                          </div>
+                        {p.productType === "variable" ? (
+                          <span className="text-slate-500">—</span>
+                        ) : (
+                          <>
+                            <input type="number" min={0} step="0.01" value={p.newPrice} onChange={(e) => handleChange(p.id, undefined, "newPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newPrice !== p.price ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
+                            {rowLoading === p.id && <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 rounded-lg"><div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>}
+                          </>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        {p.productType === "variable" ? (
+                          <span className="text-slate-500">—</span>
+                        ) : (
+                          <span className="text-sm text-slate-500 line-through">£{(p.oldPrice ?? 0).toFixed(2)}</span>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-center relative">
+                        {p.productType === "variable" ? (
+                          <span className="text-slate-500">—</span>
+                        ) : (
+                          <>
+                            <input type="number" min={0} step="0.01" value={p.newOldPrice} onChange={(e) => handleChange(p.id, undefined, "newOldPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newOldPrice !== (p.oldPrice ?? 0) ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
+                            {priceInvalid && (
+                              <div className="absolute -top-1 right-0 translate-x-1/2 bg-red-600 text-white text-[8px] px-1 rounded shadow-lg z-10 font-bold" title="Old Price must be greater than New Price">
+                                ?
+                              </div>
+                            )}
+                          </>
                         )}
                       </td>
                       <td className="p-2.5 text-center">{changed ? <button disabled={priceInvalid} onClick={() => updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice, newOldPrice: p.newOldPrice }])} className={`p-2 rounded-lg transition-colors ${priceInvalid ? "bg-slate-800 text-slate-600 cursor-not-allowed border-slate-700" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"}`} title={priceInvalid ? "Old Price must be > New Price" : "Save Changes"}><Save className="h-4 w-4" /></button> : <span className="text-slate-800">—</span>}</td>

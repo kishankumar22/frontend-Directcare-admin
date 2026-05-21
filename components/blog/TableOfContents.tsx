@@ -85,58 +85,92 @@ if (scrollContainer) {
 }
   };
 
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-5">
-        <List className="h-5 w-5 text-[#445D41]" />
+return (
+  <div
+    className="
+      rounded-2xl
+      border border-gray-200
+      bg-gradient-to-b from-white to-gray-50
+      p-4
+      shadow-sm
+    "
+  >
+    {/* HEADER */}
+    <div className="flex items-center gap-2.5 mb-3">
+      <div
+        className="
+          flex h-8 w-8 items-center justify-center
+          rounded-lg
+          border border-[#445D41]/15
+          bg-[#445D41]/8
+        "
+      >
+        <List className="h-4 w-4 text-[#445D41]" />
+      </div>
 
-        <h3 className="text-lg font-bold text-gray-900">
+      <div>
+        <h3 className="text-[15px] font-semibold text-gray-900 leading-none">
           Table of Contents
         </h3>
       </div>
-
-     <nav className="space-y-0.5">
-  {headings.map((heading) => {
-    const isSubHeading = heading.level === "h3";
-
-    return (
-      <button
-        key={heading.id}
-        onClick={() => handleScroll(heading.id)}
-        className={`
-          group flex items-start gap-2 w-full text-left
-          rounded-md px-2 py-1.5
-          transition-all duration-200
-          hover:bg-[#445D41]/8
-          hover:text-[#445D41]
-          ${
-            isSubHeading
-              ? "ml-4 text-[13px] text-gray-500"
-              : "text-[14px] font-medium text-gray-800"
-          }
-        `}
-      >
-        {/* Bullet */}
-        <span
-          className={`
-            mt-[7px] flex-shrink-0 rounded-full
-            transition-colors duration-200
-            ${
-              isSubHeading
-                ? "h-1.5 w-1.5 bg-gray-400 group-hover:bg-[#445D41]"
-                : "h-2 w-2 bg-[#445D41]"
-            }
-          `}
-        />
-
-        {/* Text */}
-        <span className="leading-5">
-          {heading.text}
-        </span>
-      </button>
-    );
-  })}
-</nav>
     </div>
-  );
+
+    {/* LIST */}
+    <nav className="space-y-1">
+      {headings.map((heading) => {
+        const isSubHeading =
+          heading.level === "h3";
+
+        return (
+          <button
+            key={heading.id}
+            onClick={() =>
+              handleScroll(heading.id)
+            }
+            className={`
+              group
+              flex items-start gap-2.5
+              w-full text-left
+              rounded-lg
+              px-2.5 py-2
+              transition-all duration-200
+              hover:bg-[#445D41]/6
+              ${
+                isSubHeading
+                  ? "ml-4 text-[13px] text-gray-500"
+                  : "text-[14px] font-medium text-gray-800"
+              }
+            `}
+          >
+            {/* DOT */}
+            <span
+              className={`
+                mt-[7px]
+                flex-shrink-0
+                rounded-full
+                transition-all duration-200
+                ${
+                  isSubHeading
+                    ? "h-1.5 w-1.5 bg-gray-400"
+                    : "h-2 w-2 bg-[#445D41]"
+                }
+              `}
+            />
+
+            {/* TEXT */}
+            <span
+              className="
+                leading-5
+                transition-colors duration-200
+                group-hover:text-[#445D41]
+              "
+            >
+              {heading.text}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  </div>
+);
 }

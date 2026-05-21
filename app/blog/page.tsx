@@ -53,7 +53,7 @@ function absoluteUrl(path?: string | null) {
 }
 
 export default async function BlogPage() {
-  const postsUrl = `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false`;
+  const postsUrl = `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false&isDeleted=false`;
   const categoriesUrl = `${API_BASE}/api/BlogCategories?includeInactive=false&includeSubCategories=true`;
 
   const [postsResp, categoriesResp] = await Promise.all([
