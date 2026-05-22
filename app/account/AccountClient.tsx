@@ -19,7 +19,7 @@ export default function AccountClient() {
   const fromCheckout = searchParams.get("from") === "checkout";
   const fromBuyNow = searchParams.get("from") === "buy-now";
   const { cart } = useCart();
-const { login, register, isAuthenticated, user, isReady } = useAuth();
+const { login, register, isAuthenticated, user, isReady, checkAuth } = useAuth();
 
 
   const [showPassword, setShowPassword] = useState(false);
@@ -145,11 +145,19 @@ const isValidPassword = (password: string) =>
 
     try {
       await login(loginEmail, loginPassword);
-   if (fromCheckout || fromBuyNow) {
-  router.replace("/checkout");
-} else {
-  router.replace("/account");
-}
+      await checkAuth();
+
+      const redirect = searchParams.get("redirect");
+      if (redirect) {
+        router.push(redirect);
+        return;
+      }
+
+      if (fromCheckout || fromBuyNow) {
+        router.replace("/checkout");
+      } else {
+        router.replace("/account");
+      }
 
 
 

@@ -24,73 +24,72 @@ export default function ProductCard({
   vatRates: any[];
   variantForCard?: any | null;
   cardSlug: string;
-})
- {
+}) {
   const router = useRouter();
   const toast = useToast();
   const { addToCart, cart } = useCart();
   const [showPharmaModal, setShowPharmaModal] = useState(false);
 
-// 🔁 resume add after modal
-const pharmaApprovedRef = useRef(false);
+  // 🔁 resume add after modal
+  const pharmaApprovedRef = useRef(false);
 
   // ---------- Variant ----------
-const defaultVariant =
-  variantForCard ??
-  product.variants?.find((v: any) => v.isDefault) ??
-  product.variants?.[0] ??
-  null;
+  const defaultVariant =
+    variantForCard ??
+    product.variants?.find((v: any) => v.isDefault) ??
+    product.variants?.[0] ??
+    null;
 
   // ---------- Image ----------
- const mainImage = (() => {
-  // 1️⃣ Default variant image
-  if (defaultVariant?.imageUrl) {
-    return defaultVariant.imageUrl.startsWith("http")
-      ? defaultVariant.imageUrl
-      : `${process.env.NEXT_PUBLIC_API_URL}${defaultVariant.imageUrl}`;
-  }
+  const mainImage = (() => {
+    // 1️⃣ Default variant image
+    if (defaultVariant?.imageUrl) {
+      return defaultVariant.imageUrl.startsWith("http")
+        ? defaultVariant.imageUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${defaultVariant.imageUrl}`;
+    }
 
-  // 2️⃣ Product main image (isMain === true)
-  const mainProductImage = product.images?.find(
-    (img: any) => img.isMain && img.imageUrl
-  );
-  if (mainProductImage?.imageUrl) {
-    return mainProductImage.imageUrl.startsWith("http")
-      ? mainProductImage.imageUrl
-      : `${process.env.NEXT_PUBLIC_API_URL}${mainProductImage.imageUrl}`;
-  }
+    // 2️⃣ Product main image (isMain === true)
+    const mainProductImage = product.images?.find(
+      (img: any) => img.isMain && img.imageUrl
+    );
+    if (mainProductImage?.imageUrl) {
+      return mainProductImage.imageUrl.startsWith("http")
+        ? mainProductImage.imageUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${mainProductImage.imageUrl}`;
+    }
 
-  // 3️⃣ Any product image
-  const anyImage = product.images?.find((img: any) => img.imageUrl);
-  if (anyImage?.imageUrl) {
-    return anyImage.imageUrl.startsWith("http")
-      ? anyImage.imageUrl
-      : `${process.env.NEXT_PUBLIC_API_URL}${anyImage.imageUrl}`;
-  }
+    // 3️⃣ Any product image
+    const anyImage = product.images?.find((img: any) => img.imageUrl);
+    if (anyImage?.imageUrl) {
+      return anyImage.imageUrl.startsWith("http")
+        ? anyImage.imageUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${anyImage.imageUrl}`;
+    }
 
-  // 4️⃣ Fallback
-  return FALLBACK_IMAGE;
-})();
+    // 4️⃣ Fallback
+    return FALLBACK_IMAGE;
+  })();
 
   // ---------- Pricing ----------
   const basePrice =
-  typeof defaultVariant?.price === "number" && defaultVariant.price > 0
-    ? defaultVariant.price
-    : product.price;
+    typeof defaultVariant?.price === "number" && defaultVariant.price > 0
+      ? defaultVariant.price
+      : product.price;
 
   const finalPrice = getDiscountedPrice(product, basePrice);
   const discountBadge = getDiscountBadge(product);
-// ---------- Active Coupon (indicator only) ----------
-const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
-  if (!d.isActive) return false;
-  if (!d.requiresCouponCode) return false;
+  // ---------- Active Coupon (indicator only) ----------
+  const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
+    if (!d.isActive) return false;
+    if (!d.requiresCouponCode) return false;
 
-  const now = new Date();
-  if (d.startDate && now < new Date(d.startDate)) return false;
-  if (d.endDate   && now > new Date(d.endDate))   return false;
+    const now = new Date();
+    if (d.startDate && now < new Date(d.startDate)) return false;
+    if (d.endDate && now > new Date(d.endDate)) return false;
 
-  return true;
-});
+    return true;
+  });
 
   // ---------- VAT ----------
   const vatRate = getVatRate(
@@ -104,135 +103,135 @@ const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
     defaultVariant?.stockQuantity ??
     product.stockQuantity ??
     0;
-// ---------- Loyalty Points (Product + Variant aware) ----------
-const loyaltyPoints = (() => {
-  if (product.excludeFromLoyaltyPoints) return null;
+  // ---------- Loyalty Points (Product + Variant aware) ----------
+  const loyaltyPoints = (() => {
+    if (product.excludeFromLoyaltyPoints) return null;
 
-  if (defaultVariant?.loyaltyPointsEarnable) {
-    return defaultVariant.loyaltyPointsEarnable;
-  }
+    if (defaultVariant?.loyaltyPointsEarnable) {
+      return defaultVariant.loyaltyPointsEarnable;
+    }
 
-  if (product.loyaltyPointsEarnable) {
-    return product.loyaltyPointsEarnable;
-  }
+    if (product.loyaltyPointsEarnable) {
+      return product.loyaltyPointsEarnable;
+    }
 
-  return null;
-})();
-const handlePharmaGuard = (): boolean => {
-  if (pharmaApprovedRef.current) return true;
+    return null;
+  })();
+  const handlePharmaGuard = (): boolean => {
+    if (pharmaApprovedRef.current) return true;
 
-  if (product.isPharmaProduct) {
-    setShowPharmaModal(true);
-    return false;
-  }
+    if (product.isPharmaProduct) {
+      setShowPharmaModal(true);
+      return false;
+    }
 
-  return true;
-};
-const getInitialQty = (product: any) => {
-  return product.orderMinimumQuantity ?? 1;
-};
+    return true;
+  };
+  const getInitialQty = (product: any) => {
+    return product.orderMinimumQuantity ?? 1;
+  };
 
 
   // ---------- Add to Cart ----------
- const handleAddToCart = () => {
-  if (product.disableBuyButton) return;
-  // 🔥 PHARMA GUARD
-  if (!handlePharmaGuard()) return;
-  const variantId = defaultVariant?.id ?? null;
+  const handleAddToCart = () => {
+    if (product.disableBuyButton) return;
+    // 🔥 PHARMA GUARD
+    if (!handlePharmaGuard()) return;
+    const variantId = defaultVariant?.id ?? null;
 
-const maxQty = product.orderMaximumQuantity ?? Infinity;
-const finalQty = getInitialQty(product);
+    const maxQty = product.orderMaximumQuantity ?? Infinity;
+    const finalQty = getInitialQty(product);
 
 
-  const existingCartQty = cart
-    .filter(
-      (c) =>
-        c.productId === product.id &&
-        (c.variantId ?? null) === variantId
-    )
-    .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+    const existingCartQty = cart
+      .filter(
+        (c) =>
+          c.productId === product.id &&
+          (c.variantId ?? null) === variantId
+      )
+      .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
 
-  const stockQty =
-    defaultVariant?.stockQuantity ??
-    product.stockQuantity ??
-    0;
+    const stockQty =
+      defaultVariant?.stockQuantity ??
+      product.stockQuantity ??
+      0;
 
-  const allowedMaxQty = Math.min(stockQty, maxQty);
+    const allowedMaxQty = Math.min(stockQty, maxQty);
 
-  // ⭐ BLOCK IF EXCEEDS
-  if (existingCartQty + finalQty > allowedMaxQty) {
-    toast.error(`Maximum allowed quantity is ${allowedMaxQty}`);
-    return;
-  }
+    // ⭐ BLOCK IF EXCEEDS
+    if (existingCartQty + finalQty > allowedMaxQty) {
+      toast.error(`Maximum allowed quantity is ${allowedMaxQty}`);
+      return;
+    }
 
-  addToCart({
-    id: `${variantId ?? product.id}-one`,
-    productId: product.id,
-    name: defaultVariant
-      ? `${product.name} (${[
+    addToCart({
+      id: `${variantId ?? product.id}-one`,
+      productId: product.id,
+      name: defaultVariant
+        ? `${product.name} (${[
           defaultVariant.option1Value,
           defaultVariant.option2Value,
           defaultVariant.option3Value,
         ]
           .filter(Boolean)
           .join(", ")})`
-      : product.name,
-    price: finalPrice,
-    priceBeforeDiscount: basePrice,
-    finalPrice,
-    discountAmount: basePrice - finalPrice,
-    quantity: finalQty,
-    image: mainImage,
-    sku: defaultVariant?.sku ?? product.sku,
-    variantId: variantId,
-    vatRate: vatRate,
-vatIncluded: vatRate !== null,
-   slug: cardSlug,
-    variantOptions: {
-      option1: defaultVariant?.option1Value ?? null,
-      option2: defaultVariant?.option2Value ?? null,
-      option3: defaultVariant?.option3Value ?? null,
-    },
-    shipSeparately: product.shipSeparately,
-    nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
-    sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
-    productData: JSON.parse(JSON.stringify(product)),
-  });
+        : product.name,
+      price: finalPrice,
+      priceBeforeDiscount: basePrice,
+      finalPrice,
+      discountAmount: basePrice - finalPrice,
+      quantity: finalQty,
+      image: mainImage,
+      sku: defaultVariant?.sku ?? product.sku,
+      variantId: variantId,
+      vatRate: vatRate,
+      vatIncluded: vatRate !== null,
+      slug: cardSlug,
+      variantOptions: {
+        option1: defaultVariant?.option1Value ?? null,
+        option2: defaultVariant?.option2Value ?? null,
+        option3: defaultVariant?.option3Value ?? null,
+      },
+      shipSeparately: product.shipSeparately,
+      nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+      sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
+      productData: JSON.parse(JSON.stringify(product)),
+    });
 
-  // ⭐ UX TOAST
-if (product.orderMinimumQuantity > 1) {
-  toast.warning(
-    `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
-  );
-} else {
- toast.success(
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-sm font-medium">
-        {product.name} added to cart!
-      </span>
+    // ⭐ UX TOAST
+    if (product.orderMinimumQuantity > 1) {
+      toast.warning(
+        `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
+      );
+    } else {
+      toast.success(
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium">
+            {product.name} added to cart!
+          </span>
 
-      <button
-  onClick={(e) => {
-    e.stopPropagation();
-    toast.clearAll();
-    router.push("/cart");
-  }}
-  className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
->
-  Cart→
-</button>
-    </div>
-  );
-}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toast.clearAll();
+              router.push("/cart");
+            }}
+            className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
+          >
+            Cart→
+          </button>
+        </div>
+      );
+    }
 
 
-};
+  };
 
 
   return (
     <div className="group border border-gray-200 rounded-lg hover:shadow-xl transition-all bg-white">
       {/* IMAGE */}
-      <Link href={`/products/${cardSlug}`}>
+      <Link href={`/product/${cardSlug}`}>
         <div className="relative h-44 md:h-56 bg-white rounded-t-lg overflow-hidden">
           <Image
             src={mainImage}
@@ -242,7 +241,7 @@ if (product.orderMinimumQuantity > 1) {
             className="object-contain p-2 group-hover:scale-110 transition-transform duration-300"
             loading="lazy"
           />
-<GenderBadge gender={product.gender} />
+          <GenderBadge gender={product.gender} />
           {/* DISCOUNT BADGE — smaller */}
           {discountBadge && (
             <div className="absolute top-2 right-2 z-20">
@@ -280,16 +279,16 @@ if (product.orderMinimumQuantity > 1) {
       {/* CONTENT */}
       <div className="p-2 md:p-4">
         {/* TITLE */}
-        <Link href={`/products/${cardSlug}`}>
+        <Link href={`/product/${cardSlug}`}>
           <h3 className="font-semibold text-xs md:text-sm mb-1 line-clamp-2 hover:text-[#445D41] transition min-h-[32px] md:min-h-[40px]">
             {defaultVariant
               ? `${product.name} (${[
-                  defaultVariant.option1Value,
-                  defaultVariant.option2Value,
-                  defaultVariant.option3Value,
-                ]
-                  .filter(Boolean)
-                  .join(", ")})`
+                defaultVariant.option1Value,
+                defaultVariant.option2Value,
+                defaultVariant.option3Value,
+              ]
+                .filter(Boolean)
+                .join(", ")})`
               : product.name}
           </h3>
         </Link>
@@ -331,54 +330,53 @@ if (product.orderMinimumQuantity > 1) {
         </div>
 
         {/* ADD TO CART */}
-<Button
-  onClick={handleAddToCart}
-  disabled={stock === 0 || product.disableBuyButton === true}
-  className={`mt-1 w-full
-    ${
-      stock === 0
-        ? "bg-red-700 text-white cursor-not-allowed"
-        : "bg-[#445D41] hover:bg-[#334a2c] text-white"
-    }`}
->
-  {stock > 0 ? (
-    <ShoppingCart className="mr-2 h-4 w-4" />
-  ) : (
-    <PackageX className="mr-2 h-4 w-4" />
-  )}
+        <Button
+          onClick={handleAddToCart}
+          disabled={stock === 0 || product.disableBuyButton === true}
+          className={`mt-1 w-full
+    ${stock === 0
+              ? "bg-red-700 text-white cursor-not-allowed"
+              : "bg-[#445D41] hover:bg-[#334a2c] text-white"
+            }`}
+        >
+          {stock > 0 ? (
+            <ShoppingCart className="mr-2 h-4 w-4" />
+          ) : (
+            <PackageX className="mr-2 h-4 w-4" />
+          )}
 
-  {stock > 0 ? "Add to Cart" : "Out of Stock"}
-</Button>
+          {stock > 0 ? "Add to Cart" : "Out of Stock"}
+        </Button>
 
       </div>
       {showPharmaModal && (
-  <PharmaQuestionsModal
-    open={showPharmaModal}
-    productId={product.id}
-    mode="add"
-    onClose={() => {
-      setShowPharmaModal(false);
-    }}
-    onSuccess={(messageFromBackend) => {
-      // 🔒 approve once
-      pharmaApprovedRef.current = true;
+        <PharmaQuestionsModal
+          open={showPharmaModal}
+          productId={product.id}
+          mode="add"
+          onClose={() => {
+            setShowPharmaModal(false);
+          }}
+          onSuccess={(messageFromBackend) => {
+            // 🔒 approve once
+            pharmaApprovedRef.current = true;
 
-      
 
-      setShowPharmaModal(false);
 
-      // 🔁 resume add-to-cart
-      handleAddToCart();
+            setShowPharmaModal(false);
 
-      // reset for next click
-      setTimeout(() => {
-        pharmaApprovedRef.current = false;
-      }, 0);
-    }}
-  />
-)}
+            // 🔁 resume add-to-cart
+            handleAddToCart();
+
+            // reset for next click
+            setTimeout(() => {
+              pharmaApprovedRef.current = false;
+            }, 0);
+          }}
+        />
+      )}
 
     </div>
-    
+
   );
 }

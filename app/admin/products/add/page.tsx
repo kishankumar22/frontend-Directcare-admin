@@ -4121,19 +4121,56 @@ useEffect(() => {
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Old Price (£)</label>
-        <input
-          type="number"
-          name="oldPrice"
-          value={formData.oldPrice}
-          onChange={handleChange}
-          placeholder="0.00"
-          step="0.01"
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-        <p className="text-xs text-slate-400 mt-1">Shows as strikethrough</p>
-      </div>
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Old Price (£)
+    {formData.productType !== 'variable' && (
+      <span className="text-red-500 ml-1">*</span>
+    )}
+  </label>
+
+  <input
+    type="number"
+    name="oldPrice"
+    disabled={formData.productType === 'variable'}
+    title={
+      formData.productType === 'variable'
+        ? "Variable product requires old price in variable tab"
+        : ''
+    }
+    value={
+      formData.productType === 'variable'
+        ? ""
+        : formData.oldPrice
+    }
+    onChange={handleChange}
+    placeholder="0.00"
+    step="0.01"
+    className={`
+      w-full px-3 py-2
+      bg-slate-800/50
+      border rounded-xl
+      text-white
+      placeholder-slate-500
+
+      focus:ring-2
+      focus:ring-violet-500
+      focus:border-transparent
+      transition-all
+
+      ${
+        formData.productType === 'variable'
+          ? 'opacity-50 border-slate-800 cursor-not-allowed'
+          : 'border-slate-700'
+      }
+    `}
+    required={formData.productType !== 'variable'}
+  />
+
+  <p className="text-xs text-slate-400 mt-1">
+    Shows as strikethrough
+  </p>
+</div>
 
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost (  £)</label>

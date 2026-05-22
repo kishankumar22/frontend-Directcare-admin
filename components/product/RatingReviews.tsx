@@ -7,6 +7,7 @@ import { useToast } from "@/components/toast/CustomToast";
 import { timeFromNow } from "@/lib/date";
 import Image from "next/image";
 import { Filter, ChevronDown, CheckCircle2, UploadCloud, MessageSquare, MessageSquarePlus, Edit3, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // 🔹 SWIPER
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -50,6 +51,7 @@ export interface Review {
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
 export default function RatingReviews({ productId, allowCustomerReviews, highlightReviewId }: RatingReviewsProps) {
+  const router = useRouter();
   const [swiperInstance, setSwiperInstance] = useState<any>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const recentReviews = useMemo(() => {
@@ -83,6 +85,8 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
   // upload loading
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState(false);
+  const { isAuthenticated, accessToken } = useAuth();
+  const toast = useToast();
   const handleImageSelect = (files: FileList | null) => {
     if (!files) return;
     const selected = Array.from(files);
@@ -180,7 +184,8 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
     [videoFiles]
   );
   useEffect(() => {
-    const raw = sessionStorage.getItem("pendingReviewDraft");
+    if (!isAuthenticated) return;
+    const raw = sessionStorage.getItem("pendingReview");
     if (!raw) return;
 
     try {
@@ -189,22 +194,19 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
       // 🔒 safety: wrong product ka draft ignore
       if (data.productId !== productId) return;
 
-      setRating(data.rating ?? 0);
-      setTitle(data.title ?? "");
-      setComment(data.comment ?? "");
+      const reviewData = data?.reviewData ?? {};
+      setRating(reviewData.rating ?? 0);
+      setTitle(reviewData.title ?? "");
+      setComment(reviewData.comment ?? "");
 
       // cleanup so it doesn't re-apply
-      sessionStorage.removeItem("pendingReviewDraft");
+      sessionStorage.removeItem("pendingReview");
 
-      // auto scroll to review form
-      setTimeout(() => {
-        const el = document.getElementById("reviews-section");
-        el?.scrollIntoView({ behavior: "instant" });
-      }, 300);
+      // restore only (no auto submit)
     } catch {
-      sessionStorage.removeItem("pendingReviewDraft");
+      sessionStorage.removeItem("pendingReview");
     }
-  }, [productId]);
+  }, [isAuthenticated, productId]);
 
   // cleanup (IMPORTANT)
   useEffect(() => {
@@ -219,8 +221,6 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
   const [sortBy, setSortBy] = useState<"recent" | "high" | "low">("recent");
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
 
-  const { isAuthenticated, accessToken } = useAuth();
-  const toast = useToast();
   const validateField = (field: "title" | "comment", value: string) => {
     setErrors((prev) => ({
       ...prev,
@@ -253,20 +253,23 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
     if (!isAuthenticated) {
       // 🔥 SAVE TEXT-ONLY DRAFT
       sessionStorage.setItem(
-        "pendingReviewDraft",
+        "pendingReview",
         JSON.stringify({
           productId,
-          productSlug: window.location.pathname.split("/product/")[1],
-          rating,
-          title,
-          comment,
+          reviewData: {
+            rating,
+            title,
+            comment,
+          },
         })
       );
 
       toast.info("Please login to submit your review");
 
       // 🔁 redirect to login with return hint
-      window.location.href = `/account?from=review&productId=${productId}`;
+      router.push(
+        `/account/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      );
       return;
     }
 
@@ -311,7 +314,7 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
       setRating(0);
       setTitle("");
       setComment("");
-      sessionStorage.removeItem("pendingReviewDraft");
+      sessionStorage.removeItem("pendingReview");
 
       setImageFiles([]);
       setVideoFiles([]);
@@ -751,4 +754,3 @@ export function getRecentApprovedReviews(reviews: Review[]) {
     .filter((r) => r.comment?.trim().length > 0)
     .slice(0, 3);
 }
-

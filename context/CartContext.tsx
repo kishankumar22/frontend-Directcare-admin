@@ -31,9 +31,12 @@ export interface CartItem {
   id: string;            // variant id OR product id (frontend key)
   backendId?: string;    // DB GUID returned after save
   productId?: string;
+  oldPrice?: number | null;
   name: string;
   price: number;
   priceBeforeDiscount?: number;
+  displayDiscountType?: "None" | "OldPrice" | "System";
+  systemDiscountAmount?: number;
   finalPrice?: number;
   discountAmount?: number;
   appliedDiscountId?: string | null;
@@ -49,6 +52,7 @@ export interface CartItem {
     option3?: string | null;
   };
   type?: "one-time" | "subscription";
+  hasSystemDiscount?: boolean;
   frequency?: number | string | null;
   frequencyPeriod?: string | null;
   subscriptionTotalCycles?: number | null;

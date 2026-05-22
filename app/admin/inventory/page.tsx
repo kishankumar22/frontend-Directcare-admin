@@ -7,6 +7,8 @@ import {
   ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
   Package, AlertTriangle, CheckCircle2, Save, X, RefreshCcw,
   TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { productsService } from "@/lib/services";
@@ -656,7 +658,48 @@ export default function InventoryPage() {
                               <a href={`/product/${p.variants?.[0]?.slug || p.slug}`} target="_blank" rel="noopener noreferrer" className="group block" title={p.name}>
                                 <p className="truncate text-sm font-semibold text-white transition-colors group-hover:text-cyan-400 max-w-[300px] lg:max-w-[550px]">{p.name}</p>
                               </a>
-                              {(p.variants?.length ?? 0) > 0 && <button onClick={() => toggleExpand(p.id)} className="w-5 h-5 rounded bg-slate-800 hover:bg-slate-700 text-white text-xs border border-slate-700 flex items-center justify-center">{expandedRows.has(p.id) ? "−" : "+"}</button>}
+                           {(p.variants?.length ?? 0) > 0 && (
+  <button
+    onClick={() => toggleExpand(p.id)}
+    title={
+      expandedRows.has(p.id)
+        ? "Hide Product"
+        : "Show Product"
+    }
+    className="
+      inline-flex items-center gap-1
+      h-7 px-2
+      rounded-lg
+
+      border border-slate-200
+      bg-white
+      hover:bg-slate-50
+
+      dark:bg-slate-800
+      dark:border-slate-700
+      dark:hover:bg-slate-700
+
+      text-[10px] font-medium
+      text-slate-700
+      dark:text-slate-200
+
+      transition-all duration-200
+      shadow-sm
+    "
+  >
+    {expandedRows.has(p.id) ? (
+      <>
+        <ChevronUp className="w-3.5 h-3.5" />
+        Hide
+      </>
+    ) : (
+      <>
+        <ChevronDown className="w-3.5 h-3.5" />
+        Show
+      </>
+    )}
+  </button>
+)}
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               {p.brandName && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/10 text-violet-300 border border-violet-500/20">{p.brandName}</span>}

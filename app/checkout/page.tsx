@@ -12,6 +12,7 @@ import { Gift, ShoppingBag } from "lucide-react";
 import SavedAddressesSection from "@/components/checkout/SavedAddressesSection";
 import LoyaltyRedemptionBox from "@/components/checkout/LoyaltyRedemptionBox";
 import { getPharmaSessionId } from "@/app/lib/pharmaSession";
+import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo } from "@/lib/analytics";
 // ---------- Types ----------
 type AddressSuggestion = {
   id: string;
@@ -350,6 +351,22 @@ useEffect(() => {
 useEffect(() => {
   console.log("CHECK ITEMS", checkoutItems);
 }, [checkoutItems]);
+const hasTrackedBeginCheckout = useRef(false);
+useEffect(() => {
+  if (!hasTrackedBeginCheckout.current && checkoutItems.length > 0) {
+    hasTrackedBeginCheckout.current = true;
+    trackBeginCheckout(checkoutItems);
+  }
+}, [checkoutItems]);
+useEffect(() => {
+  if (selectedShippingOption && checkoutItems.length > 0) {
+    trackAddShippingInfo(
+      checkoutItems,
+      selectedShippingOption.displayName ?? selectedShippingOption.name ?? "Standard",
+      selectedShippingOption.price ?? 0
+    );
+  }
+}, [selectedShippingOption]);
 // 🔥 PHARMA CHECK
 const hasPharmaProduct = useMemo(() => {
   return checkoutItems.some(
@@ -1634,6 +1651,7 @@ if (!intentJson?.data?.clientSecret) {
 }
       setStripeOrderId(orderId);
       setStripeClientSecret(intentJson.data.clientSecret);
+      trackAddPaymentInfo(checkoutItems, "stripe");
       setIsPlacing(false);
     }}
    className={`w-full py-2 text-sm rounded transition flex items-center justify-center gap-2 ${

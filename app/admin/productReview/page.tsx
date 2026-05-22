@@ -751,7 +751,7 @@ const isPlayableVideoUrl = (url: string) => {
               className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-1.5 font-medium text-xs transition-all"
             >
               <Upload className="h-3.5 w-3.5" />
-              Import
+              Import Reviews
             </button>
             <div className="relative">
               <button
@@ -759,7 +759,7 @@ const isPlayableVideoUrl = (url: string) => {
                  onClick={() => handleExportReviews('all')}
               >
                 <Download className="h-3.5 w-3.5" />
-                Export
+                Export Reviews
         
               </button>
          

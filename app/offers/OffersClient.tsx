@@ -450,6 +450,7 @@ return result;
     product={item.productData}
     variantForCard={item.variantForCard}
     cardSlug={item.cardSlug}
+   vatRates={vatRates}
   />
 ))}
 

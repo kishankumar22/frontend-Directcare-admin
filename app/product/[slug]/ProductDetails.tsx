@@ -366,7 +366,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   }
 
   const toast = useToast();
-  const { addToCart, cart, cartActivity } = useCart();
+  const { addToCart, cart } = useCart();
 
   const router = useRouter();
   useCartActivity(product.id);
@@ -2119,7 +2119,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             </div>
 
             {/* 🔥 LIVE CART ACTIVITY BANNER */}
-            <LiveCartActivityBanner activity={cartActivity?.productId === product.id ? cartActivity : null} />
+            <LiveCartActivityBanner activity={null} />
             {isUKUser && product.nextDayDeliveryEnabled && nextDayTimeLeft && (
               <div className="mt-2 mb-3 rounded-xl border border-white bg-gradient-to-r from-green-50 via-white to-green-50 px-4 py-1 shadow-sm">
                 <div className="flex items-center justify-between">

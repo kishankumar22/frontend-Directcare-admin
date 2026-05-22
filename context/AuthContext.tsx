@@ -103,6 +103,7 @@ interface AuthContextType {
   profileLoading: boolean;
   isReady: boolean;
   refreshProfile: () => Promise<void>; // ✅ ADD THIS
+  checkAuth: () => Promise<void>;
 }
 
 
@@ -115,8 +116,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
 const [profileLoading, setProfileLoading] = useState(false);
 const [isReady, setIsReady] = useState(false);
-  // 🔁 Restore session
-useEffect(() => {
+
+const hydrateFromStorage = () => {
   const storedUser = localStorage.getItem("user");
   const storedAccess = localStorage.getItem("accessToken");
   const storedRefresh = localStorage.getItem("refreshToken");
@@ -135,9 +136,18 @@ useEffect(() => {
         setUser(JSON.parse(storedUser));
         setAccessToken(storedAccess);
         setRefreshToken(storedRefresh);
+        return;
       }
     } catch {}
   }
+
+  setUser(null);
+  setAccessToken(null);
+  setRefreshToken(null);
+};
+  // 🔁 Restore session
+useEffect(() => {
+  hydrateFromStorage();
 
   // ✅ ALWAYS RUN
   setIsReady(true);
@@ -190,6 +200,20 @@ useEffect(() => {
 
 
   // 🔐 LOGIN (UNCHANGED)
+  const checkAuth = async () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const storedAccess = localStorage.getItem("accessToken");
+      const storedRefresh = localStorage.getItem("refreshToken");
+
+      if (storedUser && storedAccess) {
+        setUser(JSON.parse(storedUser));
+        setAccessToken(storedAccess);
+        setRefreshToken(storedRefresh);
+      }
+    } catch {}
+  };
+
  const login = async (email: string, password: string) => {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`,
@@ -225,24 +249,8 @@ useEffect(() => {
 
   setUser(data.user);
   setAccessToken(data.accessToken);
-  setRefreshToken(data.refreshToken);
+  setRefreshToken(data.refreshToken); 
 
-  // 🔥 REVIEW REDIRECT AFTER LOGIN (ADD HERE)
-  try {
-    const rawDraft = sessionStorage.getItem("pendingReviewDraft");
-
-    if (rawDraft) {
-      const draft = JSON.parse(rawDraft);
-
-      if (draft?.productSlug) {
-  window.location.href = `/product/${draft.productSlug}#reviews-section`;
-  return;
-}
-
-    }
-  } catch {
-    sessionStorage.removeItem("pendingReviewDraft");
-  }
 };
 
 
@@ -320,9 +328,10 @@ useEffect(() => {
     login,
     register,
     logout,
-    isAuthenticated: !!accessToken,
+isAuthenticated: !!accessToken,
     profileLoading,
     isReady,
+    checkAuth,
      refreshProfile: fetchProfile, // ✅ ADD THIS
   }}
 >
