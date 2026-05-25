@@ -106,7 +106,7 @@ export default function AdminPaymentsPage() {
   const totalAmt  = payments.reduce((s, p) => s + p.amount, 0);
 
   return (
-    <div className="p-4 md:p-6 space-y-5">
+    <div className="md:p-2 space-y-2">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium shadow-lg

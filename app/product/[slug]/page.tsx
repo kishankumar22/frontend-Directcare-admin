@@ -1,8 +1,8 @@
 // app/products/[slug]/page.tsx
-
+import { Suspense } from 'react';
 import ProductClient from './ProductDetails';
 import { notFound } from 'next/navigation';
-
+import { cookies } from "next/headers";
 
 
 export const dynamic = 'force-dynamic';
@@ -22,21 +22,50 @@ async function getProduct(slug: string) {
     if (!json.success) return null;
 
     const product = json.data;
-// ✅ PRODUCTION SAFE CHECK
-if (
-  !product ||
-  product.isActive !== true ||
-  product.isPublished !== true
-) {
-  return null;
-}
-    // ✅ IMPORTANT: Variant logic preserve
+
+    // ✅ GET TOKEN FROM COOKIE
+    const cookieStore = await cookies();
+  const token = cookieStore.get("authToken")?.value;
+
+    let isAdmin = false;
+
+    // ✅ DECODE JWT
+    if (token) {
+      try {
+        const payload = JSON.parse(
+          Buffer.from(token.split(".")[1], "base64").toString()
+        );
+
+        const roleKey =
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+
+        const role = payload[roleKey];
+
+        isAdmin =
+          role === "Admin" ||
+          (Array.isArray(role) && role.includes("Admin"));
+      } catch {}
+    }
+
+    // ✅ NON-ADMIN ONLY CHECK
+    if (
+      !isAdmin &&
+      (
+        !product ||
+        product.isActive !== true ||
+        product.isPublished !== true
+      )
+    ) {
+      return null;
+    }
+
     let selectedVariantId: string | undefined = undefined;
 
     if (product?.variants?.length) {
       const matchedVariant = product.variants.find(
         (v: any) => v.slug === slug
       );
+
       if (matchedVariant) {
         selectedVariantId = matchedVariant.id;
       }
@@ -51,7 +80,6 @@ if (
     return null;
   }
 }
-
 // ⭐ FIX: params is now Promise
 export async function generateMetadata({
   params,

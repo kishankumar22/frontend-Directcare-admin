@@ -1,30 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
-interface Address {
-  id: string;
-  firstName: string;
-  lastName: string;
-  company?: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-  phoneNumber?: string;
-  isDefault: boolean;
-}
-
-interface OrderSummary {
-  id: string;
-  orderNumber: string;
-  status: string;
-  orderDate: string;
-  totalAmount: number;
-  currency: string;
-  itemsCount: number;
-}
 export type LoyaltyTier = "Bronze" | "Silver" | "Gold";
 
 export interface LoyaltyPoints {
@@ -125,34 +102,46 @@ const hydrateFromStorage = () => {
   if (storedUser && storedAccess) {
     try {
       const payload = JSON.parse(atob(storedAccess.split(".")[1]));
-      const roleKey =
-        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+      const roleKey = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
       const role: string | string[] = payload[roleKey] ?? "";
-      const isAdmin = Array.isArray(role)
-        ? role.includes("Admin")
-        : role === "Admin";
-
-      if (!isAdmin) {
-        setUser(JSON.parse(storedUser));
-        setAccessToken(storedAccess);
-        setRefreshToken(storedRefresh);
-        return;
-      }
-    } catch {}
+      // Preserve authentication for all roles (including Admin)
+      setUser(JSON.parse(storedUser));
+      setAccessToken(storedAccess);
+      setRefreshToken(storedRefresh);
+    } catch {
+      // If token parsing fails, clear auth state
+      setUser(null);
+      setAccessToken(null);
+      setRefreshToken(null);
+    }
+    return;
   }
 
+  // No stored auth – clear state
   setUser(null);
   setAccessToken(null);
   setRefreshToken(null);
 };
-  // 🔁 Restore session
-useEffect(() => {
-  hydrateFromStorage();
+  // 🔁 Restore session from localStorage on mount
+  useEffect(() => {
+    hydrateFromStorage();
+    setIsReady(true);
+  }, []);
 
-  // ✅ ALWAYS RUN
-  setIsReady(true);
+  // 👥 Sync auth state across multiple tabs/windows
+  useEffect(() => {
+    const syncAuth = (e: StorageEvent) => {
+      if (e.key === "accessToken" || e.key === "refreshToken" || e.key === "user") {
+        setAccessToken(localStorage.getItem("accessToken"));
+        setRefreshToken(localStorage.getItem("refreshToken"));
+        const storedUser = localStorage.getItem("user");
+        setUser(storedUser ? JSON.parse(storedUser) : null);
+      }
+    };
+    window.addEventListener("storage", syncAuth);
+    return () => window.removeEventListener("storage", syncAuth);
+  }, []);
 
-}, []);
 const fetchProfile = async () => {
   if (!accessToken || !user?.email) return;
 
@@ -169,7 +158,7 @@ const fetchProfile = async () => {
     );
 
     if (res.status === 401) {
-      logout();
+      // Unauthorized: keep current auth state, maybe token expired.
       return;
     }
 
@@ -214,6 +203,7 @@ useEffect(() => {
     } catch {}
   };
 
+  const router = useRouter();
  const login = async (email: string, password: string) => {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`,
@@ -251,6 +241,8 @@ useEffect(() => {
   setAccessToken(data.accessToken);
   setRefreshToken(data.refreshToken); 
 
+  // 🎯 Redirect to account/dashboard after successful login
+  router.push("/account");
 };
 
 
