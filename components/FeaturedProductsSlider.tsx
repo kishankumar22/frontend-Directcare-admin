@@ -24,6 +24,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getBackorderUIState } from "@/app/lib/backorderHelpers";
 import BackInStockModal from "@/components/backorder/BackInStockModal";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
+import { trackAddToCart } from "@/lib/analytics";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/autoplay";
@@ -808,6 +809,22 @@ export default function FeaturedProductsSlider({
                                   option3: (defaultVariant as any)?.option3Value ?? null,
                                 },
                                 productData: JSON.parse(JSON.stringify(product)),
+                              });
+
+                              trackAddToCart({
+                                productId: product.id,
+                                name: product.name,
+                                sku: defaultVariant?.sku ?? product.sku,
+                                finalPrice,
+                                price: finalPrice,
+                                quantity: finalQty,
+                                categories: (product as any).categories,
+                                variantId: defaultVariant?.id ?? null,
+                                variantOptions: {
+                                  option1: defaultVariant?.option1Value ?? null,
+                                  option2: (defaultVariant as any)?.option2Value ?? null,
+                                  option3: (defaultVariant as any)?.option3Value ?? null,
+                                },
                               });
 
                               if (shouldShowMinWarning(product)) {

@@ -14,6 +14,7 @@ const FALLBACK_IMAGE = "/placeholder-product.jpg";
 import { useState, useRef } from "react";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useRouter } from "next/navigation";
+import { trackAddToCart } from "@/lib/analytics";
 export default function ProductCard({
   product,
   vatRates,
@@ -164,7 +165,7 @@ export default function ProductCard({
       return;
     }
 
-    addToCart({
+    const cartItem = {
       id: `${variantId ?? product.id}-one`,
       productId: product.id,
       name: defaultVariant
@@ -196,7 +197,10 @@ export default function ProductCard({
       nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
       sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
       productData: JSON.parse(JSON.stringify(product)),
-    });
+    };
+
+    addToCart(cartItem);
+    trackAddToCart({ ...cartItem, categories: product.productCategories ?? product.categories });
 
     // ⭐ UX TOAST
     if (product.orderMinimumQuantity > 1) {

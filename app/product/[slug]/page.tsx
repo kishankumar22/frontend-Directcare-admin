@@ -1,7 +1,8 @@
 // app/products/[slug]/page.tsx
-import { Suspense } from 'react';
+
 import ProductClient from './ProductDetails';
 import { notFound } from 'next/navigation';
+
 
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ async function getProduct(slug: string) {
 // ✅ PRODUCTION SAFE CHECK
 if (
   !product ||
-  product.status !== "Active" ||
+  product.isActive !== true ||
   product.isPublished !== true
 ) {
   return null;

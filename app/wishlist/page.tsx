@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Heart, ShoppingCart, Trash2, BadgePercent, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { trackAddToCart } from "@/lib/analytics";
 
 export default function WishlistPage() {
   const { wishlist, removeFromWishlist, clearWishlist } = useWishlist();
@@ -93,6 +94,16 @@ systemDiscountAmount:
 
     // 🔥🔥🔥 MOST IMPORTANT
     productData: productData,
+  });
+
+  trackAddToCart({
+    productId: item.productId,
+    name: item.name,
+    sku: item.sku,
+    finalPrice: item.finalPrice ?? item.price,
+    price: item.finalPrice ?? item.price,
+    quantity: finalQty,
+    variantId: item.variantId ?? null,
   });
 
   toast.success(`${item.name} added to cart`);

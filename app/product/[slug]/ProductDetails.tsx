@@ -38,7 +38,7 @@ import GenderBadge from "@/components/shared/GenderBadge";
 import { getOldPriceDiscount } from "@/utils/pricing";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useCartActivity } from "@/context/CartContext";
-import { trackViewItem } from "@/lib/analytics";
+import { trackViewItem, trackAddToCart } from "@/lib/analytics";
 
 // Natural / numeric-aware sort so "1 Pack" < "3 Pack" < "6 Pack"
 const naturalSort = (a: string | undefined, b: string | undefined): number =>
@@ -1408,6 +1408,22 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
         productData: JSON.parse(JSON.stringify(product)),
       });
     }
+    trackAddToCart({
+      productId: product.id,
+      name: `${product.name}${variantTitle}`,
+      sku: selected?.sku ?? product.sku,
+      finalPrice: final,
+      price: final,
+      quantity: normalQty,
+      categories: product.categories,
+      variantId: selected?.id ?? null,
+      variantOptions: {
+        option1: selected?.option1Value ?? null,
+        option2: selected?.option2Value ?? null,
+        option3: selected?.option3Value ?? null,
+      },
+    });
+
     toast.success(
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium">

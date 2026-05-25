@@ -21,6 +21,7 @@ import {
 import { Card, CardContent } from "../ui/card";
 import GenderBadge from "../shared/GenderBadge";
 import { useRouter } from "next/navigation";
+import { trackAddToCart } from "@/lib/analytics";
 
 const getCrossSellProductImage = (
   product: any,
@@ -238,6 +239,22 @@ export default function CrossSellProductCard({ product, getImageUrl }: any) {
       nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
       sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
       productData: JSON.parse(JSON.stringify(product)),
+    });
+
+    trackAddToCart({
+      productId: product.id,
+      name: product.name,
+      sku: defaultVariant?.sku ?? product.sku,
+      finalPrice,
+      price: finalPrice,
+      quantity: qty,
+      categories: product.categories,
+      variantId,
+      variantOptions: {
+        option1: defaultVariant?.option1Value ?? null,
+        option2: (defaultVariant as any)?.option2Value ?? null,
+        option3: (defaultVariant as any)?.option3Value ?? null,
+      },
     });
 
     toast.success(
