@@ -96,6 +96,13 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 // ─── Helper: map backend DTO → frontend CartItem ──────────────────────────────
 function backendToFrontend(dto: any): CartItem {
   return {
+    productData: {
+  stockQuantity: dto.stockQuantity,
+  orderMinimumQuantity: dto.orderMinimumQuantity,
+  orderMaximumQuantity: dto.orderMaximumQuantity,
+  variants: dto.variants ?? [],
+},
+maxStock: dto.stockQuantity,
     id: dto.variantId ?? dto.productId,
     backendId: dto.id,
     productId: dto.productId,
@@ -462,7 +469,7 @@ connection.on(
       const variantStock = target.variantId
         ? product?.variants?.find((v: any) => v.id === target.variantId)?.stockQuantity
         : product?.stockQuantity;
-      const maxStock = target.maxStock ?? variantStock ?? product?.stockQuantity ?? 9999;
+      const maxStock = target.maxStock ?? variantStock ?? product?.stockQuantity ?? 0;
       const mainMin = product?.orderMinimumQuantity ?? 1;
       const mainMax = product?.orderMaximumQuantity ?? Infinity;
 
@@ -515,6 +522,7 @@ connection.on(
       }).catch(() => {});
     });
   };
+  
 
   // ── CLEAR CART ─────────────────────────────────────────────────────────────
   const clearCart = () => {

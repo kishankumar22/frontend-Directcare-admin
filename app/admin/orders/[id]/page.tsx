@@ -72,6 +72,7 @@ import PharmacyVerificationModal from '../PharmacyVerificationModal';
 import { API_BASE_URL } from '@/lib/api';
 import { getImageUrl} from '../../_utils/formatUtils';
 import PaymentModal from '../PaymentModal';
+import { useAuth } from '../../_context/auth-context';
 
 // Types
 type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
@@ -769,8 +770,9 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const params = useParams();
   const toast = useToast();
+  const { user } = useAuth();
   const orderId = params.id as string;
-const [hasEditHistory, setHasEditHistory] = useState<boolean | null>(null);
+  const [hasEditHistory, setHasEditHistory] = useState<boolean | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -792,6 +794,10 @@ const [showId, setShowId] = useState(false);
 const [pharmaAction, setPharmaAction] = useState<'approve' | 'reject' | null>(null);
 const [isUpdatingPharma, setIsUpdatingPharma] = useState(false);
 const [showPharmaQA, setShowPharmaQA] = useState(false);
+const currentUser =
+  `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+  user?.email ||
+  "Admin";
 
   // ✅ NEW: Invoice Regeneration Modal State
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
@@ -1044,6 +1050,7 @@ const handleFullRefund = async (notes: string, reason: RefundReason) => {
       adminNotes: notes,
       restoreInventory: true,
       sendCustomerNotification: true,
+      currentUser,
     });
 
     if (!result?.success) {
@@ -1082,6 +1089,7 @@ const handleShippingRefund = async (notes: string) => {
     const result = await orderEditService.refundShipping(order.id, {
       adminNotes: notes.trim(),
       sendCustomerNotification: true,
+      currentUser,
     });
 
     // ✅ backend decides success
@@ -1135,6 +1143,7 @@ const handlePartialRefund = async (
       reasonDetails: orderEditService.getRefundReasonLabel(reason),
       adminNotes: notes,
       sendCustomerNotification: true,
+      currentUser,
     });
 
     if (!result?.success) {

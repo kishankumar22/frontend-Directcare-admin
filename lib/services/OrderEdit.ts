@@ -136,6 +136,7 @@ export interface FullRefundRequest {
   adminNotes?: string | null;
   restoreInventory?: boolean;
   sendCustomerNotification?: boolean;
+    currentUser?: string;
 }
 
 /**
@@ -149,6 +150,7 @@ export interface PartialRefundRequest {
   reasonDetails?: string | null;
   adminNotes?: string | null;
   sendCustomerNotification?: boolean;
+  currentUser?: string;
 }
 
 /**
@@ -716,6 +718,7 @@ async refundShipping(
   data: {
     adminNotes?: string;
     sendCustomerNotification?: boolean;
+    currentUser?: string;
   }
 ): Promise<ShippingRefundResult> {
   try {
@@ -724,13 +727,16 @@ async refundShipping(
       {
         orderId,
         adminNotes: data.adminNotes?.trim() || "",
-        sendCustomerNotification: data.sendCustomerNotification ?? true
+        sendCustomerNotification:
+          data.sendCustomerNotification ?? true,
+
+        currentUser:
+          data.currentUser?.trim() || "Admin",
       }
     );
 
     const actualData = response.data;
 
-    // ✅ HARD CHECK (no undefined allowed)
     if (!actualData) {
       throw new Error("Empty response from server");
     }
@@ -738,20 +744,18 @@ async refundShipping(
     if (actualData.success === false) {
       throw new Error(
         actualData.message ||
-        actualData.errors?.[0] ||
-        "Failed to refund shipping charge"
+          actualData.errors?.[0] ||
+          "Failed to refund shipping charge"
       );
     }
 
-    return actualData; // ✅ always returns here
-
+    return actualData;
   } catch (error: any) {
-    // ✅ ALWAYS throw → never return undefined
     throw new Error(
       error?.response?.data?.message ||
-      error?.response?.data?.errors?.[0] ||
-      error?.message ||
-      "Failed to refund shipping charge"
+        error?.response?.data?.errors?.[0] ||
+        error?.message ||
+        "Failed to refund shipping charge"
     );
   }
 }

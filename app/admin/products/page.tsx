@@ -423,6 +423,9 @@ useEffect(()=>{
  fetchCategories();
  fetchBrands();
 },[])
+
+
+
 // ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
 const fetchProducts = async () => {
   // setLoading(true);
@@ -529,6 +532,52 @@ if (vatFilter.value !== "all") {
 
       const formattedProducts: FormattedProduct[] = items.map((p: any) => {
         const primaryCategoryName = getPrimaryCategoryName(p.categories);
+        const defaultVariant =
+  Array.isArray(p.variants) &&
+  p.variants.length > 0
+    ? (
+        p.variants.find(
+          (v: {
+            isDefault?: boolean;
+          }) => v.isDefault === true
+        ) || p.variants[0]
+      )
+    : null;
+
+const resolvedStockQuantity: number =
+  typeof defaultVariant?.stockQuantity ===
+  "number"
+    ? defaultVariant.stockQuantity
+    : typeof p.stockQuantity === "number"
+    ? p.stockQuantity
+    : 0;
+    const resolvedPrice: number =
+  typeof defaultVariant?.price === "number"
+    ? defaultVariant.price
+    : typeof p.price === "number"
+    ? p.price
+    : 0;
+
+const resolvedStockStatus =
+  productHelpers.getStockStatus({
+    stockQuantity: resolvedStockQuantity,
+
+    trackQuantity:
+      typeof defaultVariant?.trackInventory ===
+      "boolean"
+        ? defaultVariant.trackInventory
+        : Boolean(p.trackQuantity),
+
+    lowStockThreshold:
+      typeof p.lowStockThreshold === "number"
+        ? p.lowStockThreshold
+        : 0,
+
+    allowBackorder:
+      typeof p.allowBackorder === "boolean"
+        ? p.allowBackorder
+        : false,
+  });
         
 
         // Discount Logic
@@ -566,15 +615,12 @@ if (vatFilter.value !== "all") {
             // ✅ ADD THIS
         isPharmaProduct: p.isPharmaProduct === true,
           categoryName: primaryCategoryName,
-          price: p.price || 0,
-          stock: p.stockQuantity || 0,
-          stockQuantity: p.stockQuantity || 0,
-          status: productHelpers.getStockStatus({
-            stockQuantity: p.stockQuantity,
-            trackQuantity: p.trackQuantity,
-            lowStockThreshold: p.lowStockThreshold,
-            allowBackorder: p.allowBackorder,
-          }),
+         price: resolvedPrice,
+    stock: resolvedStockQuantity,
+
+stockQuantity: resolvedStockQuantity,
+
+status: resolvedStockStatus,
           image: getProductImage(p.images),
           sales: 0,
           shortDescription: p.shortDescription || "",
@@ -691,6 +737,7 @@ const fetchBrands = async () => {
   }
 };
 
+
   // ✅ FETCH PRODUCT DETAILS
 const fetchProductDetails = async (productId: string) => {
   setLoadingDetails(true);
@@ -763,6 +810,7 @@ if (p.crossSellProductIds) {
     setLoadingDetails(false);
   }
 };
+
 
 
   // ✅ MEDIA VIEWER
@@ -994,6 +1042,8 @@ const stats = useMemo(() => {
     unpublishedCount: apiStats.unpublished,
   };
 }, [apiStats]);
+
+
 
 const selectedProductItems = useMemo(() => {
   return selectedProducts

@@ -1377,7 +1377,7 @@ if (!formData.nextDayDeliveryEnabled) {
       // 5.4 Check Against Database
       try {
         console.log("Validating variant SKUs against database...");
-        const allProductsResponse = await productsService.getAll({ pageSize: 100 });
+        const allProductsResponse = await productsService.getAll();
         const allProducts = allProductsResponse.data?.data?.items || [];
 
         for (const variant of productVariants) {
@@ -2999,7 +2999,7 @@ useEffect(() => {
           {formData.name && (
             <div className="flex items-center gap-2">
               <span className="text-slate-600">-</span>
-              <span className="text-[15px] font-semibold text-white truncate max-w-xs" title={formData.name}>
+              <span className="text-[15px] font-semibold text-white truncate max-w-xl" title={formData.name}>
                 {formData.name}
               </span>
             </div>
@@ -5150,10 +5150,9 @@ useEffect(() => {
     setFormData(prev => ({ ...prev, crossSellProducts: productIds }));
   }}
 />
-
       {/* Info Box */}
       <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-        <h4 className="font-semibold text-sm text-violet-400 mb-2">ðŸ’¡ Tips</h4>
+        <h4 className="font-semibold text-sm text-violet-400 mb-2">Tips</h4>
         <ul className="text-sm text-slate-300 space-y-1">
           <li>   Click on any input to show dropdown with multiple checkboxes</li>
           <li>   Use Brand and Category filters to narrow down products</li>

@@ -18,6 +18,7 @@ async function getAllBrands(baseUrl: string): Promise<Brand[]> {
       { next: { revalidate: 300 } }
     );
 
+
     // ✅ response fail handle
     if (!res.ok) {
       console.error("Brands API failed:", res.status);
