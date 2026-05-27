@@ -6,6 +6,23 @@ import { useAuth } from '@/context/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
+type PaymentFromAPI = {
+  id: string;
+  paymentIntentId: string | null;
+  orderId: string | null;
+  orderNumber: string | null;
+  amount: number;
+  currency: string;
+  status: string; // API returns string
+  paymentMethod: string;
+  customerEmail: string | null;
+  stripeFee?: number | null;
+  netAmount?: number | null;
+  failureReason?: string | null;
+  createdAt: string;
+  processedAt?: string | null;
+};
+
 type Payment = {
   id: string;
   paymentIntentId: string | null;
@@ -23,6 +40,16 @@ type Payment = {
   processedAt: string | null;
 };
 
+const STATUS_STRING_MAP: Record<string, number> = {
+  'Pending': 1,
+  'Authorized': 2,
+  'Successful': 3,
+  'Failed': 4,
+  'Cancelled': 5,
+  'Refunded': 6,
+  'Partial Refund': 7,
+};
+
 const STATUS_MAP: Record<number, { label: string; color: string; icon: any }> = {
   1: { label: 'Pending',           color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: Clock },
   2: { label: 'Authorized',        color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',       icon: CreditCard },
@@ -32,6 +59,15 @@ const STATUS_MAP: Record<number, { label: string; color: string; icon: any }> = 
   6: { label: 'Refunded',          color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: RotateCcw },
   7: { label: 'Partial Refund',    color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: RotateCcw },
 };
+
+const convertPayment = (p: PaymentFromAPI): Payment => ({
+  ...p,
+  status: STATUS_STRING_MAP[p.status] ?? 1,
+  stripeFee: p.stripeFee ?? null,
+  netAmount: p.netAmount ?? null,
+  failureReason: p.failureReason ?? null,
+  processedAt: p.processedAt ?? null,
+});
 
 const fmt = (n: number | null | undefined, currency = 'GBP') =>
   n != null ? `£${n.toFixed(2)}` : '—';
@@ -71,7 +107,8 @@ export default function AdminPaymentsPage() {
       }
       const json = await res.json();
       if (json?.data) {
-        setPayments(json.data.payments ?? []);
+        const paymentsFromAPI = json.data.payments ?? [];
+        setPayments(paymentsFromAPI.map(convertPayment));
         setTotal(json.data.total ?? 0);
       }
     } catch (err: any) {
@@ -104,6 +141,7 @@ export default function AdminPaymentsPage() {
   const totalFees = payments.reduce((s, p) => s + (p.stripeFee ?? 0), 0);
   const totalNet  = payments.reduce((s, p) => s + (p.netAmount ?? 0), 0);
   const totalAmt  = payments.reduce((s, p) => s + p.amount, 0);
+  
 
   return (
     <div className="md:p-2 space-y-2">

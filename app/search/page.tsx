@@ -9,24 +9,24 @@ export default async function SearchPage({ searchParams }: any) {
   let products: any[] = [];
   let errorMessage = "";
 
-  if (query.length > 1) {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Products/quick-search?query=${query}&limit=50`,
-        { cache: "no-store" }
-      );
+if (query.length > 1) {
+  try {
+    const res = await fetch(
+     `${process.env.NEXT_PUBLIC_API_URL}/api/Products?page=1&pageSize=50&searchTerm=${encodeURIComponent(query)}&sortDirection=asc&isPublished=true&isActive=true&isDeleted=false`,
+      { cache: "no-store" }
+    );
 
-      const json = await res.json();
+    const json = await res.json();
 
-      if (json.success) {
-        products = json.data;
-      } else {
-        errorMessage = json.message;
-      }
-    } catch (err) {
-      errorMessage = "Something went wrong. Please try again.";
+    if (json.success) {
+      products = json.data?.items || [];
+    } else {
+      errorMessage = json.message;
     }
+  } catch (err) {
+    errorMessage = "Something went wrong. Please try again.";
   }
+}
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -58,53 +58,100 @@ export default async function SearchPage({ searchParams }: any) {
 
       {/* RESULTS GRID */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6">
-        {products.map((item) => {
-          const imageUrl = item.mainImageUrl?.startsWith("http")
-            ? item.mainImageUrl
-            : `${process.env.NEXT_PUBLIC_API_URL}${item.mainImageUrl}`;
+ {products.map((item) => {
 
-          return (
-            <Link
-              key={item.id}
-              href={`/products/${item.slug}`}
-              className="border rounded-xl p-3 shadow-sm hover:shadow-md transition"
-            >
-              <Image
-                src={imageUrl}
-                alt={item.name}
-                width={200}
-                height={200}
-                className="object-contain w-full h-52"
-              />
+  const mainImage =
+    item.mainImageUrl ||
+    item.images?.find((img: any) => img.isMain)?.imageUrl ||
+    item.images?.[0]?.imageUrl ||
+    "/placeholder.png";
 
-              <h3 className="text-sm font-medium text-gray-900 mt-2 line-clamp-2">
-                {item.name}
-              </h3>
+  const imageUrl = mainImage.startsWith("http")
+    ? mainImage
+    : `${process.env.NEXT_PUBLIC_API_URL}${mainImage}`;
 
-              <p className="text-xs text-gray-500 mt-1">
-                {item.categoryName}
-              </p>
+  // DISCOUNT
+  const comparePrice =
+    item.compareAtPrice ||
+    item.oldPrice ||
+    0;
 
-              {/* STOCK */}
-              <div className="mt-2">
-                {item.inStock ? (
-                  <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
-                    In Stock
-                  </span>
-                ) : (
-                  <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold">
-                    Out of Stock
-                  </span>
-                )}
-              </div>
+  const hasDiscount =
+    comparePrice > item.price;
 
-              {/* PRICE */}
-              <p className="text-[#445D41] font-bold text-sm mt-2">
-                £{item.price.toFixed(2)}
-              </p>
-            </Link>
-          );
-        })}
+  const discountPercent = hasDiscount
+    ? Math.round(
+        ((comparePrice - item.price) /
+          comparePrice) *
+          100
+      )
+    : 0;
+
+  return (
+    <Link
+      key={item.id}
+      href={`/products/${item.slug}`}
+      className="group border rounded-2xl p-3 bg-white hover:shadow-lg transition relative overflow-hidden"
+    >
+
+      {/* DISCOUNT BADGE */}
+      {hasDiscount && (
+        <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+          {discountPercent}% OFF
+        </div>
+      )}
+
+      {/* IMAGE */}
+      <div className="relative w-full h-52 bg-gray-50 rounded-xl overflow-hidden">
+        <Image
+          src={imageUrl}
+          alt={item.name}
+          fill
+          className="object-contain group-hover:scale-105 transition duration-300"
+        />
+      </div>
+
+      {/* TITLE */}
+      <h3 className="text-sm font-semibold text-gray-900 mt-3 line-clamp-2 min-h-[40px]">
+        {item.name}
+      </h3>
+
+      {/* CATEGORY */}
+      <p className="text-xs text-gray-500 mt-1">
+        {item.categoryName ||
+          item.categories?.[0]?.categoryName}
+      </p>
+
+      {/* STOCK */}
+      <div className="mt-2">
+        {item.stockStatus === "InStock" ||
+        item.inStock ? (
+          <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 font-semibold">
+            In Stock
+          </span>
+        ) : (
+          <span className="text-[10px] px-2 py-1 rounded-full bg-red-100 text-red-600 font-semibold">
+            Out of Stock
+          </span>
+        )}
+      </div>
+
+      {/* PRICE */}
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
+        <p className="text-[#445D41] font-bold text-lg">
+          £{Number(item.price || 0).toFixed(2)}
+        </p>
+
+        {hasDiscount && (
+          <p className="text-sm text-gray-400 line-through">
+            £{Number(comparePrice).toFixed(2)}
+          </p>
+        )}
+      </div>
+
+    </Link>
+  );
+})}
       </div>
     </div>
   );

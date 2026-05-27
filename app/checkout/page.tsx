@@ -202,11 +202,14 @@ export default function CheckoutPage() {
   const router = useRouter();
  const { cart, updateCart, updateQuantity,clearCart } = useCart();
   const { user, accessToken, isAuthenticated } = useAuth();
+  
   // Billing fields
   const [billingFirstName, setBillingFirstName] = useState("");
   const [billingLastName, setBillingLastName] = useState("");
   const [billingEmail, setBillingEmail] = useState("");
   const [billingPhone, setBillingPhone] = useState("");
+  const [shippingError, setShippingError] = useState("");
+  const [termsError, setTermsError] = useState("");
   const [billingCompany, setBillingCompany] = useState("");
  const [billingAddress1, setBillingAddress1] = useState("");
   const [billingAddress2, setBillingAddress2] = useState("");
@@ -493,69 +496,155 @@ const checkoutVatAmount = useMemo(() => {
     return sum + vat;
   }, 0);
 }, [checkoutItems]);
-  // Fetch shipping quote when postcode is available
+
+// Fetch shipping quote when postcode is available
 useEffect(() => {
-  const postcode = (shippingSameAsBilling ? billingPostalCode : shippingPostalCode).trim();
+  const postcode = (
+    shippingSameAsBilling
+      ? billingPostalCode
+      : shippingPostalCode
+  ).trim();
+
+  // RESET
   if (!postcode) {
-  setShippingOptions([]);
-  setSelectedShippingOption(null);
-  return;
-}
-  const cartValue = checkoutItems.reduce((s, i) => s + (i.finalPrice ?? i.price) * i.quantity, 0);
-  const itemCount = checkoutItems.reduce((s, i) => s + i.quantity, 0);
+    setShippingOptions([]);
+    setSelectedShippingOption(null);
+    setShippingError("");
+    return;
+  }
+
+  const cartValue = checkoutItems.reduce(
+    (s, i) =>
+      s + (i.finalPrice ?? i.price) * i.quantity,
+    0
+  );
 
   const timer = setTimeout(async () => {
     try {
       setShippingQuoteLoading(true);
-const res = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/api/Shipping/quote?postcode=${encodeURIComponent(postcode)}&orderTotal=${cartValue}`
-);
+        setShippingError("");
+     const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Shipping/quote?postcode=${encodeURIComponent(
+          postcode
+        )}&orderTotal=${cartValue}`
+      );
+
       const json = await res.json();
- if (json?.success && Array.isArray(json.data)) {
-  let options = json.data;
 
-  // 🔥 MAIN FILTER (IMPORTANT)
-  options = options.filter((opt: any) => {
-    const name = (opt.name || opt.displayName || "").toLowerCase();
-    const isCollect = name.includes("collect");
+      // API ERROR
+      if (!res.ok || json?.success === false) {
+        setShippingOptions([]);
+        setSelectedShippingOption(null);
 
-    // 👉 Home Delivery → remove collect
-    if (deliveryMethod === "HomeDelivery") {
-      return !isCollect;
-    }
+        setShippingError(
+          json?.message ||
+            "Delivery is not available for this postcode."
+        );
 
-    // 👉 Click & Collect → ONLY collect
-    if (deliveryMethod === "ClickAndCollect") {
-      return isCollect;
-    }
+        return;
+      }
 
-    return true;
-  });
+      // VALID RESPONSE
+      if (json?.success && Array.isArray(json.data)) {
+        let options = json.data;
 
-  // existing capability filter (same as before)
-  options = options.filter((opt: any) => {
-    const name = (opt.name || "").toLowerCase();
+        // DELIVERY TYPE FILTER
+        options = options.filter((opt: any) => {
+          const name = (
+            opt.name ||
+            opt.displayName ||
+            ""
+          ).toLowerCase();
 
-    if (name.includes("next")) return allSupportNextDay;
-    if (name.includes("same")) return allSupportSameDay;
+          const isCollect = name.includes("collect");
 
-    return true;
-  });
+          if (deliveryMethod === "HomeDelivery") {
+            return !isCollect;
+          }
 
-  options.sort((a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+          if (deliveryMethod === "ClickAndCollect") {
+            return isCollect;
+          }
 
-  setShippingOptions(options);
+          return true;
+        });
 
-  if (options.length > 0) {
-    setSelectedShippingOption(options[0]);
-  }
-}
-    } catch { /* silent */ } finally {
+        // CAPABILITY FILTER
+        options = options.filter((opt: any) => {
+          const name = (
+            opt.name ||
+            opt.displayName ||
+            ""
+          ).toLowerCase();
+
+          if (name.includes("next")) {
+            return allSupportNextDay;
+          }
+
+          if (name.includes("same")) {
+            return allSupportSameDay;
+          }
+
+          return true;
+        });
+
+        // SORT
+        options.sort(
+          (a: any, b: any) =>
+            (a.displayOrder ?? 0) -
+            (b.displayOrder ?? 0)
+        );
+
+        setShippingOptions(options);
+
+        // AUTO SELECT
+        if (options.length > 0) {
+          setSelectedShippingOption(options[0]);
+        } else {
+          setSelectedShippingOption(null);
+
+          setShippingError(
+            "No delivery methods available for this postcode."
+          );
+        }
+      } else {
+        setShippingOptions([]);
+        setSelectedShippingOption(null);
+
+        setShippingError(
+          "Unable to load delivery options."
+        );
+      }
+    } catch (err) {
+      console.error("Shipping quote fetch failed:", err);
+
+      setShippingOptions([]);
+      setSelectedShippingOption(null);
+
+      setShippingError(
+        "Unable to fetch delivery options."
+      );
+    } finally {
       setShippingQuoteLoading(false);
     }
   }, 600);
+
   return () => clearTimeout(timer);
-}, [billingPostalCode, shippingPostalCode, shippingSameAsBilling, deliveryMethod, allSupportNextDay, allSupportSameDay]);
+
+}, [
+  billingPostalCode,
+  shippingPostalCode,
+  shippingSameAsBilling,
+  deliveryMethod,
+  allSupportNextDay,
+  allSupportSameDay,
+  JSON.stringify(
+    checkoutItems.map(i => ({
+      id: i.id,
+      qty: i.quantity
+    }))
+  ),
+]);
 useEffect(() => {
   if (deliveryMethod !== "ClickAndCollect") {
     setStores([]);
@@ -619,6 +708,7 @@ const fetchStores = async () => {
 
   fetchStores();
 }, [deliveryMethod]);
+
 // ✅ 🔥 YAHI ADD KARNA HAI (NEW EFFECT)
 useEffect(() => {
   if (
@@ -1309,6 +1399,7 @@ setShippingAddressQuery("");
   </div>
 )}
           {/* DELIVERY METHOD SELECTOR */}
+          
 <div className="bg-white p-3 rounded shadow">
   <h2 className="text-sm font-semibold mb-2">Delivery method</h2>
   <div className="flex flex-col gap-1.5">
@@ -1322,6 +1413,7 @@ setShippingAddressQuery("");
     </label>
   </div>
 </div>
+
 {deliveryMethod === "ClickAndCollect" && (
   <div className="bg-white p-3 rounded shadow">
     <h2 className="text-sm font-semibold mb-2">Select Store</h2>
@@ -1366,6 +1458,13 @@ setShippingAddressQuery("");
     )}
   </div>
 )}
+
+{shippingError && (
+  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+    {shippingError}
+  </div>
+)}
+
 {/* SHIPPING OPTIONS */}
 {deliveryMethod === "HomeDelivery" && shippingOptions.length > 0 && (
   <div className="bg-white p-3 rounded shadow">
@@ -1599,8 +1698,18 @@ setShippingAddressQuery("");
 {/* STEP 1 */}
 {!stripeClientSecret && (
   <button
-disabled={!acceptTerms || isPlacing}
+disabled={
+  isPlacing ||
+  (!!shippingError &&
+    deliveryMethod === "HomeDelivery")
+}
     onClick={async () => {
+if (!acceptTerms) {
+  setTermsError(
+    "Please accept Terms & Conditions"
+  );
+  return;
+}
        if (isPlacing) return;
   setIsPlacing(true);
       const payload = await validateAndBuildPayload();
@@ -1713,10 +1822,27 @@ if (!intentJson?.data?.clientSecret) {
                   
                   </>          
               </div>
+              {termsError && (
+  <div className="mt-1 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md px-3 py-2">
+    {termsError}
+  </div>
+)}
              {/* Terms & Newsletter */}
 <div className="mt-2 space-y-1.5">
   <label className="flex items-start gap-2 text-xs text-gray-700">
-    <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-0.5" />
+    <input
+  type="checkbox"
+  checked={acceptTerms}
+  onChange={(e) => {
+    setAcceptTerms(e.target.checked);
+
+    if (e.target.checked) {
+      setTermsError("");
+    }
+  }}
+  className="mt-0.5"
+/>
+
     <span>I agree to the <Link href="/terms" className="text-blue-600 underline">Terms & Conditions</Link></span>
   </label>
   <label className="flex items-start gap-2 text-xs text-gray-700">

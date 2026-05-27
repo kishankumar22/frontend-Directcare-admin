@@ -465,6 +465,7 @@ export default function CartPage() {
     });
     return Array.from(map.values());
   }, [cart]);
+  
   const getItemStock = (item: any) => {
     // Variant stock check
     if (item.variantId) {

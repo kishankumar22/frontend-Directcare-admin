@@ -7647,38 +7647,59 @@ if (name === "recurringCyclePeriod") {
                               className="w-full px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                             />
                             <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                placeholder="#"
-                                value={image.sortOrder}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    productImages: formData.productImages.map((img) =>
-                                      img.id === image.id
-                                        ? { ...img, sortOrder: parseInt(e.target.value) || 1 }
-                                        : img,
-                                    ),
-                                  });
-                                }}
-                                className="w-12 px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
-                              />
+      <input
+  type="number"
+  placeholder="#"
+  value={image.sortOrder ?? ''}
+  onChange={(e) => {
+    const value = e.target.value;
+
+    setFormData({
+      ...formData,
+      productImages: formData.productImages.map((img) =>
+        img.id === image.id
+          ? {
+              ...img,
+              sortOrder:
+                value.trim() === ''
+                  ? undefined
+                  : parseInt(value),
+            }
+          : img,
+      ),
+    });
+  }}
+  className="w-12 px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+/>
                               <label className="flex items-center gap-1 cursor-pointer">
                                 <input
                                   type="checkbox"
                                   checked={image.isMain}
-                                  onChange={(e) => {
-                                    setFormData({
-                                      ...formData,
-                                      productImages: formData.productImages.map((img) =>
-                                        img.id === image.id
-                                          ? { ...img, isMain: e.target.checked }
-                                          : e.target.checked
-                                            ? { ...img, isMain: false }
-                                            : img,
-                                      ),
-                                    });
-                                  }}
+onChange={(e) => {
+  setFormData({
+    ...formData,
+    productImages: formData.productImages.map((img) => {
+      // clicked image
+      if (img.id === image.id) {
+        return {
+          ...img,
+          isMain: e.target.checked,
+          sortOrder: e.target.checked ? 1 : img.sortOrder,
+        };
+      }
+
+      // old main image only remove main flag
+      if (e.target.checked && img.isMain) {
+        return {
+          ...img,
+          isMain: false,
+        };
+      }
+
+      return img;
+    }),
+  });
+}}
                                   className="w-3 h-3 text-violet-500 rounded border-slate-700 bg-slate-900 focus:ring-1 focus:ring-violet-500"
                                 />
                                 <span className="text-[10px] text-slate-400">Main</span>

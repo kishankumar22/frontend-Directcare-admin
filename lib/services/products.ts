@@ -22,7 +22,7 @@ export interface ProductImage {
   id: string;
   imageUrl: string;
   altText: string;
-  sortOrder: number;
+sortOrder?: number
   isMain: boolean;
   fileName?: string;
   fileSize?: number;
