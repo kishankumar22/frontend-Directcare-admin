@@ -453,6 +453,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       month: "short",
     });
   };
+  
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -3080,7 +3081,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
           />
         )}
       </main>
-      <style jsx>{`
+      <style jsx>{` 
         .scrollbar-hide::-webkit-scrollbar { display: none; }
       `}</style>
     </div>

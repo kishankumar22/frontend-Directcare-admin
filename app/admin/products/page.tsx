@@ -1260,15 +1260,18 @@ const handleExportSelected = async () => {
   }
 };
 
-  // Format time remaining
-  const formatTimeRemaining = (expiresAt: string): string => {
-    const now = new Date().getTime();
-    const expiry = new Date(expiresAt).getTime();
-    const diff = expiry - now;
-    if (diff <= 0) return 'Expired';
-    const minutes = Math.floor(diff / (1000 * 60));
-    const seconds = Math.floor((diff / 1000) % 60);
-    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  // Format expiry timestamp
+  const formatExpiryTimestamp = (expiresAt: string): string => {
+    const expiryDate = new Date(expiresAt);
+    if (Number.isNaN(expiryDate.getTime())) {
+      return expiresAt;
+    }
+    return expiryDate.toLocaleString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
   };
 
   // Get status color
@@ -2621,7 +2624,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
                         Message
                       </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
-                        Time
+                        Expires At
                       </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
                         Actions
@@ -2669,14 +2672,9 @@ Updated By: ${product.updatedBy || "N/A"}`}
                         </td>
 
                         <td className="px-4 py-4 text-center">
-                          {request.status === 'Pending' && !request.isExpired ? (
-                            <div className="flex items-center justify-center gap-1.5 text-orange-400 text-xs font-medium whitespace-nowrap">
-                              {formatTimeRemaining(request.expiresAt)}
-                            </div>
-                          ) : request.isExpired ? (
-                            <div className="flex items-center justify-center gap-1.5 text-red-400 text-xs whitespace-nowrap">
-                              <AlertCircle className="w-3 h-3" />
-                              Expired
+                          {request.expiresAt ? (
+                            <div className="flex items-center justify-center gap-1.5 text-slate-200 text-xs font-medium whitespace-nowrap">
+                              {formatExpiryTimestamp(request.expiresAt)}
                             </div>
                           ) : (
                             <span className="text-slate-600 text-xs">-</span>

@@ -90,7 +90,7 @@ if (query.length > 1) {
   return (
     <Link
       key={item.id}
-      href={`/products/${item.slug}`}
+      href={`/product/${item.slug}`}
       className="group border rounded-2xl p-3 bg-white hover:shadow-lg transition relative overflow-hidden"
     >
 

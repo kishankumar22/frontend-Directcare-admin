@@ -3,7 +3,7 @@
 import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Upload, X, History, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus } from "lucide-react";
+import { ArrowLeft, Save, Upload, X, History, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus, AlertCircle } from "lucide-react";
 
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
@@ -46,7 +46,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
   const [takeoverTimeLeft, setTakeoverTimeLeft] = useState<number>(0);
   const [homepageCount, setHomepageCount] = useState<number | null>(null);
-  const MAX_HOMEPAGE = 50;
+  const MAX_HOMEPAGE = 51;
 
   const [quantityMode, setQuantityMode] = useState<'range' | 'fixed' | 'unlimited'>('range');
   // Unsaved Changes Modal
@@ -5020,7 +5020,7 @@ if (name === "recurringCyclePeriod") {
                 </button>
 
                 {/* TITLE */}
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
 
                   <h1
                     className="truncate text-[18px] leading-none font-black tracking-tight"
@@ -5039,6 +5039,19 @@ if (name === "recurringCyclePeriod") {
                   </h1>
 
                 </div>
+
+                {/* ✅ TAKEOVER REQUEST BUTTON - Shows only when request exists */}
+                {takeoverRequest && (
+                  <button
+                    type="button"
+                    onClick={() => setIsTakeoverModalOpen(true)}
+                    className="shrink-0 h-9 px-3.5 rounded-xl border-2 border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 hover:text-orange-200 text-[12px] font-bold transition-all flex items-center gap-2 animate-pulse"
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                    Review Takeover
+                  </button>
+                )}
+
               </div>
 
               {/* RIGHT */}

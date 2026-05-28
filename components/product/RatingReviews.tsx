@@ -14,7 +14,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, FreeMode } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
-import 'swiper/css/free-mode';
+
 
 interface RatingReviewsProps {
   productId: string;

@@ -219,13 +219,17 @@ export default async function Home() {
   ]);
   const activeBanners = getActiveBanners(banners);
 
-  const homeBanners = activeBanners.filter(
-    banner => banner.bannerType === "Homepage"
-  );
+  const homeBanners = activeBanners
+    .filter((banner) => banner.bannerType === "Homepage")
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
-  const seasonalBanners = activeBanners.filter(
-    banner => banner.bannerType === "Seasonal"
-  );
+  const seasonalBanners = activeBanners
+    .filter((banner) => banner.bannerType === "Seasonal")
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+  const seasonalBannerTop = seasonalBanners[0] ?? null;
+  const seasonalBannerBelowNewArrivals = seasonalBanners[1] ?? null;
+
   const homeCategories = categories
     .filter((c: Category) => c.showOnHomepage)
     .sort((a: Category, b: Category) => a.sortOrder - b.sortOrder);
@@ -290,37 +294,6 @@ export default async function Home() {
 
         {/* ===== CATEGORY OFFERS (NEW) ===== */}
         <CategoryOffersSlider categories={categories} baseUrl={baseUrl} />
-        {/* ===== PROMO BANNER ===== */}
-        {seasonalBanners.length > 0 && (
-          <section className="w-full py-4 bg-white">
-            {seasonalBanners.map((banner) => {
-              const desktopSrc = `${baseUrl}${banner.imageUrl}`;
-              const mobileSrc = banner.mobileImageUrl ? `${baseUrl}${banner.mobileImageUrl}` : null;
-
-              const pictureEl = (
-                <picture className="block w-full">
-                  {mobileSrc && <source media="(max-width: 767px)" srcSet={mobileSrc} />}
-                  <Image
-                    src={desktopSrc}
-                    alt={banner.title || "Healthcare Banner"}
-                    width={1200}
-                    height={400}
-                    priority
-                    className="w-full h-auto object-contain"
-                  />
-                </picture>
-              );
-
-              return banner.link ? (
-                <Link key={banner.id} href={banner.link} className="block cursor-pointer">
-                  {pictureEl}
-                </Link>
-              ) : (
-                <div key={banner.id}>{pictureEl}</div>
-              );
-            })}
-          </section>
-        )}
 
 
         {/* ===== FEATURED PRODUCTS ===== */}
@@ -330,6 +303,37 @@ export default async function Home() {
 
           </div>
         </section>
+        {/* ===== PROMO BANNER ===== */}
+        {seasonalBannerTop && (
+          <section className="w-full py-4 bg-white">
+            {(() => {
+              const desktopSrc = `${baseUrl}${seasonalBannerTop.imageUrl}`;
+              const mobileSrc = seasonalBannerTop.mobileImageUrl ? `${baseUrl}${seasonalBannerTop.mobileImageUrl}` : null;
+
+              const pictureEl = (
+                <picture className="block w-full">
+                  {mobileSrc && <source media="(max-width: 767px)" srcSet={mobileSrc} />}
+                  <Image
+                    src={desktopSrc}
+                    alt={seasonalBannerTop.title || "Healthcare Banner"}
+                    width={1200}
+                    height={400}
+                    priority
+                    className="w-full h-auto object-contain"
+                  />
+                </picture>
+              );
+
+              return seasonalBannerTop.link ? (
+                <Link key={seasonalBannerTop.id} href={seasonalBannerTop.link} className="block cursor-pointer">
+                  {pictureEl}
+                </Link>
+              ) : (
+                <div key={seasonalBannerTop.id}>{pictureEl}</div>
+              );
+            })()}
+          </section>
+        )}
 
 
         {/* ===== CATEGORIES ===== */}
@@ -368,6 +372,40 @@ export default async function Home() {
             <NewArrivalsProductsSlider baseUrl={baseUrl} />
           </div>
         </section>
+
+        {seasonalBannerBelowNewArrivals && (
+          <section className="w-full py-4 bg-white">
+            {(() => {
+              const desktopSrc = `${baseUrl}${seasonalBannerBelowNewArrivals.imageUrl}`;
+              const mobileSrc = seasonalBannerBelowNewArrivals.mobileImageUrl
+                ? `${baseUrl}${seasonalBannerBelowNewArrivals.mobileImageUrl}`
+                : null;
+
+              const pictureEl = (
+                <picture className="block w-full">
+                  {mobileSrc && <source media="(max-width: 767px)" srcSet={mobileSrc} />}
+                  <Image
+                    src={desktopSrc}
+                    alt={seasonalBannerBelowNewArrivals.title || "Healthcare Banner"}
+                    width={1200}
+                    height={400}
+                    priority
+                    className="w-full h-auto object-contain"
+                  />
+                </picture>
+              );
+
+              return seasonalBannerBelowNewArrivals.link ? (
+                <Link key={seasonalBannerBelowNewArrivals.id} href={seasonalBannerBelowNewArrivals.link} className="block cursor-pointer">
+                  {pictureEl}
+                </Link>
+              ) : (
+                <div key={seasonalBannerBelowNewArrivals.id}>{pictureEl}</div>
+              );
+            })()}
+          </section>
+        )}
+
         {/* ===== TOP BRANDS ===== */}
         <section className="w-full bg-white py-4">
           <div className="max-w-7xl mx-auto px-4">

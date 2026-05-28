@@ -146,17 +146,17 @@ systemDiscountAmount:
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {wishlist.map((item) => (
           <div
-            key={item.id}
-            className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col"
-          >
+              key={item.id}
+              className="group border border-gray-200 rounded-lg hover:shadow-xl transition-all bg-white flex flex-col p-2"
+            >
             {/* Image */}
            <Link href={`/product/${item.slug}`}>
-              <div className="relative h-[130px] w-full rounded-lg overflow-hidden">
+              <div className="relative h-44 md:h-56 w-full rounded-t-lg overflow-hidden">
                 <Image
                   src={item.image}
                   alt={item.name}
                   fill
-                  className="object-contain"
+                  className="object-contain p-2 group-hover:scale-110 transition-transform duration-300"
                   onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.jpg"; }}
                 />
               </div>

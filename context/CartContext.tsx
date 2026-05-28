@@ -192,7 +192,15 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [sessionId, setSessionId] = useState<string>(() => getSessionId());
   const hubRef = useRef<signalR.HubConnection | null>(null);
+  // Recent local adds map (productId -> timestamp) to suppress own toasts
+  const recentAddsRef = useRef<Record<string, number>>({});
   const toast = useToast();
+
+  // Keep the current cart session ID available for toast event filtering.
+  useEffect(() => {
+    if (!sessionId) return;
+    localStorage.setItem("cartSessionId", sessionId);
+  }, [sessionId]);
 
   // ── Load cart from backend on mount / session change ───────────────────────
   useEffect(() => {
@@ -278,6 +286,12 @@ connection.on(
 
     // ❌ ignore own event
     if (payload.sessionId && payload.sessionId === currentSessionId) return;
+
+    // ❌ also ignore if we locally added the same product a moment ago
+    try {
+      const last = recentAddsRef.current[payload.productId];
+      if (last && Date.now() - last < 5000) return; // 5s window
+    } catch {}
 
     // ✅ delay to avoid clash
     setTimeout(() => {
@@ -395,6 +409,17 @@ connection.on(
         },
       ];
     });
+
+    // Record this product as recently added locally so incoming hub events can be ignored
+    try {
+      const key = item.productId ?? item.id;
+      if (key) {
+        recentAddsRef.current[key] = Date.now();
+        setTimeout(() => {
+          try { delete recentAddsRef.current[key]; } catch {}
+        }, 7000);
+      }
+    } catch {}
 
     // Sync to backend (fire-and-forget; update backendId when response comes)
     const payload = frontendToBackend(item, sessionId);
@@ -557,6 +582,7 @@ connection.on(
         cartTotal,
         isInitialized,
         sessionId,
+
       }}
     >
       {children}

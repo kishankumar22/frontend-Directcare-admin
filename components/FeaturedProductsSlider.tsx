@@ -423,6 +423,11 @@ export default function FeaturedProductsSlider({
             ["male", "female", "unisex"].includes(product.gender.toLowerCase())
           );
 
+          const hasTopRightBadge =
+            (product.displayDiscountType === "System" && discountBadge) ||
+            (!discountBadge && !hasActiveCoupon && oldPriceData) ||
+            (!discountBadge && hasActiveCoupon);
+
           return (
             <SwiperSlide key={variantForCard?.id ?? product.id}>
 
@@ -457,7 +462,7 @@ export default function FeaturedProductsSlider({
                       {/* Offer badge — top right, smaller */}
                       {product.displayDiscountType === "System" &&
                         discountBadge && (
-                          <div className={`absolute z-20 left-2 ${hasGenderBadge ? "top-12" : "top-1"}`}>
+                          <div className="absolute z-20 right-2 top-2">
                             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
                               <div className="flex flex-col items-center leading-none">
                                 {discountBadge.type === "percent" ? (
@@ -477,7 +482,7 @@ export default function FeaturedProductsSlider({
                         )}
 
                       {!discountBadge && !hasActiveCoupon && oldPriceData && (
-                        <div className={`absolute z-20 left-2 ${hasGenderBadge ? "top-12" : "top-1"}`}>
+                        <div className="absolute z-20 right-2 top-2">
                           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
                             <div className="flex flex-col items-center leading-none">
                               <span className="text-[10px] sm:text-xs font-extrabold">
@@ -492,23 +497,19 @@ export default function FeaturedProductsSlider({
                       )}
                       {/* Coupon badge — top right, smaller */}
                       {!discountBadge && hasActiveCoupon && (
-                        <div className={`absolute z-20 ${hasGenderBadge ? "top-12 left-2" : "top-1 md:top-2 left-1 md:left-2"}`}>
-                          <div className="relative bg-gradient-to-br from-red-50 to-red-100 text-red-800 text-[10px] font-semibold px-2.5 py-0.5 rounded-md shadow-lg rotate-[-6deg] border border-red-200 leading-tight">
+                        <div className="absolute z-20 right-2 top-2">
+                          <div className="relative bg-gradient-to-br from-red-50 to-red-100 text-red-800 text-[9px] md:text-[10px] font-semibold px-2 py-1 rounded-md shadow-lg rotate-[-6deg] border border-red-200 leading-tight max-w-[96px] md:max-w-[96px]">
 
                             <div className="flex flex-col items-center text-center">
-                              <span className="flex items-center gap-1 text-[9px]">
-                                Coupon
-                              </span>
-                              <span className="text-[9px] opacity-90">
-                                Available
-                              </span>
+                              <span className="text-[9px] md:text-[10px] font-semibold">🎟 COUPON</span>
+                              <span className="text-[8px] md:text-[9px] opacity-90">Available</span>
                             </div>
 
                             {/* hole */}
-                            <span className="absolute -top-1 left-2 w-2 h-2 bg-white border border-red-200 rounded-full shadow-inner"></span>
+                            <span className="absolute -top-1 left-3 w-2 h-2 bg-white border border-red-200 rounded-full shadow-inner"></span>
 
                             {/* string effect */}
-                            <span className="absolute -top-3 left-[10px] w-[1px] h-3 bg-gray-300"></span>
+                            <span className="absolute -top-3 left-[14px] w-[1px] h-3 bg-gray-300"></span>
 
                           </div>
                         </div>
@@ -579,10 +580,8 @@ export default function FeaturedProductsSlider({
                             toast.success("Product added to wishlist!");
                           }
                         }}
-                        className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${(
-                            product.displayDiscountType !== "None" ||
-                            hasActiveCoupon
-                          ) ? "top-2" : "top-2"
+                        className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
+                            hasTopRightBadge ? "top-14" : "top-2"
                           } ${isInWishlist(defaultVariant?.id ?? product.id)
                             ? "bg-red-50 border-red-200"
                             : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
