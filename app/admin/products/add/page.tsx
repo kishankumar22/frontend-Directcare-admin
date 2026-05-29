@@ -26,8 +26,6 @@
   export default function AddProductPage() {
     const router = useRouter();
     const toast = useToast();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchTermCross, setSearchTermCross] = useState('');
     const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
     const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +33,6 @@
   const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
   const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
 
-  const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [quantityMode, setQuantityMode] = useState<'range' | 'fixed' | 'unlimited'>('unlimited');
 
   // ============================================================
@@ -111,7 +108,7 @@
   //   ADD THIS STATE FOR MODAL
     const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
-  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+
   // ============================================================
   // ADD THIS NEW STATE (After other useState declarations)
   // ============================================================
@@ -125,8 +122,6 @@
   // Homepage Count State
   const [homepageCount, setHomepageCount] = useState<number | null>(null);
   const MAX_HOMEPAGE = 50;
-
-
 
   // ============================================================
   // ADD THIS useEffect AFTER YOUR OTHER useEffect HOOKS
@@ -288,12 +283,6 @@
       missing.push('At least 1 variant (go to Variants tab)');
     }
 
-    // 7. Shipping (if enabled)
-    // if (formData.isShipEnabled) {
-    //   if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
-    //     missing.push('Weight (required for shipping)');
-    //   }
-    // }
 
     // 8. Grouped Product Requirements
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
@@ -303,11 +292,11 @@
     }
 
     // IMPORTANT: Jab vatExempt true hai, toh yeh condition execute nahi hogi
-    if (!formData.vatExempt) {
-      if (!formData.vatRateId || formData.vatRateId.trim() === '') {
-        missing.push('VAT Rate (required when product is taxable)');
-      }
-    }
+    // if (!formData.vatExempt) {
+    //   if (!formData.vatRateId || formData.vatRateId.trim() === '') {
+    //     missing.push('VAT Rate (required when product is taxable)');
+    //   }
+    // }
 
     // VAT Validation - Only if NOT exempt
   
@@ -1373,55 +1362,8 @@ if (!formData.nextDayDeliveryEnabled) {
           return;
         }
       }
-
-      // 5.4 Check Against Database
-      try {
-        console.log("Validating variant SKUs against database...");
-        const allProductsResponse = await productsService.getAll();
-        const allProducts = allProductsResponse.data?.data?.items || [];
-
-        for (const variant of productVariants) {
-          const variantSkuUpper = variant.sku.toUpperCase();
-
-          // Check against product SKUs
-          const productSkuConflict = allProducts.find((p: any) => p.sku?.toUpperCase() === variantSkuUpper);
-          if (productSkuConflict) {
-            toast.error(`Variant "${variant.name}" SKU conflicts with product "${productSkuConflict.name}"`, {
-              autoClose: 8000,
-            });
-            target.removeAttribute("data-submitting");
-            setIsSubmitting(false);
-            setSubmitProgress(null);
-            return;
-          }
-
-          // Check against variant SKUs
-          for (const product of allProducts) {
-            if (product.variants && Array.isArray(product.variants)) {
-              const variantSkuConflict = product.variants.find((v: any) => v.sku?.toUpperCase() === variantSkuUpper);
-              if (variantSkuConflict) {
-                toast.error(
-                  `Variant "${variant.name}" SKU conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
-                  {
-                    autoClose: 8000,
-                  }
-                );
-                target.removeAttribute("data-submitting");
-                setIsSubmitting(false);
-                setSubmitProgress(null);
-                return;
-              }
-            }
-          }
-        }
-
-        console.log("  All variant SKUs are unique!");
-      } catch (error) {
-        console.warn("Failed to validate variant SKUs against database:", error);
-        toast.warning("Could not verify variant SKUs. Proceeding...", { autoClose: 3000 });
-      }
     }
-
+    
     setSubmitProgress({
       step: "Processing categories and brands...",
       percentage: 50,
@@ -3014,27 +2956,22 @@ useEffect(() => {
               </span>
             </div>
           )}
-
-          {/* Unsaved Changes Indicator */}
-          {/* {hasUnsavedChanges && isEditMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
-              <span className="text-xs font-medium text-amber-400">Unsaved changes</span>
-            </div>
-          )} */}
+         
         </div>
 
-        {missingFields.length > 0 && (
-          <div className="mt-1 flex items-center gap-2 rounded-xl border border-orange-500/10 bg-orange-500/5 px-2 py-1 overflow-hidden">
-            <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400"></div>
-            <span className="shrink-0 text-[10px] font-semibold text-orange-300">
-              {missingFields.length} Required
-            </span>
-            <span className="truncate text-[10px] text-orange-200/80">
-              {missingFields.join(", ")}
-            </span>
-          </div>
-        )}
+{missingFields.length > 0 && (
+  <div className="mt-1 flex items-center gap-2 rounded-xl border border-orange-500/10 bg-orange-500/5 px-2 py-1 overflow-hidden max-w-[900px]">
+    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400"></div>
+
+    <span className="shrink-0 text-[10px] font-semibold text-orange-300">
+      {missingFields.length} Required
+    </span>
+
+    <span className="truncate text-[10px] text-orange-200/80">
+      {missingFields.join(", ")}
+    </span>
+  </div>
+)}
       </div>
     </div>
 
@@ -5628,7 +5565,7 @@ useEffect(() => {
     )}
 
     {!formData.name.trim() && (
-      <p className="text-xs text-amber-400">  š ï¸ Product name is required for image upload</p>
+      <p className="text-xs text-amber-400">Product name is required for image upload</p>
     )}
 
     {/* Image Grid */}

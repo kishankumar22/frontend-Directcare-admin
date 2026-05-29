@@ -117,12 +117,12 @@ const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
   return true;
 });
 
-const hasTopRightBadge = Boolean(
-  discountBadge ||
+const hasTopRightBadge =
+  Boolean(
+    discountBadge ||
     (!discountBadge && !hasActiveCoupon && oldPriceData) ||
     (!discountBadge && hasActiveCoupon)
-);
-
+  );
 // 🎁 Loyalty Points Logic (NEW – production safe)
 const getLoyaltyPoints = () => {
   // ❌ excluded
@@ -381,8 +381,8 @@ systemDiscountAmount:
 )}
       {/* Coupon badge — smaller */}
   {!discountBadge && hasActiveCoupon && (
-  <div className="absolute top-2 right-2 z-20">
-    <div className="relative bg-gradient-to-br from-red-50 to-red-100 text-red-800 text-[9px] md:text-[10px] font-semibold px-2 py-1 rounded-md shadow-lg rotate-[-6deg] border border-red-200 leading-tight max-w-[96px] md:max-w-[96px]">
+  <div className="absolute top-1 right-1 z-20">
+    <div className="relative bg-gradient-to-br from-red-50 to-red-100 text-red-800 text-[9px] md:text-[10px] font-semibold px-1 py-1 rounded-md shadow-lg rotate-[-6deg] border border-red-200 leading-tight max-w-[96px] md:max-w-[96px]">
 
       <div className="flex flex-col items-center text-center">
         <span className="text-[9px] md:text-[10px] font-semibold">🎟 COUPON</span>
@@ -417,16 +417,16 @@ systemDiscountAmount:
         toast.success("Product added to wishlist!");
       }
     }}
-    className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
-      hasTopRightBadge ? "top-14" : "top-2"
-    } ${
+   className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
+  hasTopRightBadge ? "top-14" : "top-2"
+} ${
       inWishlist
         ? "bg-red-50 border-red-200"
         : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
     }`}
   >
     <Heart
-      className={`h-4 w-4 ${
+      className={`h-5 w-5 ${
         inWishlist
           ? "fill-red-500 text-red-500"
           : "text-gray-400 hover:text-red-400"

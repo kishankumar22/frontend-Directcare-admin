@@ -22,6 +22,8 @@ interface Discount {
   startDate: string;
   endDate: string;
   adminComment?: string;
+  desktopBannerImageUrl?: string;
+mobileBannerImageUrl?: string;
 }
 
 
@@ -231,10 +233,23 @@ export default function CategoryOffersSlider({
                       {/* IMAGE */}
                       <div className="relative h-[120px] md:h-[170px] w-full flex items-center justify-center bg-gray-50/50 p-2 pt-4 overflow-hidden">
                         <div className="w-full h-full relative transition-transform duration-500 group-hover:scale-105">
-                          <CategoryImage
-                            src={getImageSrc(cat.imageUrl)}
-                            alt={cat.name}
-                          />
+<CategoryImage
+  src={getImageSrc(
+    typeof window !== "undefined" &&
+    window.innerWidth < 768
+      ? (
+          validDiscount?.mobileBannerImageUrl ||
+          validDiscount?.desktopBannerImageUrl ||
+          cat.imageUrl
+        )
+      : (
+          validDiscount?.desktopBannerImageUrl ||
+          validDiscount?.mobileBannerImageUrl ||
+          cat.imageUrl 
+        )
+  )}
+  alt={cat.name}
+/>
                         </div>
                       </div>
 

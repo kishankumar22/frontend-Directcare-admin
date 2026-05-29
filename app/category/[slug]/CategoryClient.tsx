@@ -304,14 +304,14 @@ export default function CategoryClient({
 
       // Subcategory filter (when user selects a specific subcategory)
       // Backend already filters by categorySlug, so no need to re-check parent category here
-      if (selectedSubCategories.length > 0) {
-        const productCategoryIds =
-          product.categories?.map((c) => c.categoryId) ?? [];
-        const match = productCategoryIds.some((id) =>
-          selectedSubCategories.includes(id)
-        );
-        if (!match) return false;
-      }
+      // if (selectedSubCategories.length > 0) {
+      //   const productCategoryIds =
+      //     product.categories?.map((c) => c.categoryId) ?? [];
+      //   const match = productCategoryIds.some((id) =>
+      //     selectedSubCategories.includes(id)
+      //   );
+      //   if (!match) return false;
+      // }
 
 
       // Brand, price, rating filters are handled server-side — no client-side filter needed
@@ -421,6 +421,24 @@ export default function CategoryClient({
         const comparison = getCardPrice(a) - getCardPrice(b);
         return sortDirection === "asc" ? comparison : -comparison;
       }
+      if (sortBy === "rating") {
+  const ratingA = a.productData.averageRating ?? 0;
+  const ratingB = b.productData.averageRating ?? 0;
+
+  // same rating ho to review count se sort karo
+  if (ratingA === ratingB) {
+    const reviewsA = a.productData.reviewCount ?? 0;
+    const reviewsB = b.productData.reviewCount ?? 0;
+
+    return sortDirection === "asc"
+      ? reviewsA - reviewsB
+      : reviewsB - reviewsA;
+  }
+
+  return sortDirection === "asc"
+    ? ratingA - ratingB
+    : ratingB - ratingA;
+}
 
       return 0;
     });
@@ -564,11 +582,17 @@ export default function CategoryClient({
     [router, searchParams, urlSlug]
   );
 
-  const handleSortChange = useCallback((value: string) => {
-    const [newSortBy, newDirection] = value.split("-");
-    setSortBy(newSortBy);
-    setSortDirection(newDirection as "asc" | "desc");
-  }, []);
+const handleSortChange = useCallback((value: string) => {
+  const [newSortBy, newDirection] = value.split("-");
+
+  setSortBy(newSortBy);
+  setSortDirection(newDirection as "asc" | "desc");
+
+  updateServerFilters({
+    sortBy: newSortBy,
+    sortDirection: newDirection,
+  });
+}, [updateServerFilters]);
   const [showPharmaModal, setShowPharmaModal] = useState(false);
   const [pendingProduct, setPendingProduct] = useState<{
     product: any;
@@ -813,6 +837,7 @@ export default function CategoryClient({
             <option value="name-desc">Z-A</option>
             <option value="price-asc">Low-High</option>
             <option value="price-desc">High-Low</option>
+          <option value="rating-desc">Popularity</option>
           </select>
 
         </div>

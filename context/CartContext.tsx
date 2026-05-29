@@ -101,6 +101,7 @@ function backendToFrontend(dto: any): CartItem {
   orderMinimumQuantity: dto.orderMinimumQuantity,
   orderMaximumQuantity: dto.orderMaximumQuantity,
   variants: dto.variants ?? [],
+  
 },
 maxStock: dto.stockQuantity,
     id: dto.variantId ?? dto.productId,
@@ -243,7 +244,7 @@ const handleLogin = async () => {
             })
           )
         );
-          // 🔥 ADD THIS LINE HERE
+  // 🔥 ADD THIS LINE HERE
   localStorage.removeItem("cart_guest");
       }
     } catch {}

@@ -434,7 +434,7 @@ export default function CrossSellProductCard({ product, getImageUrl }: any) {
             }`}
           >
             <Heart
-              className={`h-4 w-4 ${
+              className={`h-5 w-5 ${
                 inWishlist
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400 hover:text-red-400"

@@ -377,7 +377,7 @@ export default function ProductCard({
             }`}
           >
             <Heart
-              className={`h-4 w-4 transition-colors ${
+              className={`h-5 w-5   transition-colors ${
                 isInWishlist(defaultVariant?.id ?? product.id)
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400 hover:text-red-400"

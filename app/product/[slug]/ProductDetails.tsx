@@ -879,10 +879,15 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     return getDiscountedPrice(product, basePrice);
   }, [product, basePrice]);
 
-  // 🔥 OLD PRICE FALLBACK (PDP SAFE)
-  const oldPriceValue =
-    selectedVariant?.compareAtPrice ?? selectedVariant?.oldPrice ??
-    product.compareAtPrice ?? product.oldPrice;
+  // 🔥 OLD PRICE/CUT PRICE LOGIC (Requirement Based)
+  let oldPriceValue: number | undefined = undefined;
+  if (selectedVariant) {
+    // Variant product: show compareAtPrice only
+    oldPriceValue = selectedVariant.compareAtPrice ?? undefined;
+  } else {
+    // Simple product: show oldPrice only
+    oldPriceValue = product.oldPrice ?? undefined;
+  }
 
   const currentDisplayType =
     selectedVariant?.displayDiscountType ??

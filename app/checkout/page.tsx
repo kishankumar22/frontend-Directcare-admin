@@ -1710,8 +1710,10 @@ if (!acceptTerms) {
   );
   return;
 }
-       if (isPlacing) return;
-  setIsPlacing(true);
+
+if (isPlacing) return;
+
+setIsPlacing(true);
       const payload = await validateAndBuildPayload();
      if (!payload) {
       setIsPlacing(false);

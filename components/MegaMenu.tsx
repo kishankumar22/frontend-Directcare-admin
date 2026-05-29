@@ -124,6 +124,8 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [activeSubCategory, setActiveSubCategory] =
     useState<Category | null>(null);
+    const [activeChildCategory, setActiveChildCategory] =
+  useState<Category | null>(null);
 
   const brandScrollRef = useRef<HTMLDivElement>(null);
 const [canScroll, setCanScroll] = useState(false);
@@ -197,15 +199,15 @@ const getValidDiscounts = (cat: Category | null) => {
 
   return discounts.length ? discounts : null;
 };
-  const getMaxDiscount = (cat: Category | null) => {
-    if (!cat?.assignedDiscounts?.length) return null;
+  // const getMaxDiscount = (cat: Category | null) => {
+  //   if (!cat?.assignedDiscounts?.length) return null;
 
-    const percentages = cat.assignedDiscounts
-      .filter((d) => d.usePercentage)
-      .map((d) => d.discountPercentage);
+  //   const percentages = cat.assignedDiscounts
+  //     .filter((d) => d.usePercentage)
+  //     .map((d) => d.discountPercentage);
 
-    return percentages.length ? Math.max(...percentages) : null;
-  };
+  //   return percentages.length ? Math.max(...percentages) : null;
+  // };
 
   const getThemeIndex = (slug: string) =>
     slug
@@ -227,18 +229,130 @@ const getValidDiscounts = (cat: Category | null) => {
   ===================== */
 
   useEffect(() => {
-    const subs = activeMainCategory?.subCategories;
-    setActiveSubCategory(subs?.length ? subs[0] : null);
+    
+    setActiveSubCategory(null);
   }, [activeMainCategory]);
+const hoveredCategory =
+  activeChildCategory ||
+  activeSubCategory ||
+  null;
 
-  const bannerCategory = activeSubCategory || activeMainCategory;
-  const maxDiscount = getMaxDiscount(activeMainCategory);
+/* ===================================
+   Find first discount category
+=================================== */
+
+const findFirstDiscountCategory = (
+  category: Category | null
+): { category: Category; discount: number } | null => {
+  if (!category) return null;
+
+  /* =========================
+     1. Current Category
+  ========================= */
+
+  const selfDiscounts =
+    category.assignedDiscounts
+      ?.filter(
+        (d) =>
+          d.usePercentage &&
+          isDiscountValid(d)
+      )
+      .map(
+        (d) => d.discountPercentage
+      ) || [];
+
+  // Current category has discount
+  if (selfDiscounts.length > 0) {
+    return {
+      category,
+      discount: Math.max(
+        ...selfDiscounts
+      ),
+    };
+  }
+
+  /* =========================
+     2. Recursive Child Search
+  ========================= */
+
+  if (category.subCategories?.length) {
+    for (const sub of category.subCategories) {
+      const found =
+        findFirstDiscountCategory(
+          sub
+        );
+
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  /* =========================
+     3. No Discount Found
+  ========================= */
+
+  return null;
+};
+/* ===================================
+   Default L1 Discount
+=================================== */
+
+const defaultDiscountInfo =
+  findFirstDiscountCategory(
+    activeMainCategory
+  );
+
+/* ===================================
+   Hover Discount
+=================================== */
+
+const hoveredDiscountInfo =
+  hoveredCategory
+    ? (() => {
+        // current hovered category branch only
+        return findFirstDiscountCategory(
+          hoveredCategory
+        );
+      })()
+    : null;
+
+/* ===================================
+   Final Display
+=================================== */
+
+const finalDiscountInfo =
+  hoveredCategory
+    ? hoveredDiscountInfo
+    : defaultDiscountInfo;
+
+const maxDiscount =
+  finalDiscountInfo?.discount ?? null;
+
+const discountCategory =
+  finalDiscountInfo?.category ?? null;
+
+const bannerCategory =
+  hoveredCategory ||
+  activeMainCategory;
+
+/* ===================================
+   Theme
+=================================== */
 
 const theme =
-  bannerThemes[getThemeIndex(activeMainCategory.slug)];
+  bannerThemes[
+    getThemeIndex(
+      bannerCategory.slug
+    )
+  ];
+
+/* ===================================
+   Offer discount IDs
+=================================== */
 
 const offerDiscountIds = (
-  getValidDiscounts(activeMainCategory) ?? []
+  getValidDiscounts(discountCategory) ?? []
 )
   .map((d) => d.id)
   .filter(Boolean)
@@ -260,7 +374,10 @@ const offerDiscountIds = (
                  <Link
   key={sub.id}
   href={`/category/${sub.slug}`}
-  onMouseEnter={() => setActiveSubCategory(sub)}
+onMouseEnter={() => {
+  setActiveSubCategory(sub);
+  setActiveChildCategory(null);
+}}
   className={`flex items-center justify-between p-2 transition cursor-pointer hover:bg-white hover:font-semibold ${
     activeSubCategory?.id === sub.id
       ? "bg-white font-semibold text-[#445D41]"
@@ -291,12 +408,22 @@ const offerDiscountIds = (
           {/* MIDDLE COLUMN */}
           <div className="w-1/3 bg-white border-r border-gray-200 p-4">
             {activeSubCategory?.subCategories?.length ? (
-              <div className="max-h-[260px] overflow-y-auto pr-2 space-y-2 scrollbar-hide">
+              <div className="max-h-[260px] overflow-y-auto pr-2 space-y-2 scrollbar-hide"
+              onMouseLeave={() =>
+    setActiveChildCategory(null)
+  }>
                 {activeSubCategory.subCategories.map((child) => (
-                 <Link
+<Link
   key={child.id}
   href={`/category/${child.slug}`}
-  className="block text-base text-gray-700 hover:text-[#445D41] hover:font-medium transition"
+  onMouseEnter={() =>
+    setActiveChildCategory(child)
+  }
+  className={`block text-base transition ${
+    activeChildCategory?.id === child.id
+      ? "text-[#445D41] font-semibold"
+      : "text-gray-700 hover:text-[#445D41] hover:font-medium"
+  }`}
 >
 
                     {child.name ?? "Unnamed"}
@@ -326,7 +453,7 @@ const offerDiscountIds = (
           <div className="w-1/3 p-4">
             {maxDiscount ? (
              <Link
-  href={`/category/${activeMainCategory.slug}?offer=true${
+  href={`/category/${discountCategory?.slug || bannerCategory.slug}?offer=true${
     offerDiscountIds
       ? `&discountIds=${encodeURIComponent(offerDiscountIds)}`
       : ""
@@ -346,15 +473,25 @@ const offerDiscountIds = (
                     
                   </div>
                  <div className="relative z-10">
-  <p className="text-xl font-semibold text-white/90">
-    UP TO {maxDiscount}% OFF
-  </p>
-  <div className="mt-1">
-  <span className="inline-block bg-white/90 text-gray-900 text-lg font-semibold px-3 py-1 rounded-md shadow backdrop-blur">
-  {activeMainCategory.name}
-</span>
+<p className="text-xl font-semibold text-white/90">
+  UP TO {maxDiscount}% OFF
+</p>
 
+<div className="mt-2 space-y-2">
+  {/* Discount Category */}
+  <div>
+    <span className="inline-block bg-white/90 text-gray-900 text-lg font-semibold px-3 py-1 rounded-md shadow backdrop-blur">
+      {discountCategory?.name || bannerCategory.name}
+    </span>
   </div>
+
+  {/* Parent Context */}
+  {discountCategory?.id !== bannerCategory.id && (
+    <p className="text-sm text-white/80">
+      inside {bannerCategory.name}
+    </p>
+  )}
+</div>
 </div>
                   <div className="relative z-10">
                     <span className="inline-block bg-white text-gray-900 text-sm font-semibold px-3 py-1 rounded shadow-md hover:bg-gray-100 transition">
@@ -382,7 +519,7 @@ const offerDiscountIds = (
         No Offers Available
       </p>
       <p className="text-sm text-gray-500 mt-1">
-        in {activeMainCategory.name}
+      in {bannerCategory.name}
       </p>
     </div>
 
