@@ -121,7 +121,7 @@ export async function generateMetadata({ params, searchParams }: any) {
 
   const categoriesRes = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-    { next: { revalidate: 600 } }
+    { next: { revalidate: 60 } }
   ).then((r) => r.json());
 const categoriesArray = Array.isArray(categoriesRes.data)
   ? categoriesRes.data
@@ -207,7 +207,7 @@ export default async function CategoryPage({
   // ✅ Fetch category tree ONCE
   const categoriesRes = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-    { next: { revalidate: 600 } }
+    { next: { revalidate: 60 } }
   ).then((r) => r.json());
 
 const categoriesArray = Array.isArray(categoriesRes.data)
@@ -248,7 +248,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
   const vatRatesRes = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/VATRates?activeOnly=true`,
-    { next: { revalidate: 600 } }
+    { next: { revalidate: 60 } }
   ).then((r) => r.json());
 
  return (

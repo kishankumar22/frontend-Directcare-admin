@@ -96,12 +96,24 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 // ─── Helper: map backend DTO → frontend CartItem ──────────────────────────────
 function backendToFrontend(dto: any): CartItem {
   return {
-    productData: {
-  stockQuantity: dto.stockQuantity,
-  orderMinimumQuantity: dto.orderMinimumQuantity,
-  orderMaximumQuantity: dto.orderMaximumQuantity,
-  variants: dto.variants ?? [],
-  
+productData: {
+  ...(dto.productData ?? {}),
+
+  stockQuantity:
+    dto.productData?.stockQuantity ?? dto.stockQuantity,
+
+  orderMinimumQuantity:
+    dto.productData?.orderMinimumQuantity ??
+    dto.orderMinimumQuantity,
+
+  orderMaximumQuantity:
+    dto.productData?.orderMaximumQuantity ??
+    dto.orderMaximumQuantity,
+
+  variants:
+    dto.productData?.variants ??
+    dto.variants ??
+    [],
 },
 maxStock: dto.stockQuantity,
     id: dto.variantId ?? dto.productId,

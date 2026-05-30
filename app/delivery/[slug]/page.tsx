@@ -7,7 +7,7 @@ async function getDeliveryData(slug: string) {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/DeliveryStrip/by-slug/${slug}`,
       {
-        next: { revalidate: 600 },
+        next: { revalidate: 60 },
       }
     );
 

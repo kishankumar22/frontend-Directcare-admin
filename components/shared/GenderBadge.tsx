@@ -51,10 +51,12 @@ export default function GenderBadge({
         alt={config.label}
         className="h-3 w-3 sm:h-5 sm:w-5"
         loading="lazy"
+        title={config.label}
       />
-      <span className="text-[8px] sm:text-[10px] font-semibold text-gray-700">
+      <span className="text-[8px]  sm:text-[10px] font-semibold text-gray-700">
         {config.label}
       </span>
     </div>
   );
 }
+

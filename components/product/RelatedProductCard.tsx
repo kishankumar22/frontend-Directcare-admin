@@ -342,12 +342,12 @@ systemDiscountAmount:
   return (
    <Card className="relative border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-xl
                  flex flex-col">
-             <CardContent className="p-1.5 mt-3 flex flex-col h-full">
+ <CardContent className="p-1.5 mt-1 flex flex-col h-full">
       {/* BADGES */}    
- <GenderBadge gender={product.gender} />
       
       {/* IMAGE */}
     <div className="h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
+      <GenderBadge gender={product.gender} />
       {/* Offer badge — smaller */}
       {product.displayDiscountType === "System" &&
  discountBadge && (
@@ -576,10 +576,6 @@ systemDiscountAmount:
 )}
 
        </CardContent>
-            </Card>
-
-
-
-   
+  </Card>
   );
 }

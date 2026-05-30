@@ -105,25 +105,43 @@ export default function CartPage() {
   // -------------------------
   // BUILD list of available coupon-able discounts from cart (for UI hint)
   // -------------------------
-  const availableCoupons = useMemo(() => {
-    const map = new Map<string, { code: string; productIds: string[]; discount: any }>();
-    cart.forEach((item) => {
-      const pd = item.productData;
-      const assigns: any[] = pd?.assignedDiscounts ?? [];
-      for (const d of assigns) {
-        if (!isDiscountActive(d)) continue;
-        if (!d.requiresCouponCode) continue;
-        if (!d.couponCode) continue;
-        const code = d.couponCode.trim().toLowerCase();
-        if (!map.has(code)) {
-          map.set(code, { code, productIds: [item.id], discount: d });
-        } else {
-          map.get(code)!.productIds.push(item.id);
-        }
+const availableCoupons = useMemo(() => {
+  const map = new Map<
+    string,
+    {
+      code: string;
+      productIds: string[];
+      discount: any;
+    }
+  >();
+
+  cart.forEach((item) => {
+    const pd = item.productData;
+    const assigns: any[] = pd?.assignedDiscounts ?? [];
+
+    for (const d of assigns) {
+      if (!isDiscountActive(d)) continue;
+      if (!d.requiresCouponCode) continue;
+      if (!d.couponCode) continue;
+
+      const code = d.couponCode.trim().toLowerCase();
+
+      const stableId = item.productId ?? item.id;
+
+      if (!map.has(code)) {
+        map.set(code, {
+          code,
+          productIds: [stableId],
+          discount: d,
+        });
+      } else {
+        map.get(code)!.productIds.push(stableId);
       }
-    });
-    return Array.from(map.values());
-  }, [cart]);
+    }
+  });
+
+  return Array.from(map.values());
+}, [cart]);
 
   const subtotalBeforeDiscount = useMemo(() => {
     return cart.reduce((sum, item) => {
@@ -157,6 +175,7 @@ export default function CartPage() {
       { subtotal: 0, discount: 0 }
     );
   }, [cart]);
+  console.log(cart)
 
   const totalDiscount = useMemo(() => {
     return cart.reduce(
@@ -214,7 +233,14 @@ export default function CartPage() {
 
     const assigns = item.productData?.assignedDiscounts ?? [];
 
-    const basePrice = item.priceBeforeDiscount ?? item.price;
+    const basePrice =
+      item.priceBeforeDiscount ??
+      // if system-discounted price is already stored (common after refresh), rebuild original/base price
+      (((item.systemDiscountAmount ?? 0) > 0)
+        ? item.price + (item.systemDiscountAmount ?? 0)
+        : undefined) ??
+      item.productData?.price ??
+      item.price;
 
     // 🔹 AUTO DISCOUNT
     const autoDiscount = assigns.find(
@@ -306,7 +332,14 @@ export default function CartPage() {
       ) {
         return item;
       }
-      const basePrice = item.priceBeforeDiscount ?? item.price;
+      const basePrice =
+        item.priceBeforeDiscount ??
+        // if system-discounted price is already stored (common after refresh), rebuild original/base price
+        (((item.systemDiscountAmount ?? 0) > 0)
+          ? item.price + (item.systemDiscountAmount ?? 0)
+          : undefined) ??
+        item.productData?.price ??
+        item.price;
 
       // 🔹 Find AUTO discount (same as PDP)
       const activeAutoDiscount = assigns.find(
@@ -398,35 +431,46 @@ export default function CartPage() {
         return item;
       }
 
-      const assigns: any[] = item.productData?.assignedDiscounts ?? [];
-      const basePrice = item.priceBeforeDiscount ?? item.price;
+      const basePrice =
+        item.priceBeforeDiscount ??
+        // finalPrice + discountAmount reconstructs the pre-coupon price reliably (even after refresh)
+        ((item.couponCode && (item.discountAmount ?? 0) > 0)
+          ? (item.finalPrice ?? item.price) + (item.discountAmount ?? 0)
+          : undefined) ??
+        item.productData?.price ??
+        item.price;
 
-      // 🔹 find auto discount
-      const autoDiscount = assigns.find(
-        (d: any) =>
-          d &&
-          !d.requiresCouponCode &&
-          isDiscountActive(d)
-      );
+      let restoredPrice = basePrice;
 
-      let autoDiscountAmount = 0;
+      // re-apply automatic/system discount if exists
+      const autoDiscount =
+        item.productData?.assignedDiscounts?.find(
+          (d: any) =>
+            d.isActive &&
+            !d.requiresCouponCode
+        );
 
       if (autoDiscount) {
         if (autoDiscount.usePercentage) {
-          autoDiscountAmount =
+          restoredPrice =
+            basePrice -
             (basePrice * autoDiscount.discountPercentage) / 100;
         } else {
-          autoDiscountAmount = autoDiscount.discountAmount ?? 0;
+          restoredPrice =
+            basePrice - autoDiscount.discountAmount;
         }
       }
 
       return {
         ...item,
-        appliedDiscountId: null,
+
         couponCode: null,
-        discountAmount: autoDiscountAmount,
-        finalPrice: basePrice - autoDiscountAmount,
-        priceBeforeDiscount: basePrice,
+        appliedDiscountId: null,
+        discountAmount: 0,
+
+        // restore original price
+        price: +restoredPrice.toFixed(2),
+        finalPrice: +restoredPrice.toFixed(2),
       };
     });
 
@@ -455,6 +499,7 @@ export default function CartPage() {
       if (!code) return;
       const key = code.toLowerCase();
       const amount = item.discountAmount ?? 0;
+      if (amount <= 0) return;
       if (!map.has(key)) {
         map.set(key, { code, items: [{ id: item.id, name: item.name, amount }], totalDiscount: amount });
       } else {
@@ -899,12 +944,14 @@ export default function CartPage() {
                       </div>
 
                       {/* Row 4: Coupon */}
-                      {item.couponCode ? (
+                      {item.couponCode && (item.discountAmount ?? 0) > 0 ? (
                         <div className="flex items-center gap-1.5 bg-green-50 text-green-800 px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 w-fit">
                           <span>Coupon: {item.couponCode}</span>
                           <button onClick={() => removeCouponFromItem(item.id, item.type)} className="text-red-600 underline">Remove</button>
                         </div>
-                      ) : availableCoupons.some((c) => c.productIds.includes(item.id)) && (
+  ) : availableCoupons.some((c) =>
+  c.productIds.includes(item.productId ?? item.id)
+ ) && (
                         <button
                           onClick={() => { setSelectedItem(item); setShowOffers(true); }}
                           className="flex items-center gap-1 text-[10px] text-green-600 font-medium hover:underline mt-1 w-fit"

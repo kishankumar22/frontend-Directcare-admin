@@ -1269,19 +1269,20 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       const bundleInstanceId = crypto.randomUUID();
       const bundleId = `bundle:${product.id}:${selected?.id ?? "base"}`;
       // 🔹 BUNDLE PARENT (MAIN PRODUCT)
-      addToCart({
-        id: bundleId,
-        type: "one-time",
-        purchaseContext: "bundle",
-        productId: product.id,
-        variantId: selected?.id ?? null,
-        name: `${product.name} ${variantTitle} (Bundle)`,
-        price: final,
-        priceBeforeDiscount: basePrice,
-        finalPrice: final,
-        discountAmount:
-          currentDisplayType === "System" || appliedCoupon
-            ? discountAmount ?? 0
+       addToCart({
+         id: bundleId,
+         type: "one-time",
+         purchaseContext: "bundle",
+         productId: product.id,
+         variantId: selected?.id ?? null,
+         name: `${product.name} ${variantTitle} (Bundle)`,
+         // keep `price` as base/original to avoid double-discounting after refresh
+         price: basePrice,
+         priceBeforeDiscount: basePrice,
+         finalPrice: final,
+         discountAmount:
+           currentDisplayType === "System" || appliedCoupon
+             ? discountAmount ?? 0
             : 0,
         oldPrice: oldPriceValue ?? undefined,
 
@@ -1365,7 +1366,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
         productId: product.id,
         variantId: selected?.id ?? null,
         name: `${product.name} ${variantTitle}`,
-        price: final,
+        // keep `price` as base/original to avoid double-discounting after refresh
+        price: basePrice,
         priceBeforeDiscount: basePrice,
         finalPrice: final,
         discountAmount:
@@ -1521,7 +1523,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
             .join(", ")})`
           : ""
         }`,
-      price: final,
+      // keep `price` as base/original to avoid double-discounting after refresh
+      price: basePrice,
       priceBeforeDiscount: basePrice,
       finalPrice: final,
       discountAmount:

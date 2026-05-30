@@ -1,5 +1,5 @@
 // app/brands/[slug]/page.tsx
-export const revalidate = 3600;
+export const revalidate = 60;
 
 import BrandsClient from "./BrandsClient";
 
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: BrandPageProps) {
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
-    { next: { revalidate: 600 } }
+    { next: { revalidate: 60 } }
   ).then((r) => r.json());
 
   const dataArray = Array.isArray(res.data)
@@ -83,7 +83,8 @@ async function getProductsByBrand(
 ) {
   // 🔥 fetch all brands to get ID
   const brandsRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`
+    `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
+    { next: { revalidate: 60 } }
   ).then((r) => r.json());
 
   const dataArray = Array.isArray(brandsRes.data)
@@ -130,7 +131,7 @@ async function getProductsByBrand(
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
-    { next: { revalidate: 3600 } }
+    { next: { revalidate: 60 } }
   );
 
   return res.json();
@@ -149,7 +150,7 @@ const productsRes = await getProductsByBrand(
 // ✅ FETCH ALL BRANDS (for SEO)
 const brandsRes = await fetch(
   `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
-  { next: { revalidate: 600 } }
+  { next: { revalidate: 60 } }
 ).then((r) => r.json());
 
 const dataArray = Array.isArray(brandsRes.data)

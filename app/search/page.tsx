@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import GenderBadge from "@/components/shared/GenderBadge";
 
 export const dynamic = "force-dynamic"; 
 
@@ -58,9 +59,14 @@ if (query.length > 1) {
 
       {/* RESULTS GRID */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6">
- {products.map((item) => {
+ {products.flatMap((item) => {
+  const variants: any[] = Array.isArray(item.variants) ? item.variants : [];
+  const rows = variants.length ? variants : [null];
+
+  return rows.map((variant) => {
 
   const mainImage =
+    variant?.imageUrl ||
     item.mainImageUrl ||
     item.images?.find((img: any) => img.isMain)?.imageUrl ||
     item.images?.[0]?.imageUrl ||
@@ -70,33 +76,41 @@ if (query.length > 1) {
     ? mainImage
     : `${process.env.NEXT_PUBLIC_API_URL}${mainImage}`;
 
-  // DISCOUNT
-  const comparePrice =
-    item.compareAtPrice ||
-    item.oldPrice ||
-    0;
+  // PRICE / CUT PRICE
+  const hasVariants = variants.length > 0;
+  const selectedVariant = variant
+    ? variant
+    : hasVariants
+      ? variants.find((v: any) => v?.isDefault) || variants[0]
+      : null;
 
-  const hasDiscount =
-    comparePrice > item.price;
+  const price = Number(selectedVariant?.price ?? item.price ?? 0);
+
+  // Non-variant products: cut price = `oldPrice`
+  // Variant products: cut price = `compareAtPrice`
+  const cutPrice = Number(
+    (hasVariants ? selectedVariant?.compareAtPrice : item.oldPrice) ?? 0
+  );
+
+  const hasDiscount = cutPrice > price;
 
   const discountPercent = hasDiscount
-    ? Math.round(
-        ((comparePrice - item.price) /
-          comparePrice) *
-          100
-      )
+    ? Math.round(((cutPrice - price) / cutPrice) * 100)
     : 0;
 
   return (
     <Link
-      key={item.id}
-      href={`/product/${item.slug}`}
+      key={`${item.id}-${selectedVariant?.id ?? "base"}`}
+      href={`/product/${selectedVariant?.slug ?? item.slug}`}
       className="group border rounded-2xl p-3 bg-white hover:shadow-lg transition relative overflow-hidden"
     >
 
+      {/* GENDER BADGE */}
+      <GenderBadge gender={item.genderName || item.gender} />
+
       {/* DISCOUNT BADGE */}
       {hasDiscount && (
-        <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+        <div className="absolute top-2 right-2 z-10 bg-red-600 text-white text-[10px] font-bold w-10 h-10 rounded-full flex items-center justify-center text-center leading-tight">
           {discountPercent}% OFF
         </div>
       )}
@@ -113,7 +127,7 @@ if (query.length > 1) {
 
       {/* TITLE */}
       <h3 className="text-sm font-semibold text-gray-900 mt-3 line-clamp-2 min-h-[40px]">
-        {item.name}
+        {hasVariants ? (selectedVariant?.name ?? item.name) : item.name}
       </h3>
 
       {/* CATEGORY */}
@@ -139,18 +153,19 @@ if (query.length > 1) {
       {/* PRICE */}
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <p className="text-[#445D41] font-bold text-lg">
-          £{Number(item.price || 0).toFixed(2)}
+          £{price.toFixed(2)}
         </p>
 
         {hasDiscount && (
           <p className="text-sm text-gray-400 line-through">
-            £{Number(comparePrice).toFixed(2)}
+            £{cutPrice.toFixed(2)}
           </p>
         )}
       </div>
 
     </Link>
   );
+});
 })}
       </div>
     </div>

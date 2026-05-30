@@ -33,7 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true&isActive=true&isDeleted=false`,
       {
-        next: { revalidate: 600 },
+        next: { revalidate: 60 },
       }
     );
     if (res.ok) {
@@ -55,7 +55,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/DeliveryStrip`,
       {
-        next: { revalidate: 600 },
+        next: { revalidate: 60 },
       }
     );
 
