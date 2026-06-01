@@ -431,26 +431,29 @@ export default function ProductCard({
         </div>
 
         {/* PRICE */}
-        <div className="flex items-center gap-1 md:gap-2 mb-1">
-          <span className="text-base md:text-xl font-bold text-[#445D41]">
-            £{(currentDisplayType === "System" ? finalPrice : basePrice).toFixed(2)}
-          </span>
-          {currentDisplayType === "System" && discountBadge && (
-            <span className="text-sm text-gray-400 line-through">
-              £{basePrice.toFixed(2)}
-            </span>
-          )}
-          {currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData && (
-            <span className="text-sm text-gray-400 line-through">
-              £{oldPriceData.oldPrice.toFixed(2)}
-            </span>
-          )}
-          {vatRate !== null && vatRate > 0 && (
-            <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-              ({vatRate}% VAT)
-            </span>
-          )}
-        </div>
+<div className="flex items-center gap-0.5 mb-1">
+  <span className="text-[15px] md:text-xl font-bold text-[#445D41] leading-none">
+    £{(currentDisplayType === "System" ? finalPrice : basePrice).toFixed(2)}
+  </span>
+
+  {currentDisplayType === "System" && discountBadge && (
+    <span className="text-[12px] md:text-sm text-gray-400 line-through leading-none">
+      £{basePrice.toFixed(2)}
+    </span>
+  )}
+
+  {currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData && (
+    <span className="text-[12px] md:text-sm text-gray-400 line-through leading-none">
+      £{oldPriceData.oldPrice.toFixed(2)}
+    </span>
+  )}
+
+  {vatRate !== null && vatRate > 0 && (
+    <span className="text-[10px] md:text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-[2px] rounded-md whitespace-nowrap leading-none">
+      ({vatRate}% VAT)
+    </span>
+  )}
+</div>
 
         {/* ADD TO CART */}
         <Button

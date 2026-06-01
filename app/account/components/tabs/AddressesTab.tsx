@@ -105,6 +105,7 @@ useEffect(() => {
     try {
       setLoading(true);
       const data = await getAddresses(accessToken);
+      console.log("Fetched addresses:", data);
 
      setAddresses(
   [...data].sort(
@@ -136,7 +137,19 @@ const doAutocomplete = useCallback(async (q: string) => {
       )}&country=GB`
     );
 
-    const json = await res.json();
+const text = await res.text();
+
+if (!text || !text.trim()) {
+  throw new Error("Empty address response");
+}
+
+let json;
+
+try {
+  json = JSON.parse(text);
+} catch {
+  throw new Error("Invalid address response");
+}
 
     if (!json?.success || !Array.isArray(json.data)) {
       setAddressSuggestions([]);
@@ -166,7 +179,23 @@ const fetchAddressDetails = async (id: string) => {
     )}`
   );
 
-  const json = await res.json();
+const text = await res.text();
+
+if (!text || !text.trim()) {
+  setAddressSuggestions([]);
+  setShowSuggestions(false);
+  return;
+}
+
+let json;
+
+try {
+  json = JSON.parse(text);
+} catch {
+  setAddressSuggestions([]);
+  setShowSuggestions(false);
+  return;
+}
 
   if (!json?.success || !json?.data) {
     throw new Error("Failed to fetch address details");
@@ -182,7 +211,9 @@ const handleSelectSuggestion = async (s: any) => {
     setAddressSuggestions([]);
     setAddressQuery("");
 
-    const details = await fetchAddressDetails(s.id);
+  const details = await fetchAddressDetails(s.id);
+
+if (!details) return;
 
     const line1 =
       details.line1 ||

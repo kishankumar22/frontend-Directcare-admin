@@ -38,25 +38,27 @@ export default function GenderBadge({
   if (!config) return null;
 
   return (
-    <div
+<div
   className={`
+    group
     ${absolute ? "absolute top-1 left-1 sm:top-2 sm:left-2 z-20" : ""}
     bg-white/70 px-2 py-1 rounded-md shadow
     flex items-center gap-1
     ${className}
   `}
 >
-      <img
-        src={config.icon}
-        alt={config.label}
-        className="h-3 w-3 sm:h-5 sm:w-5"
-        loading="lazy"
-        title={config.label}
-      />
-      <span className="text-[8px]  sm:text-[10px] font-semibold text-gray-700">
-        {config.label}
-      </span>
-    </div>
+  <img
+    src={config.icon}
+    alt={config.label}
+    className="h-3 w-3 sm:h-5 sm:w-5"
+    loading="lazy"
+    title={config.label}
+  />
+
+  <span className="hidden group-hover:inline text-[8px] sm:text-[10px] font-semibold text-gray-700">
+    {config.label}
+  </span>
+</div>
   );
 }
 

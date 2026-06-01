@@ -440,9 +440,9 @@ export default function FeaturedProductsSlider({
                   <Link href={`/product/${cardSlug}`}>
 
                     {/* UNISEX Badge */}
+
+
                     <GenderBadge gender={product.gender} />
-
-
                     <div className="group h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
 
 
@@ -651,7 +651,7 @@ export default function FeaturedProductsSlider({
                     <div className="min-h-[30px] mt-1 mb-0 flex flex-col justify-center">
 
                       {/* PRICE ROW */}
-                      <div className="flex items-center gap-1 sm:gap-2">
+                      <div className="flex items-center gap-0.5 sm:gap-2">
                         <span className="text-lg font-bold text-[#445D41] leading-none">
                           £{
                             (
@@ -677,7 +677,7 @@ export default function FeaturedProductsSlider({
                           </span>
                         )}
                         {vatRate !== null && vatRate > 0 && !product.vatExempt && (
-                          <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap leading-none">
+                          <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap leading-none">
                             {vatRate}% VAT
                           </span>
                         )}
