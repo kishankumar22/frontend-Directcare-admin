@@ -1,5 +1,16 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const safeParseJson = async (res: Response) => {
+  try {
+    const text = await res.text();
+    if (!text) return null;
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("Failed to parse JSON response:", err);
+    return null;
+  }
+};
+
 export const getAddresses = async (token: string) => {
   const res = await fetch(`${BASE_URL}/api/addresses`, {
     headers: {
@@ -8,10 +19,12 @@ export const getAddresses = async (token: string) => {
     cache: "no-store",
   });
 
-  const data = await res.json();
+  const data = await safeParseJson(res);
 
-  if (!res.ok) throw new Error(data.message);
-  return data.data;
+  if (!res.ok) {
+    throw new Error(data?.message || `Request failed with status ${res.status}`);
+  }
+  return data?.data ?? [];
 };
 
 export const createAddress = async (token: string, payload: any) => {
@@ -24,9 +37,11 @@ export const createAddress = async (token: string, payload: any) => {
     body: JSON.stringify(payload),
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message);
-  return data.data;
+  const data = await safeParseJson(res);
+  if (!res.ok) {
+    throw new Error(data?.message || `Request failed with status ${res.status}`);
+  }
+  return data?.data;
 };
 
 export const updateAddress = async (
@@ -43,9 +58,11 @@ export const updateAddress = async (
     body: JSON.stringify(payload),
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message);
-  return data.data;
+  const data = await safeParseJson(res);
+  if (!res.ok) {
+    throw new Error(data?.message || `Request failed with status ${res.status}`);
+  }
+  return data?.data;
 };
 
 export const deleteAddress = async (token: string, id: string) => {
@@ -56,8 +73,10 @@ export const deleteAddress = async (token: string, id: string) => {
     },
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message);
+  const data = await safeParseJson(res);
+  if (!res.ok) {
+    throw new Error(data?.message || `Request failed with status ${res.status}`);
+  }
   return true;
 };
 
@@ -72,7 +91,9 @@ export const setDefaultAddress = async (token: string, id: string) => {
     }
   );
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message);
+  const data = await safeParseJson(res);
+  if (!res.ok) {
+    throw new Error(data?.message || `Request failed with status ${res.status}`);
+  }
   return true;
 };

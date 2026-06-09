@@ -403,7 +403,6 @@ url: getImageUrl(variant.imageUrl || undefined),
 />
 
 
-                    <InfoField label="Brand" value={product.brandName} icon={<Star className="w-3.5 h-3.5" />} />
                     <InfoField label="Pharma Product" value={product.isPharmaProduct ? 'Yes' : 'No'} icon={<Filter className="w-3.5 h-3.5" />} />
                     <InfoField label="Exclude From Loyalty Points" value={product.excludeFromLoyaltyPoints ? 'Yes' : 'No'} icon={<Filter className="w-3.5 h-3.5" />} />
                     <InfoField
@@ -417,7 +416,10 @@ url: getImageUrl(variant.imageUrl || undefined),
                     {product.tags && <InfoField label="Tags" value={product.tags} icon={<Tag className="w-3.5 h-3.5 text-slate-400" />} />}
                   </div>
 
-          
+               <div className="mt-1 pb-1 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg">  
+                    <InfoField label="Brand" value={product.brandName} icon={<Star className="w-3.5 h-3.5" />} />
+
+               </div>
                   {/* Categories - Multiple */}
                   {(product as any).categories &&
                     Array.isArray((product as any).categories) &&

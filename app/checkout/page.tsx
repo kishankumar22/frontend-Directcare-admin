@@ -66,15 +66,33 @@ function StripeWrapper({
   clientSecret?: string;
 }) {
   const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/config`);
-      const json = await res.json();
-      const pk = json?.data?.publishableKey;
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/config`);
+        if (!res.ok) {
+          throw new Error(`Failed to load payment config (Status: ${res.status})`);
+        }
+        const text = await res.text();
+        if (!text) {
+          throw new Error("Empty response from payment config");
+        }
+        const json = JSON.parse(text);
+        const pk = json?.data?.publishableKey;
+        if (!pk) {
+          throw new Error("Stripe publishable key is missing");
+        }
 
-      if (mounted) setStripePromise(loadStripe(pk));
+        if (mounted) setStripePromise(loadStripe(pk));
+      } catch (err: any) {
+        console.error("Stripe initialization failed:", err);
+        if (mounted) {
+          setError(err?.message || "Failed to initialize payment gateway");
+        }
+      }
     })();
 
     return () => {
@@ -82,7 +100,25 @@ function StripeWrapper({
     };
   }, []);
 
-  if (!stripePromise) return <div>Loading...</div>;
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 my-2">
+        {error}
+      </div>
+    );
+  }
+
+  if (!stripePromise) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+        <svg className="animate-spin h-4 w-4 text-[#445D41]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        </svg>
+        Loading payment gateway...
+      </div>
+    );
+  }
 
   const options = clientSecret
     ? { clientSecret, locale: "en-GB" as const }
@@ -141,9 +177,13 @@ if (!result.paymentIntent?.id) {
   setProcessing(false);
   return;
 }
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/confirm/${result.paymentIntent.id}`, {
-      method: "POST",
-    });
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/confirm/${result.paymentIntent.id}`, {
+        method: "POST",
+      });
+    } catch (err) {
+      console.error("Payment confirmation failed:", err);
+    }
 
     onPaymentSuccess({ data: { id: orderId } });
     setProcessing(false);
@@ -255,6 +295,8 @@ const clearFieldError = (key: string) => {
     return rest;
   });
 };
+
+
 const handleAddressSelect = (addr: any | null) => {
   if (!addr) {
     // Clear form for new address
@@ -457,7 +499,7 @@ const shippingCost = useMemo(() => {
   if (!selectedShippingOption) return 0;
 
   const isNextDay =
-    selectedShippingOption?.deliveryOptionId === "451bb725-19f7-441a-9dd0-d282cf268397";
+  selectedShippingOption?.name === "next-day";
 
   if (isNextDay && allNextDayFree) {
     return 0;
@@ -529,7 +571,15 @@ useEffect(() => {
         )}&orderTotal=${cartValue}`
       );
 
-      const json = await res.json();
+      const text = await res.text();
+      let json: any = null;
+      if (text) {
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          console.error("Failed to parse shipping quote JSON:", e);
+        }
+      }
 
       // API ERROR
       if (!res.ok || json?.success === false) {
@@ -709,6 +759,44 @@ const fetchStores = async () => {
   fetchStores();
 }, [deliveryMethod]);
 
+useEffect(() => {
+  if (!shippingOptions.length) return;
+
+  const filteredOptions = shippingOptions.filter((opt: any) => {
+    const name = (
+      opt.displayName ||
+      opt.name ||
+      ""
+    ).toLowerCase();
+
+    const isStandard = name.includes("standard");
+
+    if (allNextDayFree && isStandard) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // already valid selected
+  const stillValid = filteredOptions.some(
+    (o: any) =>
+      o.deliveryOptionId ===
+      selectedShippingOption?.deliveryOptionId
+  );
+
+  if (stillValid) return;
+
+  // 🔥 auto select first available
+  if (filteredOptions.length > 0) {
+    setSelectedShippingOption(filteredOptions[0]);
+  }
+}, [
+  shippingOptions,
+  allNextDayFree,
+  selectedShippingOption,
+]);
+
 // ✅ 🔥 YAHI ADD KARNA HAI (NEW EFFECT)
 useEffect(() => {
   if (
@@ -741,7 +829,15 @@ const doAutocomplete = useCallback(async (q: string) => {
       `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/search?query=${encodeURIComponent(q.trim())}&country=GB`
     );
 
-    const json = await res.json();
+    const text = await res.text();
+    let json: any = null;
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse autocomplete JSON:", e);
+      }
+    }
 
     if (!json?.success || !Array.isArray(json.data)) {
       setAddressSuggestions([]);
@@ -769,7 +865,15 @@ const doShippingAutocomplete = useCallback(async (q: string) => {
       `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/search?query=${encodeURIComponent(q.trim())}&country=GB`
     );
 
-    const json = await res.json();
+    const text = await res.text();
+    let json: any = null;
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse shipping autocomplete JSON:", e);
+      }
+    }
 
     if (!json?.success || !Array.isArray(json.data)) {
       setShippingAddressSuggestions([]);
@@ -792,7 +896,15 @@ const fetchAddressDetails = async (id: string) => {
     )}`
   );
 
-  const json = await res.json();
+  const text = await res.text();
+  let json: any = null;
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse address details JSON:", e);
+    }
+  }
 
   if (!json?.success || !json?.data) {
     throw new Error("Failed to fetch address details");
@@ -887,7 +999,15 @@ setAddressQuery(""); // 🔥 clear search input after select
         }),
       }
     );
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse newsletter JSON:", e);
+      }
+    }
     if (data?.success) {
       localStorage.setItem("newsletterEmail", email);
     }
@@ -980,7 +1100,7 @@ const validateAndBuildPayload = async (): Promise<any | null> => {
   if (!billingPhone.trim()) errors.billingPhone = "Phone number is required";
   if (deliveryMethod === "HomeDelivery") {
     if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
-    if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
+    if (!(billingPostalCode ?? "").trim()) errors.billingPostalCode = "Postcode is required";
      // ✅ ADD THESE TWO LINES
   if (!billingCity.trim())
     errors.billingCity = "City is required";
@@ -1044,7 +1164,20 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
           }),
         });
         if (resp.ok) {
-          const json = await resp.json();
+        const text = await resp.text();
+
+let json: any = null;
+
+if (text) {
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    console.error(
+      "Failed to parse subscription JSON:",
+      e
+    );
+  }
+}
           if (json?.data?.id) subscriptionMap[item.id] = json.data.id;
         }
       } catch {
@@ -1387,18 +1520,30 @@ setShippingAddressQuery("");
           <input value={shippingCity} onChange={(e) => { setShippingCity(e.target.value); clearFieldError("shippingCity"); }} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />
           <ErrorText error={fieldErrors.shippingCity} />
         </div>
+    
         <div className="flex flex-col space-y-0.5 col-span-2">
           <label className="text-xs font-medium text-gray-700">County / State *</label>
           <input value={shippingState} onChange={(e) => { setShippingState(e.target.value); clearFieldError("shippingState"); }} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />
           <ErrorText error={fieldErrors.shippingState} />
         </div>
+
       </div>
+        
     ) : (
       <div className="text-xs text-gray-600">Shipping will use billing address.</div>
     )}
+</div>
+)}
+
+{shippingError && (
+  <div className="mt-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+    {shippingError}
   </div>
 )}
+
           {/* DELIVERY METHOD SELECTOR */}
+
+
           
 <div className="bg-white p-3 rounded shadow">
   <h2 className="text-sm font-semibold mb-2">Delivery method</h2>
@@ -1425,43 +1570,43 @@ setShippingAddressQuery("");
     ) : (
       <div className="flex flex-col gap-2">
         {stores.map((store) => (
-          <label
-            key={store.id}
-            className={`border rounded-lg p-2 cursor-pointer ${
-              selectedStoreId === store.id
-                ? "border-[#445D41] bg-[#445D41]/5"
-                : "border-gray-200"
-            }`}
-          >
-            <input
-              type="radio"
-              name="store"
-              checked={selectedStoreId === store.id}
-              onChange={() => setSelectedStoreId(store.id)}
-              className="mr-2"
-            />
+     <label
+  key={store.id}
+  className={`border rounded-lg p-3 cursor-pointer transition-all ${
+    selectedStoreId === store.id
+      ? "border-[#445D41] bg-[#445D41]/5"
+      : "border-gray-200"
+  }`}
+>
+  <div className="flex items-start gap-3">
+    <input
+      type="radio"
+      name="store"
+      checked={selectedStoreId === store.id}
+      onChange={() => setSelectedStoreId(store.id)}
+      className="mt-1 shrink-0"
+    />
 
-            <div>
-              <p className="text-sm font-semibold">{store.name}</p>
-              <p className="text-xs text-gray-500">
-                {store.addressLine1}, {store.city}, {store.postalCode}
-              </p>
-              {store.openingHours && (
-                <p className="text-[11px] text-gray-400">
-                  {store.openingHours}
-                </p>
-              )}
-            </div>
-          </label>
+    <div className="flex-1">
+      <p className="text-sm font-semibold leading-none">
+        {store.name}
+      </p>
+
+      <p className="text-xs text-gray-500 mt-1">
+        {store.addressLine1}, {store.city}, {store.postalCode}
+      </p>
+
+      {store.openingHours && (
+        <p className="text-[11px] text-gray-400 mt-1">
+          {store.openingHours}
+        </p>
+      )}
+    </div>
+  </div>
+</label>
         ))}
       </div>
     )}
-  </div>
-)}
-
-{shippingError && (
-  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-    {shippingError}
   </div>
 )}
 
@@ -1481,7 +1626,25 @@ setShippingAddressQuery("");
       <p className="text-xs text-gray-400">Enter your postcode above to see delivery options.</p>
     ) : (
       <div className="flex flex-col gap-2">
-        {shippingOptions.map((opt: any) => (
+     {shippingOptions
+  .filter((opt: any) => {
+    const name = (
+      opt.displayName ||
+      opt.name ||
+      ""
+    ).toLowerCase();
+
+    const isStandard =
+      name.includes("standard");
+
+    // 🔥 if next day is FREE then hide standard
+    if (allNextDayFree && isStandard) {
+      return false;
+    }
+
+    return true;
+  })
+  .map((opt: any) => (
           <label
            key={opt.deliveryOptionId}
             className={`flex items-center justify-between gap-3 border rounded-lg px-3 py-2.5 cursor-pointer transition-all ${
@@ -1507,9 +1670,8 @@ setShippingAddressQuery("");
             </div>
             <span className={`text-xs font-bold shrink-0 ${opt.isFree ? "text-green-600" : "text-gray-800"}`}>
             {(() => {
-  const isNextDay =
-  opt.deliveryOptionId === "451bb725-19f7-441a-9dd0-d282cf268397";
-
+const isNextDay =
+  opt.name === "next-day";
   if (isNextDay && allNextDayFree) return "FREE";
 
   return opt.isFree ? "FREE" : `£${Number(opt.price).toFixed(2)}`;
@@ -1543,7 +1705,7 @@ setShippingAddressQuery("");
   return (
     <Link
       key={it.id + (it.variantId || "")}
-      href={`/products/${productSlug}`}
+      href={`/product/${productSlug}`}
       className="flex gap-2 items-start group"
     >
       <img
@@ -1645,8 +1807,7 @@ setShippingAddressQuery("");
     <span className={`font-semibold ${shippingCost === 0 ? "text-green-600" : ""}`}>
      {(() => {
   const isNextDay =
-  selectedShippingOption?.deliveryOptionId === "451bb725-19f7-441a-9dd0-d282cf268397";
-
+  selectedShippingOption?.name === "next-day";
   if (isNextDay && allNextDayFree) return "FREE";
 
  return shippingCost === 0
@@ -1698,106 +1859,211 @@ setShippingAddressQuery("");
 {/* STEP 1 */}
 {!stripeClientSecret && (
   <button
-disabled={
-  isPlacing ||
-  (!!shippingError &&
-    deliveryMethod === "HomeDelivery")
-}
-    onClick={async () => {
-if (!acceptTerms) {
-  setTermsError(
-    "Please accept Terms & Conditions"
-  );
-  return;
-}
-
-if (isPlacing) return;
-
-setIsPlacing(true);
-      const payload = await validateAndBuildPayload();
-     if (!payload) {
-      setIsPlacing(false);
-      return;
+    title={
+      shippingError
+        ? shippingError
+        : !acceptTerms
+        ? "Please accept Terms & Conditions"
+        : deliveryMethod === "HomeDelivery" &&
+  !(billingPostalCode ?? "").trim()
+? "Please enter postcode"
+        : ""
     }
-      // ORDER
-      const orderResp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }),
-        },
-        body: JSON.stringify(payload),
-      });
-if (!orderResp.ok) {
-  setError("Order creation failed");
-  setIsPlacing(false);
-  return;
-}
-      const orderJson = await orderResp.json();
-      if (!orderJson?.data?.id) {
-  setError("Invalid order response");
-  setIsPlacing(false);
-  return;
-}
-      const orderId = orderJson.data.id;
-      const totalAmount = orderJson.data.totalAmount;
+    disabled={
+      isPlacing ||
+      (!!shippingError &&
+        deliveryMethod === "HomeDelivery") ||
+     !acceptTerms ||(
+  deliveryMethod === "HomeDelivery" &&
+  !(billingPostalCode ?? "").trim()
+)
+    }
+    onClick={async () => {
+      if (!acceptTerms) {
+        setTermsError(
+          "Please accept Terms & Conditions"
+        );
+        return;
+      }
 
-      // INTENT
-      const intentResp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/create-intent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: totalAmount,
-          currency: "GBP",
-          customerEmail: billingEmail,
-          orderId,
-        }),
-      });
+      if (isPlacing) return;
 
-      const intentJson = await intentResp.json();
-if (!intentJson?.data?.clientSecret) {
-  setError("Payment initialization failed");
-  setIsPlacing(false);
-  return;
-}
-      setStripeOrderId(orderId);
-      setStripeClientSecret(intentJson.data.clientSecret);
-      trackAddPaymentInfo(checkoutItems, "stripe");
-      setIsPlacing(false);
+      setIsPlacing(true);
+
+      const payload = await validateAndBuildPayload();
+
+      if (!payload) {
+        setIsPlacing(false);
+        return;
+      }
+
+      try {
+        const orderResp = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/Orders`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(isAuthenticated && {
+                Authorization: `Bearer ${accessToken}`,
+              }),
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const orderText = await orderResp.text();
+
+        let orderJson: any = null;
+
+        if (orderText) {
+          try {
+            orderJson = JSON.parse(orderText);
+          } catch (e) {
+            console.error(
+              "Failed to parse order JSON:",
+              e
+            );
+          }
+        }
+
+        if (!orderResp.ok) {
+          setError(
+            orderJson?.message ||
+              "Order creation failed"
+          );
+          setIsPlacing(false);
+          return;
+        }
+
+        if (!orderJson?.data?.id) {
+          setError("Invalid order response");
+          setIsPlacing(false);
+          return;
+        }
+
+        const orderId = orderJson.data.id;
+
+        const totalAmount =
+          orderJson.data.totalAmount;
+
+        // PAYMENT INTENT
+        const intentResp = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/Payment/create-intent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              amount: totalAmount,
+              currency: "GBP",
+              customerEmail: billingEmail,
+              orderId,
+            }),
+          }
+        );
+
+        const intentText =
+          await intentResp.text();
+
+        let intentJson: any = null;
+
+        if (intentText) {
+          try {
+            intentJson = JSON.parse(intentText);
+          } catch (e) {
+            console.error(
+              "Failed to parse intent JSON:",
+              e
+            );
+          }
+        }
+
+        if (!intentResp.ok) {
+          setError(
+            intentJson?.message ||
+              "Payment initialization failed"
+          );
+
+          setIsPlacing(false);
+          return;
+        }
+
+        if (!intentJson?.data?.clientSecret) {
+          setError(
+            "Payment initialization failed"
+          );
+
+          setIsPlacing(false);
+          return;
+        }
+
+        setStripeOrderId(orderId);
+
+        setStripeClientSecret(
+          intentJson.data.clientSecret
+        );
+
+        trackAddPaymentInfo(
+          checkoutItems,
+          "stripe"
+        );
+      } catch (err: any) {
+        console.error(
+          "Checkout order placement failed:",
+          err
+        );
+
+        setError(
+          err?.message ||
+            "Order placement failed. Please check your network and try again."
+        );
+      } finally {
+        setIsPlacing(false);
+      }
     }}
-   className={`w-full py-2 text-sm rounded transition flex items-center justify-center gap-2 ${
-  isPlacing
-    ? "bg-gray-400 cursor-not-allowed"
-    : "bg-[#445D41] hover:bg-[#3a5037] text-white"
-}`}
+    className={`w-full py-2 text-sm rounded transition flex items-center justify-center gap-2 ${
+      isPlacing ||
+      (!!shippingError &&
+        deliveryMethod === "HomeDelivery") ||
+     !acceptTerms ||(
+  deliveryMethod === "HomeDelivery" &&
+  !(billingPostalCode ?? "").trim()
+)
+        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+        : "bg-[#445D41] hover:bg-[#3a5037] text-white"
+    }`}
   >
-  {isPlacing ? (
-  <>
-    <svg
-      className="animate-spin h-4 w-4 text-white"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v8z"
-      />
-    </svg>
-    Preparing payment
-  </>
-) : (
-  "Continue to payment"
-)}
+    {isPlacing ? (
+      <>
+        <svg
+          className="animate-spin h-4 w-4 text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v8z"
+          />
+        </svg>
+
+        Preparing payment
+      </>
+    ) : (
+      "Continue to payment"
+    )}
   </button>
 )}
 
@@ -1819,7 +2085,7 @@ if (!intentJson?.data?.clientSecret) {
     />
   </StripeWrapper>
 )}
-           
+        
 
                   
                   </>          

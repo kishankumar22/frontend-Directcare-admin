@@ -650,13 +650,13 @@ export default function InventoryPage() {
                       <td className="p-2.5 text-center">
                         <input type="checkbox" checked={selected.has(getRowKey(p))} onChange={() => toggleSelect(p)} className="rounded accent-violet-500 w-3.5 h-3.5" />
                       </td>
-                      <td className="py-2 px-2.5">
+                      <td className="py-2 px-2.">
                         <div className="flex items-center gap-3">
                           <img src={getImageUrl(p.image || "")} alt={p.name} onClick={() => openMediaViewer(p.images || [], 0)} className="w-9 h-9 rounded-lg border border-slate-700 cursor-pointer bg-slate-800 flex-shrink-0 object-cover" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <a href={`/product/${p.variants?.[0]?.slug || p.slug}`} target="_blank" rel="noopener noreferrer" className="group block" title={p.name}>
-                                <p className="truncate text-sm font-semibold text-white transition-colors group-hover:text-cyan-400 max-w-[300px] lg:max-w-[550px]">{p.name}</p>
+                                <p className="truncate text-sm font-semibold text-white transition-colors group-hover:text-cyan-400 max-w-[300px] lg:max-w-[440px]">{p.name}</p>
                               </a>
                            {(p.variants?.length ?? 0) > 0 && (
   <button
@@ -690,12 +690,12 @@ export default function InventoryPage() {
     {expandedRows.has(p.id) ? (
       <>
         <ChevronUp className="w-3.5 h-3.5" />
-        Hide
+       
       </>
     ) : (
       <>
         <ChevronDown className="w-3.5 h-3.5" />
-        Show
+      
       </>
     )}
   </button>

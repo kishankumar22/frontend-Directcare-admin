@@ -680,14 +680,23 @@ const closeDeleteModal = () => {
                         <input
                           type="checkbox"
                           checked={variant.isDefault}
-                          onChange={(e) => {
-                            onVariantsChange(
-                              variants.map((v) => ({
-                                ...v,
-                                isDefault: v.id === variant.id ? e.target.checked : false,
-                              }))
-                            );
-                          }}
+                       onChange={(e) => {
+  if (!e.target.checked && variant.isDefault) {
+    const defaultCount = variants.filter(v => v.isDefault).length;
+
+    if (defaultCount === 1) {
+      toast.error("At least one default variant is required");
+      return;
+    }
+  }
+
+  onVariantsChange(
+    variants.map((v) => ({
+      ...v,
+      isDefault: v.id === variant.id ? e.target.checked : false,
+    }))
+  );
+}}
                           disabled={disabled}
                           className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
                         />

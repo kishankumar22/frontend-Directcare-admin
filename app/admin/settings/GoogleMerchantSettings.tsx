@@ -12,6 +12,7 @@ import {
   Trash2,
   Upload,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { useToast } from "../_components/CustomToast";
 import ConfirmDialog from "../_components/ConfirmDialog";
@@ -194,39 +195,71 @@ export default function GoogleMerchantSettings() {
   }>({ open: false, action: null });
   const [actionLoading, setActionLoading] = useState(false);
 
-const handleOpenFeed = async () => {
-  try {
-    setButtonLoading("feed");
+  const handleOpenFeed = async () => {
+    try {
+      setButtonLoading("feed");
+      const response = await googleMerchantService.getFeedXml();
+      const xmlData = response.data as string;
+      const xmlBlob = new Blob([xmlData], { type: "application/xml" });
+      const url = URL.createObjectURL(xmlBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "google-merchant-feed.xml";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Google Merchant feed downloaded");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to download feed XML");
+    } finally {
+      setButtonLoading(null);
+    }
+  };
 
-    const response = await googleMerchantService.getFeedXml();
+  const handleCleanResync = async () => {
+    try {
+      setButtonLoading("clean");
+      const response = await googleMerchantService.cleanResync();
+      if (response.error || response.data?.success === false) {
+        throw new Error(response.error || response.data?.message || "Clean resync failed");
+      }
+      toast.success(response.data?.message || "Clean resync completed successfully");
+    } catch (error: any) {
+      toast.error(error?.message || "Clean resync failed");
+    } finally {
+      setButtonLoading(null);
+    }
+  };
 
-    const xmlData = response.data as string;
+  const handlePreviewExcel = async () => {
+    try {
+      setButtonLoading("preview");
+      const response = await googleMerchantService.previewExcel();
+      if (response.error) {
+        throw new Error(response.error || "Preview excel failed");
+      }
+      const buffer = response.data as any;
+      const arrayBuffer = buffer instanceof ArrayBuffer ? buffer : buffer?.data || buffer;
+      const blob = new Blob([arrayBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "google-merchant-preview.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Preview Excel downloaded");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to download preview Excel");
+    } finally {
+      setButtonLoading(null);
+    }
+  };
 
-    const xmlBlob = new Blob([xmlData], {
-      type: "application/xml",
-    });
-
-    const url = URL.createObjectURL(xmlBlob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "google-merchant-feed.xml";
-
-    document.body.appendChild(link);
-    link.click();
-
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast.success("Google Merchant feed downloaded");
-  } catch (error: any) {
-    toast.error(
-      error?.message || "Failed to download feed XML"
-    );
-  } finally {
-    setButtonLoading(null);
-  }
-};
   const loadProducts = async () => {
     try {
       setLoadingProducts(true);
@@ -234,7 +267,6 @@ const handleOpenFeed = async () => {
         page: 1,
         pageSize: 5000,
       });
-
       const items = response.data?.data?.items || [];
       const normalized = items
         .filter((product: Product) => !!product.id && !!product.sku)
@@ -243,7 +275,6 @@ const handleOpenFeed = async () => {
           name: product.name,
           sku: product.sku,
         }));
-
       setProducts(normalized);
     } catch (error: any) {
       toast.error(error?.message || "Failed to load products");
@@ -252,6 +283,7 @@ const handleOpenFeed = async () => {
       setLoadingProducts(false);
     }
   };
+
 
   useEffect(() => {
     loadProducts();
@@ -301,7 +333,6 @@ const handleOpenFeed = async () => {
       setter((previous) => previous.filter((id) => !visibleIds.includes(id)));
       return;
     }
-
     setter((previous) => Array.from(new Set([...previous, ...visibleIds])));
   };
 
@@ -317,7 +348,6 @@ const handleOpenFeed = async () => {
 
   const runAction = async () => {
     if (!confirmState.action) return;
-
     setActionLoading(true);
 
     try {
@@ -333,18 +363,14 @@ const handleOpenFeed = async () => {
         const selectedProducts = products.filter((product) =>
           selectedSyncIds.includes(product.id)
         );
-
         for (const product of selectedProducts) {
           const response = await googleMerchantService.syncProduct(product.id);
           if (response.error || response.data?.success === false) {
             throw new Error(
-              response.error ||
-                response.data?.message ||
-                `Failed to sync ${product.name}`
+              response.error || response.data?.message || `Failed to sync ${product.name}`
             );
           }
         }
-
         toast.success(`${selectedProducts.length} product(s) synced successfully`);
         setSelectedSyncIds([]);
         closeSyncModal();
@@ -354,23 +380,15 @@ const handleOpenFeed = async () => {
         const selectedProducts = products.filter((product) =>
           selectedDeleteIds.includes(product.id)
         );
-
         for (const product of selectedProducts) {
-          const response = await googleMerchantService.deleteProductBySku(
-            product.sku
-          );
+          const response = await googleMerchantService.deleteProductBySku(product.sku);
           if (response.error || response.data?.success === false) {
             throw new Error(
-              response.error ||
-                response.data?.message ||
-                `Failed to delete ${product.sku}`
+              response.error || response.data?.message || `Failed to delete ${product.sku}`
             );
           }
         }
-
-        toast.success(
-          `${selectedProducts.length} product(s) removed from Google Merchant`
-        );
+        toast.success(`${selectedProducts.length} product(s) removed from Google Merchant`);
         setSelectedDeleteIds([]);
         closeDeleteModal();
       }
@@ -386,143 +404,145 @@ const handleOpenFeed = async () => {
     if (confirmState.action === "sync-all") {
       return "Are you sure you want to sync all products to Google Merchant Center?";
     }
-
     if (confirmState.action === "sync-selected") {
       return `Are you sure you want to sync ${selectedSyncIds.length} selected product(s) to Google Merchant Center?`;
     }
-
     if (confirmState.action === "delete-selected") {
       return `Are you sure you want to remove ${selectedDeleteIds.length} selected product(s) from Google Merchant Center?`;
     }
-
     return "";
   }, [confirmState.action, selectedDeleteIds.length, selectedSyncIds.length]);
 
+  // Button configuration with proper descriptions
+  const buttonConfigs = [
+    {
+      id: "sync-all",
+      label: "Sync All",
+      icon: RefreshCw,
+      color: "emerald",
+      gradient: "from-emerald-500 to-green-500",
+      shadow: "shadow-emerald-500/20",
+      description: "Push all available products to Google Merchant Center",
+      stat: "Bulk upload of entire product catalog",
+      onClick: () => setConfirmState({ open: true, action: "sync-all" }),
+    },
+    {
+      id: "sync-selected",
+      label: "Sync Products",
+      icon: Send,
+      color: "violet",
+      gradient: "from-violet-500 to-cyan-500",
+      shadow: "shadow-violet-500/20",
+      description: "Search and sync specific products individually",
+      stat: "Select products by name or SKU",
+      onClick: () => setSyncModalOpen(true),
+    },
+    {
+      id: "delete-selected",
+      label: "Delete Products",
+      icon: Trash2,
+      color: "rose",
+      gradient: "from-rose-500 to-red-500",
+      shadow: "shadow-rose-500/20",
+      description: "Remove specific products from Google Merchant",
+      stat: "Search and delete by SKU",
+      onClick: () => setDeleteModalOpen(true),
+    },
+    {
+      id: "feed-xml",
+      label: "Feed XML",
+      icon: Globe,
+      color: "cyan",
+      gradient: "from-cyan-500 to-blue-500",
+      shadow: "shadow-cyan-500/20",
+      description: "Download the product feed XML file",
+      stat: "Inspect your merchant data feed",
+      onClick: handleOpenFeed,
+      loading: buttonLoading === "feed",
+    },
+    {
+      id: "clean-resync",
+      label: "Clean Resync",
+      icon: RefreshCw,
+      color: "amber",
+      gradient: "from-yellow-500 to-amber-500",
+      shadow: "shadow-amber-500/20",
+      description: "Remove stale entries and re-sync all data",
+      stat: "Complete database refresh",
+      onClick: handleCleanResync,
+      loading: buttonLoading === "clean",
+    },
+    {
+      id: "preview-excel",
+      label: "Preview Excel",
+      icon: Upload,
+      color: "sky",
+      gradient: "from-sky-500 to-indigo-500",
+      shadow: "shadow-sky-500/20",
+      description: "Generate and download preview Excel file",
+      stat: "Verify columns before publishing",
+      onClick: handlePreviewExcel,
+      loading: buttonLoading === "preview",
+    },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              Google Merchant Center
-            </h3>
-            <p className="mt-1 text-sm text-slate-400">
-              Sync products to Google Merchant or remove products by SKU.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setConfirmState({ open: true, action: "sync-all" })}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg hover:shadow-emerald-500/20"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Sync All
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSyncModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg hover:shadow-violet-500/20"
-            >
-              <Send className="h-4 w-4" />
-              Sync Products
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDeleteModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg hover:shadow-rose-500/20"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete Products
-            </button>
-      <button
-  type="button"
-  onClick={handleOpenFeed}
-  disabled={buttonLoading === "feed"}
-  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg hover:shadow-cyan-500/20"
->
-  {buttonLoading === "feed" ? (
-  <Loader2 className="h-4 w-4 animate-spin" />
-) : (
-  <Globe className="h-4 w-4" />
-)}
-{buttonLoading === "feed"
-  ? "Downloading..."
-  : "Feed XML"}
-</button>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-2 sm:grid-cols-4">
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-emerald-300">
-              Sync All
-            </p>
-            <p className="mt-2 text-sm text-slate-200">
-              Push all available products to Google Merchant Center.
-            </p>
-          </div>
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/10 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-violet-300">
-              Sync Selected
-            </p>
-            <p className="mt-2 text-sm text-slate-200">
-              Search by product name or SKU and sync only selected items.
-            </p>
-          </div>
-          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-rose-300">
-              Delete by SKU
-            </p>
-            <p className="mt-2 text-sm text-slate-200">
-              Search products and remove selected SKUs from Google Merchant.
-            </p>
-          </div>
-          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-  <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">
-    Feed XML
-  </p>
-
-  <p className="mt-2 text-sm text-slate-200">
-    Open and verify generated Google Merchant XML feed.
-  </p>
-</div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl hidden border border-slate-700/50 bg-slate-800/30 p-4">
-        <div className="flex items-center justify-between gap-3">
+    <div className="space-y-3">
+      {/* Header Section */}
+      <div className="rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/60 to-slate-900/60 p-3">
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-2 text-cyan-300">
-              <ShoppingBag className="h-5 w-5" />
+            <div className="rounded-xl bg-gradient-to-r from-violet-500/20 to-cyan-500/20 p-2.5">
+              <ShoppingBag className="h-6 w-6 text-cyan-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Loaded Products</p>
-              <p className="text-xs text-slate-400">
-                {loadingProducts ? "Fetching products..." : `${products.length} products available`}
+              <h3 className="text-xl font-bold text-white">Google Merchant Center</h3>
+              <p className="text-sm text-slate-400">
+                Manage product synchronization between your store and Google Merchant Center
               </p>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={loadProducts}
-            disabled={loadingProducts}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-600 hover:bg-slate-800 disabled:opacity-50"
-          >
-            {loadingProducts ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            Refresh Products
-          </button>
         </div>
       </div>
 
+      {/* 2 Rows x 3 Columns Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {buttonConfigs.map((config) => (
+          <div
+            key={config.id}
+            className="group relative rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/40 to-slate-900/40 p-3 transition-all duration-300 hover:border-slate-600/70 hover:shadow-xl"
+          >
+            {/* Button */}
+            <button
+              type="button"
+              onClick={config.onClick}
+              disabled={config.loading}
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${config.gradient} px-4 py-3 text-sm font-semibold text-white transition-all duration-300 hover:shadow-lg hover:${config.shadow} disabled:cursor-not-allowed disabled:opacity-50 group-hover:scale-[1.02]`}
+            >
+              {config.loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <config.icon className="h-4 w-4" />
+              )}
+              {config.loading ? "Processing..." : config.label}
+            </button>
+
+            {/* Description */}
+            <div className="mt-4">
+              <p className="text-sm font-medium text-white">{config.description}</p>
+              <div className="mt-2 flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-500" />
+                <p className="text-xs text-slate-400">{config.stat}</p>
+              </div>
+            </div>
+
+            {/* Color indicator bar */}
+            <div className={`absolute bottom-0 left-0 h-1 w-full rounded-b-2xl bg-gradient-to-r ${config.gradient} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
+          </div>
+        ))}
+      </div>
+
+      {/* Modals */}
       <ProductSelectionModal
         open={syncModalOpen}
         title="Sync Selected Products"

@@ -580,12 +580,18 @@ export default function FeaturedProductsSlider({
                             toast.success("Product added to wishlist!");
                           }
                         }}
-                        className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
-                            hasTopRightBadge ? "top-14" : "top-2"
-                          } ${isInWishlist(defaultVariant?.id ?? product.id)
-                            ? "bg-red-50 border-red-200"
-                            : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
-                          }`}
+                className={`absolute z-20 right-2 p-1.5 rounded-full transition-all
+  ${hasTopRightBadge ? "top-14" : "top-2"}
+
+  md:shadow-sm
+  md:border
+
+  ${
+    isInWishlist(defaultVariant?.id ?? product.id)
+      ? "text-red-500 md:bg-red-50 md:border-red-200"
+      : "text-gray-600 hover:text-red-500 md:bg-white md:border-gray-200 md:hover:bg-red-50 md:hover:border-red-200"
+  }
+`}
                       >
                         <Heart
                           className={`h-5 w-5 transition-colors ${isInWishlist(defaultVariant?.id ?? product.id) ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-400"

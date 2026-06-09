@@ -154,6 +154,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
  if (!data?.product) notFound();
 
+ const offerVariant =
+   data.selectedVariantId && Array.isArray(data.product.variants)
+     ? data.product.variants.find((v: any) => v.id === data.selectedVariantId)
+     : data.product.variants?.find((v: any) => v.isDefault) ??
+       data.product.variants?.[0];
+
+ const offerPrice = offerVariant?.price ?? data.product.price;
+ const offerSku = offerVariant?.sku ?? data.product.sku;
+ const offerStockQuantity = offerVariant?.stockQuantity ?? data.product.stockQuantity ?? 0;
+
  return (
   <>
     {/* ✅ PRODUCT SCHEMA (SEO BOOST) */}
@@ -175,7 +185,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         .replace(/<[^>]*>/g, "")
        .slice(0, 155),
 
-      sku: data.product.sku,
+      sku: offerSku,
 
       brand: {
         "@type": "Brand",
@@ -188,9 +198,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         "@type": "Offer",
       url: `https://www.direct-care.co.uk/product/${data.product.slug}`,
         priceCurrency: "GBP",
-        price: data.product.price,
+        price: offerPrice,
         availability:
-          data.product.stockQuantity > 0
+          offerStockQuantity > 0
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
       },

@@ -494,9 +494,9 @@ export default function Header({
 
                       const discountBadge = getDiscountBadge(product);
 
-                      const oldPriceValue =
-                        defaultVariant?.compareAtPrice ?? defaultVariant?.oldPrice ??
-                        product.compareAtPrice ?? product.oldPrice;
+                     const oldPriceValue = defaultVariant
+  ? defaultVariant.compareAtPrice
+  : product.oldPrice;
 
                       const effectiveDisplayType =
                         defaultVariant?.displayDiscountType ?? product.displayDiscountType;
@@ -855,9 +855,9 @@ export default function Header({
 
                   const discountBadge = getDiscountBadge(product);
 
-                  const oldPriceValue =
-                    defaultVariant?.compareAtPrice ?? defaultVariant?.oldPrice ??
-                    product.compareAtPrice ?? product.oldPrice;
+                 const oldPriceValue = defaultVariant
+  ? defaultVariant.compareAtPrice
+  : product.oldPrice;
 
                   const oldPriceData =
                     (defaultVariant?.displayDiscountType ?? product.displayDiscountType) === "OldPrice"
@@ -971,6 +971,7 @@ export default function Header({
                                 : basePrice
                             ).toFixed(2)}
                           </span>
+                          
 
                           {/* SYSTEM CUT PRICE */}
                           {product.displayDiscountType === "System" &&

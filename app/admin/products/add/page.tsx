@@ -1362,6 +1362,31 @@ if (!formData.nextDayDeliveryEnabled) {
           return;
         }
       }
+
+        // 👇 YAHAN ADD KARO
+  const defaultVariants = productVariants.filter(
+    (v) => v.isDefault === true
+  );
+
+  if (defaultVariants.length === 0) {
+    toast.error("Please select one default variant");
+
+    target.removeAttribute("data-submitting");
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+
+    return;
+  }
+
+  if (defaultVariants.length > 1) {
+    toast.error("Only one default variant is allowed");
+
+    target.removeAttribute("data-submitting");
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+
+    return;
+  }
     }
     
     setSubmitProgress({

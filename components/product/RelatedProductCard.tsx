@@ -405,34 +405,39 @@ systemDiscountAmount:
           VAT Relief
         </span>
       )}
- <button
-    onClick={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      handleToggleWishlist();
+<button
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleToggleWishlist();
 
-      if (inWishlist) {
-        toast.error("Product removed from wishlist");
-      } else {
-        toast.success("Product added to wishlist!");
-      }
-    }}
-   className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
-  hasTopRightBadge ? "top-14" : "top-2"
-} ${
+    if (inWishlist) {
+      toast.error("Product removed from wishlist");
+    } else {
+      toast.success("Product added to wishlist!");
+    }
+  }}
+  className={`absolute z-20 right-2 p-1.5 rounded-full transition-all ${
+    hasTopRightBadge ? "top-14" : "top-2"
+  }
+
+  border-0 bg-transparent shadow-none
+  md:border md:shadow-sm
+
+  ${
+    inWishlist
+      ? "md:bg-red-50 md:border-red-200"
+      : "md:bg-white md:border-gray-200 md:hover:bg-red-50 md:hover:border-red-200"
+  }`}
+>
+  <Heart
+    className={`h-5 w-5 ${
       inWishlist
-        ? "bg-red-50 border-red-200"
-        : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
+        ? "fill-red-500 text-red-500"
+        : "text-gray-400 hover:text-red-400"
     }`}
-  >
-    <Heart
-      className={`h-5 w-5 ${
-        inWishlist
-          ? "fill-red-500 text-red-500"
-          : "text-gray-400 hover:text-red-400"
-      }`}
-    />
-  </button>
+  />
+</button>
         <Link href={`/product/${product.slug}`}>
           <Image
   src={getRelatedProductImage(product, defaultVariant)}
@@ -462,20 +467,23 @@ systemDiscountAmount:
                   </div>
 
       {/* RATING + REVIEW + LOYALTY — single compact row */}
-    <div className="flex items-center gap-1 min-h-[20px] mb-2 flex-nowrap overflow-hidden">
+<div className="flex items-center gap-1 min-h-[20px] mb-2 flex-nowrap overflow-hidden">
 
-  {/* ⭐ Rating */}
   <div className="flex items-center bg-green-600 text-white px-1 py-0.5 rounded text-[10px] font-semibold flex-shrink-0">
     <span>{product.averageRating?.toFixed(1)}</span>
     <Star className="h-2.5 w-2.5 ml-0.5 fill-white text-white" />
   </div>
 
-  {/* Reviews */}
   <span className="text-[10px] text-gray-500 flex-shrink-0">
     ({product.reviewCount ?? 0})
   </span>
 
-  {/* 🎁 Loyalty */}
+  {product.nextDayDeliveryFree && (
+    <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 whitespace-nowrap flex-shrink-0">
+      Next Day Free
+    </span>
+  )}
+
   {getLoyaltyPoints() > 0 && (
     <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
       <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />

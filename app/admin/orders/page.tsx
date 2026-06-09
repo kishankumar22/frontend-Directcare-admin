@@ -69,7 +69,7 @@ import {
   CancellationDecisionModal,
 } from './CancellationRequestManager';
 
-import { formatNumber, getImageUrl} from '../_utils/formatUtils';
+import { formatLocalDateTime, formatNumber, getImageUrl} from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
 import ImagePreviewModal from '../_components/ImagePreviewModal';
 import { scrollCls } from '../_utils/styles';
@@ -155,6 +155,8 @@ const selectedOrderObjects = orders.filter(o =>
   selectedOrders.includes(o.id)
 );
 
+
+
 const selectedOrderPreview = selectedOrderObjects.map(o => ({
   id: o.id,
   orderNumber: o.orderNumber,
@@ -163,22 +165,28 @@ const selectedOrderPreview = selectedOrderObjects.map(o => ({
 const setRange = (days: number) => {
   const today = new Date();
 
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - days);
-  startDate.setHours(0, 0, 0, 0);
+  const startDate = new Date();
+  const endDate = new Date();
 
-  const endDate = new Date(today);
+  if (days === 0) {
+    // Today only
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    startDate.setDate(today.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
+  }
+
   endDate.setHours(23, 59, 59, 999);
 
-  setFilters(prev => ({
-    ...prev,
-    fromDate: startDate.toISOString(),
-    toDate: endDate.toISOString(),
-  }));
+
+setFilters(prev => ({
+  ...prev,
+  fromDate: formatLocalDateTime(startDate),
+  toDate: formatLocalDateTime(endDate),
+}));
 
   setShowDatePicker(false);
 };
-
 const allSameStatus =
   selectedOrderObjects.length > 0 &&
   selectedOrderObjects.every(
@@ -261,6 +269,10 @@ useEffect(() => {
 
   init();
 }, []);
+
+
+
+
 useEffect(() => {
   if (searchInput.trim() !== "") {
     setSearchLoading(true);
@@ -908,7 +920,7 @@ if (initialLoading) {
       color1: "text-violet-400",
       action1: () => handleQuickFilter(""),
 
-      label2: "Total Revenue",
+      label2: "Order Value ",
       value2: `£${Number(
         stats?.totalRevenue || 0
       ).toFixed(2)}`,
@@ -1070,21 +1082,31 @@ if (initialLoading) {
 </div>
 
     {/* USER TYPE */}
-    <select
-      value={filters.isGuestOrder}
-      onChange={(e) =>
-        setFilters((prev) => ({
-          ...prev,
-          isGuestOrder: e.target.value,
-        }))
-      }
-      className={`px-2 py-2 rounded-lg text-sm text-white border bg-gray-800 min-w-[100px]
-        ${filters.isGuestOrder !== "" ? "border-violet-500 bg-violet-500/10" : "border-slate-700"}`}
-    >
-      <option value="">Customer Type</option>
-      <option value="false">Registered</option>
-      <option value="true">Guest</option>
-    </select>
+<select
+  value={filters.isGuestOrder}
+  onChange={(e) =>
+    setFilters((prev) => ({
+      ...prev,
+      isGuestOrder: e.target.value,
+    }))
+  }
+  className={`px-2 py-2 rounded-lg text-sm border min-w-[100px]
+    ${
+      filters.isGuestOrder !== ""
+        ? "text-white border-violet-500 bg-violet-500/10"
+        : "text-slate-300 border-slate-700 bg-gray-800"
+    }`}
+>
+  <option value="" className="bg-gray-800 text-white">
+  Customer Type
+</option>
+<option value="false" className="bg-gray-800 text-white">
+  Registered
+</option>
+<option value="true" className="bg-gray-800 text-white">
+  Guest
+</option>
+</select>
 
     {/* STATUS */}
     <select
@@ -1096,7 +1118,7 @@ if (initialLoading) {
         }))
       }
       className={`px-2 py-2 rounded-lg text-sm text-white border bg-slate-800 max-w-[150px]
-        ${filters.status ? "border-blue-500 bg-blue-500/10" : "border-slate-700"}`}
+        ${filters.status ? "border-blue-500 bg-blue-500/10" : "border-slate-700 bg-slate-800"}`}
     >
       <option value="">Order Status</option>
       <option value="Pending">Pending</option>
@@ -1123,7 +1145,7 @@ if (initialLoading) {
       className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[110px]
         ${filters.deliveryMethod ? "border-cyan-500 bg-cyan-500/10" : "border-slate-700"}`}
     >
-      <option value="">Delivery Method</option>
+      <option value="">Delivery Method</option> 
       <option value="HomeDelivery">Home Delivery</option>
       <option value="ClickAndCollect">Click & Collect</option>
     </select>
@@ -1236,7 +1258,7 @@ if (initialLoading) {
           onChange={(e) =>
             setFilters((prev) => ({
               ...prev,
-              fromDate: new Date(e.target.value).toISOString(),
+            fromDate: `${e.target.value}T00:00:00`,
             }))
           }
           max={
@@ -1259,7 +1281,7 @@ if (initialLoading) {
           onChange={(e) =>
             setFilters((prev) => ({
               ...prev,
-              toDate: new Date(e.target.value).toISOString(),
+              toDate: `${e.target.value}T23:59:59.999`,
             }))
           }
           min={filters.fromDate?.split("T")[0] || ""}

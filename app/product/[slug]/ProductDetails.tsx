@@ -496,8 +496,9 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       const ship = new Date();
       setShipDate(formatUKDate(ship));
       const deliver = new Date();
-      deliver.setDate(deliver.getDate() + 1);
-      setDeliveryDate(formatUKDate(deliver));
+     deliver.setDate(deliver.getDate() + 1);
+    if (deliver.getDay() === 0) deliver.setDate(deliver.getDate() + 1); // skip Sunday
+    setDeliveryDate(formatUKDate(deliver));
     };
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 60_000);
@@ -2338,6 +2339,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 £{(oldPriceData.oldPrice * normalQty).toFixed(2)}
                               </span>
                             )}
+                            
                             {vatRate !== null && vatRate > 0 && !product.vatExempt && (
                               <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
                                 {vatRate}% VAT
@@ -2349,6 +2351,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 Earn {loyaltyPoints} pts
                               </span>
                             )}
+                            
                           </div>
 
                           {/* Qty + Stock — same row */}
@@ -2420,6 +2423,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </Button>
                             )}
                           </div>
+
                         </CardContent>
                       </Card>
                     </div>
@@ -2451,35 +2455,50 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     <Card className="mb-2 border border-gray-200 rounded-2xl shadow-sm">
                       <CardContent className="p-3">
                         {/* Price + VAT + Loyalty — all compact inline */}
-                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                          <span className="text-lg md:text-2xl font-bold text-[#445D41]">
-                            £{(finalPrice * normalQty).toFixed(2)}
-                          </span>
-                          {/* 🔥 CASE 1: DISCOUNT */}
-                          {(appliedCoupon || activeAutoDiscount) && (
-                            <span className="text-xs text-gray-400 line-through">
-                              £{(basePrice * normalQty).toFixed(2)}
-                            </span>
-                          )}
+<div className="flex flex-wrap items-center gap-1.5 mb-2">
+  <span className="text-lg md:text-2xl font-bold text-[#445D41]">
+    £{(finalPrice * normalQty).toFixed(2)}
+  </span>
 
-                          {/* 🔥 CASE 2: OLD PRICE */}
-                          {!appliedCoupon && !activeAutoDiscount && oldPriceData && (
-                            <span className="text-xs text-gray-400 line-through">
-                              £{(oldPriceData.oldPrice * normalQty).toFixed(2)}
-                            </span>
-                          )}
-                          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
-                            <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
-                              {vatRate}% VAT
-                            </span>
-                          )}
-                          {loyaltyPoints && (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
-                              <AwardIcon className="h-3 w-3 text-[#445D41]" />
-                              Earn {loyaltyPoints} pts
-                            </span>
-                          )}
-                        </div>
+  {(appliedCoupon || activeAutoDiscount) && (
+    <span className="text-xs text-gray-400 line-through">
+      £{(basePrice * normalQty).toFixed(2)}
+    </span>
+  )}
+
+  {!appliedCoupon && !activeAutoDiscount && oldPriceData && (
+    <span className="text-xs text-gray-400 line-through">
+      £{(oldPriceData.oldPrice * normalQty).toFixed(2)}
+    </span>
+  )}
+
+{product.nextDayDeliveryFree && (
+  <span
+    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
+    style={{
+      animation: 'deliveryHighlight 2s ease-in-out infinite',
+    }}
+  >
+    <Truck className="h-3 w-3 text-blue-700" />
+    <span className="text-[11px] font-bold text-blue-700">
+       Next Day Delivery Free
+    </span>
+  </span>
+)}
+
+  {vatRate !== null && vatRate > 0 && !product.vatExempt && (
+    <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
+      {vatRate}% VAT
+    </span>
+  )}
+
+  {loyaltyPoints && (
+    <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
+      <AwardIcon className="h-3 w-3 text-[#445D41]" />
+      Earn {loyaltyPoints} pts
+    </span>
+  )}
+</div>
                         {/* Quantity + Stock — same row, no label */}
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <div className="flex items-center border border-gray-300 rounded-lg">
@@ -2661,6 +2680,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </Button>
                             )}
                           </div>
+
                         </div>
                       </CardContent>
                     </Card>

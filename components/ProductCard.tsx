@@ -88,11 +88,9 @@ export default function ProductCard({
     product.displayDiscountType ??
     "None";
 
-  const oldPriceValue =
-    defaultVariant?.compareAtPrice ??
-    defaultVariant?.oldPrice ??
-    product.compareAtPrice ??
-    product.oldPrice;
+ const oldPriceValue = defaultVariant
+  ? defaultVariant.compareAtPrice
+  : product.oldPrice;
 
   const oldPriceData =
     currentDisplayType === "OldPrice"
@@ -412,23 +410,31 @@ export default function ProductCard({
         </Link>
 
         {/* RATING + REVIEW + LOYALTY — single compact row */}
-        <div className="flex items-center gap-1 mb-1 flex-nowrap overflow-hidden">
-          <div className="flex items-center flex-shrink-0">
-            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-            <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
-              {(product.averageRating ?? 0).toFixed(1)}
-            </span>
-          </div>
-          <span className="text-[10px] text-gray-500 flex-shrink-0">
-            ({product.reviewCount || 0})
-          </span>
-          {loyaltyPoints && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
-              <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
-              Earn {loyaltyPoints} pts
-            </span>
-          )}
-        </div>
+<div className="flex items-center gap-1 mb-1 flex-nowrap overflow-hidden">
+  <div className="flex items-center flex-shrink-0">
+    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+    <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
+      {(product.averageRating ?? 0).toFixed(1)}
+    </span>
+  </div>
+
+  <span className="text-[10px] text-gray-500 flex-shrink-0">
+    ({product.reviewCount || 0})
+  </span>
+
+  {product.nextDayDeliveryFree && (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap">
+      Next Day Free
+    </span>
+  )}
+
+  {loyaltyPoints && (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
+      <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
+      Earn {loyaltyPoints} pts
+    </span>
+  )}
+</div>
 
         {/* PRICE */}
 <div className="flex items-center gap-0.5 mb-1">

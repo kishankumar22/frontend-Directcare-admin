@@ -27,6 +27,24 @@ export const googleMerchantService = {
     );
   },
 
+  // POST /api/GoogleMerchant/clean-resync
+  cleanResync: async () => {
+    return apiClient.post<GoogleMerchantResponse>(
+      `${API_ENDPOINTS.GoogleMerchantCenter}/clean-resync`
+    );
+  },
+
+  // GET /api/GoogleMerchant/preview-excel
+  previewExcel: async () => {
+    return apiClient.get<GoogleMerchantResponse>(
+      `${API_ENDPOINTS.GoogleMerchantCenter}/preview-excel`,
+      {
+        // if the endpoint returns an excel file, callers can request raw via getRawClient()
+        responseType: "arraybuffer",
+      }
+    );
+  },
+
   // ✅ NEW
 getFeedXml: async () => {
   return apiClient.get(
