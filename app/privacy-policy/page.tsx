@@ -28,7 +28,7 @@ export default function PrivacyPage() {
           </p>
 
           <p className="text-sm black leading-relaxed mb-3">
-            If you have any questions regarding this Policy and our privacy practices, call us at <strong>+441216616357/+441214616835.</strong>
+            If you have any questions regarding this Policy and our privacy practices, call us at <strong>+441216616357.</strong>
           </p>
 
           <p className="text-sm black leading-relaxed">
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
           </h2>
 
           <p className="text-sm black leading-relaxed mb-3">
-            According to the General Data Protection Regulation rules, customers have the right to access their Personal Information from the service provider and request for it to be rectified, updated, or deleted. If you want to exercise these rights, feel free to call our customer service team at <strong>+441216616357/+441214616835.</strong>
+            According to the General Data Protection Regulation rules, customers have the right to access their Personal Information from the service provider and request for it to be rectified, updated, or deleted. If you want to exercise these rights, feel free to call our customer service team at <strong>+441216616357</strong>
           </p>
 
           <p className="text-sm black leading-relaxed">

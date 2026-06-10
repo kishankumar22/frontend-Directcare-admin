@@ -975,6 +975,15 @@ const availableCoupons = useMemo(() => {
                         )}
                         {stockError[item.id] && <p className="text-red-600 text-[10px]">{stockError[item.id]}</p>}
                       </div>
+                      {item.productData?.isPharmaProduct && (
+                        <div className="">
+                          <p className="text-[12px]  text-green-700  font-semibold py-1  ">
+                            P Medicines are sold under pharmacist Supervision
+                          </p>
+                        </div>
+                      )}
+
+
 
                     </div>
                   </div>

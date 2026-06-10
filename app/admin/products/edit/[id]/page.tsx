@@ -2245,9 +2245,7 @@ const hasFormChanged = useCallback(() => {
   // ==================== HANDLE TAKEOVER REQUEST ====================
   // ✅ FIXED: Handle takeover request with proper type handling
   const handleTakeoverRequest = async (message: string, expiryMinutes: number) => {
-    console.log('📤 Sending takeover request...');
-    console.log('💬 Message:', message);
-    console.log('⏰ Expiry:', expiryMinutes, 'minutes');
+
 
     setIsSubmittingTakeover(true);
 
@@ -3304,7 +3302,8 @@ if (!isVariableProduct) {
       // ═══════════════════════════════════════════════════════════════════════
 
       const firstVariant = productVariants[0]; // Get master variant
-      const defaultVariants = productVariants.filter(
+      if( formData.productType === "variable"){
+const defaultVariants = productVariants.filter(
   (v) => v.isDefault === true
 );
 
@@ -3324,9 +3323,12 @@ if (defaultVariants.length > 1) {
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
   setSubmitProgress(null);
-
   return;
 }
+
+
+      }
+
 
       const variantsArray = productVariants?.map(variant => {
         // ========== VALIDATION (SAME AS BEFORE) ==========

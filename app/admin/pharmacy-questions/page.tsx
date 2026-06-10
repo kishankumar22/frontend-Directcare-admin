@@ -619,7 +619,7 @@ const hasActiveFilters =
             <table className="w-full">
               <thead className="bg-slate-800/50 sticky top-0 z-10">
                 <tr className="border-b border-slate-700">
-                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-sm">
+                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">
                     <button
                       onClick={() => handleSort("displayOrder")}
                       className="flex items-center gap-1.5 hover:text-white transition-colors"

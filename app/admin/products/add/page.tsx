@@ -1363,6 +1363,7 @@ if (!formData.nextDayDeliveryEnabled) {
         }
       }
 
+   if( formData.productType === "variable"){
         // 👇 YAHAN ADD KARO
   const defaultVariants = productVariants.filter(
     (v) => v.isDefault === true
@@ -1387,6 +1388,8 @@ if (!formData.nextDayDeliveryEnabled) {
 
     return;
   }
+   }
+
     }
     
     setSubmitProgress({
@@ -5546,7 +5549,8 @@ useEffect(() => {
       <div>
         <h3 className="text-lg font-semibold text-white">Product Images  <span className="text-red-500">*</span></h3>
         <p className="text-sm text-red-500">
-          Upload and manage product images. Supported: JPG, PNG, WebP    Max 300KB To 500KB    Up to 10 images
+         Upload product images (WebP or Avif). Recommended size under 300 KB, maximum 500 KB per image.
+         Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
         </p>
       </div>
     </div>

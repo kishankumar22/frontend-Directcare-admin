@@ -12,7 +12,7 @@ const faqs = [
   {
     question: "What is the best way to get in touch with your Customer Care team?",
     answer:
-      "You can reach our Customer Care team through multiple channels:\n\nPhone: Call us at +441216616357/+441214616835 for immediate assistance.\nEmail: Send your queries to customersupport@direct-care.co.uk",
+      "You can reach our Customer Care team through multiple channels:\n\nPhone: Call us at +441216616357 for immediate assistance.\nEmail: Send your queries to customersupport@direct-care.co.uk",
   },
   {
     question: "What are the steps to place an order with Direct Care?",
@@ -48,19 +48,19 @@ const faqs = [
 
 export default function FAQPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
-const formatAnswer = (text: string) => {
-  // Phone numbers detect
-  const phoneRegex = /(\+?\d[\d\s\/\-]{7,})/g;
+  const formatAnswer = (text: string) => {
+    // Phone numbers detect
+    const phoneRegex = /(\+?\d[\d\s\/\-]{7,})/g;
 
-  // Email detect
-  const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/g;
+    // Email detect
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,})/g;
 
-  let formatted = text
-    .replace(phoneRegex, `<span class="font-semibold text-black">$1</span>`)
-    .replace(emailRegex, `<span class="font-semibold text-black">$1</span>`);
+    let formatted = text
+      .replace(phoneRegex, `<span class="font-semibold text-black">$1</span>`)
+      .replace(emailRegex, `<span class="font-semibold text-black">$1</span>`);
 
-  return formatted;
-};
+    return formatted;
+  };
   const toggle = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
   };
@@ -73,7 +73,7 @@ const formatAnswer = (text: string) => {
         <h1 className="text-xl md:text-3xl font-bold">
           Frequently Asked Questions
         </h1>
-       
+
       </div>
 
       {/* 🔥 FAQ LIST */}
@@ -101,20 +101,19 @@ const formatAnswer = (text: string) => {
               </button>
 
               {/* ANSWER */}
-           <div
-  className={`grid transition-all duration-300 ${
-    openIndex === index
-      ? "grid-rows-[1fr] opacity-100"
-      : "grid-rows-[0fr] opacity-0"
-  }`}
->
-  <div className="overflow-hidden">
-   <div
-  className="px-5 pb-4 text-sm text-gray-600 leading-relaxed whitespace-pre-line"
-  dangerouslySetInnerHTML={{ __html: formatAnswer(faq.answer) }}
-/>
-  </div>
-</div>
+              <div
+                className={`grid transition-all duration-300 ${openIndex === index
+                  ? "grid-rows-[1fr] opacity-100"
+                  : "grid-rows-[0fr] opacity-0"
+                  }`}
+              >
+                <div className="overflow-hidden">
+                  <div
+                    className="px-5 pb-4 text-sm text-gray-600 leading-relaxed whitespace-pre-line"
+                    dangerouslySetInnerHTML={{ __html: formatAnswer(faq.answer) }}
+                  />
+                </div>
+              </div>
 
             </div>
           ))}

@@ -147,9 +147,23 @@ export default function TermsPage() {
         <div className="bg-white p-6 rounded-xl border shadow-sm text-center">
           <h2 className="text-lg font-semibold mb-3">Contact Information</h2>
 
-          <p className="text-sm black">
-            You can reach us by phone at <strong>+441216616357/+441214616835 or via email at customersupport@direct-care.co.uk.</strong>
-          </p>
+       <p className="text-sm text-gray-700 leading-relaxed">
+  You can reach us by phone at{" "}
+  <a
+    href="tel:+441216616357"
+    className="font-semibold text-[#005625] hover:underline"
+  >
+    +44 121 661 6357
+  </a>{" "}
+  or via email at{" "}
+  <a
+    href="mailto:customersupport@direct-care.co.uk"
+    className="font-semibold text-[#005625] hover:underline break-all"
+  >
+    customersupport@direct-care.co.uk
+  </a>
+  .
+</p>
         </div>
 
       </div>
