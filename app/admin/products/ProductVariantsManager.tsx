@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X, Upload, Package, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Plus, X, Upload, Package, ChevronDown, ChevronUp, AlertTriangle, Truck } from 'lucide-react';
 import { ProductVariant, ProductOption, productsService } from '@/lib/services';
 import { useToast } from '@/app/admin/_components/CustomToast';
 
@@ -18,6 +18,10 @@ interface ProductVariantsManagerProps {
   disabled?: boolean;
   variantSkuErrors?: Record<string, string>;
   onVariantImageUpload?: (variantId: string, file: File) => Promise<void>;
+  parentNextDayDeliveryEnabled?: boolean;
+  parentNextDayDeliveryFree?: boolean;
+  parentNextDayDeliveryCutoffTime?: string | null;
+  parentFakeSaleCount?: string | number | null;
 }
 
 export default function ProductVariantsManager({
@@ -30,6 +34,10 @@ export default function ProductVariantsManager({
   disabled = false,
   variantSkuErrors = {},
   onVariantImageUpload,
+  parentNextDayDeliveryEnabled = false,
+  parentNextDayDeliveryFree = false,
+  parentNextDayDeliveryCutoffTime = null,
+  parentFakeSaleCount = null,
 }: ProductVariantsManagerProps) {
   const toast = useToast();
   const [collapsedVariants, setCollapsedVariants] = useState<Set<string>>(new Set());
@@ -129,6 +137,10 @@ const closeDeleteModal = () => {
       isActive: true,
       gtin: null,
       barcode: null,
+      nextDayDeliveryEnabled: parentNextDayDeliveryEnabled ?? false,
+      nextDayDeliveryFree: parentNextDayDeliveryFree ?? false,
+      nextDayDeliveryCutoffTime: parentNextDayDeliveryCutoffTime ?? null,
+      fakeSaleCount: null,
     };
 
     onVariantsChange([...variants, newVariant]);
@@ -169,6 +181,10 @@ const closeDeleteModal = () => {
       isActive: true,
       gtin: null,
       barcode: null,
+      nextDayDeliveryEnabled: parentNextDayDeliveryEnabled ?? false,
+      nextDayDeliveryFree: parentNextDayDeliveryFree ?? false,
+      nextDayDeliveryCutoffTime: parentNextDayDeliveryCutoffTime ?? null,
+      fakeSaleCount: parentFakeSaleCount ? Number(parentFakeSaleCount) : null,
     };
 
     onVariantsChange([...variants, newVariant]);
@@ -271,7 +287,12 @@ const closeDeleteModal = () => {
         displayOrder: variants.length + newVariants.length,
         isActive: true,
         gtin: null,
-        barcode: null
+        barcode: null,
+        nextDayDeliveryEnabled: parentNextDayDeliveryEnabled ?? false,
+        nextDayDeliveryFree: parentNextDayDeliveryFree ?? false,
+        nextDayDeliveryCutoffTime: parentNextDayDeliveryCutoffTime ?? null,
+        fakeSaleCount: parentFakeSaleCount ? Number(parentFakeSaleCount) : null,
+
       };
 
       newVariants.push(newVariant);
@@ -758,6 +779,58 @@ const closeDeleteModal = () => {
                       </label>
                     </div>
 
+                    {/* Delivery & Sales Options */}
+                    <div className="pt-3 border-t border-slate-700/50 space-y-4">
+                      <h4 className="text-sm font-semibold text-white border-b border-slate-700 pb-2 flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-violet-400" />
+                        Delivery & Sales
+                      </h4>
+                      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                        <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={variant.nextDayDeliveryEnabled ?? false}
+                            onChange={(e) => updateProductVariant(variant.id, 'nextDayDeliveryEnabled', e.target.checked)}
+                            disabled={disabled}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                          />
+                          <span className="text-xs font-medium text-slate-300">Next Day Delivery</span>
+                        </label>
+                        <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={variant.nextDayDeliveryFree ?? false}
+                            onChange={(e) => updateProductVariant(variant.id, 'nextDayDeliveryFree', e.target.checked)}
+                            disabled={disabled}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                          />
+                          <span className="text-xs font-medium text-slate-300">Free Next Day</span>
+                        </label>
+                        <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg">
+                          <span className="text-xs font-semibold text-slate-300 whitespace-nowrap">Cutoff Time  <span className="text-red-500">*</span></span>
+                          <input
+                            type="time"
+                            value={variant.nextDayDeliveryCutoffTime || ''}
+                            onChange={(e) => updateProductVariant(variant.id, 'nextDayDeliveryCutoffTime', e.target.value || null)}
+                            disabled={disabled}
+                            className="flex-1 px-2 py-1 text-sm bg-slate-900 border border-slate-600 rounded text-white focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg">
+                          <span className="text-xs font-semibold text-slate-300 whitespace-nowrap">Fake Sale Count</span>
+                          <input
+                            type="number"
+                            value={variant.fakeSaleCount ?? ''}
+                            onChange={(e) => updateProductVariant(variant.id, 'fakeSaleCount', e.target.value ? parseInt(e.target.value) : null)}
+                            placeholder="0"
+                            min="0"
+                            disabled={disabled}
+                            className="flex-1 px-2 py-1 w-20 text-sm bg-slate-900 border border-slate-600 rounded text-white focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
                     {/* Row 4: Variant Image (Full Width) */}
                     <div className="pt-3 border-t border-slate-700/50">
                       <label className="block text-xs font-semibold text-slate-300 mb-2">
@@ -787,7 +860,7 @@ const closeDeleteModal = () => {
       <X className="h-3 w-3" />
     </button>
   </div>
-)}
+                      )}
 
                         {/* Upload Button */}
                         <div className="flex-1">

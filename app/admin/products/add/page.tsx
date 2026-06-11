@@ -568,6 +568,9 @@
     excludeFromLoyaltyPoints: true,
     isPharmaProduct: false,
 
+    // ===== SALES =====
+    fakeSaleCount: '',
+
 
     // ===== RECURRING / SUBSCRIPTION =====
     isRecurring: false,
@@ -1506,8 +1509,12 @@ if (!formData.nextDayDeliveryEnabled) {
         name: cleanedVariant.name,
         sku: cleanedVariant.sku,
         price: parseFloat(cleanedVariant.price?.toString() ?? "0") || 0,
-        compareAtPrice: cleanedVariant.compareAtPrice ? parseFloat(cleanedVariant.compareAtPrice.toString()) : null,
-        weight: cleanedVariant.weight ? parseFloat(cleanedVariant.weight.toString()) : null,
+        compareAtPrice: cleanedVariant.compareAtPrice ? parseFloat(cleanedVariant.compareAtPrice.toString()) : 0,
+        oldPrice: cleanedVariant.oldPrice ? parseFloat(cleanedVariant.oldPrice.toString()) : 0,
+        weight: cleanedVariant.weight ? parseFloat(cleanedVariant.weight.toString()) : 0,
+        length: cleanedVariant.length ? parseFloat(cleanedVariant.length.toString()) : 0,
+        width: cleanedVariant.width ? parseFloat(cleanedVariant.width.toString()) : 0,
+        height: cleanedVariant.height ? parseFloat(cleanedVariant.height.toString()) : 0,
         stockQuantity: parseInt(cleanedVariant.stockQuantity.toString()) || 0,
         trackInventory: cleanedVariant.trackInventory ?? true,
         // NEW: option values as comma-separated string
@@ -1527,6 +1534,10 @@ if (!formData.nextDayDeliveryEnabled) {
         isActive: cleanedVariant.isActive ?? true,
         gtin: cleanedVariant.gtin || null,
         barcode: cleanedVariant.barcode || null,
+        nextDayDeliveryEnabled: cleanedVariant.nextDayDeliveryEnabled ?? false,
+        nextDayDeliveryFree: cleanedVariant.nextDayDeliveryFree ?? false,
+        nextDayDeliveryCutoffTime: cleanedVariant.nextDayDeliveryCutoffTime || null,
+        fakeSaleCount: cleanedVariant.fakeSaleCount ? Number(cleanedVariant.fakeSaleCount) : null,
       };
     });
 
@@ -1685,6 +1696,12 @@ allowedQuantities: cleanedCartData.allowedQuantities,
     if (formData.adminComment?.trim()) productData.adminComment = formData.adminComment.trim();
     if (formData.gender?.trim()) productData.gender = formData.gender.trim();
     else productData.gender = "";
+    
+    if (formData.fakeSaleCount && formData.fakeSaleCount !== '') {
+      productData.fakeSaleCount = parseInt(formData.fakeSaleCount.toString());
+    } else {
+      productData.fakeSaleCount = 0;
+    }
 
     if (formData.oldPrice) {
       productData.oldPrice = parseFloat(formData.oldPrice.toString());
@@ -1746,16 +1763,11 @@ allowedQuantities: cleanedCartData.allowedQuantities,
     }
 
     // Delivery Options
-    if (formData.sameDayDeliveryEnabled !== undefined) productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
-    if (formData.nextDayDeliveryEnabled !== undefined) productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
-    if (formData.nextDayDeliveryCutoffTime) {
-  productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime;
-} else {
-  productData.nextDayDeliveryCutoffTime = null;
-}
-    if (formData.nextDayDeliveryFree !== undefined)
-productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
-    if (formData.standardDeliveryEnabled !== undefined) productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
+    productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled ?? false;
+    productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled ?? false;
+    productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime || null;
+    productData.nextDayDeliveryFree = formData.nextDayDeliveryFree ?? false;
+    productData.standardDeliveryEnabled = formData.standardDeliveryEnabled ?? true;
 
     // Pack Product
     if (formData.isPack) {
@@ -3462,7 +3474,7 @@ useEffect(() => {
           name="productType"
           value={formData.productType}
           onChange={handleChange}
-          className="flex-1 px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          className="flex-1 px-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
         >
           <option value="simple">Simple Product</option>
           <option value="grouped">Grouped Product</option>
@@ -4042,6 +4054,25 @@ useEffect(() => {
         rows={3}
         className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
+    </div>
+  </div>
+
+  {/* Sales */}
+  <div className="space-y-4 mt-6">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Sales</h3>
+    <div className="grid md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Fake Sale Count</label>
+        <input
+          type="number"
+          name="fakeSaleCount"
+          value={formData.fakeSaleCount}
+          onChange={handleChange}
+          placeholder="0"
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">Leave empty to use real sales only.</p>
+      </div>
     </div>
   </div>
 </TabsContent>
@@ -5335,6 +5366,10 @@ useEffect(() => {
             disabled={isSubmitting}
             variantSkuErrors={variantSkuErrors}
             onVariantImageUpload={handleVariantImageUpload}
+            parentNextDayDeliveryEnabled={formData.nextDayDeliveryEnabled}
+            parentNextDayDeliveryFree={formData.nextDayDeliveryFree}
+            parentNextDayDeliveryCutoffTime={formData.nextDayDeliveryCutoffTime}
+            parentFakeSaleCount={formData.fakeSaleCount}
           />
         </div>
       </>
@@ -5815,7 +5850,7 @@ useEffect(() => {
           </div>
         </div>
       </div>
-{/*   GROUPED PRODUCT MODAL - ADD PAGE */}
+
 <GroupedProductModal
   isOpen={isGroupedModalOpen}
   onClose={() => setIsGroupedModalOpen(false)}

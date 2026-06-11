@@ -122,6 +122,15 @@ export interface ProductVariant {
   // Loyalty Points (calculated)
   loyaltyPointsEarnable?: number;   // ✅ ADD THIS (from your API response)
   loyaltyPointsMessage?: string;    // ✅ ADD THIS (from your API response)
+
+  // Sales Tracking
+  fakeSaleCount?: number | null;
+  saleCount?: number;
+
+  // Delivery Overrides
+  nextDayDeliveryEnabled?: boolean;
+  nextDayDeliveryFree?: boolean;
+  nextDayDeliveryCutoffTime?: string | null;
 }
 
 
@@ -163,6 +172,12 @@ export interface ProductItem {
   oldPrice?: number;
   description?: string;
   shortDescription?: string;
+
+  fakeSaleCount?: number | null;
+  saleCount?: number;
+  displaySaleCount?: number;
+  monthlySaleCount?: number;
+  weeklySaleCount?: number;
 }
 
 export interface CategoryData {
@@ -300,6 +315,12 @@ allowedSubscriptionFrequencies?: string;
   crossSellProducts?: RelatedProduct[];
   
   backInStockCount?: number; // ✅ ADD THIS
+
+  fakeSaleCount?: number | null;
+  saleCount?: number;
+  displaySaleCount?: number;
+  monthlySaleCount?: number;
+  weeklySaleCount?: number;
 }
 
 
@@ -373,6 +394,9 @@ export interface CreateProductDto {
   tags?: string;
   allowCustomerReviews?: boolean;  
   backInStockCount?: number; // ✅ ADD THIS
+  
+  fakeSaleCount?: number | null;
+  saleCount?: number;
 }
 
 export interface UpdateProductDto extends Partial<CreateProductDto> {}
@@ -902,6 +926,54 @@ importExcel: async (file: File) => {
       };
     }>(
       `${API_ENDPOINTS.products}/import-woocommerce`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+  },
+
+  // ==========================================
+  // 📥 IMPORT / EXPORT CATEGORIES (EXCEL)
+  // ==========================================
+
+  /**
+   * Export Category Excel
+   * GET: /api/Products/export-categories-excel
+   */
+  exportCategoriesExcel: async () => {
+    return apiClient.get(
+      `${API_ENDPOINTS.products}/export-categories-excel`,
+      {
+        responseType: "blob",   // 🚨 VERY IMPORTANT for file downloads
+      }
+    );
+  },
+
+  /**
+   * Import Category Excel
+   * POST: /api/Products/import-categories-excel
+   * Body: multipart/form-data (file)
+   */
+  importCategoriesExcel: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file); // Backend expects "file" parameter
+
+    return apiClient.post<{
+      success: boolean;
+      message?: string;
+      data: {
+        updatedCount: number;
+        skippedCount: number;
+        clearedCount: number;
+        failedCount: number;
+        errors: string[];
+      };
+      errors?: string[];
+    }>(
+      `${API_ENDPOINTS.products}/import-categories-excel`,
       formData,
       {
         headers: {

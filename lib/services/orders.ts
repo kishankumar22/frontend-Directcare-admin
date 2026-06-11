@@ -383,6 +383,9 @@ async getAllOrders(params?: {
   searchTerm?: string;
   pharmacyVerificationStatus?: PharmacyVerificationStatus;
   includeGuestOrders?: boolean;
+  shippingMethodName?: string;
+  isClickAndCollect?: boolean;
+  isPharmaProduct?: boolean;
 }) {
 
     try {

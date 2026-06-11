@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.direct-care.co.uk';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://test.astircare.co.uk';
 
 export const API_ENDPOINTS = {
   // Auth

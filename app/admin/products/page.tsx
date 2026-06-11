@@ -36,7 +36,9 @@ import { brandsService } from "@/lib/services/brands";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
+import RequestTakeoverModal from "./RequestTakeoverModal";
 import ProductExcelImportModal from "./ProductExcelImportModal";
+import CategoryExcelImportModal from "./CategoryExcelImportModal";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getProductImage } from "../_utils/formatUtils";
 
@@ -177,6 +179,7 @@ const [bulkAction, setBulkAction] = useState<null | {
 
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showCategoryImportModal, setShowCategoryImportModal] = useState(false);
 
   // Media states
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
@@ -1477,6 +1480,17 @@ const handleExportSelected = async () => {
     Import Excel
   </button>
 
+  <button
+    onClick={() => setShowCategoryImportModal(true)}
+    className="flex items-center gap-2 px-3 py-1.5 text-[13px]
+    bg-slate-800 border border-slate-700
+    hover:bg-slate-700
+    text-emerald-400 rounded-xl font-medium transition"
+  >
+    <Upload className="w-4 h-4" />
+    Categories Excel
+  </button>
+
   {/* REQUESTS */}
   {statusCounts.Pending > 0 && (
     <button
@@ -2720,6 +2734,17 @@ Updated By: ${product.updatedBy || "N/A"}`}
           onSuccess={() => {
             fetchProducts(); // refresh list after import
             setShowImportModal(false);
+          }}
+        />
+      )}
+
+      {showCategoryImportModal && (
+        <CategoryExcelImportModal
+          isOpen={showCategoryImportModal}
+          onClose={() => setShowCategoryImportModal(false)}
+          onSuccess={() => {
+            fetchProducts(); // refresh list after import
+            setShowCategoryImportModal(false);
           }}
         />
       )}

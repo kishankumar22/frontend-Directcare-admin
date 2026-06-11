@@ -150,6 +150,9 @@ export default function OrdersListPage() {
     paymentStatus: "",
     pharmacyVerificationStatus: "" as PharmacyVerificationStatus | "",
     isGuestOrder: "",
+    shippingMethodName: "",
+    isClickAndCollect: "",
+    isPharmaProduct: "",
   });
   const selectedOrderObjects = orders.filter(o =>
     selectedOrders.includes(o.id)
@@ -284,22 +287,34 @@ export default function OrdersListPage() {
 
       setFilterLoading(true);
 
-      const response = await orderService.getAllOrders({
+      const apiParams: any = {
         page: currentPage,
         pageSize: itemsPerPage,
         status: filters.status || undefined,
         fromDate: filters.fromDate || undefined,
         toDate: filters.toDate || undefined,
         searchTerm: debouncedSearch.trim() !== "" ? debouncedSearch : undefined,
-        pharmacyVerificationStatus:
-          filters.pharmacyVerificationStatus || undefined,
+      };
 
-        // ✅ CORRECT PARAM NAME
-        includeGuestOrders:
-          filters.isGuestOrder !== ""
-            ? filters.isGuestOrder === "true"
-            : undefined,
-      });
+      if (filters.pharmacyVerificationStatus) {
+        apiParams.pharmacyVerificationStatus = filters.pharmacyVerificationStatus;
+      }
+      if (filters.isGuestOrder !== "") {
+        apiParams.includeGuestOrders = filters.isGuestOrder === "true";
+      }
+      if (filters.shippingMethodName) {
+        apiParams.shippingMethodName = filters.shippingMethodName;
+      }
+      if (filters.isClickAndCollect !== "") {
+        apiParams.isClickAndCollect = filters.isClickAndCollect === "true";
+      }
+      if (filters.isPharmaProduct !== "") {
+        apiParams.isPharmaProduct = filters.isPharmaProduct === "true";
+      }
+
+      console.log("Calling OrderService with:", apiParams);
+
+      const response = await orderService.getAllOrders(apiParams);
 
       const responseData = response?.data;
 
@@ -356,9 +371,12 @@ export default function OrdersListPage() {
     filters.deliveryMethod,
     filters.paymentMethod,
     filters.paymentStatus,
-    filters.pharmacyVerificationStatus, // ✅ ADD THIS
+    filters.pharmacyVerificationStatus,
+    filters.isGuestOrder,
+    filters.shippingMethodName,
+    filters.isClickAndCollect,
+    filters.isPharmaProduct,
     debouncedSearch,
-    filters.isGuestOrder, // ✅ NEW
   ]);
 
 
@@ -560,9 +578,12 @@ export default function OrdersListPage() {
       paymentMethod: "",
       paymentStatus: "",
       pharmacyVerificationStatus: "",
-      isGuestOrder: "", // ✅ NEW FILTER RESET
+      isGuestOrder: "",
+      shippingMethodName: "",
+      isClickAndCollect: "",
+      isPharmaProduct: "",
     });
-    setCurrentPage(1); // ✅ Optional but recommended
+    setCurrentPage(1);
   };
 
 
@@ -1206,6 +1227,57 @@ export default function OrdersListPage() {
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
+          </select>
+
+          {/* SHIPPING METHOD NAME */}
+          <select
+            value={filters.shippingMethodName}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                shippingMethodName: e.target.value,
+              }))
+            }
+            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+        ${filters.shippingMethodName ? "border-fuchsia-500 bg-slate-500/10" : "border-slate-700"}`}
+          >
+            <option value="">Shipping Method: All</option>
+            <option value="Standard Delivery">Standard Delivery</option>
+            <option value="Next Day Delivery">Next Day Delivery</option>
+          </select>
+
+          {/* IS CLICK AND COLLECT */}
+          <select
+            value={filters.isClickAndCollect}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                isClickAndCollect: e.target.value,
+              }))
+            }
+            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+        ${filters.isClickAndCollect ? "border-orange-500 bg-orange-500/10" : "border-slate-700"}`}
+          >
+            <option value="">Click & Collect:All</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+
+          {/* IS PHARMA PRODUCT */}
+          <select
+            value={filters.isPharmaProduct}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                isPharmaProduct: e.target.value,
+              }))
+            }
+            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+        ${filters.isPharmaProduct ? "border-rose-500 bg-rose-500/10" : "border-slate-700"}`}
+          >
+            <option value="">Pharma Order:All</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
           </select>
 
           {/* DATE RANGE */}

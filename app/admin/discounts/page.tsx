@@ -335,7 +335,6 @@ useEffect(() => {
 useEffect(() => {
   fetchDiscounts();
   fetchDropdownData();
-  fetchProducts(); // ✅ add this
 }, []);
 
   // Fetch dropdown data
@@ -1990,15 +1989,7 @@ const filteredDiscounts = discounts.filter((discount) => {
         label: p.name
       }))
   ]}
-  categoryFilteredProductOptions={[
-    ...productOptions,
-    ...allSelectedProducts
-      .filter(p => !productOptions.some(opt => opt.value === p.id))
-      .map(p => ({
-        value: p.id,
-        label: p.name
-      }))
-  ]}
+  categoryFilteredProductOptions={productOptions}
   productCategoryFilter={productCategoryFilter}
   setProductCategoryFilter={setProductCategoryFilter}
   productBrandFilter={productBrandFilter}

@@ -384,6 +384,9 @@ const frequencyPresets: Record<string, string> = {
     productTags: '',
     gtin: '',
     manufacturerPartNumber: '',
+
+    fakeSaleCount: '',
+
     adminComment: '',
     categoryName: '', // For clean category name display
 
@@ -1036,6 +1039,9 @@ useEffect(() => {
           excludeFromLoyaltyPoints: productData.excludeFromLoyaltyPoints ?? true,
           isPharmaProduct: productData.isPharmaProduct ?? false,
 
+          // ===== SALES =====
+          fakeSaleCount: productData.fakeSaleCount?.toString() || '',
+
           // ===== INVENTORY =====
           stockQuantity: productData.stockQuantity?.toString() || '0',
           manageInventory: productData.manageInventoryMethod || 'track',
@@ -1072,6 +1078,10 @@ useEffect(() => {
           length: productData.length?.toString() || '',
           width: productData.width?.toString() || '',
           height: productData.height?.toString() || '',
+          sameDayDeliveryEnabled: productData.sameDayDeliveryEnabled ?? false,
+          nextDayDeliveryEnabled: productData.nextDayDeliveryEnabled ?? false,
+          nextDayDeliveryFree: productData.nextDayDeliveryFree ?? false,
+          standardDeliveryEnabled: productData.standardDeliveryEnabled ?? true,
 
           // ===== PACK PRODUCT =====
           isPack: productData.isPack ?? false,
@@ -1116,15 +1126,6 @@ useEffect(() => {
 
           // ===== REVIEWS =====
           allowCustomerReviews: productData.allowCustomerReviews ?? true,
-          // ✅ SHIPPING & DELIVERY (Add this section)
-
-
-          // Delivery flags
-          sameDayDeliveryEnabled: productData.sameDayDeliveryEnabled ?? false,
-          nextDayDeliveryEnabled: productData.nextDayDeliveryEnabled ?? false,
-          nextDayDeliveryFree: productData.nextDayDeliveryFree ?? false,   // ✅ ADD
-          standardDeliveryEnabled: productData.standardDeliveryEnabled ?? true,
-
           // ===== TAGS & RELATED =====
           productTags: productData.tags || '',
           relatedProducts: relatedProductsArray,
@@ -1229,6 +1230,10 @@ useEffect(() => {
               isActive: variant.isActive ?? true,
               gtin: variant.gtin || null,
               barcode: variant.barcode || null,
+              fakeSaleCount: variant.fakeSaleCount ?? null,
+              nextDayDeliveryEnabled: variant.nextDayDeliveryEnabled ?? null,
+              nextDayDeliveryFree: variant.nextDayDeliveryFree ?? null,
+              nextDayDeliveryCutoffTime: variant.nextDayDeliveryCutoffTime || null,
             };
           });
 
@@ -3383,10 +3388,14 @@ if (defaultVariants.length > 1) {
           price: cleanedVariant.price,
           compareAtPrice: typeof cleanedVariant.compareAtPrice === 'number'
             ? cleanedVariant.compareAtPrice
-            : parseNumber(cleanedVariant.compareAtPrice, 'cleanedVariant.compareAtPrice'),
+            : parseNumber(cleanedVariant.compareAtPrice, 'cleanedVariant.compareAtPrice') || 0,
+          oldPrice: 0,
           weight: typeof cleanedVariant.weight === 'number'
             ? cleanedVariant.weight
-            : parseNumber(cleanedVariant.weight, 'cleanedVariant.weight'),
+            : parseNumber(cleanedVariant.weight, 'cleanedVariant.weight') || 0,
+          length: 0,
+          width: 0,
+          height: 0,
           stockQuantity: typeof cleanedVariant.stockQuantity === 'number'
             ? cleanedVariant.stockQuantity
             : parseInt(String(cleanedVariant.stockQuantity)) || 0,
@@ -3420,6 +3429,12 @@ if (defaultVariants.length > 1) {
           barcode: cleanedVariant.barcode && cleanedVariant.barcode.trim()
             ? cleanedVariant.barcode.trim().toUpperCase()
             : cleanedVariant.sku, // Use SKU as fallback
+
+          // NEW FIELDS
+          nextDayDeliveryEnabled: cleanedVariant.nextDayDeliveryEnabled ?? false,
+          nextDayDeliveryFree: cleanedVariant.nextDayDeliveryFree ?? false,
+          nextDayDeliveryCutoffTime: cleanedVariant.nextDayDeliveryCutoffTime || null,
+          fakeSaleCount: cleanedVariant.fakeSaleCount ? Number(cleanedVariant.fakeSaleCount) : null,
         };
 
         // Add ID for existing variants
@@ -3643,6 +3658,7 @@ if (defaultVariants.length > 1) {
         vatRateId: formData.vatRateId || null,
         excludeFromLoyaltyPoints: formData.excludeFromLoyaltyPoints ?? true,
         isPharmaProduct: formData.isPharmaProduct ?? false,
+        fakeSaleCount: formData.fakeSaleCount ? Number(formData.fakeSaleCount) : 0,
         isActive: formData.isActive ?? false,
         trackQuantity: formData.manageInventory === 'track',
         manageInventoryMethod: formData.manageInventory || 'track',
@@ -5396,7 +5412,7 @@ if (name === "recurringCyclePeriod") {
                           name="productType"
                           value={formData.productType}
                           onChange={handleChange}
-                          className="flex-1 px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                          className="flex-1 px-3 py-2.5  bg-slate-900/90  border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                         >
                           <option value="simple">Simple Product</option>
                           <option value="grouped">Grouped Product</option>
@@ -6097,6 +6113,24 @@ if (name === "recurringCyclePeriod") {
 
               </div>
 
+              {/* Sales */}
+              <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Sales</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Fake Sale Count</label>
+                    <input
+                      type="number"
+                      name="fakeSaleCount"
+                      value={formData.fakeSaleCount}
+                      onChange={handleChange}
+                      placeholder="0"
+                      className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Leave empty to use real sales only.</p>
+                  </div>
+                </div>
+              </div>
 
             </TabsContent>
 
@@ -7378,6 +7412,10 @@ if (name === "recurringCyclePeriod") {
                         disabled={isSubmitting}
                         variantSkuErrors={variantSkuErrors}
                         onVariantImageUpload={handleVariantImageUpload}
+                        parentNextDayDeliveryEnabled={formData.nextDayDeliveryEnabled}
+                        parentNextDayDeliveryFree={formData.nextDayDeliveryFree}
+                        parentNextDayDeliveryCutoffTime={formData.nextDayDeliveryCutoffTime}
+                        parentFakeSaleCount={formData.fakeSaleCount}
                       />
                     </div>
                   </>
