@@ -95,6 +95,7 @@ export default function InventoryPage() {
   const [sampleLoading, setSampleLoading] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [productType, setSelectedProductType] = useState("all");
+  const [downloadAllLoading, setDownloadAllLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -486,6 +487,67 @@ export default function InventoryPage() {
     setSelected(new Set());
   };
 
+  const downloadAllProducts = async () => {
+    try {
+      setDownloadAllLoading(true);
+      const res = await productsService.getAll({ page: 1, pageSize: 100000 });
+      if (res.data?.success) {
+        const apiData = res.data.data;
+        const allFlatRows: ProductRow[] = [];
+        apiData.items.forEach((p: any) => {
+          const variants = Array.isArray(p.variants) ? p.variants : [];
+          allFlatRows.push({
+            id: p.id,
+            isVariant: false,
+            productType: p.productType || "simple",
+            variantsCount: variants.length,
+            slug: p.slug,
+            name: p.name,
+            sku: p.sku,
+            stockQuantity: Number(p.stockQuantity ?? 0),
+            price: Number(p.price ?? 0),
+            oldPrice: Number(p.oldPrice ?? 0),
+            newStock: Number(p.stockQuantity ?? 0),
+            newPrice: Number(p.price ?? 0),
+            newOldPrice: Number(p.oldPrice ?? 0),
+            brandName: p.brandName ?? "",
+            categoryName: p.categories?.[0]?.categoryName || "",
+          });
+          
+          variants.forEach((v: any) => {
+            allFlatRows.push({
+              id: p.id,
+              parentId: p.id,
+              parentName: p.name,
+              slug: v.slug || p.slug,
+              variantId: v.id,
+              isVariant: true,
+              name: v.name,
+              sku: v.sku,
+              stockQuantity: Number(v.stockQuantity ?? 0),
+              price: Number(v.price ?? 0),
+              oldPrice: Number(v.compareAtPrice ?? 0),
+              newStock: Number(v.stockQuantity ?? 0),
+              newPrice: Number(v.price ?? 0),
+              newOldPrice: Number(v.compareAtPrice ?? 0),
+              brandName: p.brandName ?? "",
+              categoryName: p.categories?.[0]?.categoryName || "",
+            });
+          });
+        });
+
+        if (!allFlatRows.length) { toast.error("No products found"); return; }
+        writeExcel(toExcelRows(allFlatRows), "all-inventory.xlsx");
+        toast.success(`Exported all ${allFlatRows.length} rows`);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Download failed");
+    } finally {
+      setDownloadAllLoading(false);
+    }
+  };
+
   const handleExcelUpload = async (file: File) => {
     if (!file) return;
     try {
@@ -566,6 +628,10 @@ export default function InventoryPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => router.push("/admin/products")} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 text-emerald-400 rounded-lg font-semibold transition-all"><ShoppingCart className="w-3.5 h-3.5" />Go to Products</button>
+          <button onClick={downloadAllProducts} disabled={downloadAllLoading} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg font-semibold transition-all">
+            {downloadAllLoading ? <RefreshCcw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            {downloadAllLoading ? "Downloading..." : "Download All Products"}
+          </button>
           <button onClick={() => setImportOpen(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all"><Upload className="w-3.5 h-3.5" />Update Inventory</button>
         </div>
       </div>
@@ -604,7 +670,7 @@ export default function InventoryPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">Show</span>
           <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-0.5 bg-slate-800 border border-slate-600 rounded text-white text-xs focus:outline-none">
-            {[25, 50, 100, 500].map(n => <option key={n} value={n}>{n}</option>)}
+            {[25, 50, 100, 500,1000].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
           <span className="text-xs text-slate-400">entries</span>
         </div>

@@ -76,6 +76,11 @@ interface Variant {
   freeShippingThreshold?: number;
   hasSystemDiscount?: boolean;
   systemDiscountAmount?: number;
+  nextDayDeliveryEnabled?: boolean;
+  nextDayDeliveryFree?: boolean;
+  nextDayDeliveryCutoffTime?: string;
+  fakeSaleCount?: number;
+  saleCount?: number;
 }
 interface AssignedDiscount {
   id: string;
@@ -166,7 +171,7 @@ interface Product {
     displayName?: string;
     sortOrder?: number;
   }[];
-  productType: "simple" | "grouped";
+  productType: "simple" | "grouped" | "variable";
   requireOtherProducts: boolean;
   requiredProductIds: string;
   automaticallyAddProducts: boolean;
@@ -196,6 +201,8 @@ interface Product {
   displayStockAvailability?: boolean;
   displayStockQuantity?: boolean;
   isPharmaProduct?: boolean;
+  fakeSaleCount?: number;
+  saleCount?: number;
 }
 interface RelatedProduct {
   id: string;
@@ -465,11 +472,29 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   const [shipDate, setShipDate] = useState<string | null>(null);
   const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
   const [nextDayTimeLeft, setNextDayTimeLeft] = useState<string | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
+
+  const activeNextDayDeliveryEnabled = product.productType === "variable" && selectedVariant
+    ? selectedVariant.nextDayDeliveryEnabled
+    : product.nextDayDeliveryEnabled;
+
+  const activeNextDayDeliveryCutoffTime = product.productType === "variable" && selectedVariant
+    ? selectedVariant.nextDayDeliveryCutoffTime
+    : product.nextDayDeliveryCutoffTime;
+
+  const activeNextDayDeliveryFree = product.productType === "variable" && selectedVariant
+    ? selectedVariant.nextDayDeliveryFree
+    : product.nextDayDeliveryFree;
+
+  const activeSaleCount = product.productType === "variable" && selectedVariant
+    ? selectedVariant.saleCount
+    : product.saleCount;
+
   useEffect(() => {
     if (
       !isUKUser ||
-      !product.nextDayDeliveryEnabled ||
-      !product.nextDayDeliveryCutoffTime
+      !activeNextDayDeliveryEnabled ||
+      !activeNextDayDeliveryCutoffTime
     ) {
       setNextDayTimeLeft(null);
       setShipDate(null);
@@ -478,7 +503,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     }
     const calculateTimeLeft = () => {
       const now = new Date();
-      const [h, m] = product.nextDayDeliveryCutoffTime!.split(":").map(Number);
+      const [h, m] = activeNextDayDeliveryCutoffTime!.split(":").map(Number);
       const cutoff = new Date();
       cutoff.setHours(h, m, 0, 0);
       if (now >= cutoff) {
@@ -505,8 +530,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     return () => clearInterval(interval);
   }, [
     isUKUser,
-    product.nextDayDeliveryEnabled,
-    product.nextDayDeliveryCutoffTime,
+    activeNextDayDeliveryEnabled,
+    activeNextDayDeliveryCutoffTime,
   ]);
   // 🔥 PHARMA MODAL STATE
   const [showPharmaModal, setShowPharmaModal] = useState(false);
@@ -557,7 +582,6 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   const [appliedCoupon, setAppliedCoupon] = useState<AssignedDiscount | null>(null);
   const [finalPrice, setFinalPrice] = useState<number>(() => product?.price ?? 0);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
-  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const viewItemTrackedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -1243,15 +1267,17 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     // BASE + FINAL PRICE
     const basePrice = resolveBasePrice(product, selected);
     const final = finalPrice;
-    const variantTitle = selected
-      ? `(${[
-        selected.option1Value,
-        selected.option2Value,
-        selected.option3Value,
-      ]
-        .filter(Boolean)
-        .join(", ")})`
-      : "";
+const variantText = [
+  selected?.option1Value,
+  selected?.option2Value,
+  selected?.option3Value,
+]
+  .filter(Boolean)
+  .join(", ");
+
+const variantTitle = variantText
+  ? `(${variantText})`
+  : "";
     const allowNextDay =
       isUKUser && product.nextDayDeliveryEnabled === true;
     // 🔥 SPLIT QTY BETWEEN BUNDLE & STANDALONE
@@ -1411,7 +1437,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
           }),
         },
         shipSeparately: product.shipSeparately,
-        nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+        nextDayDeliveryEnabled: (product.productType === "variable" && selected ? selected.nextDayDeliveryEnabled : product.nextDayDeliveryEnabled) ?? false,
+        nextDayDeliveryFree: (product.productType === "variable" && selected ? selected.nextDayDeliveryFree : product.nextDayDeliveryFree) ?? false,
         sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
 
         productData: JSON.parse(JSON.stringify(product)),
@@ -1509,21 +1536,28 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     const basePrice = resolveBasePrice(product, selected);
     const final = finalPrice;
     const allowNextDay =
-      isUKUser && product.nextDayDeliveryEnabled === true;
+      isUKUser && (product.productType === "variable" && selected ? selected.nextDayDeliveryEnabled : product.nextDayDeliveryEnabled) === true;
     const buyNowItem = {
       id: `${product.id}-${selected?.id ?? "base"}-one`,
       type: "one-time",
       productId: product.id,
-      name: `${product.name}${selected
-          ? ` (${[
-            selected.option1Value,
-            selected.option2Value,
-            selected.option3Value,
-          ]
-            .filter(Boolean)
-            .join(", ")})`
-          : ""
-        }`,
+  name: `${product.name}${selected &&
+  [
+    selected.option1Value,
+    selected.option2Value,
+    selected.option3Value,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  ? ` (${[
+      selected.option1Value,
+      selected.option2Value,
+      selected.option3Value,
+    ]
+      .filter(Boolean)
+      .join(", ")})`
+  : ""
+}`,
       // keep `price` as base/original to avoid double-discounting after refresh
       price: basePrice,
       priceBeforeDiscount: basePrice,
@@ -1563,11 +1597,11 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
           [selected.option3Name]: selected.option3Value,
         }),
       },
-      nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+      nextDayDeliveryEnabled: (product.productType === "variable" && selected ? selected.nextDayDeliveryEnabled : product.nextDayDeliveryEnabled) ?? false,
       // 🔥🔥🔥 MOST IMPORTANT FIX
       // 🔥 FINAL CORRECT
       nextDayDeliveryFree:
-        product.nextDayDeliveryFree ?? false,
+        (product.productType === "variable" && selected ? selected.nextDayDeliveryFree : product.nextDayDeliveryFree) ?? false,
       sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
       productData: JSON.parse(JSON.stringify(product)),
     };
@@ -2018,15 +2052,21 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             {/* TITLE + BADGES (same line on desktop, stacked on mobile) */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-0">
               {/* PRODUCT NAME */}
-              <h1 className="text-base md:text-xl font-semibold">
-                {selectedVariant
-                  ? `${product.name} (${[
-                    selectedOptions.option1,
-                    selectedOptions.option2,
-                    selectedOptions.option3
-                  ].filter(Boolean).join(", ")})`
-                  : product.name}
-              </h1>
+             <h1 className="text-base md:text-xl font-semibold">
+  {(() => {
+    const variantText = [
+      selectedOptions.option1,
+      selectedOptions.option2,
+      selectedOptions.option3,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    return selectedVariant && variantText
+      ? `${product.name} (${variantText})`
+      : product.name;
+  })()}
+</h1>
             </div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
               {/* Brand */}
@@ -2146,7 +2186,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 
             {/* 🔥 LIVE CART ACTIVITY BANNER */}
             <LiveCartActivityBanner activity={null} />
-            {isUKUser && product.nextDayDeliveryEnabled && nextDayTimeLeft && (
+            {isUKUser && activeNextDayDeliveryEnabled && nextDayTimeLeft && (
               <div className="mt-2 mb-3 rounded-xl border border-white bg-gradient-to-r from-green-50 via-white to-green-50 px-4 py-1 shadow-sm">
                 <div className="flex items-center justify-between">
                   {/* ORDER WITHIN */}
@@ -2292,6 +2332,17 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 )}
               </>
             )}
+
+            {/* Sale Count Highlight */}
+            {activeSaleCount ? (
+              <div className="mb-4 inline-flex items-center gap-2 bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 px-3 py-1.5 rounded-full shadow-sm animate-pulse">
+                <span className="text-red-500 text-sm">🔥</span>
+                <span className="text-xs md:text-sm font-semibold text-red-700">
+                  {activeSaleCount} people bought this recently
+                </span>
+              </div>
+            ) : null}
+
             {/* Price Card */}
             <Card className="mb-4">
               <CardContent className="p-4">
@@ -2472,7 +2523,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     </span>
   )}
 
-{product.nextDayDeliveryFree && (
+{activeNextDayDeliveryFree && (
   <span
     className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
     style={{
@@ -2776,7 +2827,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                             className="flex items-center justify-between gap-3 bg-white rounded-lg p-3 border"
                           >
                             <div className="flex items-center gap-2">
-                              {/* PRODUCT INFO */}
+                           
                               {/* PRODUCT IMAGE */}
                               <div className="w-14 h-16 flex-shrink-0 rounded-lg border bg-white overflow-hidden">
                                 <Link href={`/product/${gp.slug}`}>

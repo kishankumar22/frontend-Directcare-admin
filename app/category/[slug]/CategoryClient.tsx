@@ -516,29 +516,27 @@ export default function CategoryClient({
   }, [page, hasMore, searchParams, sortBy, sortDirection, urlSlug, selectedBrands]);
 
 
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Always keep ref pointing to latest fetchMoreProducts (no observer dep on it)
   useEffect(() => {
     fetchCbRef.current = fetchMoreProducts;
   }, [fetchMoreProducts]);
 
-  // Observer only recreates when hasMore changes — NOT on every page/fetch cycle
-  useEffect(() => {
-    if (!loadMoreRef.current || !hasMore) return;
+  const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
+    if (observerRef.current) observerRef.current.disconnect();
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          fetchCbRef.current();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-
-    observer.observe(loadMoreRef.current);
-
-    return () => observer.disconnect();
+    if (node && hasMore) {
+      observerRef.current = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            fetchCbRef.current();
+          }
+        },
+        { rootMargin: "800px" }
+      );
+      observerRef.current.observe(node);
+    }
   }, [hasMore]);
 
   // Reset products whenever the server provides new initialProducts (covers both URL changes
@@ -912,7 +910,7 @@ const handleSortChange = useCallback((value: string) => {
                           >
                             <input
                               type="checkbox"
-                              className="w-4 h-4 text-[#445D41]"
+                              className="w-4 h-4 text-[#445D41] flex-shrink-0"
                               checked={selectedSubCategories.includes(sub.id)}
                               onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
                             />
@@ -926,7 +924,7 @@ const handleSortChange = useCallback((value: string) => {
                 )}
 
                 {/* Brand Filter */}
-                <div className="mb-6">
+                <div className="mb-6 border-b border-gray-100 pb-5">
                   <h3 className="font-bold text-sm text-gray-900 mb-3">
                     Brand
                   </h3>
@@ -958,7 +956,7 @@ const handleSortChange = useCallback((value: string) => {
                 </div>
 
                 {/* Price Range */}
-                <div className="mb-6">
+                <div className="mb-6 border-b border-gray-100 pb-5">
                   <h3 className="font-bold text-sm text-gray-900 mb-4">
                     Price Range
                   </h3>
@@ -975,7 +973,7 @@ const handleSortChange = useCallback((value: string) => {
                   )}
                 </div>
                 {/* Rating Filter */}
-                <div className="mb-6">
+                <div className="mb-6 border-b border-gray-100 pb-5">
                   <h3 className="font-bold text-sm text-gray-900 mb-3">
                     Minimum Rating
                   </h3>
@@ -988,7 +986,7 @@ const handleSortChange = useCallback((value: string) => {
                         <input
                           type="radio"
                           name="rating"
-                          className="w-4 h-4 text-[#445D41] focus:ring-[#445D41] focus:ring-2"
+                          className="w-4 h-4 text-[#445D41] focus:ring-[#445D41] focus:ring-2 flex-shrink-0"
                           checked={minRating === rating}
                           onChange={() => handleRatingChange(rating)}
                         />
@@ -1040,11 +1038,11 @@ const handleSortChange = useCallback((value: string) => {
                   </div>
 
                   {/* Scrollable filters */}
-                  <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
+                  <div className="overflow-y-auto flex-1 px-5 py-4">
 
                     {/* Subcategories */}
                     {allSubCategories.length > 0 && (
-                      <div>
+                      <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
                         <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
                           <h3 className="font-bold text-base text-gray-900">Subcategories</h3>
                         </div>
@@ -1053,7 +1051,7 @@ const handleSortChange = useCallback((value: string) => {
                             <label key={sub.id} className="flex items-center gap-3 cursor-pointer py-1">
                               <input
                                 type="checkbox"
-                                className="w-4 h-4 text-[#445D41] rounded"
+                                className="w-4 h-4 text-[#445D41] rounded flex-shrink-0 mt-0.5"
                                 checked={selectedSubCategories.includes(sub.id)}
                                 onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
                               />
@@ -1066,7 +1064,7 @@ const handleSortChange = useCallback((value: string) => {
 
                     {/* Brand */}
                     {brands.length > 0 && (
-                      <div>
+                      <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
                         <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
                           <h3 className="font-bold text-base text-gray-900">Brand</h3>
                           <button className="text-xs text-[#445D41] font-medium" onClick={() => setSelectedBrands([])}>Clear</button>
@@ -1076,7 +1074,7 @@ const handleSortChange = useCallback((value: string) => {
                             <label key={brand.id} className="flex items-center gap-3 cursor-pointer py-1">
                               <input
                                 type="checkbox"
-                                className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41]"
+                                className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0 mt-0.5"
                                 checked={selectedBrands.includes(brand.id)}
                                 onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
                               />
@@ -1089,7 +1087,7 @@ const handleSortChange = useCallback((value: string) => {
 
                     {/* Price Range */}
                     {minPrice < maxPrice && (
-                      <div>
+                      <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
                         <div className="flex items-center justify-between mb-4 pb-1 border-b border-gray-100">
                           <h3 className="font-bold text-base text-gray-900">Price</h3>
                         </div>
@@ -1106,7 +1104,7 @@ const handleSortChange = useCallback((value: string) => {
                     )}
 
                     {/* Rating */}
-                    <div>
+                    <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
                       <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
                         <h3 className="font-bold text-base text-gray-900">Rating</h3>
                       </div>
@@ -1116,7 +1114,7 @@ const handleSortChange = useCallback((value: string) => {
                             <input
                               type="radio"
                               name="rating-mobile"
-                              className="w-4 h-4 text-[#445D41] focus:ring-[#445D41]"
+                              className="w-4 h-4 text-[#445D41] focus:ring-[#445D41] flex-shrink-0 mt-0.5"
                               checked={minRating === rating}
                               onChange={() => handleRatingChange(rating)}
                             />
@@ -1178,7 +1176,7 @@ const handleSortChange = useCallback((value: string) => {
               </div>
             </div>
             {/* Load more trigger + skeleton cards */}
-            {hasMore && <div ref={loadMoreRef} />}
+            {hasMore && <div ref={loadMoreRef} className="h-10 w-full" />}
             {isLoadingMore && (
               <div className={`grid grid-cols-2 ${gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-2 md:gap-6 mb-8 min-h-[400px]`}>
                 {Array.from({ length: gridCols === 3 ? 3 : 2 }).map((_, i) => (

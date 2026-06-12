@@ -962,12 +962,24 @@ export const getPaymentMethodInfo = (method?: string | null) => {
   // ========================
   // CARD
   // ========================
-  if (normalized.includes('credit') || normalized.includes('debit')) {
+  if (normalized.includes('card') || normalized.includes('credit') || normalized.includes('debit')) {
     return {
       label: 'Card',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
       icon: 'card' as const,
+    };
+  }
+
+  // ========================
+  // BACS DIRECT DEBIT
+  // ========================
+  if (normalized.includes('bacs')) {
+    return {
+      label: 'BACS Direct Debit',
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+      icon: 'cash' as const,
     };
   }
 

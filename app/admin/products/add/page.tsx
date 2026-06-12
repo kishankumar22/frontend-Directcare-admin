@@ -1462,6 +1462,25 @@ if (!formData.nextDayDeliveryEnabled) {
     });
 
     // ============================================================
+// PHARMACY QUESTIONS VALIDATION
+// ============================================================
+
+if (
+  formData.isPharmaProduct &&
+  (!pharmacyQuestions || pharmacyQuestions.length === 0)
+) {
+  toast.error(
+    "At least one pharmacy question is required for pharmacy products"
+  );
+
+  target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+
+  return;
+}
+
+    // ============================================================
     // SECTION 7: IMAGE VALIDATION
     // ============================================================
     if (!isDraft && formData.productImages.length < 5) {
@@ -4057,24 +4076,7 @@ useEffect(() => {
     </div>
   </div>
 
-  {/* Sales */}
-  <div className="space-y-4 mt-6">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Sales</h3>
-    <div className="grid md:grid-cols-2 gap-4">
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Fake Sale Count</label>
-        <input
-          type="number"
-          name="fakeSaleCount"
-          value={formData.fakeSaleCount}
-          onChange={handleChange}
-          placeholder="0"
-          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-        <p className="text-xs text-slate-400 mt-1">Leave empty to use real sales only.</p>
-      </div>
-    </div>
-  </div>
+
 </TabsContent>
 
 {/* Prices Tab */}
@@ -4857,6 +4859,23 @@ useEffect(() => {
     )}
 
   </div>
+    <div className="space-y-4 mt-6">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Sales Settings</h3>
+    <div className="grid md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Fake Sale Count</label>
+        <input
+          type="number"
+          name="fakeSaleCount"
+          value={formData.fakeSaleCount}
+          onChange={handleChange}
+          placeholder="0"
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">Leave empty to use real sales only.</p>
+      </div>
+    </div>
+  </div>
 
 
   {/* NOT RETURNABLE */}
@@ -4877,6 +4896,9 @@ useEffect(() => {
   </label>
 
 </div>
+
+  {/* Sales */}
+
 
 
 </TabsContent>

@@ -30,7 +30,7 @@ import { useDebounce } from '../_hooks/useDebounce';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'orders-export' | 'products-bulk-update' | 'travelbook-export' | 'create-shipment';
+type Tab = 'orders-export' | 'products-bulk-update' | 'travelbook-export' | 'create-shipment' | 'categories-bulk-update';
 
 type OrderStatus =
   | 'Pending' | 'Confirmed' | 'Processing' | 'Shipped'
@@ -1333,6 +1333,271 @@ function CreateShipmentTab() {
   );
 }
 
+// ─── Categories Bulk Update Tab ────────────────────────────────────────────────
+interface CategoryImportResult {
+  updatedCount: number;
+  skippedCount: number;
+  clearedCount: number;
+  failedCount: number;
+  errors: string[];
+}
+
+function CategoriesBulkUpdateTab() {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadDone, setDownloadDone] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [result, setResult] = useState<CategoryImportResult | null>(null);
+  const [uploadError, setUploadError] = useState('');
+
+  // Download Excel Template/Export
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      setDownloadDone(false);
+      const response = await productsService.exportCategoriesExcel();
+      
+      const blobPart = response.data as any;
+      const blob = new Blob([blobPart], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `category_export_${new Date().getTime()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setDownloadDone(true);
+    } catch (error: any) {
+      console.error('Download error:', error);
+      alert(error?.response?.data?.message || error?.message || 'Failed to download Excel');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Upload Excel File
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+
+    try {
+      setUploading(true);
+      setResult(null);
+      setUploadError('');
+
+      const response = await productsService.importCategoriesExcel(uploadFile);
+      const payload = response.data as any;
+      
+      if (payload && (payload.success || payload.data)) {
+        setResult(payload.data);
+      } else {
+        throw new Error(payload?.message || "Import failed. Please check errors.");
+      }
+    } catch (error: any) {
+      console.error("Import Error:", error);
+      setUploadError(error?.response?.data?.message || error?.message || "Failed to import file");
+    } finally {  
+      setUploading(false);
+    }
+  };
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file?.name.endsWith('.xlsx')) {
+      setUploadFile(file);
+      setResult(null);
+      setUploadError('');
+    }
+  }, []);
+
+  return (
+    <div className="space-y-5">
+      {/* Step cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+        {[
+          { n: '1', icon: <FileDown className="h-5 w-5" />, title: 'Download Categories', desc: 'Download Excel file with all current categories', grad: 'from-pink-500/20 to-rose-500/20 border-pink-500/30', iconCol: 'text-pink-400' },
+          { n: '2', icon: <FileSpreadsheet className="h-5 w-5" />, title: 'Apply Category Rules', desc: 'Set or clear categories path hierarchically', grad: 'from-fuchsia-500/20 to-purple-500/20 border-fuchsia-500/30', iconCol: 'text-fuchsia-400' },
+          { n: '3', icon: <UploadCloud className="h-5 w-5" />, title: 'Upload & Apply', desc: 'Re-upload the Excel sheet to save categories', grad: 'from-emerald-500/20 to-green-500/20 border-emerald-500/30', iconCol: 'text-emerald-400' },
+        ].map(({ n, icon, title, desc, grad, iconCol }) => (
+          <div key={n} className={`relative rounded-xl border bg-gradient-to-br ${grad} p-4`}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className={`inline-flex items-center justify-center rounded-lg bg-slate-800/60 p-2 ${iconCol}`}>
+                  {icon}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-200">{title}</p>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">{desc}</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-slate-600">0{n}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+            {/* Guidelines Box */}
+      <div className="rounded-xl border border-pink-500/30 bg-pink-500/5 p-5">
+        <h4 className="text-sm font-semibold text-pink-400 flex items-center gap-2 mb-3">
+          <AlertCircle className="w-4 h-4 text-pink-400" />
+          Import Rules (Please read before uploading)
+        </h4>
+        <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside">
+          <li><span className="text-white font-medium">PrimaryCategory blank</span> = product skip (no change)</li>
+          <li><span className="text-white font-medium">PrimaryCategory = CLEAR</span> → product ki saari categories remove ho jaati hain</li>
+          <li>Category path matches case-insensitive match hoti hai (e.g. <span className="text-slate-400">Beauty & Cosmetics &gt; Makeup</span>)</li>
+          <li>Maximum <span className="text-white font-medium">10 categories</span> per product</li>
+          <li>File <span className="text-white font-medium">.xlsx</span> format mein honi chahiye</li>
+        </ul>
+      </div>
+
+      {/* Step 1 — Download */}
+      <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/60">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-pink-500/20 text-xs font-bold text-pink-400 border border-pink-500/30 flex-shrink-0">1</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-200">Download Categories Excel</p>
+            <p className="text-xs text-slate-400">Export the current categories mapping of all products</p>
+          </div>
+        </div>
+        <div className="p-5 flex items-center gap-4">
+          <button
+            onClick={handleDownload}
+            disabled={isDownloading || uploading}
+            className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 hover:from-pink-500 hover:to-rose-500 disabled:opacity-50 transition-all"
+          >
+            {isDownloading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Generating Excel...</>
+            ) : (
+              <><FileDown className="h-4 w-4" /> Download Category Excel</>
+            )}
+          </button>
+          {downloadDone && !isDownloading && (
+            <span className="flex items-center gap-2 text-sm font-medium text-emerald-400">
+              <CheckCircle className="h-4 w-4" /> Exported successfully
+            </span>
+          )}
+        </div>
+      </div>
+
+
+
+      {/* Step 2 — Upload */}
+      <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/60">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-bold text-emerald-400 border border-emerald-500/30 flex-shrink-0">2</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-200">Upload Updated Excel</p>
+            <p className="text-xs text-slate-400">Select or drop the updated `.xlsx` file to apply categories</p>
+          </div>
+        </div>
+        <div className="p-5 space-y-4">
+          <label
+            onDragOver={e => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-all py-10
+              ${dragging
+                ? 'border-pink-500/60 bg-pink-500/10'
+                : uploadFile
+                  ? 'border-emerald-500/50 bg-emerald-500/10'
+                  : 'border-slate-600 hover:border-pink-500/50 hover:bg-slate-800/60'
+              }`}
+          >
+            {uploadFile ? (
+              <>
+                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500/20 border border-emerald-500/30">
+                  <FileSpreadsheet className="h-6 w-6 text-emerald-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-emerald-300">{uploadFile.name}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{(uploadFile.size / 1024).toFixed(0)} KB · click to change</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-slate-700/60 border border-slate-600">
+                  <UploadCloud className="h-6 w-6 text-slate-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-slate-300">Drop your file here, or <span className="text-pink-400 font-medium">browse</span></p>
+                  <p className="text-xs text-slate-500 mt-0.5">.xlsx files only</p>
+                </div>
+              </>
+            )}
+            <input type="file" accept=".xlsx" className="sr-only"
+              onChange={e => { setUploadFile(e.target.files?.[0] || null); setResult(null); setUploadError(''); }} />
+          </label>
+
+          {uploadFile && (
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:from-emerald-500 hover:to-green-500 disabled:opacity-50 transition-all"
+            >
+              {uploading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+              ) : (
+                <><UploadCloud className="h-4 w-4" /> Upload &amp; Update Categories</>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Error display */}
+      {uploadError && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
+          <div className="text-sm">
+            <p className="font-semibold text-red-300">Upload failed</p>
+            <p className="text-red-400 mt-0.5">{uploadError}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Results display */}
+      {result && (
+        <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-700/60">
+            <CheckCircle className="h-5 w-5 text-emerald-400" />
+            <p className="text-sm font-semibold text-slate-200">Update Categories Complete</p>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'Updated', value: result.updatedCount, grad: 'from-emerald-900/60 to-green-900/40', text: 'text-emerald-300' },
+                { label: 'Cleared', value: result.clearedCount, grad: 'from-blue-900/60 to-cyan-900/40', text: 'text-blue-300' },
+                { label: 'Skipped', value: result.skippedCount, grad: 'from-slate-800 to-slate-700', text: 'text-slate-300' },
+                { label: 'Failed', value: result.failedCount, grad: 'from-red-900/60 to-rose-900/40', text: 'text-rose-400' },
+              ].map(({ label, value, grad, text }) => (
+                <div key={label} className={`rounded-xl p-4 text-center bg-gradient-to-br ${grad} border border-slate-700/40`}>
+                  <p className={`text-2xl font-bold ${text}`}>{value}</p>
+                  <p className="text-[11px] text-slate-400 mt-1 uppercase tracking-wide">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {result.errors?.length > 0 && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 max-h-40 overflow-y-auto">
+                <p className="text-sm font-semibold text-red-300 mb-2">Errors Details ({result.errors.length})</p>
+                <ul className="text-xs text-red-400 space-y-1 list-disc pl-4">
+                  {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ImportExportPage() {
@@ -1354,11 +1619,11 @@ export default function ImportExportPage() {
       </div>
 
       {/* Tab selector cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 mb-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 mb-2">
         {([
           {
             id: 'orders-export' as Tab,
-            icon: <ShoppingCart className="h-6 w-6" />,
+            icon: <ShoppingCart className="h-5 w-5" />,
             label: 'Orders Export',
             desc: 'Download filtered orders to Excel',
             grad: activeTab === 'orders-export'
@@ -1370,7 +1635,7 @@ export default function ImportExportPage() {
           },
           {
             id: 'travelbook-export' as Tab,
-            icon: <Plane className="h-6 w-6" />,
+            icon: <Plane className="h-5 w-5" />,
             label: 'Travelbook Export',
             desc: 'WebToffee-format Excel for Travelbook',
             grad: activeTab === 'travelbook-export'
@@ -1382,7 +1647,7 @@ export default function ImportExportPage() {
           },
           {
             id: 'products-bulk-update' as Tab,
-            icon: <Package className="h-6 w-6" />,
+            icon: <Package className="h-5 w-5" />,
             label: 'Products Bulk Update',
             desc: 'Download template, edit, re-upload',
             grad: activeTab === 'products-bulk-update'
@@ -1393,8 +1658,20 @@ export default function ImportExportPage() {
             dot: 'bg-violet-400',
           },
           {
+            id: 'categories-bulk-update' as Tab,
+            icon: <FileSpreadsheet className="h-5 w-5" />,
+            label: 'Category Bulk Update',
+            desc: 'Bulk update categories via Excel',
+            grad: activeTab === 'categories-bulk-update'
+              ? 'from-pink-500/25 to-rose-500/15 border-pink-500/50'
+              : 'from-slate-800/60 to-slate-800/40 border-slate-700/50 hover:border-slate-600',
+            iconGrad: 'from-pink-500 to-rose-500',
+            activeText: 'text-pink-400',
+            dot: 'bg-pink-400',
+          },
+          {
             id: 'create-shipment' as Tab,
-            icon: <Truck className="h-6 w-6" />,
+            icon: <Truck className="h-5 w-5" />,
             label: 'Create Shipment',
             desc: 'Bulk ship Processing orders via Excel',
             grad: activeTab === 'create-shipment'
@@ -1408,29 +1685,30 @@ export default function ImportExportPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`relative flex items-center gap-4 rounded-xl border bg-gradient-to-br ${tab.grad} p-4 text-left transition-all`}
+            className={`relative flex items-center gap-2.5 rounded-xl border bg-gradient-to-br ${tab.grad} p-2.5 text-left transition-all`}
           >
-            <div className={`flex items-center justify-center h-12 w-12 rounded-xl bg-gradient-to-br ${tab.iconGrad} shadow-lg flex-shrink-0`}>
+            <div className={`flex items-center justify-center h-10 w-10 rounded-lg bg-gradient-to-br ${tab.iconGrad} shadow-lg flex-shrink-0`}>
               <span className="text-white">{tab.icon}</span>
             </div>
-            <div>
-              <p className={`text-base font-semibold ${activeTab === tab.id ? tab.activeText : 'text-slate-200'}`}>
+            <div className="min-w-0 flex-1">
+              <p className={`text-[13px] sm:text-sm font-semibold leading-tight ${activeTab === tab.id ? tab.activeText : 'text-slate-200'}`}>
                 {tab.label}
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">{tab.desc}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{tab.desc}</p>
             </div>
             {activeTab === tab.id && (
-              <span className={`absolute top-3 right-3 h-2 w-2 rounded-full ${tab.dot} shadow-lg`} />
+              <span className={`absolute top-2 right-2 h-1.5 w-1.5 rounded-full ${tab.dot} shadow-lg`} />
             )}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
-      {activeTab === 'orders-export'        && <OrdersExportTab />}
-      {activeTab === 'travelbook-export'    && <TravelbookExportTab />}
-      {activeTab === 'products-bulk-update' && <ProductsBulkUpdateTab />}
-      {activeTab === 'create-shipment'      && <CreateShipmentTab />}
+      {activeTab === 'orders-export'           && <OrdersExportTab />}
+      {activeTab === 'travelbook-export'       && <TravelbookExportTab />}
+      {activeTab === 'products-bulk-update'    && <ProductsBulkUpdateTab />}
+      {activeTab === 'categories-bulk-update'  && <CategoriesBulkUpdateTab />}
+      {activeTab === 'create-shipment'         && <CreateShipmentTab />}
     </div>
   );
 }

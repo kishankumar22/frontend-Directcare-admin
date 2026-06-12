@@ -1183,13 +1183,13 @@ export default function OrdersListPage() {
         ${filters.paymentMethod ? "border-amber-500 bg-amber-500/10" : "border-slate-700"}`}
           >
             <option value="">Payment method:All</option>
-            <option value="Stripe">Stripe</option>
-            <option value="PayPal">PayPal</option>
+            <option value="Card">Card</option>
             <option value="Apple Pay">Apple Pay</option>
             <option value="Google Pay">Google Pay</option>
-            <option value="Credit">Credit Card</option>
-            <option value="Debit">Debit Card</option>
             <option value="Klarna">Klarna</option>
+            <option value="PayPal">PayPal</option>
+            <option value="BACS Direct Debit">BACS Direct Debit</option>
+            <option value="Stripe">Stripe</option>
           </select>
 
           {/* PAYMENT STATUS */}

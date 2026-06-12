@@ -394,9 +394,18 @@ export interface CreateProductDto {
   tags?: string;
   allowCustomerReviews?: boolean;  
   backInStockCount?: number; // ✅ ADD THIS
-  
   fakeSaleCount?: number | null;
   saleCount?: number;
+}
+
+
+export interface IncompatibilityItem {
+  incompatibleProductId: string;
+  reason?: string;
+}
+
+export interface UpdateIncompatibilitiesDto {
+  incompatibilities: IncompatibilityItem[];
 }
 
 export interface UpdateProductDto extends Partial<CreateProductDto> {}
@@ -984,6 +993,31 @@ importExcel: async (file: File) => {
   },
 
 
+
+  // ==========================================
+  // INCOMPATIBILITIES
+  // ==========================================
+  
+  /**
+   * Get Product Incompatibilities
+   * GET: /api/Products/{id}/incompatibilities
+   */
+  getIncompatibilities: async (id: string) => {
+    return apiClient.get<ApiResponse<IncompatibilityItem[]>>(
+      `${API_ENDPOINTS.products}/${id}/incompatibilities`
+    );
+  },
+
+  /**
+   * Update Product Incompatibilities
+   * PUT: /api/Products/{id}/incompatibilities
+   */
+  updateIncompatibilities: async (id: string, data: UpdateIncompatibilitiesDto) => {
+    return apiClient.put<ApiResponse<any>>(
+      `${API_ENDPOINTS.products}/${id}/incompatibilities`,
+      data
+    );
+  },
 
   // ==========================================
   // PRODUCT OPTIONS MANAGEMENT

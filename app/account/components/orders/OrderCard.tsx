@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast/CustomToast";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import {
   Dialog,
   DialogContent,
@@ -33,13 +33,13 @@ const MIN_OTHER_REASON_LENGTH = 10;
 function StripePaymentForm({
   clientSecret,
   amount,
-  orderId,
+  order,
   accessToken,
   onSuccess,
 }: {
   clientSecret: string;
   amount: number;
-  orderId: string;
+  order: any;
   accessToken: string | null;
   onSuccess: () => void;
 }) {
@@ -56,15 +56,32 @@ function StripePaymentForm({
     setLoading(true);
     setError(null);
 
-    const card = elements.getElement(CardElement);
-    if (!card) return;
-
-    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: { card },
+    const result = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/order/success?orderId=${order.id}`,
+        payment_method_data: {
+          billing_details: {
+            name: `${order.billingAddress?.firstName ?? ""} ${order.billingAddress?.lastName ?? ""}`.trim() || undefined,
+            email: order.customerEmail || undefined,
+            address: {
+              line1: order.billingAddress?.addressLine1 || undefined,
+              country: "GB",
+            },
+          },
+        },
+      },
+      redirect: "if_required",
     });
 
-    if (stripeError) {
-      setError(stripeError.message ?? "Payment failed");
+    if (result.error) {
+      setError(result.error.message ?? "Payment failed");
+      setLoading(false);
+      return;
+    }
+
+    if (!result.paymentIntent?.id) {
+      setError("Payment failed");
       setLoading(false);
       return;
     }
@@ -72,7 +89,7 @@ function StripePaymentForm({
     // Tell backend to mark pending payment as cleared
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/payment/confirm/${paymentIntent?.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payment/confirm/${result.paymentIntent.id}`,
         {
           method: "POST",
           headers: {
@@ -92,23 +109,7 @@ function StripePaymentForm({
   return (
     <form onSubmit={handlePay} className="space-y-4">
       <div className="border rounded-lg p-4 bg-gray-50">
-        <CardElement
-          options={{
-            hidePostalCode: true,
-            style: {
-              base: {
-                fontSize: "16px",
-                color: "#1a202c",
-                "::placeholder": {
-                  color: "#a0aec0",
-                },
-              },
-              invalid: {
-                color: "#e53e3e",
-              },
-            },
-          }}
-        />
+        <PaymentElement />
       </div>
 
       {error && (
@@ -133,12 +134,14 @@ function StripePaymentForm({
 ===================================================================== */
 function PayNowModal({
   order,
+  amount,
   accessToken,
   customerEmail,
   onClose,
   onPaid,
 }: {
   order: any;
+  amount: number;
   accessToken: string | null;
   customerEmail: string;
   onClose: () => void;
@@ -170,7 +173,7 @@ function PayNowModal({
               ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             },
             body: JSON.stringify({
-              amount: order.pendingPaymentAmount,
+              amount: amount,
               currency: "GBP",
               orderId: order.id,
               customerEmail: customerEmail,
@@ -193,7 +196,7 @@ function PayNowModal({
 
     init();
     return () => { mounted = false; };
-  }, [order.id, order.pendingPaymentAmount, accessToken]);
+  }, [order.id, amount, accessToken]);
 
   const handleSuccess = () => {
     setPaid(true);
@@ -207,10 +210,10 @@ function PayNowModal({
       ?.filter((p: any) => p.status?.toLowerCase() === "successful")
       ?.reduce((sum: number, p: any) => sum + p.amount, 0) ?? 0;
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-4 flex-shrink-0">
           <div>
             <h3 className="text-lg font-bold text-gray-900">Additional Payment</h3>
             <p className="text-sm text-gray-500">Order #{order.orderNumber}</p>
@@ -223,37 +226,40 @@ function PayNowModal({
           </button>
         </div>
 
-        {/* Amount due */}
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-5 flex justify-between items-center">
-          <span className="text-sm text-orange-700 font-medium">Amount Due</span>
-          <span className="text-xl font-bold text-orange-800">
-            £{order.pendingPaymentAmount?.toFixed(2)}
-          </span>
-        </div>
-
-        {paid ? (
-          <div className="text-center py-6">
-            <div className="text-4xl mb-2">✅</div>
-            <p className="font-semibold text-green-700">Payment Successful!</p>
-            <p className="text-sm text-gray-500 mt-1">Your order has been updated.</p>
+        {/* Scrollable Content Container */}
+        <div className="overflow-y-auto pr-1 flex-1 custom-scrollbar space-y-4">
+          {/* Amount due */}
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex justify-between items-center">
+            <span className="text-sm text-orange-700 font-medium">Amount Due</span>
+            <span className="text-xl font-bold text-orange-800">
+              £{amount.toFixed(2)}
+            </span>
           </div>
-        ) : initError ? (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-            {initError}
-          </p>
-        ) : !stripePromise || !clientSecret ? (
-          <p className="text-sm text-gray-500 text-center py-4">Preparing payment form…</p>
-        ) : (
-          <Elements stripe={stripePromise} options={{ clientSecret }}>
-            <StripePaymentForm
-              clientSecret={clientSecret}
-              amount={order.pendingPaymentAmount}
-              orderId={order.id}
-              accessToken={accessToken}
-              onSuccess={handleSuccess}
-            />
-          </Elements>
-        )}
+
+          {paid ? (
+            <div className="text-center py-6">
+              <div className="text-4xl mb-2">✅</div>
+              <p className="font-semibold text-green-700">Payment Successful!</p>
+              <p className="text-sm text-gray-500 mt-1">Your order has been updated.</p>
+            </div>
+          ) : initError ? (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+              {initError}
+            </p>
+          ) : !stripePromise || !clientSecret ? (
+            <p className="text-sm text-gray-500 text-center py-4">Preparing payment form…</p>
+          ) : (
+            <Elements stripe={stripePromise} options={{ clientSecret, locale: "en-GB" }}>
+              <StripePaymentForm
+                clientSecret={clientSecret}
+                amount={amount}
+                order={order}
+                accessToken={accessToken}
+                onSuccess={handleSuccess}
+              />
+            </Elements>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -280,14 +286,19 @@ export default function OrderCard({
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 
   const [showPayModal, setShowPayModal] = useState(false);
-  const [pendingAmount, setPendingAmount] = useState<number | null>(
-    order.pendingPaymentAmount ?? null
-  );
+  const [pendingAmount, setPendingAmount] = useState<number | null>(null);
+
   useEffect(() => {
-    setPendingAmount(order.pendingPaymentAmount ?? null);
-  }, [order.pendingPaymentAmount]);
+    const calcAmount = order.pendingPaymentAmount && order.pendingPaymentAmount > 0
+      ? order.pendingPaymentAmount
+      : (order.paymentStatus?.toLowerCase() === "pending" || order.paymentStatus?.toLowerCase() === "failed"
+          ? Math.max((order.totalAmount ?? 0) - (order.totalPaidAmount ?? 0), 0)
+          : 0);
+    setPendingAmount(calcAmount > 0 ? calcAmount : null);
+  }, [order.pendingPaymentAmount, order.paymentStatus, order.totalAmount, order.totalPaidAmount]);
 
 
   // Order History
@@ -562,10 +573,35 @@ export default function OrderCard({
           </p>
         </div>
 
-        <span
-          className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${getOrderStatusBadge(order.status)}`} >
-          {getOrderStatusLabel(order.status, order.statusName)}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {order.pharmacyVerificationStatus && order.pharmacyVerificationStatus !== "NotRequired" && (
+            <span
+              className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${
+                order.pharmacyVerificationStatus === "Approved" ? "bg-green-100 text-green-800 border-green-200" :
+                order.pharmacyVerificationStatus === "Rejected" ? "bg-red-100 text-red-800 border-red-200" :
+                "bg-orange-100 text-orange-800 border-orange-200"
+              }`}
+            >
+              Pharmacy: {order.pharmacyVerificationStatus}
+            </span>
+          )}
+          
+          <span
+            className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${getOrderStatusBadge(order.status)}`} >
+            {getOrderStatusLabel(order.status, order.statusName)}
+          </span>
+          
+          {order.pharmacyAnswers && order.pharmacyAnswers.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={() => setShowPharmacyModal(true)}
+            >
+              View Q&A
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* CANCELLATION REJECTED BANNER */}
@@ -618,13 +654,27 @@ export default function OrderCard({
         <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-lg p-4">
           <span className="text-2xl">⚠️</span>
           <div className="flex-1">
-            <p className="font-semibold text-orange-800 text-sm">
-              Additional Payment Required
-            </p>
-            <p className="text-orange-700 text-sm mt-0.5">
-              Your order was updated. Please pay the remaining{" "}
-              <strong>£{pendingAmount.toFixed(2)}</strong> to proceed.
-            </p>
+            {order.totalPaidAmount === 0 ? (
+              <>
+                <p className="font-semibold text-orange-800 text-sm">
+                  Payment Pending
+                </p>
+                <p className="text-orange-700 text-sm mt-0.5">
+                  Please complete your payment of{" "}
+                  <strong>£{pendingAmount.toFixed(2)}</strong> to process your order.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-orange-800 text-sm">
+                  Additional Payment Required
+                </p>
+                <p className="text-orange-700 text-sm mt-0.5">
+                  Your order was updated. Please pay the remaining{" "}
+                  <strong>£{pendingAmount.toFixed(2)}</strong> to proceed.
+                </p>
+              </>
+            )}
           </div>
           <button
             onClick={() => setShowPayModal(true)}
@@ -934,6 +984,7 @@ export default function OrderCard({
             </Button>
           )}
 
+
         {order.status?.toLowerCase() !== "processing" && (
           <Button
             size="sm"
@@ -948,15 +999,100 @@ export default function OrderCard({
       </div>
 
       {/* PAY NOW MODAL */}
-      {showPayModal && (
+      {showPayModal && pendingAmount !== null && (
         <PayNowModal
           order={order}
+          amount={pendingAmount}
           accessToken={accessToken}
           customerEmail={user?.email ?? ""}
           onClose={() => setShowPayModal(false)}
-          onPaid={() => setPendingAmount(null)}
+          onPaid={() => {
+            setPendingAmount(null);
+            order.paymentStatus = "Successful";
+            if (order.status?.toLowerCase() === "pending") {
+              order.status = "Confirmed";
+              order.statusName = "Confirmed";
+            }
+          }}
         />
       )}
+
+      {/* PHARMACY QUESTIONS MODAL */}
+<Dialog open={showPharmacyModal} onOpenChange={setShowPharmacyModal}>
+  <DialogContent className="w-11/12 sm:max-w-xl md:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl p-0 shadow-lg">
+    {/* Header with Close Button */}
+    <DialogHeader className="sticky top-0 z-10 bg-white px-4 py-3 border-b rounded-t-xl">
+      <div className="flex items-center justify-between">
+        <DialogTitle className="text-base md:text-lg font-bold text-gray-900">
+          Pharmacy Verification Details
+        </DialogTitle>
+        {/* Close button - top right */}
+        <button
+          onClick={() => setShowPharmacyModal(false)}
+          className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+          aria-label="Close"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </DialogHeader>
+
+    {/* Content - compact padding/margin */}
+    <div className="p-4 space-y-4">
+      {/* Pharmacist Note */}
+      {order.pharmacyVerificationNote && (
+        <div className="flex gap-2 bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg">
+          <div className="text-amber-500 shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+          </div>
+          <div>
+            <h4 className="font-semibold text-amber-800 text-xs">Pharmacist Note</h4>
+            <p className="text-xs text-amber-700 mt-0.5">{order.pharmacyVerificationNote}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Questions & Answers */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          Questions & Answers
+        </h3>
+
+        {order.pharmacyAnswers?.map((ans: any, idx: number) => (
+          <div
+            key={idx}
+            className="bg-gray-50 rounded-lg p-3 border border-gray-100"
+          >
+            {/* Question */}
+            <div className="flex gap-2 mb-2">
+              <span className="shrink-0 flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px]">
+                Q
+              </span>
+              <p className="font-medium text-gray-800 text-sm leading-snug">
+                {ans.questionText}
+              </p>
+            </div>
+
+            {/* Answer */}
+            <div className="flex gap-2 pl-7">
+              <span className="font-semibold text-gray-400 text-xs mt-0.5">Ans:</span>
+              <p className="text-gray-700 text-sm bg-white px-3 py-1.5 rounded-md border border-gray-200 w-full">
+                {ans.answer}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* CANCEL MODAL */}
       <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>

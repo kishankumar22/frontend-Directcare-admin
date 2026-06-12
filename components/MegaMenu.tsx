@@ -361,9 +361,9 @@ const offerDiscountIds = (
   return (
    <div className="absolute left-20 top-full z-50">
     <div className="w-[clamp(780px,75vw,1100px)] bg-white shadow-lg rounded-b-md overflow-hidden">
-        <div className="flex min-h-[300px]">
+        <div className="flex h-[320px]">
           {/* LEFT COLUMN */}
-          <div className="w-1/3 bg-gray-50 border-r border-gray-200 overflow-y-auto scrollbar-hide">
+          <div className="w-1/3 bg-gray-50 border-r border-gray-200 overflow-y-auto ">
             {activeMainCategory?.subCategories?.length ? (
               activeMainCategory.subCategories.map((sub) => {
                 const hasChildren =
@@ -406,9 +406,9 @@ onMouseEnter={() => {
           </div>
 
           {/* MIDDLE COLUMN */}
-          <div className="w-1/3 bg-white border-r border-gray-200 p-4">
+          <div className="w-1/3 bg-white border-r border-gray-200 p-4 overflow-hidden">
             {activeSubCategory?.subCategories?.length ? (
-              <div className="max-h-[260px] overflow-y-auto pr-2 space-y-2 scrollbar-hide"
+              <div className="h-full overflow-y-auto pr-2 space-y-2 scrollbar-hide"
               onMouseLeave={() =>
     setActiveChildCategory(null)
   }>
@@ -460,7 +460,7 @@ onMouseEnter={() => {
   }`}
 >
                 <div
-                  className={`relative h-full min-h-[260px] rounded-2xl overflow-hidden bg-gradient-to-br ${theme.bg} shadow-xl p-5 flex flex-col justify-between text-white transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl`}
+                  className={`relative h-full rounded-2xl overflow-hidden bg-gradient-to-br ${theme.bg} shadow-xl p-5 flex flex-col justify-between text-white transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl`}
                 >
                   <DotGridPattern />
 
@@ -501,7 +501,7 @@ onMouseEnter={() => {
                 </div>
               </Link>
          ) : (
-  <div className="relative h-full min-h-[260px] rounded-2xl overflow-hidden bg-gradient-to-br from-[#f8faf7] to-[#eef5ec] p-5 flex flex-col justify-between shadow-md">
+  <div className="relative h-full rounded-2xl overflow-hidden bg-gradient-to-br from-[#f8faf7] to-[#eef5ec] p-5 flex flex-col justify-between shadow-md">
     
     {/* Subtle Pattern */}
     <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#445D41_1px,transparent_1px)] [background-size:16px_16px]" />

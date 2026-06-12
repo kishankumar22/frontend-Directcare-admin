@@ -183,7 +183,7 @@ const handleSave = async () => {
       pharmacyQuestionId: questionId,
       answerType: config.answerType,
       isRequired: config.isRequired,
-      displayOrder: config.displayOrder,
+      displayOrder: config.displayOrder || 1,
     });
   });
 
@@ -455,18 +455,19 @@ const handleSave = async () => {
 
             {/* Display Order */}
             <div className="flex items-center gap-2">
-              <label className="text-xs text-slate-400">Order:</label>
+              <label className="text-xs text-slate-400">Display Order:</label>
               <input
                 type="number"
                 min="1"
-                value={config.displayOrder}
-                onChange={(e) =>
+                value={config.displayOrder === 0 ? "" : config.displayOrder}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
                   updateSelection(
                     question.id,
                     "displayOrder",
-                    parseInt(e.target.value) || 1
-                  )
-                }
+                    isNaN(val) ? 0 : val
+                  );
+                }}
                 className="w-16 px-2 py-1 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-xs text-center focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>
