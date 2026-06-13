@@ -5003,52 +5003,63 @@ useEffect(() => {
                 type="checkbox"
                 name="nextDayDeliveryEnabled"
                 checked={formData.nextDayDeliveryEnabled}
-                onChange={handleChange}
+                onChange={(e) => {
+                  handleChange(e);
+                  if (!e.target.checked) {
+                    setTimeout(() => {
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        nextDayDeliveryFree: false,
+                        nextDayDeliveryCutoffTime: null
+                      }));
+                    }, 0);
+                  }
+                }}
                 className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
               />
               <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
                 Enable Next-Day Delivery
               </span>
             </label>
-
           </div>
-{/* Next Day Delivery Free */}
-{formData.nextDayDeliveryEnabled && (
-  <>
-    {/* FREE OPTION */}
-    <label className="flex items-center gap-2 cursor-pointer group ml-6">
-      <input
-        type="checkbox"
-        name="nextDayDeliveryFree"
-        checked={formData.nextDayDeliveryFree}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500"
-      />
-      <span className="text-sm text-slate-300">
-        Next-Day Delivery Free
-      </span>
-    </label>
 
-    {/* CUTOFF TIME */}
-    <div className="ml-6 mt-2">
-      <label className="block text-md text-slate-400 mb-1">
-        Cutoff Time <span className="text-red-400">*</span>
-      </label>
+          {/* Next Day Delivery Free */}
+          {formData.nextDayDeliveryEnabled && (
+            <>
+              {/* FREE OPTION */}
+              <label className="flex items-center gap-2 cursor-pointer group ml-6">
+                <input
+                  type="checkbox"
+                  name="nextDayDeliveryFree"
+                  checked={formData.nextDayDeliveryFree}
+                  onChange={handleChange}
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500"
+                />
+                <span className="text-sm text-slate-300">
+                  Next-Day Delivery Free
+                </span>
+              </label>
 
-      <input
-        type="time"
-        name="nextDayDeliveryCutoffTime"
-        value={formData.nextDayDeliveryCutoffTime || ''}
-        onChange={handleChange}
-        className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
-      />
+              {/* CUTOFF TIME */}
+              <div className="ml-6 mt-2">
+                <label className="block text-md text-slate-400 mb-1">
+                  Cutoff Time <span className="text-red-400">*</span>
+                </label>
 
-      <p className="text-xs text-slate-500 mt-1">
-        Order before this time for next-day delivery
-      </p>
-    </div>
-  </>
-)}
+                <input
+                  type="time"
+                  name="nextDayDeliveryCutoffTime"
+                  value={formData.nextDayDeliveryCutoffTime || ''}
+                  onChange={handleChange}
+                  className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
+                />
+
+                <p className="text-xs text-slate-500 mt-1">
+                  Order before this time for next-day delivery
+                </p>
+              </div>
+            </>
+          )}
       
         {/* Standard Delivery */}
 <div className="space-y-3">

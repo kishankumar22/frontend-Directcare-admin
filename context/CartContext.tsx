@@ -80,7 +80,7 @@ export interface CartItem {
 // ─── Context type ─────────────────────────────────────────────────────────────
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (item: CartItem) => void;
+  addToCart: (item: CartItem) => void | Promise<void>;
   removeFromCart: (id: string, type?: string) => void;
   updateQuantity: (id: string, qty: number) => void;
   updateCart: (updatedItems: CartItem[]) => void;
@@ -340,7 +340,71 @@ connection.on(
   (CartProvider as any)._hub = { subscribeToProduct, unsubscribeFromProduct };
 
   // ── ADD TO CART ────────────────────────────────────────────────────────────
-  const addToCart = (item: CartItem) => {
+  const addToCart = async (item: CartItem) => {
+    // ── Check incompatibilities ──
+    const existingProductIds = cart
+      .map((p) => p.productId ?? p.id)
+      .filter(Boolean);
+
+    const incomingProductId = item.productId ?? item.id;
+
+    if (existingProductIds.length > 0 && incomingProductId) {
+      try {
+        // Fetch incompatibilities for all existing products in parallel
+        const fetchIncompatibilities = existingProductIds.map(async (existingId) => {
+          const res = await fetch(`${API_BASE_URL}/api/Products/${existingId}/incompatibilities`);
+          const data = await res.json();
+          return { existingId, incompatibilities: data.data || data || [] };
+        });
+
+        const results = await Promise.all(fetchIncompatibilities);
+
+        // Check if incoming product is in any of the incompatibilities lists
+        for (const res of results) {
+          const conflict = res.incompatibilities.find(
+            (inc: any) => {
+              const targetId = inc.incompatibleProductId || inc.productId || "";
+              return targetId.toLowerCase() === incomingProductId.toLowerCase();
+            }
+          );
+          if (conflict) {
+            const existingCartItem = cart.find(p => (p.productId ?? p.id)?.toLowerCase() === res.existingId.toLowerCase());
+            toast.error(
+              `❌ Cannot add to cart: ${item.name} cannot be purchased with ${existingCartItem?.name || 'an item in your cart'}.${
+                conflict.reason ? ` Reason: ${conflict.reason}` : ""
+              }`
+            );
+            return; // Abort addToCart
+          }
+        }
+
+        // Also fetch incompatibilities for the incoming product
+        const incomingRes = await fetch(`${API_BASE_URL}/api/Products/${incomingProductId}/incompatibilities`);
+        const incomingData = await incomingRes.json();
+        const incomingIncompatibilities = incomingData.data || incomingData || [];
+
+        for (const existingId of existingProductIds) {
+          const conflict = incomingIncompatibilities.find(
+            (inc: any) => {
+              const targetId = inc.incompatibleProductId || inc.productId || "";
+              return targetId.toLowerCase() === existingId.toLowerCase();
+            }
+          );
+          if (conflict) {
+            const existingCartItem = cart.find(p => (p.productId ?? p.id)?.toLowerCase() === existingId.toLowerCase());
+            toast.error(
+              `❌ Cannot add to cart: ${item.name} cannot be purchased with ${existingCartItem?.name || 'an item in your cart'}.${
+                conflict.reason ? ` Reason: ${conflict.reason}` : ""
+              }`
+            );
+            return; // Abort addToCart
+          }
+        }
+      } catch (err) {
+        console.error("Error checking incompatibilities:", err);
+      }
+    }
+
     setCart((prev) => {
       // ── Subscription merge ──
       if (item.type === "subscription") {

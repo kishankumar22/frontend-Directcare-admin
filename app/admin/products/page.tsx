@@ -2205,14 +2205,15 @@ onClick={async (e) => {
   </span>
 
   {/* ✅ PHARMA ICON */}
-  {product.isPharmaProduct && (
-    <span
-      className="shrink-0 inline-flex items-center justify-center rounded-md bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5"
-      title="Pharma Product"
-    >
-      <Pill className="w-3 h-3 text-cyan-400" />
-    </span>
-  )}
+{product.isPharmaProduct && (
+  <span
+    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-2  text-cyan-300 text-xs font-medium"
+    title="Pharma Product"
+  >
+    {/* <Pill className="w-3.5 h-3.5" /> */}
+    💊
+  </span>
+)}
 </p>
    <div className="flex items-center gap-2">
 

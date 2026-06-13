@@ -24,6 +24,8 @@ import {
   Video,
   Play,
   Copy,
+  BarChart2,
+  AlertTriangle,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api-config';
 import productsService, { Product } from '../../../lib/services/products';
@@ -326,7 +328,7 @@ url: getImageUrl(variant.imageUrl || undefined),
           ) : (
             <>
               {/* TABS */}
-              <div className="flex items-center gap-1 px-2 border-b border-slate-700">
+              <div className="flex flex-wrap items-center gap-1 px-2 border-b border-slate-700 pb-1">
                 {[
                   { id: 'overview', label: 'Overview', icon: <Info className="w-4 h-4" /> },
                   { id: 'pricing', label: 'Pricing', icon: <PoundSterling className="w-4 h-4" /> },
@@ -499,13 +501,73 @@ url: getImageUrl(variant.imageUrl || undefined),
                     <Activity className="w-4 h-4 text-slate-400" />
                     <h3 className="text-xs text-slate-400 font-bold uppercase tracking-wider">Timeline</h3>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                     <InfoField label="Created By" value={product.createdBy || 'System'} />
                     <InfoField label="Created At" value={formatDate(product.createdAt)} />
                     <InfoField label="Updated By" value={product.updatedBy || 'System'} />
                     <InfoField label="Updated At" value={formatDate(product.updatedAt)} />
                     {product.publishedAt && <InfoField label="Published At" value={formatDate(product.publishedAt)} />}
                   </div>
+
+                  {/* INCOMPATIBLE PRODUCTS (Pharma Only) */}
+  {product.isPharmaProduct &&
+  (product as any).incompatibleProducts &&
+  (product as any).incompatibleProducts.length > 0 && (
+    <div className="mb-4 overflow-hidden rounded-xl border border-orange-500/20 bg-slate-900">
+
+      {/* Header */}
+      <div className="border-b border-slate-800 px-4 py-3">
+        <ToggleField
+          label="Is Pharma Product"
+          value={product.isPharmaProduct}
+        />
+      </div>
+
+      {/* Incompatible Products */}
+      <div className="p-4">
+        <div className="mb-4 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-orange-400" />
+
+          <h3 className="text-sm font-semibold text-orange-300">
+            Incompatible Products
+          </h3>
+
+          <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-semibold text-orange-300">
+            {(product as any).incompatibleProducts.length}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {(product as any).incompatibleProducts.map((ip: any) => (
+            <div
+              key={ip.productId}
+              className="group rounded-xl border border-slate-700 bg-slate-800/60 p-3 transition-all hover:border-orange-500/40 hover:bg-slate-800"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+                  <AlertTriangle className="h-5 w-5 text-orange-400" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h4 className="truncate text-sm font-semibold text-white">
+                    {ip.productName}
+                  </h4>
+
+                  <p className="mt-1 text-xs text-slate-400">
+                    Reason
+                  </p>
+
+                  <p className="text-sm text-orange-300">
+                    {ip.reason || "No reason provided"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+)}
 
                   {/* Admin Comment */}
                   {product.adminComment && (
@@ -639,9 +701,22 @@ url: getImageUrl(variant.imageUrl || undefined),
                     <ToggleField label="Display Availability" value={product.displayStockAvailability} />
                     <ToggleField label="Display Quantity" value={product.displayStockQuantity} />
                   </div>
+                       <div className="space-y-4">
+                    <p className="text-sm text-white font-bold flex items-center gap-2">
+                      <BarChart2 className="w-4 h-4 text-blue-400" />
+                      Sales Overview
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <InfoField label="Fake Sale Count" value={product.fakeSaleCount?.toString() || '0'} icon={<BarChart2 className="w-3.5 h-3.5" />} />
+                      <InfoField label="Real Sale Count" value={product.saleCount?.toString() || '0'} icon={<BarChart2 className="w-3.5 h-3.5" />} />
+                      <InfoField label="Display Sale Count" value={product.displaySaleCount?.toString() || '0'} icon={<BarChart2 className="w-3.5 h-3.5" />} highlight />
+                      <InfoField label="Monthly Sales" value={product.monthlySaleCount?.toString() || '0'} icon={<Activity className="w-3.5 h-3.5" />} />
+                      <InfoField label="Weekly Sales" value={product.weeklySaleCount?.toString() || '0'} icon={<Activity className="w-3.5 h-3.5" />} />
+                    </div>
+                  </div>
 
                   {/* Cart Limits */}
-                  <div className="p-4 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
+                  <div className="p-4 my-4 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
                     <p className="text-xs text-cyan-400 font-bold mb-3">Cart Limits</p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       <InfoField label="Min Quantity" value={product.orderMinimumQuantity?.toString() || ''} />
@@ -979,6 +1054,26 @@ url: getImageUrl(variant.imageUrl || undefined),
                           </div>
                         </div>
 
+                        {/* Delivery Settings */}
+                        {(variant as any).nextDayDeliveryEnabled && (
+                          <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex flex-wrap gap-4 items-center">
+                            <p className="text-xs font-bold text-blue-400 flex items-center gap-1">
+                              <Truck className="w-3.5 h-3.5" />
+                              Next Day Delivery Enabled
+                            </p>
+                            {(variant as any).nextDayDeliveryFree && (
+                              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-[10px] rounded font-bold border border-green-500/40 uppercase tracking-wider">
+                                Free Next Day
+                              </span>
+                            )}
+                            {(variant as any).nextDayDeliveryCutoffTime && (
+                              <p className="text-xs font-bold text-slate-300">
+                                Cutoff: <span className="text-white font-mono">{(variant as any).nextDayDeliveryCutoffTime}</span>
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         {/* Options & Stock Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {variant.option1Name && variant.option1Value && (
@@ -1014,6 +1109,26 @@ url: getImageUrl(variant.imageUrl || undefined),
                             </p>
                           </div>
                         </div>
+
+                        {/* Variant Sales Stats */}
+                        {((variant as any).fakeSaleCount !== undefined || (variant as any).saleCount !== undefined) && (
+                          <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-purple-500/20">
+                            <div className="flex flex-col">
+                              <p className="text-xs text-slate-400 font-bold flex items-center gap-1 mb-1">
+                                <BarChart2 className="w-3 h-3 text-purple-400" />
+                                Fake Sales
+                              </p>
+                              <p className="text-sm text-white font-bold">{(variant as any).fakeSaleCount || 0}</p>
+                            </div>
+                            <div className="flex flex-col">
+                              <p className="text-xs text-slate-400 font-bold flex items-center gap-1 mb-1">
+                                <BarChart2 className="w-3 h-3 text-purple-400" />
+                                Real Sales
+                              </p>
+                              <p className="text-sm text-white font-bold">{(variant as any).saleCount || 0}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1353,10 +1468,13 @@ url: getImageUrl(variant.imageUrl || undefined),
     </div>
   )}
 
+
+
 </div>
                     )}
                 </div>
 
+ 
                 {/* TAB 10: SEO */}
                 <div id="content-seo" className={activeTab !== 'seo' ? 'hidden' : ''}>
                   <div className="space-y-4">

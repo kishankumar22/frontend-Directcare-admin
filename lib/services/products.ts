@@ -361,6 +361,7 @@ export interface SimpleProduct {
     sortOrder?: number;
     isMain?: boolean;
   }[];
+  isPharmaProduct?: boolean;
 }
 
 export interface CreateProductDto {

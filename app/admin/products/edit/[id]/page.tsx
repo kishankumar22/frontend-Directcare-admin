@@ -32,6 +32,7 @@ import ProductLockModal from "../../_components/ProductLockModal";
 import VatRateSelector from "../../VatRateSelector";
 import { scrollCls } from "../../../_utils/styles";
 import { getBackendMessage } from "../../../_utils/errorUtils";
+import { getProductImage } from "../../../_utils/formatUtils";
 type CleanCartData = {
   orderMinimumQuantity: number | null;
   orderMaximumQuantity: number | null;
@@ -108,6 +109,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   // ============================================================
 
   const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
+  const [incompatibleProducts, setIncompatibleProducts] = useState<{ incompatibleProductId: string; reason: string }[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedProductToAdd, setSelectedProductToAdd] = useState<any | null>(null);
+  const [addReason, setAddReason] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
   // ✅ ADD THESE FUNCTIONS (around line 300-400, after other helper functions)
 
@@ -690,24 +699,60 @@ const frequencyPresets: Record<string, string> = {
       setQuantityMode('unlimited');
     }
   }, [formData]);
-useEffect(() => {
-  if (!isGroupedModalOpen) return;
+  useEffect(() => {
+    if (!isGroupedModalOpen) return;
 
-  const loadSimpleProducts = async () => {
-    try {
-      const response = await productsService.getSimpleProducts();
+    const loadSimpleProducts = async () => {
+      try {
+        const response = await productsService.getSimpleProducts();
 
-      const items = response?.data?.data || [];
+        const items = response?.data?.data || [];
 
-      setSimpleProducts(items);
+        setSimpleProducts(items);
 
-    } catch (e) {
-      console.error(e);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    loadSimpleProducts();
+  }, [isGroupedModalOpen]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      const query = searchQuery.trim();
+      setIsSearching(true);
+      try {
+        const response = await productsService.getAll({
+          page: 1,
+          pageSize: 10,
+          searchTerm: query || undefined,
+          isPharmaProduct: true,
+          sortDirection: "asc"
+        });
+        const items = response?.data?.data?.items || [];
+        setSearchResults(items);
+      } catch (err) {
+        console.error("Error searching incompatible products:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
     }
-  };
-
-  loadSimpleProducts();
-}, [isGroupedModalOpen]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
   useEffect(() => {
     const fetchAllData = async () => {
       if (!productId) {
@@ -727,13 +772,13 @@ useEffect(() => {
         const [
           brandsResponse,
           categoriesResponse,
-          // allProductsResponse,
-          // simpleProductsResponse
+          simpleProductsResponse,
+          incompatibilitiesResponse
         ] = await Promise.allSettled([
           brandsService.getAll({ includeInactive: true }),
           categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
-          // productsService.getAll({ pageSize: 1000 }),
-          // productsService.getSimpleProducts()
+          productsService.getSimpleProducts(),
+          productsService.getIncompatibilities(productId)
         ]);
 
         const brandsData =
@@ -766,83 +811,44 @@ useEffect(() => {
           return data.items || (Array.isArray(data) ? data : []);
         };
 
-        // Process ALL products for related/cross-sell
-        // if (allProductsResponse.status === 'fulfilled') {
-        //   const allItems = extractProducts(allProductsResponse.value);
-
-        //   if (allItems.length > 0) {
-        //     const transformedProducts = allItems.map((product: any) => ({
-        //       id: product.id,
-        //       name: product.name,
-        //       sku: product.sku,
-        //       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-
-        //       // ✅ ADD THESE 3 LINES FOR FILTERING
-        //       brandId: product.brandId || product.brands?.[0]?.brandId || null,
-        //       brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
-        //       categories: product.categories || []
-        //     }));
-
-        //     setAvailableProducts(transformedProducts);
-        //     console.log('✅ Available products loaded:', transformedProducts.length);
-        //   } else {
-        //     setAvailableProducts([]);
-        //   }
-        // } else {
-        //   console.warn('❌ Failed to fetch all products');
-        //   setAvailableProducts([]);
-        // }
-
-
         // ✅ Process SIMPLE products from service
-        // if (simpleProductsResponse.status === 'fulfilled') {
-        //   const simpleItems = extractProducts(simpleProductsResponse.value);
+        if (simpleProductsResponse.status === 'fulfilled') {
+          const simpleItems = extractProducts(simpleProductsResponse.value);
 
-        //   if (simpleItems.length > 0) {
-        //     // Filter out current product
-        //     const simpleProductsList = simpleItems
-        //       .filter((p: any) => p.id !== productId)
-        //       .map((p: any) => ({
-        //         id: p.id,
-        //         name: p.name,
-        //         sku: p.sku,
-        //         price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-        //         stockQuantity: p.stockQuantity || 0
-        //       }));
+          if (simpleItems.length > 0) {
+            // Filter out current product but keep all products to show name/SKU of existing incompatibilities
+            const simpleProductsList = simpleItems
+              .filter((p: any) => p.id !== productId)
+              .map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                sku: p.sku,
+                isPharmaProduct: p.isPharmaProduct,
+                price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+                stockQuantity: p.stockQuantity || 0
+              }));
 
-        //     setSimpleProducts(simpleProductsList);
-        //     console.log('✅ Simple products loaded:', simpleProductsList.length);
-        //   } else {
-        //     console.warn('⚠️ Simple products endpoint returned no data');
-        //     setSimpleProducts([]);
-        //   }
-        // } else {
-        //   console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
+            setSimpleProducts(simpleProductsList);
+            console.log('✅ Simple products loaded:', simpleProductsList.length);
+          } else {
+            console.warn('⚠️ Simple products endpoint returned no data');
+            setSimpleProducts([]);
+          }
+        }
 
-        //   // ✅ FALLBACK: Filter from all products if separate endpoint fails
-        //   // if (allProductsResponse.status === 'fulfilled') {
-        //   //   const allItems = extractProducts(allProductsResponse.value);
-
-        //   //   const simpleProductsList = allItems
-        //   //     .filter((product: any) => 
-        //   //       product.productType === 'simple' && 
-        //   //       product.isPublished === true &&
-        //   //       product.id !== productId
-        //   //     )
-        //   //     .map((product: any) => ({
-        //   //       id: product.id,
-        //   //       name: product.name,
-        //   //       sku: product.sku,
-        //   //       price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-        //   //       stockQuantity: product.stockQuantity || 0
-        //   //     }));
-
-        //   //   setSimpleProducts(simpleProductsList);
-        //   //   console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
-        //   // } else {
-        //   //   setSimpleProducts([]);
-        //   // }
-        // }
+        // ✅ Process Incompatibilities
+        if (incompatibilitiesResponse.status === 'fulfilled') {
+          const incompatData = incompatibilitiesResponse.value.data?.data || incompatibilitiesResponse.value.data || [];
+          if (Array.isArray(incompatData)) {
+            setIncompatibleProducts(incompatData.map((item: any) => ({
+              incompatibleProductId: item.incompatibleProductId || item.productId || '',
+              name: item.incompatibleProductName || item.productName || item.name || '',
+              sku: item.incompatibleProductSku || item.sku || item.productSku || '',
+              reason: item.reason || ''
+            })));
+            console.log('✅ Incompatibilities loaded:', incompatData.length);
+          }
+        }
 
         // ✅ Extract product data from service response
         const productData = (productResponse.data as any)?.data || productResponse.data;
@@ -3876,6 +3882,23 @@ if (
             percentage: 100,
           });
 
+          // Save incompatibilities
+          try {
+            console.log('🚀 Saving incompatibilities...');
+            await productsService.updateIncompatibilities(productId, {
+              incompatibilities: formData.isPharmaProduct
+                ? incompatibleProducts.map(item => ({
+                    incompatibleProductId: item.incompatibleProductId,
+                    reason: item.reason || ''
+                  }))
+                : []
+            });
+            console.log('✅ Incompatibilities saved');
+          } catch (incompatError) {
+            console.error('❌ Failed to save incompatibilities:', incompatError);
+            toast.warning('⚠️ Product saved, but incompatibilities could not be updated.');
+          }
+
           toast.success(
             isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
             { autoClose: 3000 }
@@ -6083,6 +6106,194 @@ if (name === "recurringCyclePeriod") {
 
                   </div>
 
+                  {/* Incompatible Products Section */}
+                  {formData.isPharmaProduct && (
+                    <div className="mt-4 p-4 bg-slate-900/50 border border-slate-700/80 rounded-xl space-y-4">
+                      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                        <span className="text-amber-500 text-lg">⚠️</span>
+                        <h4 className="text-sm font-semibold text-white">Incompatible Products</h4>
+                      </div>
+
+                      {/* Search & Add row */}
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div ref={searchContainerRef} className="md:col-span-6 relative">
+                          <label className="block text-xs font-medium text-slate-400 mb-1">Search Product</label>
+                          <input
+                            type="text"
+                            placeholder="Search product by name or SKU..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                              setSearchQuery(e.target.value);
+                              setShowDropdown(true);
+                            }}
+                            onFocus={() => setShowDropdown(true)}
+                            className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          />
+
+                          {showDropdown && (
+                            <div className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-slate-800 border border-slate-700 rounded-lg shadow-xl divide-y divide-slate-700/50 scrollbar-thin">
+                              {isSearching ? (
+                                <div className="px-3 py-3 text-xs text-slate-400 flex items-center gap-2">
+                                  <svg className="animate-spin h-4 w-4 text-violet-500" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  <span>Searching products...</span>
+                                </div>
+                              ) : (() => {
+                                const filtered = searchResults.filter(
+                                  (p: any) =>
+                                    p.id !== productId &&
+                                    !incompatibleProducts.some(
+                                      (ip) => ip.incompatibleProductId === p.id
+                                    )
+                                );
+                                if (filtered.length === 0) {
+                                  return (
+                                    <div className="px-3 py-3 text-xs text-slate-500 italic text-center">
+                                      No products found
+                                    </div>
+                                  );
+                                }
+                                return filtered.slice(0, 10).map((p: any) => {
+                                  const imageUrl = getProductImage(p.images);
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      onClick={() => {
+                                        setSelectedProductToAdd(p);
+                                        setSearchQuery(p.name);
+                                        setShowDropdown(false);
+                                      }}
+                                      className="px-3 py-2 cursor-pointer hover:bg-slate-700/50 text-sm text-slate-300 hover:text-white transition-colors flex items-center gap-3"
+                                    >
+                                      <img
+                                        src={imageUrl || "/no-image.png"}
+                                        alt={p.name}
+                                        className="w-8 h-8 object-cover rounded bg-slate-900 border border-slate-750 flex-shrink-0"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLImageElement).src = "/no-image.png";
+                                        }}
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate text-xs sm:text-sm text-slate-200 font-sans">
+                                          {p.name}
+                                        </div>
+                                        <div className="text-[10px] text-slate-550 mt-0.5">
+                                          SKU: {p.sku || "N/A"}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="md:col-span-4">
+                          <label className="block text-xs font-medium text-slate-400 mb-1">Reason (Optional)</label>
+                          <input
+                            type="text"
+                            placeholder="Reason for conflict..."
+                            value={addReason}
+                            onChange={(e) => setAddReason(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!selectedProductToAdd) {
+                                toast.error("Please select a product from the list first");
+                                return;
+                              }
+                              setIncompatibleProducts(prev => [
+                                ...prev,
+                                {
+                                  incompatibleProductId: selectedProductToAdd.id,
+                                  name: selectedProductToAdd.name,
+                                  sku: selectedProductToAdd.sku,
+                                  reason: addReason.trim()
+                                }
+                              ]);
+                              setSelectedProductToAdd(null);
+                              setSearchQuery("");
+                              setAddReason("");
+                              toast.success("Incompatible product added");
+                            }}
+                            disabled={!selectedProductToAdd}
+                            className="w-full px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-medium rounded-lg text-sm transition-all"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Selected/Incompatible Products list */}
+                      <div className="space-y-2 pt-2">
+                        {incompatibleProducts.length > 0 ? (
+                          <div className="border border-slate-800 bg-slate-950/40 rounded-lg divide-y divide-slate-850">
+                            {incompatibleProducts.map((item: any) => {
+                              const prod = simpleProducts.find(p => p.id.toLowerCase() === item.incompatibleProductId.toLowerCase());
+                              const displayName = prod ? prod.name : (item.name || "Loading product name...");
+                              const displaySku = prod ? prod.sku : (item.sku || "N/A");
+                              return (
+                                <div key={item.incompatibleProductId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium text-slate-200 truncate">
+                                      {displayName}
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-0.5">
+                                      SKU: {displaySku}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                                    <input
+                                      type="text"
+                                      placeholder="Incompatibility reason..."
+                                      value={item.reason}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setIncompatibleProducts(prev =>
+                                          prev.map(p =>
+                                            p.incompatibleProductId === item.incompatibleProductId
+                                              ? { ...p, reason: val }
+                                              : p
+                                          )
+                                        );
+                                      }}
+                                      className="flex-1 sm:w-64 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIncompatibleProducts(prev =>
+                                          prev.filter(p => p.incompatibleProductId !== item.incompatibleProductId)
+                                        );
+                                        toast.success("Removed incompatibility");
+                                      }}
+                                      className="p-1.5 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 border border-dashed border-slate-800 rounded-lg text-slate-500 text-xs">
+                            No incompatible products configured yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
 
@@ -7106,15 +7317,26 @@ if (name === "recurringCyclePeriod") {
                             type="checkbox"
                             name="nextDayDeliveryEnabled"
                             checked={formData.nextDayDeliveryEnabled}
-                            onChange={handleChange}
+                            onChange={(e) => {
+                              handleChange(e);
+                              if (!e.target.checked) {
+                                setTimeout(() => {
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    nextDayDeliveryFree: false,
+                                    nextDayDeliveryCutoffTime: null
+                                  }));
+                                }, 0);
+                              }
+                            }}
                             className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
                           />
                           <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
                             🚀 Enable Next-Day Delivery
                           </span>
                         </label>
-
                       </div>
+
                       {/* Next Day Delivery Free */}
                       {formData.nextDayDeliveryEnabled && (
                         <>
@@ -7151,21 +7373,6 @@ if (name === "recurringCyclePeriod") {
                               Enter UK local cutoff time for next-day delivery
                             </p>
 
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-
-                              <div className="rounded-md border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 text-yellow-300">
-                                🌤 UK 2:30 PM → <span className="font-semibold">14:30</span>
-                              </div>
-
-                              <div className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-cyan-300">
-                                🌙 UK 8:30 PM → <span className="font-semibold">20:30</span>
-                              </div>
-
-                              <div className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-violet-300">
-                                🌅 UK 1:30 AM → <span className="font-semibold">01:30</span>
-                              </div>
-
-                            </div>
                           </div>
                         </>
                       )}

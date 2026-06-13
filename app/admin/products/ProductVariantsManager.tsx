@@ -790,30 +790,64 @@ const closeDeleteModal = () => {
                           <input
                             type="checkbox"
                             checked={variant.nextDayDeliveryEnabled ?? false}
-                            onChange={(e) => updateProductVariant(variant.id, 'nextDayDeliveryEnabled', e.target.checked)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              onVariantsChange(
+                                variants.map((v) =>
+                                  v.id === variant.id
+                                    ? {
+                                        ...v,
+                                        nextDayDeliveryEnabled: checked,
+                                        ...(checked
+                                          ? {}
+                                          : {
+                                              nextDayDeliveryFree: false,
+                                              nextDayDeliveryCutoffTime: null,
+                                            }),
+                                      }
+                                    : v
+                                )
+                              );
+                            }}
                             disabled={disabled}
                             className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
                           />
                           <span className="text-xs font-medium text-slate-300">Next Day Delivery</span>
                         </label>
-                        <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors">
+                        <label 
+                          className={`flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg transition-colors ${disabled || !variant.nextDayDeliveryEnabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-slate-800'}`}
+                          onClick={(e) => {
+                            if (!variant.nextDayDeliveryEnabled) {
+                              e.preventDefault();
+                              toast.warning('Please enable Next Day Delivery first');
+                            }
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={variant.nextDayDeliveryFree ?? false}
                             onChange={(e) => updateProductVariant(variant.id, 'nextDayDeliveryFree', e.target.checked)}
                             disabled={disabled}
-                            className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                            className={`w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500 ${disabled ? 'disabled:opacity-50' : ''} ${!variant.nextDayDeliveryEnabled ? 'pointer-events-none' : ''}`}
                           />
                           <span className="text-xs font-medium text-slate-300">Free Next Day</span>
                         </label>
-                        <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg">
+                        <label 
+                          className={`flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg ${disabled || !variant.nextDayDeliveryEnabled ? 'cursor-not-allowed opacity-50' : ''}`}
+                          onClick={(e) => {
+                            if (!variant.nextDayDeliveryEnabled) {
+                              e.preventDefault();
+                              toast.warning('Please enable Next Day Delivery first');
+                            }
+                          }}
+                        >
                           <span className="text-xs font-semibold text-slate-300 whitespace-nowrap">Cutoff Time  <span className="text-red-500">*</span></span>
                           <input
                             type="time"
                             value={variant.nextDayDeliveryCutoffTime || ''}
                             onChange={(e) => updateProductVariant(variant.id, 'nextDayDeliveryCutoffTime', e.target.value || null)}
                             disabled={disabled}
-                            className="flex-1 px-2 py-1 text-sm bg-slate-900 border border-slate-600 rounded text-white focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                            className={`flex-1 px-2 py-1 text-sm bg-slate-900 border border-slate-600 rounded text-white focus:ring-2 focus:ring-violet-500 ${disabled ? 'disabled:opacity-50' : ''} ${!variant.nextDayDeliveryEnabled ? 'pointer-events-none' : ''}`}
                           />
                         </label>
                         <label className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg">

@@ -5,6 +5,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
+import { useToast } from "@/components/toast/CustomToast";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import EmptyCart from "@/components/cart/EmptyCart";
@@ -240,6 +241,7 @@ const ErrorText = ({ error }: { error?: string }) => {
 /* === Main Checkout Page === */
 export default function CheckoutPage() {
   const router = useRouter();
+  const toast = useToast();
  const { cart, updateCart, updateQuantity,clearCart } = useCart();
   const { user, accessToken, isAuthenticated } = useAuth();
   
@@ -1928,10 +1930,11 @@ const isNextDay =
         }
 
         if (!orderResp.ok) {
-          setError(
-            orderJson?.message ||
-              "Order creation failed"
-          );
+          const errMsg = orderJson?.message || "Order creation failed";
+          setError(errMsg);
+          if (errMsg.toLowerCase().includes("cannot be purchased together")) {
+            toast.error(errMsg);
+          }
           setIsPlacing(false);
           return;
         }
@@ -2015,10 +2018,11 @@ const isNextDay =
           err
         );
 
-        setError(
-          err?.message ||
-            "Order placement failed. Please check your network and try again."
-        );
+        const errMsg = err?.message || "Order placement failed. Please check your network and try again.";
+        setError(errMsg);
+        if (errMsg.toLowerCase().includes("cannot be purchased together")) {
+          toast.error(errMsg);
+        }
       } finally {
         setIsPlacing(false);
       }

@@ -537,7 +537,7 @@ export default function CategoryClient({
       );
       observerRef.current.observe(node);
     }
-  }, [hasMore]);
+  }, [hasMore, products.length]);
 
   // Reset products whenever the server provides new initialProducts (covers both URL changes
   // and the delayed server re-render after a filter change like subcategory multi-select)
@@ -868,362 +868,343 @@ const handleSortChange = useCallback((value: string) => {
             <option value="price-desc">High-Low</option>
           </select>
         </div>
-        {/* Category header */}
-        <div className="flex gap-8">
+{/* Category header */}
+<div className="flex gap-8">
+  <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar">
+    <Card className="shadow-sm">
+      <CardContent className="p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 border-b mb-3">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-[#445D41]" />
+            <h2 className="font-semibold text-sm text-gray-900">Filters</h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            disabled={isPending}
+            className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 px-2"
+          >
+            Reset
+          </Button>
+        </div>
 
-          <aside className=" hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar " >
-
-            <Card className="shadow-sm">
-              <CardContent className="p-6">
-                {/* 🔽 FILTER CONTENT AS-IS */}
-
-                {/* Header */}
-                <div className="flex items-center justify-between pb-4 border-b mb-2">
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="h-5 w-5 text-[#445D41]" />
-                    <h2 className="font-bold text-base text-gray-900">
-                      Filters
-                    </h2>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetFilters}
-                    disabled={isPending}
-                    className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" >
-                    Reset
-                  </Button>
-                </div>
-
-                {/* Subcategory Filter */}
-                {allSubCategories.length > 0 && (
-                  <div className="mb-1">
-                    <h3 className="font-bold text-sm text-gray-900 mb-0">Subcategories</h3>
-
-                    <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
-                      {allSubCategories
-                        .filter((sub) => sub.productCount > 0)
-                        .map((sub) => (
-                          <label
-                            key={sub.id}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
-                          >
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 text-[#445D41] flex-shrink-0"
-                              checked={selectedSubCategories.includes(sub.id)}
-                              onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
-                            />
-                            <span className="text-sm text-gray-700 truncate">
-                              {sub.name}
-                            </span>
-                          </label>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Brand Filter */}
-                <div className="mb-6 border-b border-gray-100 pb-5">
-                  <h3 className="font-bold text-sm text-gray-900 mb-3">
-                    Brand
-                  </h3>
-                  <div className="space-y-1 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                    {availableBrands.map((brand) => (
-
-                      <label
-                        key={brand.id}
-                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group"
-                        title={brand.name}
-                      >
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] focus:ring-2 flex-shrink-0"
-                          checked={selectedBrands.includes(brand.id)}
-                          onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
-                        />
-                        <div className="flex items-center justify-between flex-1 min-w-0">
-                          <span className="text-sm text-gray-700 truncate group-hover:text-[#445D41] transition">
-                            {brand.name}
-                          </span>
-                          {/* <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
-                            ({brand.productCount})
-                          </span> */}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Price Range */}
-                <div className="mb-6 border-b border-gray-100 pb-5">
-                  <h3 className="font-bold text-sm text-gray-900 mb-4">
-                    Price Range
-                  </h3>
-                  {minPrice < maxPrice && (
-                    <PremiumPriceSlider
-                      value={[
-                        Math.max(displayRange[0], minPrice),
-                        Math.min(displayRange[1], maxPrice),
-                      ]}
-                      min={minPrice}
-                      max={maxPrice}
-                      onChange={handlePriceChange}
+        {/* Subcategory Filter */}
+        {allSubCategories.length > 0 && (
+          <div className="mb-4 pb-4 border-b border-gray-200">
+            <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+              Subcategories
+            </h3>
+            <div className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+              {allSubCategories
+                .filter((sub) => sub.productCount > 0)
+                .map((sub) => (
+                  <label
+                    key={sub.id}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
+                  >
+                    <input
+                      type="checkbox"
+                      className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
+                      checked={selectedSubCategories.includes(sub.id)}
+                      onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
                     />
-                  )}
+                    <span className="text-xs text-gray-700 truncate">{sub.name}</span>
+                  </label>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Brand Filter */}
+        <div className="mb-4 pb-4 border-b border-gray-200">
+          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+            Brand
+          </h3>
+          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+            {availableBrands.map((brand) => (
+              <label
+                key={brand.id}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group"
+                title={brand.name}
+              >
+                <input
+                  type="checkbox"
+                  className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                  checked={selectedBrands.includes(brand.id)}
+                  onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
+                />
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">
+                    {brand.name}
+                  </span>
                 </div>
-                {/* Rating Filter */}
-                <div className="mb-6 border-b border-gray-100 pb-5">
-                  <h3 className="font-bold text-sm text-gray-900 mb-3">
-                    Minimum Rating
-                  </h3>
-                  <div className="space-y-2">
-                    {[4, 3, 2, 1, 0].map((rating) => (
-                      <label
-                        key={rating}
-                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
-                      >
-                        <input
-                          type="radio"
-                          name="rating"
-                          className="w-4 h-4 text-[#445D41] focus:ring-[#445D41] focus:ring-2 flex-shrink-0"
-                          checked={minRating === rating}
-                          onChange={() => handleRatingChange(rating)}
-                        />
-                        <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm text-gray-700">
-                            {rating > 0
-                              ? `${rating}+ Stars`
-                              : "All Ratings"}
-                          </span>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Price Range */}
+        {minPrice < maxPrice && (
+          <div className="mb-4 pb-4 border-b border-gray-200">
+            <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-3">
+              Price Range
+            </h3>
+            <PremiumPriceSlider
+              value={[
+                Math.max(displayRange[0], minPrice),
+                Math.min(displayRange[1], maxPrice),
+              ]}
+              min={minPrice}
+              max={maxPrice}
+              onChange={handlePriceChange}
+            />
+          </div>
+        )}
+
+        {/* Rating Filter */}
+        <div className="mb-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+            Minimum Rating
+          </h3>
+          <div className="space-y-1.5">
+            {[4, 3, 2, 1, 0].map((rating) => (
+              <label
+                key={rating}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
+              >
+                <input
+                  type="radio"
+                  name="rating"
+                  className="w-3.5 h-3.5 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                  checked={minRating === rating}
+                  onChange={() => handleRatingChange(rating)}
+                />
+                <div className="flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                  <span className="text-xs text-gray-700">
+                    {rating > 0 ? `${rating}+ Stars` : "All Ratings"}
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
+              </label>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </aside>
 
-          </aside>
+  {/* MAIN CONTENT */}
+  <div className="flex-1">
+    {/* Mobile Filter — Left Side Drawer */}
+    {showFilters && (
+      <div className="lg:hidden fixed inset-0 z-50 flex">
+        {/* Left panel */}
+        <div className="relative bg-white w-[78vw] max-w-xs h-full flex flex-col shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <h2 className="font-semibold text-base text-gray-900">Filters</h2>
+            <div className="flex items-center gap-2">
+              <button
+                className="text-xs text-[#445D41] font-medium underline"
+                onClick={resetFilters}
+              >
+                Reset All
+              </button>
+              <button
+                onClick={() => setShowFilters(false)}
+                className="p-1 rounded-full hover:bg-gray-100"
+              >
+                <X className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+          </div>
 
-          {/* MAIN CONTENT */}
-          <div className="flex-1">
-            {/* Search & Sort Bar */}
-
-
-            {/* Mobile Filter — Left Side Drawer */}
-            {showFilters && (
-              <div className="lg:hidden fixed inset-0 z-50 flex">
-                {/* Left panel */}
-                <div className="relative bg-white w-[78vw] max-w-xs h-full flex flex-col shadow-2xl">
-
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-5 py-4 border-b">
-                    <h2 className="font-bold text-lg text-gray-900">Filters</h2>
-                    <div className="flex items-center gap-3">
-                      <button
-                        className="text-xs text-[#445D41] font-semibold underline"
-                        onClick={resetFilters}
-                      >
-                        Reset All
-                      </button>
-                      <button
-                        onClick={() => setShowFilters(false)}
-                        className="p-1 rounded-full hover:bg-gray-100"
-                      >
-                        <X className="h-5 w-5 text-gray-500" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Scrollable filters */}
-                  <div className="overflow-y-auto flex-1 px-5 py-4">
-
-                    {/* Subcategories */}
-                    {allSubCategories.length > 0 && (
-                      <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
-                        <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
-                          <h3 className="font-bold text-base text-gray-900">Subcategories</h3>
-                        </div>
-                        <div className="space-y-2">
-                          {allSubCategories.filter((sub) => sub.productCount > 0).map((sub) => (
-                            <label key={sub.id} className="flex items-center gap-3 cursor-pointer py-1">
-                              <input
-                                type="checkbox"
-                                className="w-4 h-4 text-[#445D41] rounded flex-shrink-0 mt-0.5"
-                                checked={selectedSubCategories.includes(sub.id)}
-                                onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
-                              />
-                              <span className="text-sm text-gray-800">{sub.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Brand */}
-                    {brands.length > 0 && (
-                      <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
-                        <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
-                          <h3 className="font-bold text-base text-gray-900">Brand</h3>
-                          <button className="text-xs text-[#445D41] font-medium" onClick={() => setSelectedBrands([])}>Clear</button>
-                        </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {availableBrands.map((brand) => (
-                            <label key={brand.id} className="flex items-center gap-3 cursor-pointer py-1">
-                              <input
-                                type="checkbox"
-                                className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0 mt-0.5"
-                                checked={selectedBrands.includes(brand.id)}
-                                onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
-                              />
-                              <span className="text-sm text-gray-800 truncate">{brand.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Price Range */}
-                    {minPrice < maxPrice && (
-                      <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
-                        <div className="flex items-center justify-between mb-4 pb-1 border-b border-gray-100">
-                          <h3 className="font-bold text-base text-gray-900">Price</h3>
-                        </div>
-                        <PremiumPriceSlider
-                          value={[
-                            Math.max(displayRange[0], minPrice),
-                            Math.min(displayRange[1], maxPrice),
-                          ]}
-                          min={minPrice}
-                          max={maxPrice}
-                          onChange={handlePriceChange}
-                        />
-                      </div>
-                    )}
-
-                    {/* Rating */}
-                    <div className="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
-                      <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
-                        <h3 className="font-bold text-base text-gray-900">Rating</h3>
-                      </div>
-                      <div className="space-y-2">
-                        {[4, 3, 2, 1, 0].map((rating) => (
-                          <label key={rating} className="flex items-center gap-3 cursor-pointer py-1">
-                            <input
-                              type="radio"
-                              name="rating-mobile"
-                              className="w-4 h-4 text-[#445D41] focus:ring-[#445D41] flex-shrink-0 mt-0.5"
-                              checked={minRating === rating}
-                              onChange={() => handleRatingChange(rating)}
-                            />
-                            <div className="flex items-center gap-1.5">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm text-gray-800">
-                                {rating > 0 ? `${rating}+ Stars` : "All Ratings"}
-                              </span>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Apply button */}
-                  <div className="border-t px-5 py-4">
-                    <Button
-                      className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white font-semibold py-3"
-                      onClick={() => setShowFilters(false)}
-                    >
-                      Show Results ({filteredAndSortedProducts.length})
-                    </Button>
-                  </div>
+          {/* Scrollable filters */}
+          <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
+            {/* Subcategories */}
+            {allSubCategories.length > 0 && (
+              <div className="pb-4 border-b border-gray-200">
+                <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+                  Subcategories
+                </h3>
+                <div className="space-y-1.5">
+                  {allSubCategories.filter((sub) => sub.productCount > 0).map((sub) => (
+                    <label key={sub.id} className="flex items-center gap-2 cursor-pointer py-1">
+                      <input
+                        type="checkbox"
+                        className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
+                        checked={selectedSubCategories.includes(sub.id)}
+                        onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
+                      />
+                      <span className="text-xs text-gray-700">{sub.name}</span>
+                    </label>
+                  ))}
                 </div>
+              </div>
+            )}
 
-                {/* Right backdrop — tap to close */}
-                <div
-                  className="flex-1 bg-black/50"
-                  onClick={() => setShowFilters(false)}
+            {/* Brand - Mobile */}
+            {brands.length > 0 && (
+              <div className="pb-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider">Brand</h3>
+                  <button 
+                    className="text-[10px] text-[#445D41] font-medium" 
+                    onClick={() => setSelectedBrands([])}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {availableBrands.map((brand) => (
+                    <label key={brand.id} className="flex items-center gap-2 cursor-pointer py-1">
+                      <input
+                        type="checkbox"
+                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                        checked={selectedBrands.includes(brand.id)}
+                        onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
+                      />
+                      <span className="text-xs text-gray-700 truncate">{brand.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Price Range - Mobile */}
+            {minPrice < maxPrice && (
+              <div className="pb-4 border-b border-gray-200">
+                <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+                  Price
+                </h3>
+                <PremiumPriceSlider
+                  value={[
+                    Math.max(displayRange[0], minPrice),
+                    Math.min(displayRange[1], maxPrice),
+                  ]}
+                  min={minPrice}
+                  max={maxPrice}
+                  onChange={handlePriceChange}
                 />
               </div>
             )}
 
-            {/* PRODUCT GRID */}
-            <div className="relative">
-              {/* Filter loading overlay */}
-              {isPending && (
-                <div className="absolute inset-0 z-10 bg-white/60 rounded-xl flex items-center justify-center min-h-[200px]">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#445D41]" />
-                    <span className="text-sm text-[#445D41] font-medium">Filtering...</span>
-                  </div>
-                </div>
-              )}
-              <div
-                className={`grid grid-cols-2 ${gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
-                  } gap-2 md:gap-4 mb-6 md:mb-8 ${isPending ? "opacity-40 pointer-events-none" : ""}`}
-              >
-                {flattenedProducts.map((item) => (
-                  <ProductCard
-                    key={`${item.productData.id}-${item.variantForCard?.id ?? "parent"}`}
-                    product={item.productData}
-                    vatRates={vatRates}
-                    variantForCard={item.variantForCard}
-                    cardSlug={item.cardSlug}
-                  />
+            {/* Rating - Mobile */}
+            <div className="pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+              <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+                Rating
+              </h3>
+              <div className="space-y-1.5">
+                {[4, 3, 2, 1, 0].map((rating) => (
+                  <label key={rating} className="flex items-center gap-2 cursor-pointer py-1">
+                    <input
+                      type="radio"
+                      name="rating-mobile"
+                      className="w-3.5 h-3.5 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                      checked={minRating === rating}
+                      onChange={() => handleRatingChange(rating)}
+                    />
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                      <span className="text-xs text-gray-700">
+                        {rating > 0 ? `${rating}+ Stars` : "All Ratings"}
+                      </span>
+                    </div>
+                  </label>
                 ))}
               </div>
             </div>
-            {/* Load more trigger + skeleton cards */}
-            {hasMore && <div ref={loadMoreRef} className="h-10 w-full" />}
-            {isLoadingMore && (
-              <div className={`grid grid-cols-2 ${gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-2 md:gap-6 mb-8 min-h-[400px]`}>
-                {Array.from({ length: gridCols === 3 ? 3 : 2 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border border-gray-200 overflow-hidden bg-white animate-pulse">
-                    {/* Image skeleton */}
-                    <div className="bg-gray-200 h-44 md:h-56 w-full" />
-                    <div className="p-3 space-y-2">
-                      {/* Name */}
-                      <div className="h-3 bg-gray-200 rounded w-4/5" />
-                      <div className="h-3 bg-gray-200 rounded w-3/5" />
-                      {/* Rating */}
-                      <div className="h-3 bg-gray-200 rounded w-1/3" />
-                      {/* Price */}
-                      <div className="h-4 bg-gray-200 rounded w-2/5 mt-1" />
-                      {/* Button */}
-                      <div className="h-8 bg-gray-200 rounded-lg w-full mt-2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* No results */}
-            {filteredAndSortedProducts.length === 0 && !isPending && (
-              <Card className="shadow-sm">
-                <CardContent className="p-6 md:p-12 text-center">
-                  <div className="mb-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Search className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <p className="text-gray-700 text-lg font-semibold mb-2">
-                      No products found
-                    </p>
-
-                  </div>
-                  <Button
-                    onClick={resetFilters}
-                    className="bg-[#445D41] hover:bg-[#334a2c] text-white"
-                  >
-                    Reset All Filters
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
+          {/* Apply button */}
+          <div className="border-t px-4 py-3">
+            <Button
+              className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white font-medium py-2.5 text-sm"
+              onClick={() => setShowFilters(false)}
+            >
+              Show Results ({filteredAndSortedProducts.length})
+            </Button>
+          </div>
         </div>
+
+        {/* Right backdrop — tap to close */}
+        <div className="flex-1 bg-black/50" onClick={() => setShowFilters(false)} />
+      </div>
+    )}
+
+    {/* PRODUCT GRID */}
+    <div className="relative">
+      {/* Filter loading overlay */}
+      {isPending && (
+        <div className="absolute inset-0 z-10 bg-white/60 rounded-xl flex items-center justify-center min-h-[200px]">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-[#445D41]" />
+            <span className="text-sm text-[#445D41] font-medium">Filtering...</span>
+          </div>
+        </div>
+      )}
+      
+      <div
+        className={`grid grid-cols-2 ${
+          gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
+        } gap-2 md:gap-4 mb-6 md:mb-8 ${
+          isPending ? "opacity-40 pointer-events-none" : ""
+        }`}
+      >
+        {flattenedProducts.map((item) => (
+          <ProductCard
+            key={`${item.productData.id}-${item.variantForCard?.id ?? "parent"}`}
+            product={item.productData}
+            vatRates={vatRates}
+            variantForCard={item.variantForCard}
+            cardSlug={item.cardSlug}
+          />
+        ))}
+      </div>
+    </div>
+
+    {/* Load more trigger + skeleton cards */}
+    {hasMore && <div ref={loadMoreRef} className="h-10 w-full" />}
+    {isLoadingMore && (
+      <div className={`grid grid-cols-2 ${gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-2 md:gap-6 mb-8 min-h-[400px]`}>
+        {Array.from({ length: gridCols === 3 ? 3 : 2 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-gray-200 overflow-hidden bg-white animate-pulse">
+            <div className="bg-gray-200 h-44 md:h-56 w-full" />
+            <div className="p-3 space-y-2">
+              <div className="h-3 bg-gray-200 rounded w-4/5" />
+              <div className="h-3 bg-gray-200 rounded w-3/5" />
+              <div className="h-3 bg-gray-200 rounded w-1/3" />
+              <div className="h-4 bg-gray-200 rounded w-2/5 mt-1" />
+              <div className="h-8 bg-gray-200 rounded-lg w-full mt-2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* No results */}
+    {filteredAndSortedProducts.length === 0 && !isPending && (
+      <Card className="shadow-sm">
+        <CardContent className="p-8 md:p-10 text-center">
+          <div className="mb-3">
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Search className="h-7 w-7 text-gray-400" />
+            </div>
+            <p className="text-gray-700 font-semibold mb-1">No products found</p>
+          </div>
+          <Button
+            onClick={resetFilters}
+            className="bg-[#445D41] hover:bg-[#334a2c] text-white text-sm"
+          >
+            Reset All Filters
+          </Button>
+        </CardContent>
+      </Card>
+    )}
+  </div>
+</div>
         {/* ================= CATEGORY DESCRIPTION + FAQ ================= */}
         {(category?.description || (category as any)?.faqs?.length > 0) && (
           <div className="mt-10 space-y-6">

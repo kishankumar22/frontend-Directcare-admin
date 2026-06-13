@@ -123,8 +123,18 @@ interface Product {
   sku: string;
   price: number;
   oldPrice: number;
+  incompatibleProducts?: {
+    incompatibleProductId: string;
+    incompatibleProductName?: string;
+    reason?: string;
+  }[];
+  incompatibilities?: {
+    incompatibleProductId: string;
+    incompatibleProductName?: string;
+    reason?: string;
+  }[];
   displayDiscountType?: "None" | "OldPrice" | "System";
-
+  weeklySaleCount?: number;
   hasSystemDiscount?: boolean;
   freeShippingThreshold?: number;
   systemDiscountAmount?: number;
@@ -488,7 +498,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
   const activeSaleCount = product.productType === "variable" && selectedVariant
     ? selectedVariant.saleCount
-    : product.saleCount;
+    : product.weeklySaleCount;
 
   useEffect(() => {
     if (
@@ -2184,6 +2194,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               </div>
             </div>
 
+
+
             {/* 🔥 LIVE CART ACTIVITY BANNER */}
             <LiveCartActivityBanner activity={null} />
             {isUKUser && activeNextDayDeliveryEnabled && nextDayTimeLeft && (
@@ -2338,7 +2350,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               <div className="mb-4 inline-flex items-center gap-2 bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 px-3 py-1.5 rounded-full shadow-sm animate-pulse">
                 <span className="text-red-500 text-sm">🔥</span>
                 <span className="text-xs md:text-sm font-semibold text-red-700">
-                  {activeSaleCount} people bought this recently
+                  Popular choice •  {activeSaleCount} sold recently
                 </span>
               </div>
             ) : null}

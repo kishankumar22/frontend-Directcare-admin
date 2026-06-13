@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import ProductCard from "@/components/ProductCard";
 import { useVatRates } from "@/app/hooks/useVatRates";
 import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
-import { SlidersHorizontal, Star, X } from "lucide-react";
+import { Search, SlidersHorizontal, Star, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
@@ -406,46 +406,42 @@ useEffect(() => {
   </select>
 
 </div>
-
-        <div className="flex gap-8">
-          {/* FILTERS */}
-        <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar">
-  <Card className="shadow-sm flex flex-col h-full">
-    <CardContent className="p-0 flex flex-col h-full">
-
-      {/* HEADER (FIXED) */}
-      <div className="flex justify-between items-center border-b px-6 py-4">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-5 w-5 text-[#445D41]" />
-          <h2 className="font-bold">Filters</h2>
+<div className="flex gap-8">
+  {/* FILTERS */}
+  <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar">
+    <Card className="shadow-sm">
+      <CardContent className="p-4">
+        {/* HEADER */}
+        <div className="flex items-center justify-between pb-3 border-b mb-3">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-[#445D41]" />
+            <h2 className="font-semibold text-sm text-gray-900">Filters</h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 px-2"
+          >
+            Reset
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={resetFilters}
-          className="text-xs text-blue-600"
-        >
-          Reset
-        </Button>
-      </div>
 
-      {/* SCROLLABLE CONTENT */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-
-        {/* Category */}
+        {/* Category Filter */}
         {categories.length > 0 && (
-          <div>
-            <h3 className="font-bold text-sm mb-3">Category</h3>
-
-            {/* 👇 INTERNAL SCROLL (IMPORTANT) */}
-           <div className="max-h-60 overflow-y-auto pr-1 hide-scrollbar">
+          <div className="mb-4 pb-4 border-b border-gray-200">
+            <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+              Category
+            </h3>
+            <div className="max-h-52 overflow-y-auto pr-1 custom-scrollbar space-y-1.5">
               {categories.map((cat) => (
                 <label
                   key={cat.id}
-                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
+                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
                 >
                   <input
                     type="checkbox"
+                    className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
                     checked={selectedCategories.includes(cat.id)}
                     onChange={(e) =>
                       setSelectedCategories(
@@ -455,17 +451,19 @@ useEffect(() => {
                       )
                     }
                   />
-                  <span className="text-sm">{cat.name}</span>
+                  <span className="text-xs text-gray-700 truncate">{cat.name}</span>
                 </label>
               ))}
             </div>
           </div>
         )}
 
-        {/* Price */}
+        {/* Price Range */}
         {minPrice < maxPrice && (
-          <div>
-            <h3 className="font-bold text-sm mb-3">Price Range</h3>
+          <div className="mb-4 pb-4 border-b border-gray-200">
+            <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-3">
+              Price Range
+            </h3>
             <PremiumPriceSlider
               value={priceRange}
               min={minPrice}
@@ -475,73 +473,89 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Rating */}
-        <div>
-          <h3 className="font-bold text-sm mb-3">Minimum Rating</h3>
-          {[4, 3, 2, 1, 0].map((r) => (
-            <label
-              key={r}
-              className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
-            >
-              <input
-                type="radio"
-                checked={minRating === r}
-                onChange={() => setMinRating(r)}
-              />
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm">
-                {r === 0 ? "All Ratings" : `${r}+ Stars`}
-              </span>
-            </label>
-          ))}
-        </div>
-
-      </div>
-    </CardContent>
-  </Card>
-</aside>
-
-          {/* PRODUCTS */}
-          <div className="flex-1">
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-6">
-  {flattenedProducts.map((item) => (
-    <ProductCard
-      key={item.variantForCard?.id ?? item.productData.id}
-      product={item.productData}
-    vatRates={vatRates}
-      variantForCard={item.variantForCard}
-      cardSlug={item.cardSlug}
-    />
-  ))}
-</div>
-
-
-            {flattenedProducts.length === 0 && (
-              <div className="py-12 text-center text-gray-500">
-                No products found
-              </div>
-            )}
-
-          {hasMore && <div ref={loadMoreRef} />}
-          {isLoadingMore && (
-  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-6 mb-8">
-    {Array.from({ length: 3 }).map((_, i) => (
-      <div key={i} className="rounded-xl border bg-white animate-pulse">
-        <div className="h-44 bg-gray-200" />
-        <div className="p-3 space-y-2">
-          <div className="h-3 bg-gray-200 rounded w-4/5" />
-          <div className="h-3 bg-gray-200 rounded w-3/5" />
-          <div className="h-3 bg-gray-200 rounded w-1/3" />
-          <div className="h-4 bg-gray-200 rounded w-2/5" />
-        </div>
-      </div>
-    ))}
-  </div>
-)}
+        {/* Rating Filter */}
+        <div className="mb-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+            Minimum Rating
+          </h3>
+          <div className="space-y-1.5">
+            {[4, 3, 2, 1, 0].map((r) => (
+              <label
+                key={r}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
+              >
+                <input
+                  type="radio"
+                  name="rating"
+                  className="w-3.5 h-3.5 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                  checked={minRating === r}
+                  onChange={() => setMinRating(r)}
+                />
+                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                <span className="text-xs text-gray-700">
+                  {r === 0 ? "All Ratings" : `${r}+ Stars`}
+                </span>
+              </label>
+            ))}
           </div>
-          
         </div>
+      </CardContent>
+    </Card>
+  </aside>
+
+  {/* PRODUCTS */}
+  <div className="flex-1">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-6 md:mb-8">
+      {flattenedProducts.map((item) => (
+        <ProductCard
+          key={item.variantForCard?.id ?? item.productData.id}
+          product={item.productData}
+          vatRates={vatRates}
+          variantForCard={item.variantForCard}
+          cardSlug={item.cardSlug}
+        />
+      ))}
+    </div>
+
+    {flattenedProducts.length === 0 && (
+      <Card className="shadow-sm">
+        <CardContent className="p-8 md:p-10 text-center">
+          <div className="mb-3">
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Search className="h-7 w-7 text-gray-400" />
+            </div>
+            <p className="text-gray-700 font-semibold mb-1">No products found</p>
+          </div>
+          <Button
+            onClick={resetFilters}
+            className="bg-[#445D41] hover:bg-[#334a2c] text-white text-sm"
+          >
+            Reset All Filters
+          </Button>
+        </CardContent>
+      </Card>
+    )}
+
+    {hasMore && <div ref={loadMoreRef} className="h-10 w-full" />}
+    
+    {isLoadingMore && (
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mt-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-gray-200 overflow-hidden bg-white animate-pulse">
+            <div className="bg-gray-200 h-44 md:h-56 w-full" />
+            <div className="p-3 space-y-2">
+              <div className="h-3 bg-gray-200 rounded w-4/5" />
+              <div className="h-3 bg-gray-200 rounded w-3/5" />
+              <div className="h-3 bg-gray-200 rounded w-1/3" />
+              <div className="h-4 bg-gray-200 rounded w-2/5 mt-1" />
+              <div className="h-8 bg-gray-200 rounded-lg w-full mt-2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
         {(brandInfo?.description || brandInfo?.faqs?.length > 0) && (
   <div className="mt-16 space-y-5">
 
