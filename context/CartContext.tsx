@@ -370,9 +370,7 @@ connection.on(
           if (conflict) {
             const existingCartItem = cart.find(p => (p.productId ?? p.id)?.toLowerCase() === res.existingId.toLowerCase());
             toast.error(
-              `❌ Cannot add to cart: ${item.name} cannot be purchased with ${existingCartItem?.name || 'an item in your cart'}.${
-                conflict.reason ? ` Reason: ${conflict.reason}` : ""
-              }`
+              `❌ Cannot add to cart: ${item.name} cannot be purchased with ${existingCartItem?.name || 'an item in your cart'}.`
             );
             return; // Abort addToCart
           }
@@ -393,9 +391,7 @@ connection.on(
           if (conflict) {
             const existingCartItem = cart.find(p => (p.productId ?? p.id)?.toLowerCase() === existingId.toLowerCase());
             toast.error(
-              `❌ Cannot add to cart: ${item.name} cannot be purchased with ${existingCartItem?.name || 'an item in your cart'}.${
-                conflict.reason ? ` Reason: ${conflict.reason}` : ""
-              }`
+              `❌ Cannot add to cart: ${item.name} cannot be purchased with ${existingCartItem?.name || 'an item in your cart'}.`
             );
             return; // Abort addToCart
           }

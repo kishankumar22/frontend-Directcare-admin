@@ -205,7 +205,7 @@ const fetchReviews = useCallback(async () => {
 }
 
   const res = await productReviewsService.getAll(filters);
-  console.log("ressssssssssssss",res);
+
 
 if (res.data?.success) {
   const paged = res.data.data;
@@ -757,9 +757,10 @@ const isPlayableVideoUrl = (url: string) => {
               <button
                 className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 font-medium text-xs transition-all"
                  onClick={() => handleExportReviews('all')}
+                 title="Reviews list from list"
               >
                 <Download className="h-3.5 w-3.5" />
-                Export Reviews
+                Export Reviews 
         
               </button>
          

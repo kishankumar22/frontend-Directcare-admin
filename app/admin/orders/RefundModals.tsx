@@ -77,7 +77,7 @@ export default function UnifiedRefundModal({
   const [notes, setNotes] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [partialAmount, setPartialAmount] = useState<number>(0);
-const isStripe = order.paymentMethod?.toLowerCase() === 'stripe';
+
   const refundedAmount = refundHistory?.totalRefunded ?? 0;
   const remainingRefundable = Math.max(0, paidAmountCap - refundedAmount);
 useEffect(() => {
@@ -162,7 +162,7 @@ const handleConfirmRefund = () => {
           </div>
 
           {/* Tabs */}
-          {isStripe && (
+      
           <div className="flex gap-1 bg-slate-900/50 rounded-xl p-1 border border-slate-700/40">
             {availableTabs.map((tab) => {
               const cfg = TAB_CONFIG[tab];
@@ -184,33 +184,11 @@ const handleConfirmRefund = () => {
               );
             })}
           </div>
-          )}
+     
         </div>
 
         {/* ── Content ── */}
   <div className="p-5 space-y-4">
-
-  {!isStripe ? (
-    // 🔥 NON-STRIPE BLOCK UI
-    <div className="flex flex-col items-center justify-center text-center py-6 space-y-3">
-      
-      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-        <AlertTriangle className="h-6 w-6 text-red-400" />
-      </div>
-
-      <h4 className="text-white font-semibold text-sm">
-        Refund Not Available
-      </h4>
-
-      <p className="text-xs text-slate-400 max-w-xs">
-        Refund not supported for <span className="text-white font-medium">{order.paymentMethod}</span> payments. 
-        Only Stripe refunds are allowed.
-      </p>
-
-    </div>
-  ) : (
-    <>
-      {/* ✅ EXISTING TABS CONTENT (NO CHANGE) */}
           {/* FULL REFUND tab */}
           {activeTab === 'full' && (
             <div className="space-y-4">
@@ -306,21 +284,13 @@ const handleConfirmRefund = () => {
               <WarningBox lines={['Only the shipping charge will be refunded', 'Product amounts remain unchanged', 'This action cannot be undone']} />
             </div>
           )}
-
-    </>
-  )}
-
 </div>
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between px-5 py-4 border-t border-slate-700/60 bg-slate-900/40">
          <div>
-  {!isStripe ? (
-    <p className="text-sm text-red-400 font-medium">
-      Refund not supported for this payment method
-    </p>
-  ) : activeTab === 'partial' && partialAmount > 0 ? (
-              <div>
+   {activeTab === 'partial' && partialAmount > 0 ? (
+               <div>
                 <p className="text-[10px] text-slate-500 uppercase tracking-wide">Refunding</p>
                 <p className="text-lg font-bold text-orange-400 leading-tight">
                   {formatCurrency(partialAmount, order.currency)}
@@ -344,7 +314,7 @@ const handleConfirmRefund = () => {
             </button>
             <button
               onClick={() => setConfirmOpen(true)}
-             disabled={!isStripe || isSubmitDisabled}
+              disabled={isSubmitDisabled}
               className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed ${
                 activeTab === 'full'
                   ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-red-900/30 text-white'

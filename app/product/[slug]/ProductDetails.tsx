@@ -137,6 +137,13 @@ interface Product {
   weeklySaleCount?: number;
   hasSystemDiscount?: boolean;
   freeShippingThreshold?: number;
+  freeShippingThresholds?: {
+    deliveryOptionId: string;
+    name: string;
+    displayName: string;
+    threshold: number;
+    displayOrder: number;
+  }[];
   systemDiscountAmount?: number;
   compareAtPrice?: number | null;
   notReturnable?: boolean;
@@ -470,7 +477,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       month: "short",
     });
   };
-  
+
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -531,9 +538,9 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       const ship = new Date();
       setShipDate(formatUKDate(ship));
       const deliver = new Date();
-     deliver.setDate(deliver.getDate() + 1);
-    if (deliver.getDay() === 0) deliver.setDate(deliver.getDate() + 1); // skip Sunday
-    setDeliveryDate(formatUKDate(deliver));
+      deliver.setDate(deliver.getDate() + 1);
+      if (deliver.getDay() === 0) deliver.setDate(deliver.getDate() + 1); // skip Sunday
+      setDeliveryDate(formatUKDate(deliver));
     };
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 60_000);
@@ -1277,17 +1284,17 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     // BASE + FINAL PRICE
     const basePrice = resolveBasePrice(product, selected);
     const final = finalPrice;
-const variantText = [
-  selected?.option1Value,
-  selected?.option2Value,
-  selected?.option3Value,
-]
-  .filter(Boolean)
-  .join(", ");
+    const variantText = [
+      selected?.option1Value,
+      selected?.option2Value,
+      selected?.option3Value,
+    ]
+      .filter(Boolean)
+      .join(", ");
 
-const variantTitle = variantText
-  ? `(${variantText})`
-  : "";
+    const variantTitle = variantText
+      ? `(${variantText})`
+      : "";
     const allowNextDay =
       isUKUser && product.nextDayDeliveryEnabled === true;
     // 🔥 SPLIT QTY BETWEEN BUNDLE & STANDALONE
@@ -1306,20 +1313,20 @@ const variantTitle = variantText
       const bundleInstanceId = crypto.randomUUID();
       const bundleId = `bundle:${product.id}:${selected?.id ?? "base"}`;
       // 🔹 BUNDLE PARENT (MAIN PRODUCT)
-       addToCart({
-         id: bundleId,
-         type: "one-time",
-         purchaseContext: "bundle",
-         productId: product.id,
-         variantId: selected?.id ?? null,
-         name: `${product.name} ${variantTitle} (Bundle)`,
-         // keep `price` as base/original to avoid double-discounting after refresh
-         price: basePrice,
-         priceBeforeDiscount: basePrice,
-         finalPrice: final,
-         discountAmount:
-           currentDisplayType === "System" || appliedCoupon
-             ? discountAmount ?? 0
+      addToCart({
+        id: bundleId,
+        type: "one-time",
+        purchaseContext: "bundle",
+        productId: product.id,
+        variantId: selected?.id ?? null,
+        name: `${product.name} ${variantTitle} (Bundle)`,
+        // keep `price` as base/original to avoid double-discounting after refresh
+        price: basePrice,
+        priceBeforeDiscount: basePrice,
+        finalPrice: final,
+        discountAmount:
+          currentDisplayType === "System" || appliedCoupon
+            ? discountAmount ?? 0
             : 0,
         oldPrice: oldPriceValue ?? undefined,
 
@@ -1551,23 +1558,23 @@ const variantTitle = variantText
       id: `${product.id}-${selected?.id ?? "base"}-one`,
       type: "one-time",
       productId: product.id,
-  name: `${product.name}${selected &&
-  [
-    selected.option1Value,
-    selected.option2Value,
-    selected.option3Value,
-  ]
-    .filter(Boolean)
-    .join(", ")
-  ? ` (${[
-      selected.option1Value,
-      selected.option2Value,
-      selected.option3Value,
-    ]
-      .filter(Boolean)
-      .join(", ")})`
-  : ""
-}`,
+      name: `${product.name}${selected &&
+        [
+          selected.option1Value,
+          selected.option2Value,
+          selected.option3Value,
+        ]
+          .filter(Boolean)
+          .join(", ")
+        ? ` (${[
+          selected.option1Value,
+          selected.option2Value,
+          selected.option3Value,
+        ]
+          .filter(Boolean)
+          .join(", ")})`
+        : ""
+        }`,
       // keep `price` as base/original to avoid double-discounting after refresh
       price: basePrice,
       priceBeforeDiscount: basePrice,
@@ -2062,21 +2069,21 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             {/* TITLE + BADGES (same line on desktop, stacked on mobile) */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-0">
               {/* PRODUCT NAME */}
-             <h1 className="text-base md:text-xl font-semibold">
-  {(() => {
-    const variantText = [
-      selectedOptions.option1,
-      selectedOptions.option2,
-      selectedOptions.option3,
-    ]
-      .filter(Boolean)
-      .join(", ");
+              <h1 className="text-base md:text-xl font-semibold">
+                {(() => {
+                  const variantText = [
+                    selectedOptions.option1,
+                    selectedOptions.option2,
+                    selectedOptions.option3,
+                  ]
+                    .filter(Boolean)
+                    .join(", ");
 
-    return selectedVariant && variantText
-      ? `${product.name} (${variantText})`
-      : product.name;
-  })()}
-</h1>
+                  return selectedVariant && variantText
+                    ? `${product.name} (${variantText})`
+                    : product.name;
+                })()}
+              </h1>
             </div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
               {/* Brand */}
@@ -2092,8 +2099,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     <Star
                       key={star}
                       className={`h-4 w-4 ${star <= product.averageRating
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-gray-300"
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-gray-300"
                         }`}
                     />
                   ))}
@@ -2273,8 +2280,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                           key={opt}
                           onClick={() => updateSelection(1, opt)}
                           className={`px-3 py-1 rounded border text-sm ${selectedOptions.option1 === opt
-                              ? "bg-[#445D41] text-white border-[#445D41]"
-                              : "border-gray-300"
+                            ? "bg-[#445D41] text-white border-[#445D41]"
+                            : "border-gray-300"
                             }`}
                         >
                           {opt}
@@ -2302,8 +2309,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                           key={opt}
                           onClick={() => updateSelection(2, opt)}
                           className={`px-3 py-1 rounded border text-sm ${selectedOptions.option2 === opt
-                              ? "bg-[#445D41] text-white border-[#445D41]"
-                              : "border-gray-300"
+                            ? "bg-[#445D41] text-white border-[#445D41]"
+                            : "border-gray-300"
                             }`}
                         >
                           {opt}
@@ -2332,8 +2339,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                           key={opt}
                           onClick={() => updateSelection(3, opt)}
                           className={`px-3 py-1 rounded border text-sm ${selectedOptions.option3 === opt
-                              ? "bg-[#445D41] text-white border-[#445D41]"
-                              : "border-gray-300"
+                            ? "bg-[#445D41] text-white border-[#445D41]"
+                            : "border-gray-300"
                             }`}
                         >
                           {opt}
@@ -2346,14 +2353,15 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             )}
 
             {/* Sale Count Highlight */}
-            {activeSaleCount ? (
-              <div className="mb-4 inline-flex items-center gap-2 bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 px-3 py-1.5 rounded-full shadow-sm animate-pulse">
-                <span className="text-red-500 text-sm">🔥</span>
-                <span className="text-xs md:text-sm font-semibold text-red-700">
-                  Popular choice •  {activeSaleCount} sold recently
-                </span>
-              </div>
-            ) : null}
+{activeSaleCount ? (
+  <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-gradient-to-r from-red-50 to-orange-50 px-2.5 py-1 shadow-sm">
+    <span className="text-xs">🔥</span>
+
+    <span className="text-[11px] md:text-xs font-semibold text-red-700">
+      {activeSaleCount} items sold this week
+    </span>
+  </div>
+) : null}
 
             {/* Price Card */}
             <Card className="mb-4">
@@ -2366,8 +2374,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                       id="normal-purchase-card"
                       onClick={() => setPurchaseType("one")}
                       className={`w-full transition-all duration-300 rounded-2xl  ${purchaseType === "one"
-                          ? "border-2 border-[#445D41] bg-[#f8faf9] shadow-md"
-                          : "border border-gray-200 bg-white"
+                        ? "border-2 border-[#445D41] bg-[#f8faf9] shadow-md"
+                        : "border border-gray-200 bg-white"
                         }`}
                     >
                       {/* <<< Your current full card starts here >>> */}
@@ -2402,7 +2410,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 £{(oldPriceData.oldPrice * normalQty).toFixed(2)}
                               </span>
                             )}
-                            
+
                             {vatRate !== null && vatRate > 0 && !product.vatExempt && (
                               <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
                                 {vatRate}% VAT
@@ -2414,7 +2422,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 Earn {loyaltyPoints} pts
                               </span>
                             )}
-                            
+
                           </div>
 
                           {/* Qty + Stock — same row */}
@@ -2430,12 +2438,12 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                             />
                             {stockDisplay.show && (
                               <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${stockDisplay.type === "out" ? "bg-red-100 text-red-700"
-                                  : stockDisplay.type === "low" ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-green-100 text-green-700"
+                                : stockDisplay.type === "low" ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-green-100 text-green-700"
                                 }`}>
                                 <span className={`inline-block w-2 h-2 rounded-full ${stockDisplay.type === "out" ? "bg-red-600"
-                                    : stockDisplay.type === "low" ? "bg-yellow-600"
-                                      : "bg-green-600"
+                                  : stockDisplay.type === "low" ? "bg-yellow-600"
+                                    : "bg-green-600"
                                   }`}></span>
                                 {stockDisplay.text}
                               </div>
@@ -2495,8 +2503,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                       id="subscription-card"
                       onClick={() => setPurchaseType("subscription")}
                       className={`w-full transition-all duration-300 rounded-2xl ${purchaseType === "subscription"
-                          ? "border-2 border-[#445D41] bg-[#f8faf9] shadow-md"
-                          : "border border-gray-200 bg-white"
+                        ? "border-2 border-[#445D41] bg-[#f8faf9] shadow-md"
+                        : "border border-gray-200 bg-white"
                         }`}
                     >
                       <SubscriptionPurchaseCard
@@ -2518,50 +2526,50 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     <Card className="mb-2 border border-gray-200 rounded-2xl shadow-sm">
                       <CardContent className="p-3">
                         {/* Price + VAT + Loyalty — all compact inline */}
-<div className="flex flex-wrap items-center gap-1.5 mb-2">
-  <span className="text-lg md:text-2xl font-bold text-[#445D41]">
-    £{(finalPrice * normalQty).toFixed(2)}
-  </span>
+                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                          <span className="text-lg md:text-2xl font-bold text-[#445D41]">
+                            £{(finalPrice * normalQty).toFixed(2)}
+                          </span>
 
-  {(appliedCoupon || activeAutoDiscount) && (
-    <span className="text-xs text-gray-400 line-through">
-      £{(basePrice * normalQty).toFixed(2)}
-    </span>
-  )}
+                          {(appliedCoupon || activeAutoDiscount) && (
+                            <span className="text-xs text-gray-400 line-through">
+                              £{(basePrice * normalQty).toFixed(2)}
+                            </span>
+                          )}
 
-  {!appliedCoupon && !activeAutoDiscount && oldPriceData && (
-    <span className="text-xs text-gray-400 line-through">
-      £{(oldPriceData.oldPrice * normalQty).toFixed(2)}
-    </span>
-  )}
+                          {!appliedCoupon && !activeAutoDiscount && oldPriceData && (
+                            <span className="text-xs text-gray-400 line-through">
+                              £{(oldPriceData.oldPrice * normalQty).toFixed(2)}
+                            </span>
+                          )}
 
-{activeNextDayDeliveryFree && (
-  <span
-    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
-    style={{
-      animation: 'deliveryHighlight 2s ease-in-out infinite',
-    }}
-  >
-    <Truck className="h-3 w-3 text-blue-700" />
-    <span className="text-[11px] font-bold text-blue-700">
-       Next Day Delivery Free
-    </span>
-  </span>
-)}
+                          {activeNextDayDeliveryFree && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
+                              style={{
+                                animation: 'deliveryHighlight 2s ease-in-out infinite',
+                              }}
+                            >
+                              <Truck className="h-3 w-3 text-blue-700" />
+                              <span className="text-[11px] font-bold text-blue-700">
+                                Next Day Delivery Free
+                              </span>
+                            </span>
+                          )}
 
-  {vatRate !== null && vatRate > 0 && !product.vatExempt && (
-    <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
-      {vatRate}% VAT
-    </span>
-  )}
+                          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
+                            <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
+                              {vatRate}% VAT
+                            </span>
+                          )}
 
-  {loyaltyPoints && (
-    <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
-      <AwardIcon className="h-3 w-3 text-[#445D41]" />
-      Earn {loyaltyPoints} pts
-    </span>
-  )}
-</div>
+                          {loyaltyPoints && (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
+                              <AwardIcon className="h-3 w-3 text-[#445D41]" />
+                              Earn {loyaltyPoints} pts
+                            </span>
+                          )}
+                        </div>
                         {/* Quantity + Stock — same row, no label */}
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <div className="flex items-center border border-gray-300 rounded-lg">
@@ -2658,18 +2666,18 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                           {stockDisplay.show && (
                             <div
                               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold shadow-sm ${stockDisplay.type === "out"
-                                  ? "bg-red-100 text-red-700"
-                                  : stockDisplay.type === "low"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-green-50 border border-green-200 text-green-700"
+                                ? "bg-red-100 text-red-700"
+                                : stockDisplay.type === "low"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-green-50 border border-green-200 text-green-700"
                                 }`}
                             >
                               <span
                                 className={`inline-block w-2 h-2 rounded-full ${stockDisplay.type === "out"
-                                    ? "bg-red-600"
-                                    : stockDisplay.type === "low"
-                                      ? "bg-yellow-600"
-                                      : "bg-green-600"
+                                  ? "bg-red-600"
+                                  : stockDisplay.type === "low"
+                                    ? "bg-yellow-600"
+                                    : "bg-green-600"
                                   }`}
                               ></span>
                               {stockDisplay.text}
@@ -2757,9 +2765,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 
                     <p className="text-[12px] text-gray-500">
                       Over £
-                      {product.freeShippingThreshold ??
-                        selectedVariant?.freeShippingThreshold ??
-                        35}
+                      {product.freeShippingThresholds?.find((t: any) => t.name === "standard")?.threshold ?? 35}
                     </p>
                   </div>
                   <div className="flex flex-col items-center text-center gap-0.5">
@@ -2839,7 +2845,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                             className="flex items-center justify-between gap-3 bg-white rounded-lg p-3 border"
                           >
                             <div className="flex items-center gap-2">
-                           
+
                               {/* PRODUCT IMAGE */}
                               <div className="w-14 h-16 flex-shrink-0 rounded-lg border bg-white overflow-hidden">
                                 <Link href={`/product/${gp.slug}`}>

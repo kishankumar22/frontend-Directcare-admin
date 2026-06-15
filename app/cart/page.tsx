@@ -597,12 +597,16 @@ const availableCoupons = useMemo(() => {
       if (item.productData) {
         if (item.variantId && item.productData.variants?.length) {
           const v = item.productData.variants.find((x: any) => x.id === item.variantId);
-          if (v && v.freeShippingThreshold && v.freeShippingThreshold > 0) {
-            threshold = Math.max(threshold, v.freeShippingThreshold);
+          if (v) {
+            const standardThresh = v.freeShippingThresholds?.find((t: any) => t.name === "standard")?.threshold ?? v.freeShippingThreshold;
+            if (standardThresh && standardThresh > 0) {
+              threshold = Math.max(threshold, standardThresh);
+            }
           }
         }
-        if (item.productData.freeShippingThreshold && item.productData.freeShippingThreshold > 0) {
-          threshold = Math.max(threshold, item.productData.freeShippingThreshold);
+        const pdStandardThresh = item.productData.freeShippingThresholds?.find((t: any) => t.name === "standard")?.threshold ?? item.productData.freeShippingThreshold;
+        if (pdStandardThresh && pdStandardThresh > 0) {
+          threshold = Math.max(threshold, pdStandardThresh);
         }
       }
     }
@@ -1090,7 +1094,7 @@ const availableCoupons = useMemo(() => {
           {/* RIGHT: order summary + coupon input */}
           <div className="lg:col-span-1">
             <div className="bg-white border border-gray-200 rounded-xl shadow-md p-2 sticky top-24">
-              {/* Free Shipping Progress */}
+              {/* Free Shipping Progress */} 
               {freeShippingThreshold > 0 && (
                 <div className="mb-2 bg-[#f8fafc] border border-gray-200 rounded-lg p-2.5">
                   {cartTotal >= freeShippingThreshold ? (

@@ -281,7 +281,7 @@ export default function ExcelImportModal({ onClose, onSuccess }: ExcelImportModa
                   <Upload className="h-12 w-12 text-slate-400 mx-auto" />
                   <p className="text-white font-medium">Click to upload Excel file</p>
                   <p className="text-slate-400 text-sm">
-                    Supports .xlsx, .xls, and .csv files
+                    Supports .xlsx file
                   </p>
                 </div>
               )}

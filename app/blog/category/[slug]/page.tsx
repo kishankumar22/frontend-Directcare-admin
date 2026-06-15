@@ -12,7 +12,7 @@ function absoluteUrl(path?: string | null) {
 }
 
 async function fetchJSON(url: string) {
-  const res = await fetch(url, { next: { revalidate: 600 } }); 
+  const res = await fetch(url, { next: { revalidate: 60 } }); 
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
   return res.json();
 }

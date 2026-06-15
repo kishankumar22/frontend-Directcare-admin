@@ -145,7 +145,6 @@ export default function OrdersListPage() {
     status: "",
     fromDate: "",
     toDate: "",
-    deliveryMethod: "",
     paymentMethod: "",
     paymentStatus: "",
     pharmacyVerificationStatus: "" as PharmacyVerificationStatus | "",
@@ -290,11 +289,12 @@ export default function OrdersListPage() {
       const apiParams: any = {
         page: currentPage,
         pageSize: itemsPerPage,
-        status: filters.status || undefined,
-        fromDate: filters.fromDate || undefined,
-        toDate: filters.toDate || undefined,
-        searchTerm: debouncedSearch.trim() !== "" ? debouncedSearch : undefined,
       };
+
+      if (filters.status) apiParams.status = filters.status;
+      if (filters.fromDate) apiParams.fromDate = filters.fromDate;
+      if (filters.toDate) apiParams.toDate = filters.toDate;
+      if (debouncedSearch.trim() !== "") apiParams.searchTerm = debouncedSearch;
 
       if (filters.pharmacyVerificationStatus) {
         apiParams.pharmacyVerificationStatus = filters.pharmacyVerificationStatus;
@@ -320,12 +320,6 @@ export default function OrdersListPage() {
 
       if (responseData) {
         let filteredOrders = responseData.items || [];
-
-        if (filters.deliveryMethod) {
-          filteredOrders = filteredOrders.filter(
-            (o) => o.deliveryMethod === filters.deliveryMethod
-          );
-        }
 
         if (filters.paymentMethod) {
           filteredOrders = filteredOrders.filter((o) => {
@@ -368,7 +362,6 @@ export default function OrdersListPage() {
     filters.status,
     filters.fromDate,
     filters.toDate,
-    filters.deliveryMethod,
     filters.paymentMethod,
     filters.paymentStatus,
     filters.pharmacyVerificationStatus,
@@ -574,7 +567,6 @@ export default function OrdersListPage() {
       status: "",
       fromDate: "",
       toDate: "",
-      deliveryMethod: "",
       paymentMethod: "",
       paymentStatus: "",
       pharmacyVerificationStatus: "",
@@ -1153,22 +1145,7 @@ export default function OrdersListPage() {
             <option value="Cancelled">Cancelled</option>
           </select>
 
-          {/* DELIVERY METHOD */}
-          <select
-            value={filters.deliveryMethod}
-            onChange={(e) =>
-              setFilters((prev) => ({
-                ...prev,
-                deliveryMethod: e.target.value,
-              }))
-            }
-            className={`px-3 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
-        ${filters.deliveryMethod ? "border-cyan-500 bg-cyan-500/10" : "border-slate-700"}`}
-          >
-            <option value="">Delivery Method:All</option>
-            <option value="HomeDelivery">Home Delivery</option>
-            <option value="ClickAndCollect">Click & Collect</option>
-          </select>
+
 
           {/* PAYMENT METHOD */}
           <select

@@ -564,45 +564,63 @@ export default function OrderCard({
           : ""
         }`}
     >
-      {/* HEADER */}
-      <div className="flex flex-wrap justify-between gap-2">
-        <div>
-          <p className="font-semibold">Order Number: #{order.orderNumber}</p>
-          <p className="text-xs text-gray-500">
-            Ordered on: {new Date(order.orderDate).toLocaleDateString()}
-          </p>
-        </div>
+<div className="flex flex-wrap justify-between gap-3">
+  {/* LEFT SIDE */}
+  <div>
+    <p className="text-lg font-semibold text-gray-900">
+      Order Number: #{order.orderNumber}
+    </p>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {order.pharmacyVerificationStatus && order.pharmacyVerificationStatus !== "NotRequired" && (
-            <span
-              className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${
-                order.pharmacyVerificationStatus === "Approved" ? "bg-green-100 text-green-800 border-green-200" :
-                order.pharmacyVerificationStatus === "Rejected" ? "bg-red-100 text-red-800 border-red-200" :
-                "bg-orange-100 text-orange-800 border-orange-200"
-              }`}
-            >
-              Pharmacy: {order.pharmacyVerificationStatus}
-            </span>
-          )}
-          
-          <span
-            className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${getOrderStatusBadge(order.status)}`} >
-            {getOrderStatusLabel(order.status, order.statusName)}
-          </span>
-          
-          {order.pharmacyAnswers && order.pharmacyAnswers.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2"
-              onClick={() => setShowPharmacyModal(true)}
-            >
-              View Q&A
-            </Button>
-          )}
-        </div>
-      </div>
+    <p className="text-xs text-gray-500 mt-1">
+      Ordered on:{" "}
+      {new Date(order.orderDate).toLocaleDateString("en-GB")}
+    </p>
+  </div>
+
+  {/* RIGHT SIDE */}
+  <div className="flex flex-wrap items-center gap-2">
+
+    {/* PHARMACY STATUS */}
+    {order.pharmacyVerificationStatus &&
+      order.pharmacyVerificationStatus !== "NotRequired" && (
+        <span
+          className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-semibold border whitespace-nowrap ${
+            order.pharmacyVerificationStatus === "Approved"
+              ? "bg-green-100 text-green-800 border-green-200"
+              : order.pharmacyVerificationStatus === "Rejected"
+              ? "bg-red-100 text-red-800 border-red-200"
+              : "bg-orange-100 text-orange-800 border-orange-200"
+          }`}
+        >
+          <span>🏥</span>
+          Pharma Review: {order.pharmacyVerificationStatus}
+        </span>
+      )}
+
+    {/* ORDER STATUS */}
+    <span
+      className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-semibold border whitespace-nowrap ${getOrderStatusBadge(
+        order.status
+      )}`}
+    >
+      <span>📦</span>
+      Order: {getOrderStatusLabel(order.status, order.statusName)}
+    </span>
+
+    {/* VIEW QA */}
+    {order.pharmacyAnswers &&
+      order.pharmacyAnswers.length > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 px-3 text-xs font-medium border-gray-300 hover:bg-gray-50"
+          onClick={() => setShowPharmacyModal(true)}
+        >
+          View Q&A
+        </Button>
+      )}
+  </div>
+</div>
 
       {/* CANCELLATION REJECTED BANNER */}
       {order.cancellationRequestStatus === "Rejected" && (

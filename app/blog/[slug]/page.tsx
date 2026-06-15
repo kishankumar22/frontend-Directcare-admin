@@ -1,5 +1,5 @@
 //app\blog\[slug]\page.tsx
-export const revalidate = 300;
+export const revalidate = 60;
 
 import React from "react";
 import Link from "next/link";
@@ -19,7 +19,7 @@ export async function generateMetadata({
 
   const apiURL = `${API_BASE}/api/BlogPosts/slug/${encodeURIComponent(slug)}?includeComments=false`;
 
-  const res = await fetch(apiURL, { next: { revalidate: 300 } });
+  const res = await fetch(apiURL, { next: { revalidate: 60 } });
   const resp = await res.json();
   const post = resp?.data;
 
@@ -75,7 +75,7 @@ function absoluteUrl(path: string | null | undefined): string | null {
 
 async function fetchJSON(url: string): Promise<any> {
   try {
-    const res = await fetch(url, { next: { revalidate: 600 } });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     return res.json();
   } catch {

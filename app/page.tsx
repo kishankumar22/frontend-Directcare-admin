@@ -17,7 +17,7 @@ import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react
 import WhyChooseUs from "@/components/WhyChooseUs";
 import type { Metadata } from "next";
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 // ✅ Static feature section
 const features = [
@@ -95,7 +95,7 @@ interface HomeBanner {
 async function getBanners(baseUrl: string): Promise<Banner[]> {
   try {
     const res = await fetch(`${baseUrl}/api/Banners`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 60 },
     });
     const result = await res.json();
     return result.success ? result.data : [];
@@ -109,7 +109,7 @@ async function getProducts(baseUrl: string) {
     const res = await fetch(
       `${baseUrl}/api/Products?page=1&pageSize=20&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
       {
-        next: { revalidate: 3600 },
+        next: { revalidate: 60 },
       }
     );
     const result = await res.json();

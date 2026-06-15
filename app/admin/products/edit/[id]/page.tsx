@@ -3903,6 +3903,11 @@ if (
             isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
             { autoClose: 3000 }
           ); 
+            
+          toast.info('Product updated successfully. Changes will appear on the website within 1 minute.', {
+           autoClose: 5000,
+           position:'top-center'
+           })
           const updatedSnapshot = JSON.parse(
   JSON.stringify({
     ...formData,

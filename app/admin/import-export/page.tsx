@@ -898,7 +898,7 @@ const [selectedFields, setSelectedFields] = useState<string[]>(
                 </div>
               </>
             )}
-            <input type="file" accept=".xlsx" className="sr-only"
+            <input type="file" accept=".xlsx" className="hidden"
               onChange={e => { setUploadFile(e.target.files?.[0] || null); setResult(null); setUploadError(''); }} />
           </label>
 
@@ -1419,7 +1419,7 @@ function CategoriesBulkUpdateTab() {
   return (
     <div className="space-y-5">
       {/* Step cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2"> 
         {[
           { n: '1', icon: <FileDown className="h-5 w-5" />, title: 'Download Categories', desc: 'Download Excel file with all current categories', grad: 'from-pink-500/20 to-rose-500/20 border-pink-500/30', iconCol: 'text-pink-400' },
           { n: '2', icon: <FileSpreadsheet className="h-5 w-5" />, title: 'Apply Category Rules', desc: 'Set or clear categories path hierarchically', grad: 'from-fuchsia-500/20 to-purple-500/20 border-fuchsia-500/30', iconCol: 'text-fuchsia-400' },
@@ -1501,7 +1501,7 @@ function CategoriesBulkUpdateTab() {
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
-            className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-all py-10
+            className={`w-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-all py-10
               ${dragging
                 ? 'border-pink-500/60 bg-pink-500/10'
                 : uploadFile
@@ -1514,8 +1514,8 @@ function CategoriesBulkUpdateTab() {
                 <div className="flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500/20 border border-emerald-500/30">
                   <FileSpreadsheet className="h-6 w-6 text-emerald-400" />
                 </div>
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-emerald-300">{uploadFile.name}</p>
+                <div className="text-center w-full px-4 overflow-hidden">
+                  <p className="text-sm font-semibold text-emerald-300 truncate">{uploadFile.name}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{(uploadFile.size / 1024).toFixed(0)} KB · click to change</p>
                 </div>
               </>
@@ -1530,7 +1530,7 @@ function CategoriesBulkUpdateTab() {
                 </div>
               </>
             )}
-            <input type="file" accept=".xlsx" className="sr-only"
+            <input type="file" accept=".xlsx" className="hidden"
               onChange={e => { setUploadFile(e.target.files?.[0] || null); setResult(null); setUploadError(''); }} />
           </label>
 
@@ -1538,7 +1538,7 @@ function CategoriesBulkUpdateTab() {
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:from-emerald-500 hover:to-green-500 disabled:opacity-50 transition-all"
+              className="w-full inline-flex justify-center items-center gap-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:from-emerald-500 hover:to-green-500 disabled:opacity-50 transition-all"
             >
               {uploading ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
