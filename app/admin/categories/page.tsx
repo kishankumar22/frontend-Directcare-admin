@@ -1263,7 +1263,7 @@ useEffect(() => {
 
   {/* Title */}
   <div>
-    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
       Categories Management
     </h1>
     <p className="text-[12px] text-slate-500">Manage product categories</p>
@@ -1274,7 +1274,7 @@ useEffect(() => {
 
     <button
       onClick={() => router.push('/admin/brands')}
-      className="px-3 py-1.5 text-[11px] bg-violet-500/10 border border-violet-500/30 text-violet-300 rounded-md hover:bg-violet-500/20 transition-all flex items-center gap-1.5"
+      className="px-3 py-1.5 text-[11px] bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-300 rounded-md hover:bg-violet-100 dark:hover:bg-violet-500/20 transition-all flex items-center gap-1.5"
     >
       <Award className="h-3 w-3" />
     Go To  Brand Page
@@ -1282,7 +1282,7 @@ useEffect(() => {
 
     <button
       onClick={() => router.push('/admin/products')}
-      className="px-3 py-1.5 text-[11px] bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 rounded-md hover:bg-cyan-500/20 transition-all flex items-center gap-1.5"
+      className="px-3 py-1.5 text-[11px] bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-300 rounded-md hover:bg-cyan-100 dark:hover:bg-cyan-500/20 transition-all flex items-center gap-1.5"
     >
       <Package className="h-3 w-3" />
       Go To  Product Page
@@ -1293,7 +1293,7 @@ useEffect(() => {
         resetForm();
         setShowModal(true);
       }}
-      className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5"
+      className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-600 to-cyan-600 dark:from-violet-500 dark:to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5 shadow-md shadow-violet-500/20 dark:shadow-none"
     >
       <Plus className="h-3 w-3" />
       Add Category 
@@ -1677,10 +1677,10 @@ useEffect(() => {
             {/* View Details Modal - UPDATED WITH DELETE BUTTON */}
         {viewingCategory && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-violet-500/10">
+          <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-violet-500/10">
             
             {/* ========== FIXED HEADER WITH IMAGE ========== */}
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 rounded-t-2xl shrink-0">
+            <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-[#8b5cf6]/10 to-[#06b6d4]/10 rounded-t-2xl shrink-0">
               <div className="flex items-center gap-4">
                 {/* Category Image */}
                 {viewingCategory.imageUrl ? (
@@ -1738,7 +1738,7 @@ useEffect(() => {
                 {/* Close Button */}
                 <button
                   onClick={() => setViewingCategory(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all shrink-0"
+                  className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-red-500/10 dark:hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all shrink-0"
                   title="Close"
                 >
                   <X className="h-5 w-5" />
@@ -1752,22 +1752,22 @@ useEffect(() => {
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Basic Info */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                    <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs">ℹ</span>
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs text-white">ℹ</span>
                       Basic Information
                     </h3>
                     <div className="space-y-2">
                       
-        <div className="bg-slate-900/50 p-3 rounded-lg">
-        <p className="text-xs text-slate-400 mb-1">Name</p>
+        <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Name</p>
 
-        <p className="text-base font-bold text-white">
+        <p className="text-base font-bold text-slate-900 dark:text-white">
           {viewingCategory.name}
         </p>
 
         <div className="flex items-center gap-2">
-          <p className="text-sm font-mono text-slate-300 break-all">
+          <p className="text-sm font-mono text-slate-600 dark:text-slate-300 break-all">
             {viewingCategory.id}
           </p>
 
@@ -1775,7 +1775,7 @@ useEffect(() => {
             onClick={() => {
               navigator.clipboard.writeText(viewingCategory.id);
             }}
-            className="text-slate-400 hover:text-white transition"
+            className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition"
             title="Copy ID"
           >
             <Copy size={14} />
@@ -1784,13 +1784,13 @@ useEffect(() => {
         </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-900/50 p-3 rounded-lg">
-                          <p className="text-xs text-slate-400 mb-1">Slug</p>
-                          <p className="text-white text-sm font-mono break-all">{viewingCategory.slug}</p>
+                        <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Slug</p>
+                          <p className="text-slate-900 dark:text-white text-sm font-mono break-all">{viewingCategory.slug}</p>
                         </div>
-                        <div className="bg-slate-900/50 p-3 rounded-lg">
-                          <p className="text-xs text-slate-400 mb-1">Sort Order</p>
-                          <p className="text-white font-semibold">{viewingCategory.sortOrder}</p>
+                        <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sort Order</p>
+                          <p className="text-slate-900 dark:text-white font-semibold">{viewingCategory.sortOrder}</p>
                         </div>
                       </div>
                      
@@ -1798,23 +1798,23 @@ useEffect(() => {
                   </div>
 
                   {/* SEO Info */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                    <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-xs">🔍</span>
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-xs text-white">🔍</span>
                       SEO Information
                     </h3>
                     <div className="space-y-3">
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Title</p>
-                        <p className="text-white text-sm">{viewingCategory.metaTitle || <span className="text-slate-500 italic">Not set</span>}</p>
+                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meta Title</p>
+                        <p className="text-slate-900 dark:text-white text-sm">{viewingCategory.metaTitle || <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}</p>
                       </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Description</p>
-                        <p className="text-white text-sm">{viewingCategory.metaDescription || <span className="text-slate-500 italic">Not set</span>}</p>
+                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meta Description</p>
+                        <p className="text-slate-900 dark:text-white text-sm">{viewingCategory.metaDescription || <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}</p>
                       </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Keywords</p>
-                        <p className="text-white text-sm">{viewingCategory.metaKeywords || <span className="text-slate-500 italic">Not set</span>}</p>
+                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meta Keywords</p>
+                        <p className="text-slate-900 dark:text-white text-sm">{viewingCategory.metaKeywords || <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}</p>
                       </div>
                     </div>
                   </div>
@@ -1822,30 +1822,30 @@ useEffect(() => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Statistics */}
-                  <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-xl p-4">
-                    <h3 className="text-base font-bold text-white mb-3">Statistics</h3>
+                  <div className="bg-gradient-to-br from-[#8b5cf6]/10 to-[#06b6d4]/10 border border-violet-500/20 rounded-xl p-4">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Statistics</h3>
                     <div className="space-y-2">
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Products</span>
-                        <span className="text-xl font-bold text-white">{viewingCategory.productCount || 0}</span>
+                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg flex items-center justify-between border border-slate-100 dark:border-transparent">
+                        <span className="text-slate-600 dark:text-slate-300 text-sm">Products</span>
+                        <span className="text-xl font-bold text-slate-900 dark:text-white">{viewingCategory.productCount || 0}</span>
                       </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Status</span>
+                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg flex items-center justify-between border border-slate-100 dark:border-transparent">
+                        <span className="text-slate-600 dark:text-slate-300 text-sm">Status</span>
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
                           viewingCategory.isActive 
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' 
+                            : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${viewingCategory.isActive ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${viewingCategory.isActive ? 'bg-green-500 dark:bg-green-400' : 'bg-red-500 dark:bg-red-400'}`}></span>
                           {viewingCategory.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Homepage</span>
+                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg flex items-center justify-between border border-slate-100 dark:border-transparent">
+                        <span className="text-slate-600 dark:text-slate-300 text-sm">Homepage</span>
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
                           viewingCategory.showOnHomepage 
-                            ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' 
-                            : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                            ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20' 
+                            : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20'
                         }`}>
                           {viewingCategory.showOnHomepage ? (
                             <>
@@ -1861,38 +1861,38 @@ useEffect(() => {
                   </div>
 
                   {/* Activity */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                    <h3 className="text-base font-bold text-white mb-3">Activity Timeline</h3>
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Activity Timeline</h3>
                     <div className="space-y-2">
-                      <div className="bg-slate-900/50 p-2.5 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Created At</p>
-                        <p className="text-white text-xs font-medium">
+                      <div className="bg-white dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Created At</p>
+                        <p className="text-slate-900 dark:text-white text-xs font-medium">
                           {formatDate(viewingCategory.createdAt)}
                         </p>
                       </div>
-                      <div className="bg-slate-900/50 p-2.5 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Created By</p>
-                        <p className="text-white text-xs font-medium">{viewingCategory.createdBy || 'N/A'}</p>
+                      <div className="bg-white dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Created By</p>
+                        <p className="text-slate-900 dark:text-white text-xs font-medium">{viewingCategory.createdBy || 'N/A'}</p>
                       </div>
-                      <div className="bg-slate-900/50 p-2.5 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Updated At</p>
-                        <p className="text-white text-xs font-medium">
+                      <div className="bg-white dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Updated At</p>
+                        <p className="text-slate-900 dark:text-white text-xs font-medium">
                            {formatDate(viewingCategory.updatedAt)}
                         </p>
                       </div>
-                      <div className="bg-slate-900/50 p-2.5 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Updated By</p>
-                        <p className="text-white text-xs font-medium">{viewingCategory.updatedBy || 'N/A'}</p>
+                      <div className="bg-white dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Updated By</p>
+                        <p className="text-slate-900 dark:text-white text-xs font-medium">{viewingCategory.updatedBy || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
                   
                 </div>
                 {/* FULL WIDTH DESCRIPTION */}
-<div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+<div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
 
-  <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-    <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-xs">
+  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+    <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-xs text-white">
       📝
     </span>
     Description
@@ -1900,20 +1900,20 @@ useEffect(() => {
 
   {viewingCategory.description ? (
     <div
-      className="text-sm text-slate-200 leading-relaxed max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"
+      className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"
       dangerouslySetInnerHTML={{ __html: viewingCategory.description }}
     />
   ) : (
-    <p className="text-slate-500 text-sm italic">No description available</p>
+    <p className="text-slate-400 dark:text-slate-500 text-sm italic">No description available</p>
   )}
 
 </div>
                 {/* ================= FAQ ================= */}
-<div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+<div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
 
   <div className="flex justify-between items-center mb-3">
-    <h3 className="text-white font-semibold">FAQs</h3>
-    <span className="text-xs px-2 py-1 bg-slate-700 rounded text-slate-300">
+    <h3 className="text-slate-900 dark:text-white font-semibold">FAQs</h3>
+    <span className="text-xs px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">
       {viewingCategory.faqs?.length || 0}
     </span>
   </div>
@@ -1924,13 +1924,13 @@ useEffect(() => {
       {viewingCategory.faqs.map((faq: any, i: number) => (
         <details
           key={faq.id}
-          className="group bg-slate-900/50 rounded-lg border border-slate-700/40 overflow-hidden"
+          className="group bg-white dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700/40 overflow-hidden"
         >
 
           {/* QUESTION */}
           <summary className="cursor-pointer list-none p-3 flex justify-between items-center">
 
-            <p className="text-sm text-white font-medium">
+            <p className="text-sm text-slate-900 dark:text-white font-medium">
               {i + 1}. {faq.question}
             </p>
 
@@ -1938,8 +1938,8 @@ useEffect(() => {
 
               <span className={`text-[10px] px-2 py-0.5 rounded ${
                 faq.isActive
-                  ? "bg-green-500/10 text-green-400"
-                  : "bg-red-500/10 text-red-400"
+                  ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                  : "bg-red-500/10 text-red-600 dark:text-red-400"
               }`}>
                 {faq.isActive ? "Active" : "Inactive"}
               </span>
@@ -1952,7 +1952,7 @@ useEffect(() => {
           </summary>
 
           {/* ANSWER */}
-          <div className="px-3 pb-3 text-xs text-slate-400 border-t border-slate-700/40">
+          <div className="px-3 pb-3 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700/40">
             {faq.answer}
           </div>
 
@@ -1961,7 +1961,7 @@ useEffect(() => {
 
     </div>
   ) : (
-    <p className="text-slate-500 text-sm">No FAQs available</p>
+    <p className="text-slate-400 dark:text-slate-500 text-sm">No FAQs available</p>
   )}
 
 </div>
@@ -1971,11 +1971,11 @@ useEffect(() => {
             
 
             {/* ========== FIXED FOOTER ========== */}
-            <div className="p-4 border-t border-slate-700/50 bg-slate-800/30 rounded-b-2xl shrink-0">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30 rounded-b-2xl shrink-0">
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setViewingCategory(null)}
-                  className="px-4 py-2.5 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition-all font-medium flex items-center gap-2"
+                  className="px-4 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-white text-sm rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-all font-medium flex items-center gap-2"
                 >
                   <X className="h-4 w-4" />
                   Close

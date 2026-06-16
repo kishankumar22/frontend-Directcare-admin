@@ -50,7 +50,7 @@ export default function ShippingPage() {
 
           <ul className="list-disc pl-5 text-sm black space-y-2">
             <li>Standard Delivery: £2.99</li>
-            <li>Next Day Delivery: £3.75 (Order before 1 PM)</li>
+            <li>Next Day Delivery: £3.75 (Order before 3 PM)</li>
           </ul>
 
           <p className="text-sm black mt-4">
@@ -65,7 +65,7 @@ export default function ShippingPage() {
           </h2>
 
           <p className="text-sm black leading-relaxed">
-            Any orders placed before 1 pm from Monday to Friday will be dispatched the same day and delivered the following working day. Orders placed after 1 pm on a Friday or over the weekend will be delivered the next working day.
+            Any orders placed before 3 pm from Monday to Friday will be dispatched the same day and delivered the following working day. Orders placed after 3 pm on a Friday or over the weekend will be delivered the next working day.
           </p>
         </div>
 

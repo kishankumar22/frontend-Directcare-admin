@@ -184,25 +184,25 @@ const validateForm = (): boolean => {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
-        <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
+        <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-slate-50 dark:from-purple-500/10 to-cyan-50 dark:to-cyan-500/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center">
-                {isEditMode ? <Edit className="h-6 w-6 text-white" /> : <Plus className="h-6 w-6 text-white" />}
+              <div className="w-12 h-12 rounded-full bg-violet-100 dark:bg-gradient-to-r dark:from-purple-500 dark:to-cyan-500 flex items-center justify-center">
+                {isEditMode ? <Edit className="h-6 w-6 text-violet-600 dark:text-white" /> : <Plus className="h-6 w-6 text-violet-600 dark:text-white" />}
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                   {isEditMode ? "Edit Question" : "Create New Question"}
                 </h2>
-                <p className="text-slate-400 text-sm">
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
                   {isEditMode ? "Update question details" : "Add a new pharmacy question"}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+              className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
             >
               <X className="h-5 w-5" />
             </button>
@@ -212,7 +212,7 @@ const validateForm = (): boolean => {
         <div className="overflow-y-auto p-4 space-y-4">
           {/* Question Text */}
           <div>
-            <label className="block text-sm text-slate-300 font-semibold mb-2">
+            <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
               Question Text <span className="text-red-400">*</span>
             </label>
             <input
@@ -220,8 +220,8 @@ const validateForm = (): boolean => {
               value={formData.questionText}
               onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
               placeholder="e.g., Are you pregnant or breastfeeding?"
-              className={`w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                formErrors.questionText ? "border-red-500" : "border-slate-600"
+              className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                formErrors.questionText ? "border-red-500" : "border-slate-200 dark:border-slate-600"
               }`}
             />
             {formErrors.questionText && (
@@ -231,7 +231,7 @@ const validateForm = (): boolean => {
 
           {/* Answer Type Toggle */}
           <div>
-            <label className="block text-sm text-slate-300 font-semibold mb-2">
+            <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
               Answer Type <span className="text-red-400">*</span>
             </label>
             <div className="flex gap-2">
@@ -240,8 +240,8 @@ const validateForm = (): boolean => {
                 type="button"
                 className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   formData.answerType === "Options"
-                    ? "bg-violet-500/20 border-2 border-violet-500/50 text-violet-400"
-                    : "bg-slate-800/50 border-2 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500"
+                    ? "bg-violet-50 dark:bg-violet-500/20 border-2 border-violet-200 dark:border-violet-500/50 text-violet-700 dark:text-violet-400"
+                    : "bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-500"
                 }`}
               >
                 <List className="h-4 w-4" />
@@ -252,8 +252,8 @@ const validateForm = (): boolean => {
                 type="button"
                 className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   formData.answerType === "Text"
-                    ? "bg-cyan-500/20 border-2 border-cyan-500/50 text-cyan-400"
-                    : "bg-slate-800/50 border-2 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500"
+                    ? "bg-cyan-50 dark:bg-cyan-500/20 border-2 border-cyan-200 dark:border-cyan-500/50 text-cyan-700 dark:text-cyan-400"
+                    : "bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-500"
                 }`}
               >
                 <Type className="h-4 w-4" />
@@ -265,7 +265,7 @@ const validateForm = (): boolean => {
           <div className="grid grid-cols-2 gap-3">
             {/* Display Order */}
             <div>
-              <label className="block text-sm text-slate-300 font-semibold mb-2">
+              <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
                 Display Order <span className="text-red-400">*</span>
               </label>
               <input
@@ -273,8 +273,8 @@ const validateForm = (): boolean => {
                 min="1"
                 value={formData.displayOrder}
                 onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 1 })}
-                className={`w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  formErrors.displayOrder ? "border-red-500" : "border-slate-600"
+                className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                  formErrors.displayOrder ? "border-red-500" : "border-slate-200 dark:border-slate-600"
                 }`}
               />
               {formErrors.displayOrder && (
@@ -284,14 +284,14 @@ const validateForm = (): boolean => {
 
             {/* Active Status */}
             <div>
-              <label className="block text-sm text-slate-300 font-semibold mb-2">Status</label>
+              <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">Status</label>
               <button
                 onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
                 type="button"
                 className={`w-full px-4 py-2.5 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   formData.isActive
-                    ? "bg-green-500/10 border-2 border-green-500/50 text-green-400"
-                    : "bg-red-500/10 border-2 border-red-500/50 text-red-400"
+                    ? "bg-green-50 dark:bg-green-500/10 border-2 border-green-200 dark:border-green-500/50 text-green-700 dark:text-green-400"
+                    : "bg-red-50 dark:bg-red-500/10 border-2 border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-400"
                 }`}
               >
                 {formData.isActive ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
@@ -304,14 +304,14 @@ const validateForm = (): boolean => {
 {formData.answerType === "Options" ? (
   <div>
     <div className="flex items-center justify-between mb-2">
-      <label className="text-sm text-slate-300 font-semibold">
+      <label className="text-sm text-slate-700 dark:text-slate-300 font-semibold">
         Answer Options <span className="text-red-400">*</span>
       </label>
 
       <button
         onClick={addOption}
         type="button"
-        className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
+        className="px-3 py-1.5 bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/50 text-cyan-600 dark:text-cyan-400 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
       >
         <Plus className="h-3.5 w-3.5" />
         Add Option
@@ -322,10 +322,10 @@ const validateForm = (): boolean => {
       {formData.options.map((option, index) => (
         <div
           key={index}
-          className="flex items-center gap-2 p-2 rounded-lg border border-slate-700 bg-slate-900/40"
+          className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40"
         >
           {/* Index */}
-          <span className="w-8 h-8 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
+          <span className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
             {index + 1}
           </span>
 
@@ -343,10 +343,10 @@ const validateForm = (): boolean => {
               });
             }}
             placeholder="Option text"
-            className={`flex-1 px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+            className={`flex-1 px-3 py-2 bg-white dark:bg-slate-800/50 border rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
               formErrors[`option_${index}`]
                 ? "border-red-500"
-                : "border-slate-600"
+                : "border-slate-200 dark:border-slate-600"
             }`}
           />
 
@@ -355,7 +355,7 @@ const validateForm = (): boolean => {
             <button
               onClick={() => removeOption(index)}
               type="button"
-              className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+              className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
               title="Remove Option"
             >
               <X className="h-4 w-4" />
@@ -370,13 +370,13 @@ const validateForm = (): boolean => {
     )}
   </div>
 ) : (
-  <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
-    <div className="flex items-center gap-2 text-cyan-400">
+  <div className="p-4 bg-cyan-50 dark:bg-cyan-500/5 border border-cyan-200 dark:border-cyan-500/20 rounded-lg">
+    <div className="flex items-center gap-2 text-cyan-700 dark:text-cyan-400">
       <Type className="h-5 w-5" />
       <span className="font-semibold">Text Answer</span>
     </div>
 
-    <p className="text-slate-400 text-sm mt-1">
+    <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">
       Customers will type their answer in a free-text field. No predefined
       options needed.
     </p>
@@ -388,7 +388,7 @@ const validateForm = (): boolean => {
             <button
               onClick={onClose}
               type="button"
-              className="flex-1 px-4 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold"
+              className="flex-1 px-4 py-3 bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-all font-semibold"
             >
               Cancel
             </button>

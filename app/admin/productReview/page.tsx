@@ -691,16 +691,16 @@ const isPlayableVideoUrl = (url: string) => {
         {selectedReviews.length > 0 && (
          <div className="fixed top-[69px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
             <div className="flex justify-center px-2 pt-2">
-              <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900/95 px-4 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+              <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.1)] dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)] backdrop-blur-xl">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-violet-400" />
                   <div className="leading-tight">
-                    <p className="text-sm font-semibold text-white">{selectedReviews.length} review(s) selected</p>
-                    <p className="text-xs text-slate-400">Export selected reviews or clear the current selection</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedReviews.length} review(s) selected</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Export selected reviews or clear the current selection</p>
                   </div>
                 </div>
 
-                <div className="h-8 w-px bg-slate-700/80" />
+                <div className="h-8 w-px bg-slate-200 dark:bg-slate-700/80" />
 
                 <button
                   onClick={handleExportSelectedReviews}
@@ -713,7 +713,7 @@ const isPlayableVideoUrl = (url: string) => {
 
                 <button
                   onClick={() => setSelectedReviews([])}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white rounded-lg font-semibold transition-all"
                   title="Clear selected reviews"
                 >
                   Cancel
@@ -726,18 +726,18 @@ const isPlayableVideoUrl = (url: string) => {
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent leading-none">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent leading-none">
               Product Reviews
             </h1>
             <p className="text-slate-500 text-xs mt-0.5">
-              {serverTotal} reviews{productFilter !== "all" && <span className="text-violet-400"> · {getSelectedProductName()}</span>}
+              {serverTotal} reviews{productFilter !== "all" && <span className="text-violet-600 dark:text-violet-400"> · {getSelectedProductName()}</span>}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => { fetchProducts(); fetchReviews(); }}
               disabled={loadingReviews}
-              className="p-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white rounded-lg transition-all border border-slate-700/50 disabled:opacity-50"
+              className="p-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all border border-slate-200 dark:border-slate-700/50 disabled:opacity-50"
               title="Refresh"
             >
               {loadingReviews ? (
@@ -775,13 +775,13 @@ const isPlayableVideoUrl = (url: string) => {
 <div className="grid grid-cols-5 gap-2">
 
   {/* Total Reviews */}
-  <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
-    <div className="w-8 h-8 bg-violet-500/15 rounded-lg flex items-center justify-center">
-      <Star className="h-3.5 w-3.5 text-violet-400" />
+  <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm dark:shadow-none">
+    <div className="w-8 h-8 bg-violet-50 dark:bg-violet-500/15 rounded-lg flex items-center justify-center">
+      <Star className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
     </div>
     <div>
       <p className="text-[10px] text-slate-500 uppercase">Total</p>
-      <p className="text-lg font-bold text-white">{stats.totalReviews}</p>
+      <p className="text-lg font-bold text-slate-900 dark:text-white">{stats.totalReviews}</p>
     </div>
   </div>
 
@@ -791,18 +791,18 @@ const isPlayableVideoUrl = (url: string) => {
       setStatusFilter("pending");
       setCurrentPage(1);
     }}
-    className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${
+    className={`border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm dark:shadow-none ${
       statusFilter === "pending"
-        ? "bg-amber-500/10 border-amber-500/30"
-        : "bg-slate-900/60 border-slate-800"
+        ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30"
+        : "bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800"
     }`}
   >
-    <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center">
-      <Clock className="h-3.5 w-3.5 text-amber-400" />
+    <div className="w-8 h-8 bg-amber-50 dark:bg-amber-500/20 rounded-lg flex items-center justify-center">
+      <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
     </div>
     <div>
       <p className="text-[10px] text-slate-500 uppercase">Pending</p>
-      <p className="text-lg font-bold text-white">{stats.totalPending}</p>
+      <p className="text-lg font-bold text-slate-900 dark:text-white">{stats.totalPending}</p>
     </div>
   </button>
 
@@ -812,18 +812,18 @@ const isPlayableVideoUrl = (url: string) => {
       setStatusFilter("approved");
       setCurrentPage(1);
     }}
-    className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${
+    className={`border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm dark:shadow-none ${
       statusFilter === "approved"
-        ? "bg-green-500/10 border-green-500/30"
-        : "bg-slate-900/60 border-slate-800"
+        ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/30"
+        : "bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800"
     }`}
   >
-    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-      <CheckCircle className="h-3.5 w-3.5 text-green-400" />
+    <div className="w-8 h-8 bg-green-50 dark:bg-green-500/20 rounded-lg flex items-center justify-center">
+      <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
     </div>
     <div>
       <p className="text-[10px] text-slate-500 uppercase">Approved</p>
-      <p className="text-lg font-bold text-white">{stats.totalApproved}</p>
+      <p className="text-lg font-bold text-slate-900 dark:text-white">{stats.totalApproved}</p>
     </div>
   </button>
 
@@ -833,18 +833,18 @@ const isPlayableVideoUrl = (url: string) => {
       setVerifiedOnlyFilter(true);
       setCurrentPage(1);
     }}
-    className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${
+    className={`border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm dark:shadow-none ${
       verifiedOnlyFilter
-        ? "bg-cyan-500/10 border-cyan-500/30"
-        : "bg-slate-900/60 border-slate-800"
+        ? "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/30"
+        : "bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800"
     }`}
   >
-    <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
-      <Award className="h-3.5 w-3.5 text-cyan-400" />
+    <div className="w-8 h-8 bg-cyan-50 dark:bg-cyan-500/20 rounded-lg flex items-center justify-center">
+      <Award className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
     </div>
     <div>
       <p className="text-[10px] text-slate-500 uppercase">Verified</p>
-      <p className="text-lg font-bold text-white">{stats.totalVerified}</p>
+      <p className="text-lg font-bold text-slate-900 dark:text-white">{stats.totalVerified}</p>
     </div>
   </button>
 
@@ -854,23 +854,23 @@ const isPlayableVideoUrl = (url: string) => {
       setVerifiedOnlyFilter(false);
       setCurrentPage(1);
     }}
-    className="border rounded-xl px-4 py-3 flex items-center gap-3 bg-slate-900/60 border-slate-800"
+    className="border rounded-xl px-4 py-3 flex items-center gap-3 bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none"
   >
-    <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
-      <X className="h-3.5 w-3.5 text-red-400" />
+    <div className="w-8 h-8 bg-red-50 dark:bg-red-500/20 rounded-lg flex items-center justify-center">
+      <X className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
     </div>
     <div>
       <p className="text-[10px] text-slate-500 uppercase">Unverified</p>
-      <p className="text-lg font-bold text-white">{stats.totalUnverified}</p>
+      <p className="text-lg font-bold text-slate-900 dark:text-white">{stats.totalUnverified}</p>
     </div>
   </button>
 
 </div>
 
         {/* Reviews Section */}
-        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
           {/* Compact toolbar */}
-          <div className="flex items-center gap-2 p-3 border-b border-slate-800">
+          <div className="flex items-center gap-2 p-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2 flex-1 min-w-0">
 <div className="relative flex-1 min-w-[140px]" ref={productDropdownRef}>
   <div className="relative">
@@ -881,8 +881,8 @@ const isPlayableVideoUrl = (url: string) => {
       onFocus={() => { setShowProductDropdown(true); setProductSearchTerm(""); }}
       placeholder={loadingProducts ? "Loading..." : "All Products"}
       disabled={loadingProducts || loadingReviews}
-      className={`w-full px-3 py-2 pl-8 pr-7 bg-slate-800 border rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all ${
-        productFilter !== "all" ? "border-violet-500/60 bg-violet-500/10" : "border-slate-700 hover:border-slate-600"
+      className={`w-full px-3 py-2 pl-8 pr-7 bg-slate-50 dark:bg-slate-800 border rounded-lg text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all ${
+        productFilter !== "all" ? "border-violet-300 dark:border-violet-500/60 bg-violet-50 dark:bg-violet-500/10" : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
       } ${loadingProducts || loadingReviews ? "opacity-50 cursor-not-allowed" : ""}`}
     />
     <ShoppingBag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
@@ -894,9 +894,9 @@ const isPlayableVideoUrl = (url: string) => {
           setProductSearchTerm("");
           setCurrentPage(1);
         }}
-        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-all"
       >
-        <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+        <X className="h-3.5 w-3.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white" />
       </button>
     ) : (
       <ChevronDown
@@ -909,7 +909,7 @@ const isPlayableVideoUrl = (url: string) => {
 
   {/* ✅ Dropdown Menu */}
   {showProductDropdown && (
-    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
+    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
       {/* All Products Option */}
       <button
         onClick={() => {
@@ -918,8 +918,8 @@ const isPlayableVideoUrl = (url: string) => {
           setProductSearchTerm("");
           setCurrentPage(1);
         }}
-        className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
-          productFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
+        className={`w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-all ${
+          productFilter === "all" ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400" : "text-slate-700 dark:text-white"
         }`}
       >
         <div className="flex items-center gap-2">
@@ -939,20 +939,20 @@ const isPlayableVideoUrl = (url: string) => {
               setProductSearchTerm("");
               setCurrentPage(1);
             }}
-            className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
-              productFilter === product.productId ? "bg-purple-500/10 text-purple-400" : "text-white"
+            className={`w-full px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border-t border-slate-100 dark:border-slate-700 ${
+              productFilter === product.productId ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400" : "text-slate-700 dark:text-white"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
             <img
-  src={getImageUrl(product.productImageUrl)}
+  src={getImageUrl(product.productImageUrl) || "/placeholder.png"}
   alt={product.productName}
-  className="h-8 w-8 rounded-md object-cover border border-slate-700 flex-shrink-0"
+  className="h-8 w-8 rounded-md object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
   onError={(e) => (e.currentTarget.src = "/placeholder.png")}
 />
 
-<span className="text-sm truncate">{product.productName}</span>
+<span className="text-sm text-slate-900 dark:text-white truncate">{product.productName}</span>
               </div>
               <span className="text-[10px] text-slate-500 flex-shrink-0">{product.totalReviews} reviews</span>
             </div>
@@ -973,12 +973,12 @@ const isPlayableVideoUrl = (url: string) => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search name, title..."
-                  className="w-full px-3 py-2 pl-8 pr-7 bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
+                  className="w-full px-3 py-2 pl-8 pr-7 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-lg text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
                 />
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                 {searchTerm && (
-                  <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-700 rounded transition-all">
-                    <X className="h-3 w-3 text-slate-400 hover:text-white" />
+                  <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-all">
+                    <X className="h-3 w-3 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white" />
                   </button>
                 )}
               </div>
@@ -987,8 +987,8 @@ const isPlayableVideoUrl = (url: string) => {
                 <select
                   value={statusFilter}
                   onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                  className={`w-full px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
-                    statusFilter !== "all" ? "border-blue-500/60 bg-blue-500/10" : "border-slate-700 hover:border-slate-600"
+                  className={`w-full px-3 py-2 pr-7 bg-slate-50 dark:bg-slate-800 border rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
+                    statusFilter !== "all" ? "border-blue-300 dark:border-blue-500/60 bg-blue-50 dark:bg-blue-500/10" : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                   }`}
                 >
                   <option value="all">All Status</option>
@@ -1002,8 +1002,8 @@ const isPlayableVideoUrl = (url: string) => {
                 <select
                   value={ratingFilter}
                   onChange={(e) => { setRatingFilter(e.target.value); setCurrentPage(1); }}
-                  className={`w-full px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
-                    ratingFilter !== "all" ? "border-yellow-500/60 bg-yellow-500/10" : "border-slate-700 hover:border-slate-600"
+                  className={`w-full px-3 py-2 pr-7 bg-slate-50 dark:bg-slate-800 border rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
+                    ratingFilter !== "all" ? "border-yellow-300 dark:border-yellow-500/60 bg-yellow-50 dark:bg-yellow-500/10" : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                   }`}
                 >
                   <option value="all">All Ratings</option>
@@ -1016,7 +1016,7 @@ const isPlayableVideoUrl = (url: string) => {
                 <Star className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
               </div>
               {/* Verified */}
-              <label className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg cursor-pointer transition-all text-xs ${verifiedOnlyFilter ? 'bg-green-500/10 border-green-500/40 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
+              <label className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg cursor-pointer transition-all text-xs ${verifiedOnlyFilter ? 'bg-green-50 dark:bg-green-500/10 border-green-300 dark:border-green-500/40 text-green-700 dark:text-green-400' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'}`}>
                 <input type="checkbox" checked={verifiedOnlyFilter} onChange={(e) => { setVerifiedOnlyFilter(e.target.checked); setCurrentPage(1); }} className="w-3 h-3 text-green-500 rounded" />
                 Verified
               </label>
@@ -1027,10 +1027,10 @@ const isPlayableVideoUrl = (url: string) => {
   <div className="relative">
     <button
       onClick={() => setShowDatePicker(!showDatePicker)}
-      className={`w-full px-3 py-2 pl-7 pr-6 bg-slate-800 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all text-left whitespace-nowrap ${
+      className={`w-full px-3 py-2 pl-7 pr-6 bg-slate-50 dark:bg-slate-800 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all text-left whitespace-nowrap ${
         (dateRange.startDate || dateRange.endDate)
-          ? "border-cyan-500/60 bg-cyan-500/10 text-white"
-          : "border-slate-700 hover:border-slate-600 text-slate-400"
+          ? "border-cyan-300 dark:border-cyan-500/60 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-800 dark:text-white"
+          : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400"
       }`}
     >
       {getDateRangeLabel()}
@@ -1043,8 +1043,8 @@ const isPlayableVideoUrl = (url: string) => {
       <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2" strokeLinecap="round"/>
     </svg>
     {(dateRange.startDate || dateRange.endDate) ? (
-      <button onClick={(e) => { e.stopPropagation(); setDateRange({ startDate: "", endDate: "" }); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-700 rounded transition-all">
-        <X className="h-3 w-3 text-slate-400 hover:text-white" />
+      <button onClick={(e) => { e.stopPropagation(); setDateRange({ startDate: "", endDate: "" }); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-all">
+        <X className="h-3 w-3 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white" />
       </button>
     ) : (
       <ChevronDown className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none transition-transform ${showDatePicker ? "rotate-180" : ""}`} />
@@ -1054,11 +1054,11 @@ const isPlayableVideoUrl = (url: string) => {
 
   {/* Date Picker Dropdown */}
   {showDatePicker && (
-    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl p-4 z-50 min-w-[280px]">
+    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl p-4 z-50 min-w-[280px]">
       <div className="space-y-3">
         {/* From Date */}
         <div>
-          <label className="text-slate-400 text-xs font-medium mb-1.5 block">From Date</label>
+          <label className="text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5 block">From Date</label>
           <input
             type="date"
             value={dateRange.startDate}
@@ -1070,13 +1070,13 @@ const isPlayableVideoUrl = (url: string) => {
               }
             }}
             max={dateRange.endDate || new Date().toISOString().split('T')[0]}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
           />
         </div>
         
         {/* To Date */}
         <div>
-          <label className="text-slate-400 text-xs font-medium mb-1.5 block">To Date</label>
+          <label className="text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5 block">To Date</label>
           <input
             type="date"
             value={dateRange.endDate}
@@ -1089,7 +1089,7 @@ const isPlayableVideoUrl = (url: string) => {
             }}
             min={dateRange.startDate}
             max={new Date().toISOString().split('T')[0]}
-            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
           />
         </div>
 
@@ -1143,13 +1143,13 @@ const isPlayableVideoUrl = (url: string) => {
           </div>
 
           {/* Entries info bar */}
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-800/60 bg-slate-900/30">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-900/30">
             <div className="flex items-center gap-2 text-[11px] text-slate-500">
               <span>Show</span>
               <select
                 value={itemsPerPage}
                 onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-900 dark:text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -1195,7 +1195,7 @@ const isPlayableVideoUrl = (url: string) => {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-800 bg-slate-900/40">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
                     <th className="py-2 px-3 w-8">
                       <input type="checkbox" checked={selectedReviews.length === currentData.length && currentData.length > 0} onChange={toggleSelectAll} className="w-3.5 h-3.5 text-violet-500 rounded" />
                     </th>
@@ -1210,7 +1210,7 @@ const isPlayableVideoUrl = (url: string) => {
                 <tbody>
                   {currentData.map((review) => (
                     
-                    <tr key={review.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors group">
+                    <tr key={review.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors group">
                       <td className="py-2 px-3">
                         <input type="checkbox" checked={selectedReviews.includes(review.id)} onChange={() => toggleSelectReview(review.id)} className="w-3.5 h-3.5 text-violet-500 rounded" />
                       </td>
@@ -1221,15 +1221,15 @@ const isPlayableVideoUrl = (url: string) => {
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-white font-medium text-xs">{review.customerName}</p>
+                              <p className="text-slate-900 dark:text-white font-medium text-xs">{review.customerName}</p>
                               {review.isVerifiedPurchase && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 rounded text-green-400 text-[9px] font-medium">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 rounded text-green-700 dark:text-green-400 text-[9px] font-medium">
                                   <CheckCircle className="h-2.5 w-2.5" />Verified
                                 </span>
                               )}
                             </div>
-                            <p className="text-violet-400 text-[10px] font-medium truncate max-w-[200px]">{review.title}</p>
-                            <p className="text-slate-400 text-[11px] line-clamp-1 max-w-[280px]">{review.comment}</p>
+                            <p className="text-violet-700 dark:text-violet-400 text-[10px] font-medium truncate max-w-[200px]">{review.title}</p>
+                            <p className="text-slate-600 dark:text-slate-400 text-[11px] line-clamp-1 max-w-[280px]">{review.comment}</p>
                           </div>
                         </div>
                       </td>
@@ -1241,9 +1241,9 @@ const isPlayableVideoUrl = (url: string) => {
   <img
     src={getImageUrl(
       products.find(p => p.productId === review.productId)?.productImageUrl
-    )}
+    ) || "/placeholder.png"}
     alt="product"
-    className="h-8 w-8 rounded-md object-cover border border-slate-700 flex-shrink-0"
+    className="h-8 w-8 rounded-md object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
     onError={(e) => (e.currentTarget.src = "/placeholder.png")}
   />
 
@@ -1254,7 +1254,7 @@ const isPlayableVideoUrl = (url: string) => {
   href={`/product/${review.productSlug}`}
   target="_blank"
   rel="noopener noreferrer"
-  className="text-blue-400 hover:text-blue-300 text-xs truncate block"
+  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-xs truncate block"
 >
   {review.productName}
 </a>
@@ -1273,7 +1273,7 @@ const isPlayableVideoUrl = (url: string) => {
                         <p className="text-[10px] text-slate-500">{review.rating}/5</p>
                       </td>
                       <td className="py-2 px-3">
-                        <p className="text-slate-300 text-xs">  {formatDate(review.createdAt)}</p>
+                        <p className="text-slate-600 dark:text-slate-300 text-xs">  {formatDate(review.createdAt)}</p>
                         
                       </td>
                       <td className="py-2 px-3 text-center">
@@ -1347,18 +1347,18 @@ const isPlayableVideoUrl = (url: string) => {
 
         {/* Pagination */}
         {totalPages > 1 && !loadingReviews && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2">
+          <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-slate-500">Page {currentPage} of {totalPages}</span>
 
               <div className="flex items-center gap-1">
-                <button onClick={goToFirstPage} disabled={currentPage === 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronsLeft className="h-3.5 w-3.5" /></button>
-                <button onClick={goToPreviousPage} disabled={currentPage === 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="h-3.5 w-3.5" /></button>
+                <button onClick={goToFirstPage} disabled={currentPage === 1} className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronsLeft className="h-3.5 w-3.5" /></button>
+                <button onClick={goToPreviousPage} disabled={currentPage === 1} className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="h-3.5 w-3.5" /></button>
                 {getPageNumbers().map((page) => (
-                  <button key={page} onClick={() => goToPage(page)} className={`px-2.5 py-1 text-xs rounded-lg transition-all ${currentPage === page ? "bg-violet-500 text-white font-semibold" : "text-slate-400 hover:text-white hover:bg-slate-800"}`}>{page}</button>
+                  <button key={page} onClick={() => goToPage(page)} className={`px-2.5 py-1 text-xs rounded-lg transition-all ${currentPage === page ? "bg-violet-600 dark:bg-violet-500 text-white font-semibold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{page}</button>
                 ))}
-                <button onClick={goToNextPage} disabled={currentPage === totalPages} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="h-3.5 w-3.5" /></button>
-                <button onClick={goToLastPage} disabled={currentPage === totalPages} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronsRight className="h-3.5 w-3.5" /></button>
+                <button onClick={goToNextPage} disabled={currentPage === totalPages} className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="h-3.5 w-3.5" /></button>
+                <button onClick={goToLastPage} disabled={currentPage === totalPages} className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronsRight className="h-3.5 w-3.5" /></button>
               </div>
               <span className="text-xs text-slate-500">{totalItems} total</span>
             </div>
@@ -1368,14 +1368,14 @@ const isPlayableVideoUrl = (url: string) => {
         {/* Reply Modal */}
         {replyingTo && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-blue-500/20 rounded-3xl max-w-2xl w-full shadow-2xl shadow-blue-500/10">
-              <div className="p-6 border-b border-blue-500/20 bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
+            <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-blue-500/20 rounded-3xl max-w-2xl w-full shadow-2xl shadow-blue-500/10">
+              <div className="p-6 border-b border-slate-200 dark:border-blue-500/20 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-t-3xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-white">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                       Reply to Review
                     </h2>
-                    <p className="text-slate-400 text-sm mt-1">
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                       Replying to {replyingTo.customerName}
                     </p>
                   </div>
@@ -1384,7 +1384,7 @@ const isPlayableVideoUrl = (url: string) => {
                       setReplyingTo(null);
                       setReplyText("");
                     }}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1392,18 +1392,18 @@ const isPlayableVideoUrl = (url: string) => {
               </div>
 
               <div className="p-6 space-y-4">
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700">
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center gap-2 mb-2">
                     {renderStars(replyingTo.rating, "h-4 w-4")}
                   </div>
-                  <p className="text-violet-400 text-sm font-medium mb-1">
+                  <p className="text-violet-600 dark:text-violet-400 text-sm font-medium mb-1">
                     {replyingTo.title}
                   </p>
-                  <p className="text-white">{replyingTo.comment}</p>
+                  <p className="text-slate-700 dark:text-white">{replyingTo.comment}</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                     Your Reply
                   </label>
                   <textarea
@@ -1411,7 +1411,7 @@ const isPlayableVideoUrl = (url: string) => {
                     onChange={(e) => setReplyText(e.target.value)}
                     placeholder="Write your reply..."
                     rows={4}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
                   />
                 </div>
 
@@ -1421,7 +1421,7 @@ const isPlayableVideoUrl = (url: string) => {
                       setReplyingTo(null);
                       setReplyText("");
                     }}
-                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm"
+                    className="px-4 py-2 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-white rounded-lg dark:hover:bg-slate-600 transition-all font-medium text-sm"
                   >
                     Cancel
                   </button>
@@ -1457,20 +1457,20 @@ const isPlayableVideoUrl = (url: string) => {
 
   return (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-              <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+            <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+              <div className="p-6 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-[#8b5cf6]/10 to-[#06b6d4]/10 rounded-t-3xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
                       Review Details
                     </h2>
-                    <p className="text-slate-400 text-sm mt-1">
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                       View review information
                     </p>
                   </div>
                   <button
                     onClick={() => setViewingReview(null)}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1479,7 +1479,7 @@ const isPlayableVideoUrl = (url: string) => {
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <div className="space-y-4">
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
                         <span className="text-white text-lg font-bold">
@@ -1487,12 +1487,12 @@ const isPlayableVideoUrl = (url: string) => {
                         </span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-white font-medium">
+                        <p className="text-slate-900 dark:text-white font-medium">
                           {viewingReview.customerName}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           {renderStars(viewingReview.rating, "h-4 w-4")}
-                          <span className="text-slate-400 text-sm">
+                          <span className="text-slate-600 dark:text-slate-400 text-sm">
                             {viewingReview.rating}/5
                           </span>
                         </div>
@@ -1500,8 +1500,8 @@ const isPlayableVideoUrl = (url: string) => {
                       <span
                         className={`ml-auto px-3 py-1 rounded-lg text-xs font-medium ${
                           viewingReview.isApproved
-                            ? "bg-green-500/10 text-green-400"
-                            : "bg-yellow-500/10 text-yellow-400"
+                            ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400"
+                            : "bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
                         }`}
                       >
                         {viewingReview.isApproved ? "Approved" : "Pending"}
@@ -1510,15 +1510,15 @@ const isPlayableVideoUrl = (url: string) => {
 
                     <div className="space-y-3">
                       <div>
-                        <p className="text-slate-400 text-sm mb-1">Title</p>
-                        <p className="text-violet-400 font-medium">
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Title</p>
+                        <p className="text-violet-600 dark:text-violet-400 font-medium">
                           {viewingReview.title}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-slate-400 text-sm mb-1">Review</p>
-                        <p className="text-white">{viewingReview.comment}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Review</p>
+                        <p className="text-slate-900 dark:text-white">{viewingReview.comment}</p>
                       </div>
 
             {(images.length > 0 || videos.length > 0) && (
@@ -1529,7 +1529,7 @@ const isPlayableVideoUrl = (url: string) => {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <ImageIcon className="h-4 w-4 text-cyan-400" />
-          <p className="text-slate-400 text-sm">Images</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Images</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1542,10 +1542,10 @@ const isPlayableVideoUrl = (url: string) => {
                 href={finalUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="group block overflow-hidden rounded-xl border border-slate-700 bg-slate-900/60"
+                className="group block overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/60"
               >
                 <img
-                  src={finalUrl}
+                  src={finalUrl || "/placeholder.png"}
                   alt={`Review image ${index + 1}`}
                  onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                   className="h-32 w-full object-cover transition-transform duration-200 group-hover:scale-105"
@@ -1562,7 +1562,7 @@ const isPlayableVideoUrl = (url: string) => {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Video className="h-4 w-4 text-violet-400" />
-          <p className="text-slate-400 text-sm">Videos</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Videos</p>
         </div>
 
         <div className="space-y-3">
@@ -1572,21 +1572,21 @@ const isPlayableVideoUrl = (url: string) => {
             return (
               <div
                 key={`${vid}-${index}`}
-                className="rounded-xl border border-slate-700 bg-slate-900/60 p-3"
+                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/60 p-3"
               >
                 {isPlayableVideoUrl(finalUrl) ? (
                   <video
                     controls
                     preload="metadata"
                     className="w-full rounded-lg bg-black"
-                    src={finalUrl}
+                    src={finalUrl || undefined}
                   />
                 ) : (
                   <a
                     href={finalUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     Open video {index + 1}
                   </a>
@@ -1602,13 +1602,13 @@ const isPlayableVideoUrl = (url: string) => {
 )}
 
                       <div>
-                        <p className="text-slate-400 text-sm mb-1">Product</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Product</p>
                         <button
                           onClick={() => {
                             setProductFilter(viewingReview.productId);
                             setViewingReview(null);
                           }}
-                          className="text-blue-400 hover:text-blue-300 hover:underline"
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline text-left"
                         >
                           {viewingReview.productName || products.find((p) => p.productId === viewingReview.productId)?.productName || "Unknown Product"}
                         </button>
@@ -1616,18 +1616,18 @@ const isPlayableVideoUrl = (url: string) => {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-slate-400 text-sm mb-1">Date</p>
-                          <p className="text-white text-sm">
+                          <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Date</p>
+                          <p className="text-slate-900 dark:text-white text-sm">
                          {formatDate(viewingReview.createdAt)}
                           </p>
                         </div>
 
                         {viewingReview.isVerifiedPurchase && (
                           <div>
-                            <p className="text-slate-400 text-sm mb-1">
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">
                               Purchase
                             </p>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 border border-green-500/30 rounded text-green-400 text-xs font-medium">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded text-green-700 dark:text-green-400 text-xs font-medium">
                               <CheckCircle className="h-3 w-3" />
                               Verified
                             </span>
@@ -1637,14 +1637,14 @@ const isPlayableVideoUrl = (url: string) => {
 
                       {viewingReview.approvedAt && (
                         <div>
-                          <p className="text-slate-400 text-sm mb-1">
+                          <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">
                             Approved At
                           </p>
-                          <p className="text-white text-sm">
+                          <p className="text-slate-900 dark:text-white text-sm">
                            {formatDate(viewingReview.approvedAt)}
                           </p>
                           {viewingReview.approvedBy && (
-                            <p className="text-slate-500 text-xs mt-1">
+                            <p className="text-slate-600 dark:text-slate-500 text-xs mt-1">
                               By: {viewingReview.approvedBy}
                             </p>
                           )}
@@ -1652,17 +1652,17 @@ const isPlayableVideoUrl = (url: string) => {
                       )}
 
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                          <p className="text-slate-400 text-xs mb-1">Helpful</p>
-                          <p className="text-green-400 text-xl font-bold">
+                        <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg p-3">
+                          <p className="text-slate-600 dark:text-slate-400 text-xs mb-1">Helpful</p>
+                          <p className="text-green-600 dark:text-green-400 text-xl font-bold">
                             {viewingReview.helpfulCount}
                           </p>
                         </div>
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                          <p className="text-slate-400 text-xs mb-1">
+                        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-3">
+                          <p className="text-slate-600 dark:text-slate-400 text-xs mb-1">
                             Not Helpful
                           </p>
-                          <p className="text-red-400 text-xl font-bold">
+                          <p className="text-red-600 dark:text-red-400 text-xl font-bold">
                             {viewingReview.notHelpfulCount}
                           </p>
                         </div>
@@ -1670,26 +1670,26 @@ const isPlayableVideoUrl = (url: string) => {
 
                       {viewingReview.replies && viewingReview.replies.length > 0 && (
                         <div>
-                          <p className="text-slate-400 text-sm mb-2">
+                          <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">
                             Replies ({viewingReview.replies.length})
                           </p>
                           <div className="space-y-2">
                             {viewingReview.replies.map((reply) => (
                               <div
                                 key={reply.id}
-                                className="bg-slate-900/50 p-3 rounded-lg border border-slate-700"
+                                className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700"
                               >
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-sm font-medium text-white">
+                                  <span className="text-sm font-medium text-slate-900 dark:text-white">
                                     {reply.createdByName}
                                   </span>
                                   {reply.isAdminReply && (
-                                    <span className="px-2 py-0.5 bg-violet-500/10 border border-violet-500/30 rounded text-violet-400 text-xs font-medium">
+                                    <span className="px-2 py-0.5 bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 rounded text-violet-700 dark:text-violet-400 text-xs font-medium">
                                       Admin
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-slate-300 text-sm">
+                                <p className="text-slate-700 dark:text-slate-300 text-sm">
                                   {reply.comment}
                                 </p>
                                 <p className="text-slate-500 text-xs mt-1">
@@ -1703,7 +1703,7 @@ const isPlayableVideoUrl = (url: string) => {
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700/50">
                     {!viewingReview.isApproved && (
                       <button
                         onClick={() => {
@@ -1717,7 +1717,7 @@ const isPlayableVideoUrl = (url: string) => {
                     )}
                     <button
                       onClick={() => setViewingReview(null)}
-                      className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm"
+                      className="px-4 py-2 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-white rounded-lg dark:hover:bg-slate-600 transition-all font-medium text-sm"
                     >
                       Close
                     </button>
@@ -1731,16 +1731,16 @@ const isPlayableVideoUrl = (url: string) => {
 
 {showCreateModal && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh]">
+    <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-4xl w-full shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh]">
       
       {/* ✅ Fixed Modal Header */}
-      <div className="flex-shrink-0 p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-t-3xl">
+      <div className="flex-shrink-0 p-6 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-[#8b5cf6]/10 to-[#a855f7]/10 rounded-t-3xl">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
               Create Product Review
             </h2>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
               Add a new review for a product
             </p>
           </div>
@@ -1754,7 +1754,7 @@ const isPlayableVideoUrl = (url: string) => {
                 rating: 5
               });
             }}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1765,7 +1765,7 @@ const isPlayableVideoUrl = (url: string) => {
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
         {/* Product Dropdown */}
   <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
+  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
     Select Product <span className="text-red-400">*</span>
   </label>
   
@@ -1787,7 +1787,7 @@ const isPlayableVideoUrl = (url: string) => {
         }
       }}
       onFocus={() => setShowProductDropdown(true)}
-      className="w-full px-4 py-3 pl-10 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+      className="w-full px-4 py-3 pl-10 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
     />
     
     {/* Icon */}
@@ -1795,7 +1795,7 @@ const isPlayableVideoUrl = (url: string) => {
 
     {/* Dropdown List */}
     {showProductDropdown && (
-      <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-lg max-h-80 overflow-auto">
+      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-80 overflow-auto">
         {filteredFormProducts.length > 0 ? (
           filteredFormProducts.map((product) => (
             <button
@@ -1806,27 +1806,27 @@ const isPlayableVideoUrl = (url: string) => {
                 setProductSearch('');
                 setShowProductDropdown(false);
               }}
-              className={`w-full text-left px-4 py-3 hover:bg-violet-500/20 transition-colors border-b border-slate-800 last:border-b-0 ${
+              className={`w-full text-left px-4 py-3 hover:bg-violet-50 dark:hover:bg-violet-500/20 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-b-0 ${
                 formData.productId === product.id
-                  ? 'bg-violet-500/30 text-violet-300'
-                  : 'text-white'
+                  ? 'bg-violet-50 dark:bg-violet-500/30 text-violet-700 dark:text-violet-300'
+                  : 'text-slate-700 dark:text-white'
               }`}
             >
               <div className="flex justify-between items-center">
                 <div>
                   <div className="font-medium">{product.name}</div>
                   {product.sku && (
-                    <div className="text-xs text-slate-400 mt-0.5">SKU: {product.sku}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">SKU: {product.sku}</div>
                   )}
                 </div>
                 {product.price && (
-                  <div className="text-emerald-400 font-semibold">£{product.price}</div>
+                  <div className="text-emerald-600 dark:text-emerald-400 font-semibold">£{product.price}</div>
                 )}
               </div>
             </button>
           ))
         ) : (
-          <div className="px-4 py-3 text-slate-400 text-sm text-center">
+          <div className="px-4 py-3 text-slate-500 dark:text-slate-400 text-sm text-center">
             No products found
           </div>
         )}
@@ -1844,7 +1844,7 @@ const isPlayableVideoUrl = (url: string) => {
 
   {/* Helper text */}
   {formData.productId && (
-    <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
       </svg>
@@ -1862,7 +1862,7 @@ const isPlayableVideoUrl = (url: string) => {
 
         {/* Review Title */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
             Review Title <span className="text-red-400">*</span>
           </label>
           <input
@@ -1871,7 +1871,7 @@ const isPlayableVideoUrl = (url: string) => {
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             placeholder="e.g., Excellent product, highly recommended!"
             maxLength={100}
-            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+            className="w-full px-4 py-3 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
           />
           <p className="text-xs text-slate-500 mt-1">
             {formData.title.length} / 100 characters
@@ -1880,10 +1880,10 @@ const isPlayableVideoUrl = (url: string) => {
 
         {/* Rating */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-3">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
             Rating <span className="text-red-400">*</span>
           </label>
-          <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-xl">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 rounded-xl">
             <StarRating
               value={formData.rating}
               onChange={(rating) => setFormData({ ...formData, rating })}
@@ -1894,7 +1894,7 @@ const isPlayableVideoUrl = (url: string) => {
 
         {/* Comment */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
             Review Comment <span className="text-red-400">*</span>
           </label>
           <textarea
@@ -1903,7 +1903,7 @@ const isPlayableVideoUrl = (url: string) => {
             placeholder="Share your experience with this product..."
             rows={5}
             maxLength={1000}
-            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none"
+            className="w-full px-4 py-3 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none"
           />
           <p className="text-xs text-slate-500 mt-1">
             {formData.comment.length} / 1000 characters
@@ -1912,7 +1912,7 @@ const isPlayableVideoUrl = (url: string) => {
 
         {/* Preview Card */}
         {formData.title && formData.comment && (
-          <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-xl">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 rounded-xl">
             <p className="text-xs text-slate-500 mb-2">Preview:</p>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0">
@@ -1920,15 +1920,15 @@ const isPlayableVideoUrl = (url: string) => {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-white font-semibold text-sm">Admin</p>
+                  <p className="text-slate-900 dark:text-white font-semibold text-sm">Admin</p>
                   <div className="flex items-center">
                     {[...Array(formData.rating)].map((_, i) => (
                       <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                     ))}
                   </div>
                 </div>
-                <p className="text-white font-medium text-sm mb-1">{formData.title}</p>
-                <p className="text-slate-400 text-xs line-clamp-2">{formData.comment}</p>
+                <p className="text-slate-900 dark:text-white font-medium text-sm mb-1">{formData.title}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-xs line-clamp-2">{formData.comment}</p>
               </div>
             </div>
           </div>
@@ -1936,7 +1936,7 @@ const isPlayableVideoUrl = (url: string) => {
       </div>
 
       {/* ✅ Fixed Modal Footer */}
-      <div className="flex-shrink-0 p-6 border-t border-slate-700/50 bg-slate-900/50 flex justify-end gap-3 rounded-b-3xl">
+      <div className="flex-shrink-0 p-6 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3 rounded-b-3xl">
         <button
           onClick={() => {
             setShowCreateModal(false);
@@ -1947,7 +1947,7 @@ const isPlayableVideoUrl = (url: string) => {
               rating: 5
             });
           }}
-          className="px-5 py-2.5 bg-slate-700 text-white rounded-xl hover:bg-slate-600 transition-all font-medium text-sm"
+          className="px-5 py-2.5 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-white rounded-xl dark:hover:bg-slate-600 transition-all font-medium text-sm"
         >
           Cancel
         </button>
@@ -1976,16 +1976,16 @@ const isPlayableVideoUrl = (url: string) => {
 {/* ✅ Approve Confirmation Modal */}
 {approveConfirm && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-green-500/20 rounded-3xl max-w-md w-full shadow-2xl shadow-green-500/10">
+    <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-green-500/20 rounded-3xl max-w-md w-full shadow-2xl shadow-green-500/10">
       {/* Header */}
-      <div className="p-6 border-b border-green-500/20 bg-gradient-to-r from-green-500/10 to-emerald-500/10">
+      <div className="p-6 border-b border-slate-200 dark:border-green-500/20 bg-gradient-to-r from-green-50 dark:from-green-500/10 to-emerald-50 dark:to-emerald-500/10 rounded-t-3xl">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-            <CheckCircle className="h-6 w-6 text-green-400" />
+          <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-500/10 flex items-center justify-center">
+            <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">Approve Review</h2>
-            <p className="text-slate-400 text-sm mt-0.5">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Approve Review</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
               Confirm review approval
             </p>
           </div>
@@ -1994,8 +1994,8 @@ const isPlayableVideoUrl = (url: string) => {
 
       {/* Content */}
       <div className="p-6">
-        <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700 mb-6">
-          <p className="text-slate-300 text-sm mb-3">
+        <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-6">
+          <p className="text-slate-700 dark:text-slate-300 text-sm mb-3">
             Are you sure you want to approve this review?
           </p>
           <div className="space-y-2">
@@ -2003,7 +2003,7 @@ const isPlayableVideoUrl = (url: string) => {
               <span className="text-slate-500 text-xs mt-0.5">👤</span>
               <div>
                 <p className="text-xs text-slate-500">Customer</p>
-                <p className="text-white text-sm font-medium">
+                <p className="text-slate-900 dark:text-white text-sm font-medium">
                   {approveConfirm.customer}
                 </p>
               </div>
@@ -2012,7 +2012,7 @@ const isPlayableVideoUrl = (url: string) => {
               <span className="text-slate-500 text-xs mt-0.5">📝</span>
               <div>
                 <p className="text-xs text-slate-500">Review Title</p>
-                <p className="text-white text-sm">
+                <p className="text-slate-900 dark:text-white text-sm">
                   {approveConfirm.title}
                 </p>
               </div>
@@ -2020,8 +2020,8 @@ const isPlayableVideoUrl = (url: string) => {
           </div>
         </div>
 
-        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-6">
-          <p className="text-green-400 text-xs flex items-center gap-2">
+        <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-xl p-3 mb-6">
+          <p className="text-green-700 dark:text-green-400 text-xs flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
             This review will be published and visible to customers
           </p>
@@ -2032,7 +2032,7 @@ const isPlayableVideoUrl = (url: string) => {
           <button
             onClick={() => setApproveConfirm(null)}
             disabled={isApproving}
-            className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-all font-medium text-sm disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white rounded-xl transition-all font-medium text-sm disabled:opacity-50"
           >
             Cancel
           </button>

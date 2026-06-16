@@ -379,8 +379,8 @@ const StatusBadge = ({
 <div
   className="
     absolute top-full mt-2 z-[9999] w-80 p-3 
-    bg-slate-800/95 backdrop-blur-sm 
-    border border-slate-600 
+    bg-slate-50 dark:bg-slate-800\/95 backdrop-blur-sm 
+    border border-slate-300 dark:border-slate-600 
     rounded-lg shadow-2xl
     left-1/2 -translate-x-1/2
     group-last:left-auto group-last:right-0 group-last:translate-x-0
@@ -415,12 +415,12 @@ const StatusBadge = ({
         {label}: {statusInfo.label}
       </p>
 
-      <p className="text-xs text-slate-300 leading-relaxed">
+      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
         {statusInfo.description}
       </p>
 
       {statusInfo.nextAction && (
-        <div className="mt-2 pt-2 border-t border-slate-700">
+        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
           <p className="text-xs text-cyan-400 flex items-center gap-1">
             <Zap className="h-3 w-3" />
             Next: {statusInfo.nextAction}
@@ -619,7 +619,7 @@ if (order.paymentStatus === 'Pending' && isOrderActive) {
     label: 'View Edit History',
     action: 'view-edit-history',
     icon: <History className="h-3.5 w-3.5" />,
-    color: 'bg-slate-600 hover:bg-slate-700',
+    color: 'bg-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700',
     category: 'financial',
   });
 
@@ -684,14 +684,14 @@ const RegenerateInvoiceModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 bg-indigo-500/10 rounded-lg">
             <Receipt className="h-6 w-6 text-indigo-400" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">Resend Invoice</h3>
-            <p className="text-sm text-slate-400">Order #{orderNumber}</p>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Resend Invoice</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Order #{orderNumber}</p>
           </div>
         </div>
 
@@ -704,7 +704,7 @@ const RegenerateInvoiceModal = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Notes (Optional)
             </label>
             <textarea
@@ -712,7 +712,7 @@ const RegenerateInvoiceModal = ({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Reason for regeneration..."
               rows={3}
-              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800\/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
@@ -721,9 +721,9 @@ const RegenerateInvoiceModal = ({
               type="checkbox"
               checked={sendToCustomer}
               onChange={(e) => setSendToCustomer(e.target.checked)}
-              className="rounded bg-slate-800 border-slate-700 text-indigo-500 focus:ring-indigo-500"
+              className="rounded bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-indigo-500 focus:ring-indigo-500"
             />
-            <span className="text-sm text-slate-300">
+            <span className="text-sm text-slate-700 dark:text-slate-300">
               Send updated invoice to customer via email
             </span>
           </label>
@@ -734,14 +734,14 @@ const RegenerateInvoiceModal = ({
           <button
             onClick={handleClose}
             disabled={loading}
-            className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white rounded-lg transition-all disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={loading}
-            className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-slate-900 dark:text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -1292,7 +1292,7 @@ const canRefund = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-violet-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading order details...</p>
+          <p className="text-slate-500 dark:text-slate-400">Loading order details...</p>
         </div>
       </div>
     );
@@ -1303,11 +1303,11 @@ const canRefund = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Order Not Found</h2>
-          <p className="text-slate-400 mb-6">The order you're looking for doesn't exist.</p>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Order Not Found</h2>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">The order you're looking for doesn't exist.</p>
           <button
             onClick={() => router.push('/admin/orders')}
-            className="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all"
+            className="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-slate-900 dark:text-white rounded-lg transition-all"
           >
             Back to Orders
           </button>
@@ -1353,10 +1353,10 @@ const allActions = getAllAvailableActions(
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/admin/orders')}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors group"
+            className="p-2 hover:bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors group"
             title="Back to Orders List"
           >
-            <ArrowLeft className="h-5 w-5 text-slate-400 group-hover:text-white transition-colors" />
+            <ArrowLeft className="h-5 w-5 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:text-white transition-colors" />
           </button>
           <div>
             <div className="flex items-center gap-2">
@@ -1365,7 +1365,7 @@ const allActions = getAllAvailableActions(
               </h1>
               <Hash className="h-3 w-3 text-slate-500" />
             </div>
-            <p className="text-slate-400 text-sm mt-1 flex items-center gap-1.5">
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5" />
               Complete order information and management
             </p>
@@ -1421,14 +1421,14 @@ const allActions = getAllAvailableActions(
 
       {/* ✅ CONSOLIDATED ACTION BUTTONS (Single Row, Dynamic) */}
 {allActions.length > 0 && (
-  <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-2 backdrop-blur-sm">
+  <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 backdrop-blur-sm">
     
     {/* Header */}
     <div className="flex items-center gap-2 mb-3">
       <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
         <Zap className="h-4 w-4 text-cyan-400" />
       </div>
-      <h3 className="text-base font-bold text-white">Quick Actions</h3>
+      <h3 className="text-base font-bold text-slate-900 dark:text-white">Quick Actions</h3>
     </div>
 
     {/* Action Buttons */}
@@ -1438,7 +1438,7 @@ const allActions = getAllAvailableActions(
           key={index}
           onClick={() => handleAction(btn.action)}
           disabled={btn.action === 'download-invoice' && downloadingInvoice}
-          className={`px-3 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100`}
+          className={`px-3 py-2 ${btn.color} text-slate-900 dark:text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100`}
           title={`Click to ${btn.label.toLowerCase()}`}
         >
           {btn.action === 'download-invoice' && downloadingInvoice
@@ -1511,7 +1511,7 @@ const allActions = getAllAvailableActions(
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
               showPharmaQA
                 ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
-                : 'bg-slate-700/50 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500'
+                : 'bg-slate-100/50 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white hover:border-slate-400 dark:hover:border-slate-500'
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
@@ -1521,7 +1521,7 @@ const allActions = getAllAvailableActions(
 
         {/* ── Expandable Q&A Panel ── */}
         {showPharmaQA && (
-          <div className="border-t border-slate-700/50 px-4 py-4 space-y-4 bg-slate-900/40">
+          <div className="border-t border-slate-200 dark:border-slate-700\/50 px-4 py-4 space-y-4 bg-white dark:bg-slate-900\/40">
 
             {/* Q&A Responses */}
             {order.pharmacyResponses && order.pharmacyResponses.length > 0 ? (
@@ -1539,14 +1539,14 @@ const allActions = getAllAvailableActions(
                       {order.pharmacyResponses!
                         .filter((r) => r.productName === productName)
                         .map((r, i) => (
-                          <div key={i} className="flex items-start justify-between gap-4 bg-slate-800/60 rounded-lg px-3 py-2.5 border border-slate-700/40">
-                            <p className="text-slate-300 text-xs flex-1">{r.questionText}</p>
+                          <div key={i} className="flex items-start justify-between gap-4 bg-slate-50 dark:bg-slate-800\/60 rounded-lg px-3 py-2.5 border border-slate-200 dark:border-slate-700\/40">
+                            <p className="text-slate-700 dark:text-slate-300 text-xs flex-1">{r.questionText}</p>
                             <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
                               r.answerText?.toLowerCase() === 'yes'
                                 ? 'bg-red-500/15 text-red-400 border border-red-500/30'
                                 : r.answerText?.toLowerCase() === 'no'
                                 ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                                : 'bg-slate-700 text-slate-300 border border-slate-600'
+                                : 'bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
                             }`}>
                               {r.answerText || '—'}
                             </span>
@@ -1577,17 +1577,17 @@ const allActions = getAllAvailableActions(
 
             {/* Approve / Reject Buttons — only for Pending */}
             {order.pharmacyVerificationStatus === 'Pending' && (
-              <div className="flex gap-2 pt-1 border-t border-slate-700/50">
+              <div className="flex gap-2 pt-1 border-t border-slate-200 dark:border-slate-700\/50">
                 <button
                   onClick={() => setPharmaAction('approve')}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-green-500/20"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-slate-900 dark:text-white rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-green-500/20"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   Approve Order
                 </button>
                 <button
                   onClick={() => setPharmaAction('reject')}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-red-500/20"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-slate-900 dark:text-white rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-red-500/20"
                 >
                   <XCircle className="w-4 h-4" />
                   Reject Order
@@ -1603,41 +1603,41 @@ const allActions = getAllAvailableActions(
     {/* ✅ Order Info Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Customer Information */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-violet-500/30 transition-all group">
-          <div className="flex items-center pb-2 border-b  border-slate-600 gap-2 mb-3">
+        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-violet-500/30 transition-all group">
+          <div className="flex items-center pb-2 border-b  border-slate-300 dark:border-slate-600 gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg group-hover:scale-110 transition-transform">
-              <User className="h-4 w-4 text-white" />
+              <User className="h-4 w-4 text-slate-900 dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-white">Customer Information</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Customer Information</h3>
           </div>
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                 <User className="h-3 w-3" />
                 Full Name
               </p>
-              <p className="text-white font-medium">{order.customerName}</p>
+              <p className="text-slate-900 dark:text-white font-medium">{order.customerName}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                 <Mail className="h-3 w-3" />
                 Email Address
               </p>
-              <p className="text-white font-medium flex items-center gap-2 text-sm break-all">                
+              <p className="text-slate-900 dark:text-white font-medium flex items-center gap-2 text-sm break-all">                
                 {order.customerEmail}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                 <Phone className="h-3 w-3" />
                 Phone Number
               </p>
-              <p className="text-white font-medium flex items-center gap-2 text-sm">             
+              <p className="text-slate-900 dark:text-white font-medium flex items-center gap-2 text-sm">             
                 {order.customerPhone || 'Not provided'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                 <Shield className="h-3 w-3" />
                 Account Type
               </p>
@@ -1666,24 +1666,24 @@ const allActions = getAllAvailableActions(
         </div>
 
         {/* Order Summary */}
-        <div className="bg-slate-900/50 border  border-slate-800 rounded-lg p-4 hover:border-green-500/30 transition-all group">
-          <div className="flex items-center mb-3 pb-2 border-b  border-slate-600 gap-2 mb-3">
+        <div className="bg-white dark:bg-slate-900/50 border  border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-green-500/30 transition-all group">
+          <div className="flex items-center mb-3 pb-2 border-b  border-slate-300 dark:border-slate-600 gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br  from-green-500 to-emerald-500 rounded-lg group-hover:scale-110 transition-transform">
-              <PoundSterling className="h-4 w-4 text-white" />
+              <PoundSterling className="h-4 w-4 text-slate-900 dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-white">Order Summary</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Order Summary</h3>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between" title="Total before taxes and fees">
-              <span className="text-slate-400">Subtotal</span>
-              <span className="text-white font-medium">
+              <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
+              <span className="text-slate-900 dark:text-white font-medium">
                 {formatCurrency(order.subtotalAmount, order.currency)}
               </span>
             </div>
        
 {order.deliveryMethod !== 'ClickAndCollect' && (
   <div className="flex justify-between items-center" title="Shipping charge">
-    <span className="text-slate-400">
+    <span className="text-slate-500 dark:text-slate-400">
       Shipping{order.shippingMethodName ? ` (${order.shippingMethodName})` : ''}
     </span>
 
@@ -1703,7 +1703,7 @@ const allActions = getAllAvailableActions(
           </span>
         </>
       ) : (
-        <span className="text-white font-medium">
+        <span className="text-slate-900 dark:text-white font-medium">
           {formatCurrency(order.shippingAmount, order.currency)}
         </span>
       )}
@@ -1713,7 +1713,7 @@ const allActions = getAllAvailableActions(
 )}
 {order.deliveryMethod === 'ClickAndCollect' && (
   <div className="flex justify-between items-center" title="Click & Collect service fee">
-    <span className="text-slate-400">
+    <span className="text-slate-500 dark:text-slate-400">
       Click & Collect Fee {order.collectionStoreName ? `(${order.collectionStoreName})` : ''}
     </span>
 
@@ -1721,7 +1721,7 @@ const allActions = getAllAvailableActions(
       className={`font-medium ${
         (order.clickAndCollectFee ?? 0) === 0
           ? 'text-slate-500 text-xs'
-          : 'text-white'
+          : 'text-slate-900 dark:text-white'
       }`}
     >
       {(order.clickAndCollectFee ?? 0) === 0
@@ -1732,7 +1732,7 @@ const allActions = getAllAvailableActions(
 )}
             {order.discountAmount > 0 && (
               <div className="flex justify-between" title="Promotional discount applied">
-                <span className="text-slate-400">Discount</span>
+                <span className="text-slate-500 dark:text-slate-400">Discount</span>
                 <span className="text-pink-400 font-medium">
                   -{formatCurrency(order.discountAmount, order.currency)}
                 </span>
@@ -1743,7 +1743,7 @@ const allActions = getAllAvailableActions(
     className="flex justify-between"
     title="Savings from product offers and price reductions"
   >
-    <span className="text-slate-400">Product Savings</span>
+    <span className="text-slate-500 dark:text-slate-400">Product Savings</span>
 
     <span className="text-green-400 font-medium">
       {formatCurrency(order.productSavingsAmount ?? 0, order.currency)}
@@ -1778,9 +1778,9 @@ const allActions = getAllAvailableActions(
   </div>
 )}
            {/* TOTAL */}
-<div className="border-t border-slate-700 pt-2 flex justify-between">
-  <span className="text-white font-semibold">Total</span>
-  <span className="text-white font-semibold">
+<div className="border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between">
+  <span className="text-slate-900 dark:text-white font-semibold">Total</span>
+  <span className="text-slate-900 dark:text-white font-semibold">
     {formatCurrency(order.totalAmount, order.currency)}
   </span>
 </div>
@@ -1799,7 +1799,7 @@ const allActions = getAllAvailableActions(
 {/* NET PAID */}
 {Number(order.totalRefundedAmount) > 0 &&
  Number(order.netAmountPaid) > 0 && (
-  <div className="border-t border-slate-700 pt-2 flex justify-between">
+  <div className="border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between">
     <span className="text-green-400 font-bold">
       Net Paid
     </span>
@@ -1816,9 +1816,9 @@ const allActions = getAllAvailableActions(
   if (!stripePayment) return null;
   const netAfterFee = (stripePayment.netAmount ?? (stripePayment.amount - (stripePayment.stripeFee ?? 0)));
   return (
-    <div className="mt-2 pt-2 border-t border-slate-700/60 space-y-1.5">
+    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 space-y-1.5">
       <div className="flex justify-between items-center">
-        <span className="text-xs text-slate-400 flex items-center gap-1">
+        <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           Stripe Fee
         </span>
@@ -1827,7 +1827,7 @@ const allActions = getAllAvailableActions(
         </span>
       </div>
       <div className="flex justify-between items-center">
-        <span className="text-xs text-slate-400">Net Received</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">Net Received</span>
         <span className="text-xs text-green-400 font-semibold">
           {formatCurrency(netAfterFee, order.currency)}
         </span>
@@ -1839,15 +1839,15 @@ const allActions = getAllAvailableActions(
           </div>
 
 {/* Delivery + Payment Row */}
-<div className="mt-3 pt-3 border-t border-slate-700 flex flex-col gap-2">
+<div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-2">
 
   {/* Row */}
   <div className="flex items-center justify-between text-sm">
 
     {/* Delivery */}
-    <div className="flex items-center gap-2 text-slate-300">
-      <Truck className="h-4 w-4 text-slate-400" />
-      <span className="text-xs text-slate-400">Delivery:</span>
+    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+      <Truck className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+      <span className="text-xs text-slate-500 dark:text-slate-400">Delivery:</span>
       <span className="font-medium text-purple-400">
         {order.deliveryMethod === 'ClickAndCollect'
           ? 'Click & Collect'
@@ -1861,7 +1861,7 @@ const allActions = getAllAvailableActions(
   const info = getPaymentMethodInfo(method);
 
   return (
-    <div className="flex items-center gap-2 text-slate-300">
+    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
       
       {/* ICON */}
       {info.icon === 'card' && (
@@ -1875,7 +1875,7 @@ const allActions = getAllAvailableActions(
       )}
 
       {/* TEXT */}
-      <span className="text-xs text-slate-400">Payment:</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400">Payment:</span>
       <span className={`font-medium ${info.color}`}>
         {info.label}
       </span>
@@ -1889,19 +1889,19 @@ const allActions = getAllAvailableActions(
         </div>
 
   {/* Important Dates */}
-<div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 group">
+<div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-300 group">
 
   {/* Header */}
-  <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-slate-600">
+  <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-slate-300 dark:border-slate-600">
     <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-      <Calendar className="h-4 w-4 text-white" />
+      <Calendar className="h-4 w-4 text-slate-900 dark:text-white" />
     </div>
 
     <div>
-      <h3 className="text-base font-semibold text-white leading-none">
+      <h3 className="text-base font-semibold text-slate-900 dark:text-white leading-none">
         Important Dates
       </h3>
-      <p className="text-[11px] text-slate-400 mt-1">
+      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
         Order Timeline
       </p>
     </div>
@@ -1914,12 +1914,12 @@ const allActions = getAllAvailableActions(
       title="Date and time when order was placed"
       className="flex items-start justify-between gap-3"
     >
-      <span className="text-slate-400 flex items-center gap-1 text-xs">
+      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-xs">
         <Clock className="h-3 w-3" />
         Order Date
       </span>
 
-      <span className="text-white font-medium text-right">
+      <span className="text-slate-900 dark:text-white font-medium text-right">
         {formatDate(order.orderDate)}
       </span>
     </div>
@@ -1930,7 +1930,7 @@ const allActions = getAllAvailableActions(
           title="Deadline to collect order from store"
           className="flex items-start justify-between gap-3"
         >
-          <span className="text-slate-400 flex items-center gap-1 text-xs">
+          <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-xs">
             <AlertTriangle className="h-3 w-3" />
             Collection Expires
           </span>
@@ -1939,7 +1939,7 @@ const allActions = getAllAvailableActions(
             className={`font-medium text-right flex items-center gap-1 ${
               isCollectionExpired()
                 ? "text-red-400"
-                : "text-white"
+                : "text-slate-900 dark:text-white"
             }`}
           >
             {formatDate(order.collectionExpiryDate)}
@@ -1956,12 +1956,12 @@ const allActions = getAllAvailableActions(
         title="Expected date for order dispatch"
         className="flex items-start justify-between gap-3"
       >
-        <span className="text-slate-400 flex items-center gap-1 text-xs">
+        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-xs">
           <TrendingUp className="h-3 w-3" />
           Dispatch ETA
         </span>
 
-        <span className="text-white font-medium text-right">
+        <span className="text-slate-900 dark:text-white font-medium text-right">
           {formatDate(order.estimatedDispatchDate)}
         </span>
       </div>
@@ -1972,12 +1972,12 @@ const allActions = getAllAvailableActions(
         title="Actual date when order was dispatched"
         className="flex items-start justify-between gap-3"
       >
-        <span className="text-slate-400 flex items-center gap-1 text-xs">
+        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-xs">
           <Truck className="h-3 w-3" />
           Dispatched
         </span>
 
-        <span className="text-white font-medium text-right">
+        <span className="text-slate-900 dark:text-white font-medium text-right">
           {formatDate(order.dispatchedAt)}
         </span>
       </div>
@@ -1988,12 +1988,12 @@ const allActions = getAllAvailableActions(
         title="Date when order was marked ready for collection"
         className="flex items-start justify-between gap-3"
       >
-        <span className="text-slate-400 flex items-center gap-1 text-xs">
+        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-xs">
           <PackageCheck className="h-3 w-3" />
           Ready Pickup
         </span>
 
-        <span className="text-white font-medium text-right">
+        <span className="text-slate-900 dark:text-white font-medium text-right">
           {formatDate(order.readyForCollectionAt)}
         </span>
       </div>
@@ -2004,12 +2004,12 @@ const allActions = getAllAvailableActions(
         title="Date when customer collected the order"
         className="flex items-start justify-between gap-3"
       >
-        <span className="text-slate-400 flex items-center gap-1 text-xs">
+        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-xs">
           <CheckCircle2 className="h-3 w-3" />
           Collected
         </span>
 
-        <span className="text-white font-medium text-right">
+        <span className="text-slate-900 dark:text-white font-medium text-right">
           {formatDate(order.collectedAt)}
         </span>
       </div>
@@ -2020,38 +2020,38 @@ const allActions = getAllAvailableActions(
 
       {/* ✅ Collection Information */}
       {order.deliveryMethod === 'ClickAndCollect' && order.collectedBy && (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-cyan-500/30 transition-all">
+        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-cyan-500/30 transition-all">
           <div className="flex items-center gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg">
-              <IdCard className="h-4 w-4 text-white" />
+              <IdCard className="h-4 w-4 text-slate-900 dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-white">Collection Information</h3>
-            <span className="text-xs text-slate-400 ml-auto" title="Verified collector details">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Collection Information</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto" title="Verified collector details">
               <Shield className="h-3 w-3 inline" /> Verified
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div title="Name of person who collected the order">
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                 <User className="h-3 w-3" />
                 Collected By
               </p>
-              <p className="text-white font-medium">{order.collectedBy}</p>
+              <p className="text-slate-900 dark:text-white font-medium">{order.collectedBy}</p>
             </div>
             <div title="Type of identification document shown">
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                 <IdCard className="h-3 w-3" />
                 ID Type
               </p>
-              <p className="text-white font-medium">{order.collectorIDType || 'Not recorded'}</p>
+              <p className="text-slate-900 dark:text-white font-medium">{order.collectorIDType || 'Not recorded'}</p>
             </div>
             <div title="Identification document number (partially hidden for security)">
-              <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                 <Hash className="h-3 w-3" />
                 ID Number
               </p>
 <div className="flex items-center gap-2">
-  <p className="text-white font-medium">
+  <p className="text-slate-900 dark:text-white font-medium">
     {order.collectorIDNumber
       ? showId
         ? order.collectorIDNumber
@@ -2063,13 +2063,13 @@ const allActions = getAllAvailableActions(
     <button
       type="button"
       onClick={() => setShowId(!showId)}
-      className="p-1 rounded hover:bg-slate-700 transition"
+      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition"
       title={showId ? "Hide ID" : "Show ID"}
     >
       {showId ? (
-        <EyeOff className="w-4 h-4 text-slate-400" />
+        <EyeOff className="w-4 h-4 text-slate-500 dark:text-slate-400" />
       ) : (
-        <Eye className="w-4 h-4 text-slate-400" />
+        <Eye className="w-4 h-4 text-slate-500 dark:text-slate-400" />
       )}
     </button>
   )}
@@ -2086,24 +2086,24 @@ const allActions = getAllAvailableActions(
     
     <div className="flex items-center gap-3">
       <div className="p-2 bg-pink-500 rounded-lg">
-        <Package className="h-4 w-4 text-white" />
+        <Package className="h-4 w-4 text-slate-900 dark:text-white" />
       </div>
 
-      <h3 className="text-lg font-semibold text-white">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
         Order Quantity
       </h3>
     </div>
 
     <div className="flex items-center gap-3">
 
-      <span className="px-2 py-1 text-xs bg-slate-700 rounded-md text-slate-300">
+      <span className="px-2 py-1 text-xs bg-slate-700 rounded-md text-slate-700 dark:text-slate-300">
         {order.orderItems.length} Items
       </span>
 
       {isOrderEditable() && (
         <button
           onClick={() => setEditModalOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm rounded-lg hover:opacity-90 transition-all"
+          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-slate-900 dark:text-white text-sm rounded-lg hover:opacity-90 transition-all"
         >
           <Edit className="h-4 w-4" />
           Edit Items
@@ -2121,13 +2121,13 @@ const allActions = getAllAvailableActions(
 
     <div
       key={item.id}
-      className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all"
+      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800\/60 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-pink-500/30 transition-all"
     >
 
       {/* Left */}
       <div className="flex items-center gap-3">
 
-        <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 text-white font-bold text-sm">
+        <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 text-slate-900 dark:text-white font-bold text-sm">
           {index + 1}
         </div>
 
@@ -2135,7 +2135,7 @@ const allActions = getAllAvailableActions(
         <img
           src={getImageUrl(item.productImageUrl)}
           alt={item.productName}
-          className="w-12 h-12 rounded-lg object-cover border border-slate-700"
+          className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
            onError={(e) => (e.currentTarget.src = "/placeholder.png")}
         />
 
@@ -2147,11 +2147,11 @@ const allActions = getAllAvailableActions(
   target="_blank"
   rel="noopener noreferrer"
 >
-  <p className="text-white font-medium text-sm hover:text-violet-400 hover:underline cursor-pointer transition-all">
+  <p className="text-slate-900 dark:text-white font-medium text-sm hover:text-violet-400 hover:underline cursor-pointer transition-all">
     {item.productName}
   </p>
 </Link>
-          <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
             <Hash className="h-3 w-3" />
             SKU: {item.productSku}
           </p>
@@ -2161,7 +2161,7 @@ const allActions = getAllAvailableActions(
 
       {/* Right */}
       <div className="text-right">
-        <p className="text-white text-sm font-medium">
+        <p className="text-slate-900 dark:text-white text-sm font-medium">
           {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
         </p>
 
@@ -2181,16 +2181,16 @@ const allActions = getAllAvailableActions(
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
   {/* ================= BILLING ADDRESS ================= */}
-  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-blue-500/30 transition-all">
+  <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-blue-500/30 transition-all">
 
     {/* Header */}
-    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-800">
+    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-200 dark:border-slate-800">
       <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
         <MapPin className="h-4 w-4 text-blue-400" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="text-white font-semibold text-sm">Billing Address</h3>
+        <h3 className="text-slate-900 dark:text-white font-semibold text-sm">Billing Address</h3>
         
       </div>
     </div>
@@ -2198,7 +2198,7 @@ const allActions = getAllAvailableActions(
     <div className="space-y-2 text-sm">
       <div className="flex gap-3">
         <span className="w-20 text-slate-500">Name</span>
-        <span className="text-white">
+        <span className="text-slate-900 dark:text-white">
           {order.billingAddress.firstName} {order.billingAddress.lastName}
         </span>
       </div>
@@ -2206,7 +2206,7 @@ const allActions = getAllAvailableActions(
       {order.billingAddress.company && (
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Company</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.billingAddress.company}
           </span>
         </div>
@@ -2214,7 +2214,7 @@ const allActions = getAllAvailableActions(
 
       <div className="flex gap-3">
         <span className="w-20 text-slate-500">Address</span>
-        <span className="text-slate-300">
+        <span className="text-slate-700 dark:text-slate-300">
           {order.billingAddress.addressLine1}
           {order.billingAddress.addressLine2 &&
             `, ${order.billingAddress.addressLine2}`}
@@ -2223,28 +2223,28 @@ const allActions = getAllAvailableActions(
 
       <div className="flex gap-3">
         <span className="w-20 text-slate-500">City</span>
-        <span className="text-slate-300">
+        <span className="text-slate-700 dark:text-slate-300">
           {order.billingAddress.city}, {order.billingAddress.state}
         </span>
       </div>
 
       <div className="flex gap-3">
         <span className="w-20 text-slate-500">Postcode</span>
-        <span className="text-slate-300">
+        <span className="text-slate-700 dark:text-slate-300">
           {order.billingAddress.postalCode}
         </span>
       </div>
 
       <div className="flex gap-3">
         <span className="w-20 text-slate-500">Country</span>
-        <span className="text-slate-300">
+        <span className="text-slate-700 dark:text-slate-300">
           {order.billingAddress.country}
         </span>
       </div>
 
       <div className="flex gap-3">
         <span className="w-20 text-slate-500">Phone</span>
-        <span className="text-slate-300">
+        <span className="text-slate-700 dark:text-slate-300">
           {order.billingAddress.phoneNumber || "-"}
         </span>
       </div>
@@ -2253,16 +2253,16 @@ const allActions = getAllAvailableActions(
 
   {/* ================= SHIPPING / STORE ================= */}
   {order.deliveryMethod === "ClickAndCollect" ? (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
+    <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-800">
+      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
           <Store className="h-4 w-4 text-emerald-400" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="text-white font-semibold text-sm">
+          <h3 className="text-slate-900 dark:text-white font-semibold text-sm">
             Collection Store
           </h3>
         </div>
@@ -2271,14 +2271,14 @@ const allActions = getAllAvailableActions(
       <div className="space-y-2 text-sm">
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Store</span>
-          <span className="text-white">
+          <span className="text-slate-900 dark:text-white">
             {order.collectionStoreName}
           </span>
         </div>
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Address</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.collectionStoreAddressLine1}
             {order.collectionStoreAddressLine2 &&
               `, ${order.collectionStoreAddressLine2}`}
@@ -2287,37 +2287,37 @@ const allActions = getAllAvailableActions(
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">City</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.collectionStoreCity}
           </span>
         </div>
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Postcode</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.collectionStorePostalCode}
           </span>
         </div>
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Country</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.collectionStoreCountry}
           </span>
         </div>
       </div>
     </div>
   ) : (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 hover:border-purple-500/30 transition-all">
+    <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-purple-500/30 transition-all">
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-800">
+      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
           <Truck className="h-4 w-4 text-purple-400" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="text-white font-semibold text-sm">
+          <h3 className="text-slate-900 dark:text-white font-semibold text-sm">
             Shipping Address
           </h3>
         </div>
@@ -2326,7 +2326,7 @@ const allActions = getAllAvailableActions(
       <div className="space-y-2 text-sm">
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Name</span>
-          <span className="text-white">
+          <span className="text-slate-900 dark:text-white">
             {order.shippingAddress.firstName}{" "}
             {order.shippingAddress.lastName}
           </span>
@@ -2335,7 +2335,7 @@ const allActions = getAllAvailableActions(
         {order.shippingAddress.company && (
           <div className="flex gap-3">
             <span className="w-20 text-slate-500">Company</span>
-            <span className="text-slate-300">
+            <span className="text-slate-700 dark:text-slate-300">
               {order.shippingAddress.company}
             </span>
           </div>
@@ -2343,7 +2343,7 @@ const allActions = getAllAvailableActions(
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Address</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.shippingAddress.addressLine1}
             {order.shippingAddress.addressLine2 &&
               `, ${order.shippingAddress.addressLine2}`}
@@ -2352,28 +2352,28 @@ const allActions = getAllAvailableActions(
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">City</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.shippingAddress.city}, {order.shippingAddress.state}
           </span>
         </div>
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Postcode</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.shippingAddress.postalCode}
           </span>
         </div>
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Country</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.shippingAddress.country}
           </span>
         </div>
 
         <div className="flex gap-3">
           <span className="w-20 text-slate-500">Phone</span>
-          <span className="text-slate-300">
+          <span className="text-slate-700 dark:text-slate-300">
             {order.shippingAddress.phoneNumber || "-"}
           </span>
         </div>
@@ -2385,13 +2385,13 @@ const allActions = getAllAvailableActions(
 
       {/* ✅ Payments */}
       {order.payments && order.payments.length > 0 && (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-violet-500/30 transition-all">
+        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-violet-500/30 transition-all">
           <div className="flex items-center gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
-              <CreditCard className="h-4 w-4 text-white" />
+              <CreditCard className="h-4 w-4 text-slate-900 dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-white">Payments</h3>
-            <span className="text-xs text-slate-400 ml-auto" title="Total payment transactions">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Payments</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto" title="Total payment transactions">
               {order.payments.length} {order.payments.length === 1 ? 'Transaction' : 'Transactions'}
             </span>
           </div>
@@ -2401,21 +2401,21 @@ const allActions = getAllAvailableActions(
               return (
                 <div
                   key={payment.id}
-                  className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-violet-500/30 transition-all"
+                  className="p-3 bg-slate-50 dark:bg-slate-800\/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-violet-500/30 transition-all"
                   title={`Payment via ${payment.paymentMethod}`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="text-white font-medium capitalize text-sm flex items-center gap-1.5">
+                      <p className="text-slate-900 dark:text-white font-medium capitalize text-sm flex items-center gap-1.5">
                         <CreditCard className="h-4 w-4 text-violet-400" />
                         {payment.paymentMethod}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
                         <Hash className="h-3 w-3" />
                         Transaction ID: {payment.transactionId || 'Pending'}
                       </p>
                       {payment.processedAt && (
-                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           Processed: {formatDate(payment.processedAt)}
                         </p>
@@ -2437,13 +2437,13 @@ const allActions = getAllAvailableActions(
 
       {/* ✅ Shipments */}
       {order.shipments && order.shipments.length > 0 && (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-purple-500/30 transition-all">
+        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-purple-500/30 transition-all">
           <div className="flex items-center gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
-              <Truck className="h-4 w-4 text-white" />
+              <Truck className="h-4 w-4 text-slate-900 dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-white">Shipments</h3>
-            <span className="text-xs text-slate-400 ml-auto" title="Total shipments created">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Shipments</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto" title="Total shipments created">
               {order.shipments.length} {order.shipments.length === 1 ? 'Shipment' : 'Shipments'}
             </span>
           </div>
@@ -2451,15 +2451,15 @@ const allActions = getAllAvailableActions(
             {order.shipments.map((shipment, index) => (
               <div
                 key={shipment.id}
-                className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-purple-500/30 transition-all"
+                className="p-3 bg-slate-50 dark:bg-slate-800\/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-purple-500/30 transition-all"
                 title={`Shipment #${index + 1}`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
+                    <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-slate-900 dark:text-white font-bold text-xs">
                       {index + 1}
                     </span>
-                    <p className="text-white font-medium text-sm" title="Tracking number for this shipment">
+                    <p className="text-slate-900 dark:text-white font-medium text-sm" title="Tracking number for this shipment">
                       Tracking: {shipment.trackingNumber || 'Not available'}
                     </p>
                   </div>
@@ -2470,7 +2470,7 @@ const allActions = getAllAvailableActions(
                     {shipment.carrier || 'N/A'}
                   </span>
                 </div>
-                <div className="space-y-1 text-xs text-slate-400">
+                <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                   <p title="Shipping method used">
                     <Truck className="h-3 w-3 inline mr-1" />
                     Method: {shipment.shippingMethod || 'Standard'}
@@ -2488,23 +2488,23 @@ const allActions = getAllAvailableActions(
                     </p>
                   )}
                   {shipment.notes && (
-                    <p className="mt-2 text-slate-300" title="Additional shipment notes">
+                    <p className="mt-2 text-slate-700 dark:text-slate-300" title="Additional shipment notes">
                       <FileText className="h-3 w-3 inline mr-1" />
                       Notes: {shipment.notes}
                     </p>
                   )}
                 </div>
  {shipment.shipmentItems && shipment.shipmentItems.length > 0 && (
-  <div className="mt-4 pt-4 border-t border-slate-700">
+  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
 
     {/* HEADER */}
     <div className="flex items-center justify-between mb-3">
-      <p className="text-xs text-slate-400 flex items-center gap-1">
+      <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
         <Package className="h-3 w-3" />
         Items in Shipment
       </p>
 
-      <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">
+      <span className="text-xs bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded text-slate-700 dark:text-slate-300">
         {shipment.shipmentItems.length} items
       </span>
     </div>
@@ -2519,11 +2519,11 @@ const allActions = getAllAvailableActions(
         return (
           <div
             key={item.id}
-            className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/30 transition-all"
+            className="flex items-center gap-4 p-3 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 hover:border-purple-500/30 transition-all"
           >
 
             {/* IMAGE */}
-            <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
               <img
                 src={getImageUrl(orderItem?.productImageUrl) || '/placeholder.png'}
                 alt={orderItem?.productName || 'Product'}
@@ -2534,11 +2534,11 @@ const allActions = getAllAvailableActions(
 
             {/* DETAILS */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-white font-semibold line-clamp-1">
+              <p className="text-sm text-slate-900 dark:text-white font-semibold line-clamp-1">
                 {orderItem?.productName || 'Unknown Product'}
               </p>
 
-              <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
                 <span>SKU: {orderItem?.productSku || 'N/A'}</span>
                 <span>£{orderItem?.unitPrice ?? 0}</span>
               </div>
@@ -2567,17 +2567,17 @@ const allActions = getAllAvailableActions(
 
       {/* ✅ Notes */}
       {order.notes && (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-slate-600 transition-all">
+        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-slate-300 dark:border-slate-600 transition-all">
           <div className="flex items-center gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg">
-              <FileText className="h-4 w-4 text-white" />
+              <FileText className="h-4 w-4 text-slate-900 dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-white">Order Notes</h3>
-            <span className="text-xs text-slate-400 ml-auto" title="Special instructions or comments">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Order Notes</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto" title="Special instructions or comments">
               <Info className="h-3 w-3 inline" /> Customer Notes
             </span>
           </div>
-          <p className="text-slate-300 text-sm whitespace-pre-wrap bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+          <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap bg-slate-50 dark:bg-slate-800\/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
             {order.notes}
           </p>
         </div>

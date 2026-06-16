@@ -120,7 +120,7 @@ const handleSave = async () => {
       setList(updated);
       onChange?.(updated);
 
-      toast.success(editingFaq ? "Updated (local) ✅" : "Added (local) ✅");
+      toast.success(editingFaq ? "Updated  ✅" : "Added ✅");
 
       setShowModal(false);
       setEditingFaq(null);

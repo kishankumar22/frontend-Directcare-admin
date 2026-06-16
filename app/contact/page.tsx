@@ -170,7 +170,7 @@ useEffect(() => {
             {
               icon: Phone,
               title: "Call Us",
-              lines: ["+44 121 661 6357", "+44 121 461 6835"],
+              lines: ["+44 121 661 6357" ],
               sub: "Mon–Sat 9:00 AM – 6:00 PM",
             },
             {
@@ -182,7 +182,7 @@ useEffect(() => {
             {
               icon: MapPin,
               title: "Visit Us",
-              lines: ["Unit 38A, Plume Street", "Aston, Birmingham, B6 7RN"],
+              lines: ["Unit 38A, Plume Street", "Aston, Birmingham, B6 7RT"],
               sub: "Open Mon–Sat",
             },
           ].map(({ icon: Icon, title, lines, sub }) => (

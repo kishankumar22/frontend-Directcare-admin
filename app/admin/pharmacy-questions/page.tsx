@@ -407,10 +407,10 @@ const hasActiveFilters =
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-[#a78bfa] dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
             Pharmacy Questions
           </h1>
-          <p className="text-slate-400 mt-0.5">Manage customer qualification questions</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-0.5">Manage customer qualification questions</p>
         </div>
 
         <button
@@ -431,17 +431,17 @@ const hasActiveFilters =
           }}
           className={`p-3 rounded-xl border transition-all text-left ${
             viewMode === "all"
-              ? "bg-violet-500/10 border-violet-500/50 ring-2 ring-violet-500/30"
-              : "bg-slate-800/50 border-slate-700 hover:border-violet-500/50"
+              ? "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/50 ring-2 ring-violet-500/30"
+              : "bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-500/50"
           }`}
         >
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
-              <HelpCircle className="h-5 w-5 text-violet-400" />
+            <div className="w-10 h-10 rounded-lg bg-violet-50 dark:bg-violet-500/20 flex items-center justify-center border border-violet-100 dark:border-none">
+              <HelpCircle className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             </div>
             <div>
-              <p className="text-slate-400 text-xs font-medium">Total Questions</p>
-              <p className="text-white text-xl font-bold">{stats.total}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Total Questions</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold">{stats.total}</p>
             </div>
           </div>
         </button>
@@ -453,17 +453,17 @@ const hasActiveFilters =
           }}
           className={`p-3 rounded-xl border transition-all text-left ${
             viewMode === "active"
-              ? "bg-green-500/10 border-green-500/50 ring-2 ring-green-500/30"
-              : "bg-slate-800/50 border-slate-700 hover:border-green-500/50"
+              ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/50 ring-2 ring-green-500/30"
+              : "bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-500/50"
           }`}
         >
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-green-400" />
+            <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-500/20 flex items-center justify-center border border-green-100 dark:border-none">
+              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-slate-400 text-xs font-medium">Active Questions</p>
-              <p className="text-white text-xl font-bold">{stats.active}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Active Questions</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold">{stats.active}</p>
             </div>
           </div>
         </button>
@@ -475,29 +475,29 @@ const hasActiveFilters =
           }}
           className={`p-3 rounded-xl border transition-all text-left ${
             viewMode === "inactive"
-              ? "bg-red-500/10 border-red-500/50 ring-2 ring-red-500/30"
-              : "bg-slate-800/50 border-slate-700 hover:border-red-500/50"
+              ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/50 ring-2 ring-red-500/30"
+              : "bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-500/50"
           }`}
         >
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
-              <AlertCircle className="h-5 w-5 text-red-400" />
+            <div className="w-10 h-10 rounded-lg bg-red-50 dark:bg-red-500/20 flex items-center justify-center border border-red-100 dark:border-none">
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-slate-400 text-xs font-medium">Inactive Questions</p>
-              <p className="text-white text-xl font-bold">{stats.inactive}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Inactive Questions</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold">{stats.inactive}</p>
             </div>
           </div>
         </button>
 
-        <div className="p-3 rounded-xl bg-slate-800/50 border border-slate-700">
+        <div className="p-3 rounded-xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-              <List className="h-5 w-5 text-cyan-400" />
+            <div className="w-10 h-10 rounded-lg bg-cyan-50 dark:bg-cyan-500/20 flex items-center justify-center border border-cyan-100 dark:border-none">
+              <List className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
-              <p className="text-slate-400 text-xs font-medium">Total Options</p>
-              <p className="text-white text-xl font-bold">{stats.totalOptions}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Total Options</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold">{stats.totalOptions}</p>
             </div>
           </div>
         </div>
@@ -506,40 +506,40 @@ const hasActiveFilters =
       </div>
 
       {/* Items Per Page */}
-      <div className="bg-slate-900 backdrop-blur-xl border border-slate-800 rounded-xl p-2">
+      <div className="bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-xl p-2 shadow-sm dark:shadow-none">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <span className="text-xs text-slate-400">Show</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Show</span>
             <select
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-2 py-1 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={75}>75</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-xs text-slate-400">entries per page</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">entries per page</span>
           </div>
 
-          <div className="text-xs text-slate-400">
-            Showing <span className="text-white font-semibold">{startIndex + 1}</span> to{" "}
-            <span className="text-white font-semibold">{endIndex}</span> of{" "}
-            <span className="text-white font-semibold">{totalCount}</span> entries
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Showing <span className="text-slate-900 dark:text-white font-semibold">{startIndex + 1}</span> to{" "}
+            <span className="text-slate-900 dark:text-white font-semibold">{endIndex}</span> of{" "}
+            <span className="text-slate-900 dark:text-white font-semibold">{totalCount}</span> entries
           </div>
         </div>
       </div>
 {/* Search and Filters */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2.5">
+<div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-sm dark:shadow-none">
   <div className="flex flex-wrap items-center gap-2">
 
     {/* Search Input */}
     <div className="relative flex-1 min-w-[280px]">
-      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
       <input
         type="search"
         placeholder="Search questions..."
@@ -548,7 +548,7 @@ const hasActiveFilters =
           setSearchTerm(e.target.value);
           setCurrentPage(1);
         }}
-        className="w-full pl-9 pr-10 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+        className="w-full pl-9 pr-10 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
       />
     </div>
 
@@ -562,7 +562,7 @@ const hasActiveFilters =
           );
           setCurrentPage(1);
         }}
-        className="pl-3 pr-8 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
+        className="pl-3 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
       >
         <option value="all">All Status</option>
         <option value="active">Active Only</option>
@@ -579,7 +579,7 @@ const hasActiveFilters =
           setIncludeDeleted(e.target.value === "true");
           setCurrentPage(1);
         }}
-        className="pl-3 pr-8 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
+        className="pl-3 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
       >
         <option value="false">Hide Deleted</option>
         <option value="true">Show Deleted</option>
@@ -596,7 +596,7 @@ const hasActiveFilters =
           setIncludeDeleted(false);
           setCurrentPage(1);
         }}
-        className="px-3 py-2 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
+        className="px-3 py-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
       >
         <FilterX className="h-3.5 w-3.5" />
         Clear
@@ -607,62 +607,62 @@ const hasActiveFilters =
 
 
       {/* Questions Table */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
         {questions.length === 0 ? (
           <div className="text-center py-10">
-            <HelpCircle className="h-14 w-14 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400 text-lg">No questions found</p>
-            <p className="text-slate-500 text-sm">Try adjusting your filters</p>
+            <HelpCircle className="h-14 w-14 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-500 dark:text-slate-400 text-lg">No questions found</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm">Try adjusting your filters</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-800/50 sticky top-0 z-10">
-                <tr className="border-b border-slate-700">
-                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
+                <tr className="border-b border-slate-200 dark:border-slate-700">
+                  <th className="text-left py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-xs whitespace-nowrap">
                     <button
                       onClick={() => handleSort("displayOrder")}
-                      className="flex items-center gap-1.5 hover:text-white transition-colors"
+                      className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors"
                     >
                      Display Order
                       {getSortIcon("displayOrder")}
                     </button>
                   </th>
 
-                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-sm">
+                  <th className="text-left py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">
                     <button
                       onClick={() => handleSort("questionText")}
-                      className="flex items-center gap-1.5 hover:text-white transition-colors"
+                      className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors"
                     >
                       Question
                       {getSortIcon("questionText")}
                     </button>
                   </th>
 
-                  <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
+                  <th className="text-center py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">
                     <button
                       onClick={() => handleSort("optionsCount")}
-                      className="flex items-center gap-1.5 hover:text-white transition-colors mx-auto"
+                      className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors mx-auto"
                     >
                       Options
                       {getSortIcon("optionsCount")}
                     </button>
                   </th>
 
-                  <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">Status</th>
+                  <th className="text-center py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">Status</th>
 
-                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-sm">
+                  <th className="text-left py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">
                     <button
                       onClick={() => handleSort("createdAt")}
-                      className="flex items-center gap-1.5 hover:text-white transition-colors"
+                      className="flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-white transition-colors"
                     >
                       Created On
                       {getSortIcon("createdAt")}
                     </button>
                   </th>
-                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-sm">Created By</th>
+                  <th className="text-left py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">Created By</th>
 
-                  <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">Actions</th>
+                  <th className="text-center py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
 
@@ -670,20 +670,20 @@ const hasActiveFilters =
                 {questions.map((question) => (
                   <tr
                     key={question.id}
-                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors group"
+                    className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group"
                   >
                     <td className="py-2.5 px-3">
-                      <span className="px-2.5 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-sm font-medium">
+                      <span className="px-2.5 py-1 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 rounded-lg text-sm font-medium">
                         #{question.displayOrder}
                       </span>
                     </td>
 
                     <td className="py-2.5 px-3">
-                      <p className="font-medium text-white text-sm">{question.questionText}</p>
+                      <p className="font-medium text-slate-900 dark:text-white text-sm">{question.questionText}</p>
                     </td>
 
                     <td className="py-2.5 px-3 text-center">
-                      <span className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
+                      <span className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-lg text-sm font-medium">
                         {question.options.length}
                       </span>
                     </td>
@@ -694,13 +694,13 @@ const hasActiveFilters =
     className="transition-all"
   >
     {question.isActive ? (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/20 hover:bg-green-100 dark:hover:bg-green-500/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400"></span>
         Active
       </span>
     ) : (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-400"></span>
         Inactive
       </span>
     )}
@@ -709,10 +709,10 @@ const hasActiveFilters =
 
 
                     <td className="py-2.5 px-3">
-                      <p className="text-sm text-slate-300">{formatDate(question.createdAt)}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300">{formatDate(question.createdAt)}</p>
                     </td>
                     <td className="py-2.5 px-3">
-                      <p className="text-sm text-slate-300">{question.createdBy}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300">{question.createdBy}</p>
                     </td>
 
                     <td className="py-2.5 px-3">
@@ -722,7 +722,7 @@ const hasActiveFilters =
                             setSelectedQuestion(question);
                             setIsViewModalOpen(true);
                           }}
-                          className="p-1.5 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 rounded-lg transition-all"
+                          className="p-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-300 rounded-lg transition-all"
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />
@@ -730,7 +730,7 @@ const hasActiveFilters =
 
                         <button
                           onClick={() => openEditModal(question)}
-                          className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 rounded-lg transition-all"
+                          className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 hover:text-cyan-700 dark:hover:text-cyan-300 rounded-lg transition-all"
                           title="Edit Question"
                         >
                           <Edit className="h-4 w-4" />
@@ -740,7 +740,7 @@ const hasActiveFilters =
   // ✅ If already deleted → show Restore
   <button
     onClick={() => handleRestore(question)}
-    className="p-1.5 text-green-400 hover:bg-green-500/10 hover:text-green-300 rounded-lg transition-all"
+    className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 hover:text-green-700 dark:hover:text-green-300 rounded-lg transition-all"
     title="Restore Question"
   >
     <RotateCcw className="h-4 w-4" />
@@ -749,7 +749,7 @@ const hasActiveFilters =
   // ✅ If NOT deleted → show Delete
   <button
     onClick={() => handleDelete(question)}
-    className="p-1.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-all"
+    className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300 rounded-lg transition-all"
     title="Delete Question"
   >
     <Trash2 className="h-4 w-4" />
@@ -768,9 +768,9 @@ const hasActiveFilters =
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+        <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm dark:shadow-none">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-slate-500 dark:text-slate-400">
               Page {currentPage} of {totalPages}
             </div>
 
@@ -778,7 +778,7 @@ const hasActiveFilters =
               <button
                 onClick={goToFirstPage}
                 disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronsLeft className="h-4 w-4" />
               </button>
@@ -786,7 +786,7 @@ const hasActiveFilters =
               <button
                 onClick={goToPreviousPage}
                 disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -798,8 +798,8 @@ const hasActiveFilters =
                     onClick={() => goToPage(page)}
                     className={`px-3 py-2 text-sm rounded-lg transition-all ${
                       currentPage === page
-                        ? "bg-violet-500 text-white font-semibold"
-                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                        ? "bg-violet-600 dark:bg-violet-500 text-white font-semibold"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
                     }`}
                   >
                     {page}
@@ -810,7 +810,7 @@ const hasActiveFilters =
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -818,13 +818,13 @@ const hasActiveFilters =
               <button
                 onClick={goToLastPage}
                 disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronsRight className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="text-sm text-slate-400">Total: {totalCount} items</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">Total: {totalCount} items</div>
           </div>
         </div>
       )}
@@ -832,21 +832,21 @@ const hasActiveFilters =
       {/* View Modal */}
       {isViewModalOpen && selectedQuestion && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+          <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
+            <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-slate-50 dark:from-purple-500/10 to-cyan-50 dark:to-cyan-500/10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center">
-                    <HelpCircle className="h-6 w-6 text-white" />
+                  <div className="w-12 h-12 rounded-full bg-violet-100 dark:bg-gradient-to-r dark:from-purple-500 dark:to-cyan-500 flex items-center justify-center">
+                    <HelpCircle className="h-6 w-6 text-violet-600 dark:text-white" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white">Question Details</h2>
-                    <p className="text-slate-400 text-sm">Order #{selectedQuestion.displayOrder}</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Question Details</h2>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Order #{selectedQuestion.displayOrder}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsViewModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -854,27 +854,27 @@ const hasActiveFilters =
             </div>
 
             <div className="overflow-y-auto p-4 space-y-4">
-              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                <h3 className="text-sm font-semibold text-slate-400 mb-2">Question Text</h3>
-                <p className="text-white text-lg font-medium">{selectedQuestion.questionText}</p>
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">Question Text</h3>
+                <p className="text-slate-900 dark:text-white text-lg font-medium">{selectedQuestion.questionText}</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                  <p className="text-xs text-slate-400 mb-1">Display Order</p>
-                  <p className="text-white text-xl font-bold">#{selectedQuestion.displayOrder}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Display Order</p>
+                  <p className="text-slate-900 dark:text-white text-xl font-bold">#{selectedQuestion.displayOrder}</p>
                 </div>
 
-                <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                  <p className="text-xs text-slate-400 mb-1">Options Count</p>
-                  <p className="text-white text-xl font-bold">{selectedQuestion.options.length}</p>
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Options Count</p>
+                  <p className="text-slate-900 dark:text-white text-xl font-bold">{selectedQuestion.options.length}</p>
                 </div>
 
-                <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                  <p className="text-xs text-slate-400 mb-1">Status</p>
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Status</p>
                   <p
                     className={`text-xl font-bold ${
-                      selectedQuestion.isActive ? "text-green-400" : "text-red-400"
+                      selectedQuestion.isActive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                     }`}
                   >
                     {selectedQuestion.isActive ? "Active" : "Inactive"}
@@ -882,22 +882,22 @@ const hasActiveFilters =
                 </div>
               </div>
 
-              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                  <List className="h-4 w-4 text-cyan-400" />
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                  <List className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
                   Answer Options
                 </h3>
                 <div className="space-y-2">
                   {selectedQuestion.options.map((option, index) => (
                     <div
                       key={option.id}
-                      className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700/50"
+                      className="flex items-center justify-between p-3 bg-white dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700/50"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-xs font-bold">
+                        <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-medium text-slate-500 dark:text-slate-400">
                           {index + 1}
-                        </span>
-                        <p className="text-white font-medium">{option.optionText}</p>
+                        </div>
+                        <p className="text-slate-900 dark:text-white font-medium">{option.optionText}</p>
                       </div>
                       
                     </div>
@@ -905,24 +905,22 @@ const hasActiveFilters =
                 </div>
               </div>
 
-              <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700/50">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <p className="text-slate-400 mb-1">Created At</p>
-                    <p className="text-white font-medium">{formatDate(selectedQuestion.createdAt)}</p>
+                    <p className="text-slate-500 dark:text-slate-400 mb-1">Created At</p>
+                    <p className="text-slate-900 dark:text-white font-medium">{formatDate(selectedQuestion.createdAt)}</p>
                   </div>
                   {selectedQuestion.updatedAt && (
                     <div>
-                      <p className="text-slate-400 mb-1">Updated At</p>
-                      <p className="text-white font-medium">{formatDate(selectedQuestion.updatedAt)}</p>
+                      <p className="text-slate-500 dark:text-slate-400 mb-1">Updated At</p>
+                      <p className="text-slate-900 dark:text-white font-medium">{formatDate(selectedQuestion.updatedAt)}</p>
                     </div>
                   )}
-                  {selectedQuestion.isDeleted && (
-                    <div>
-                      <p className="text-slate-400 mb-1">Deleted</p>
-                      <p className="text-white font-medium">{selectedQuestion.isDeleted ? "Yes" : "No"}</p>
-                    </div>
-                  )}
+                  <div>
+                      <p className="text-slate-500 dark:text-slate-400 mb-1">Deleted</p>
+                      <p className="text-slate-900 dark:text-white font-medium">{selectedQuestion.isDeleted ? "Yes" : "No"}</p>
+                  </div>
                 </div>
               </div>
             </div>

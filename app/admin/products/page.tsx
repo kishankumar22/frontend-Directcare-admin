@@ -1003,8 +1003,8 @@ const formatOptionLabel = (option: SelectOption) => {
       className={`
         block whitespace-normal break-words leading-tight
         ${depth === 1 ? "text-sm" : ""}
-        ${depth === 2 ? "text-xs text-slate-200" : ""}
-        ${depth >= 3 ? "text-[11px] text-slate-400" : ""}
+        ${depth === 2 ? "text-xs dark:text-slate-300 text-slate-600" : ""}
+        ${depth >= 3 ? "text-[11px] dark:text-slate-400 text-slate-500" : ""}
       `}
     >
       {option.label}
@@ -2070,8 +2070,8 @@ const handleExportSelected = async () => {
       </div>
     ) : (
     <table className="w-full table-fixed text-[12px]">
-    <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-800">
-      <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+    <thead className="sticky top-0 z-20 bg-gray-300   dark:bg-slate-900/95 backdrop-blur border-b border-slate-800">
+      <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 ">
         <th className="text-left py-2 px-2 w-[360px]">
           <div className="flex items-center gap-2">
             <input

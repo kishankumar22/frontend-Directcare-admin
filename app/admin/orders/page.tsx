@@ -1424,40 +1424,40 @@ export default function OrdersListPage() {
         ) : (
           <div className={`overflow-x-auto max-h-[70vh] ${scrollCls}`}>
             <table className="w-full">
-              <thead className="sticky top-0 bg-slate-800/85 backdrop-blur-sm z-50">
-                <tr className="border-b border-slate-700">
+              <thead className="sticky top-0 bg-slate-100/90 dark:bg-slate-800/85 backdrop-blur-sm z-50">
+                <tr className="border-b border-slate-200 dark:border-slate-700">
 
                   <th className="py-2 px-2">
                     <input
                       type="checkbox"
                       checked={selectedOrders.length === orders.length && orders.length > 0}
                       onChange={toggleSelectAll}
-                      className="rounded bg-slate-700 border-slate-600 text-violet-500 cursor-pointer"
+                      className="rounded bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-violet-600 dark:text-violet-500 cursor-pointer"
                       title="Select all orders"
                     />
                   </th>
 
-                  <th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs w-[550px]">
+                  <th className="text-left py-2 px-2 text-slate-700 dark:text-slate-300 font-semibold text-xs w-[550px]">
                     Order
                   </th>
 
-                  <th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs w-[350px]">
+                  <th className="text-left py-2 px-2 text-slate-700 dark:text-slate-300 font-semibold text-xs w-[350px]">
                     Customer
                   </th>
 
-                  <th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs w-[10px]">
+                  <th className="text-left py-2 px-2 text-slate-700 dark:text-slate-300 font-semibold text-xs w-[10px]">
                     Amount
                   </th>
 
-                  <th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs w-[250px]">
+                  <th className="text-center py-2 px-2 text-slate-700 dark:text-slate-300 font-semibold text-xs w-[250px]">
                     Status
                   </th>
 
-                  <th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs w-[150px]">
+                  <th className="text-center py-2 px-2 text-slate-700 dark:text-slate-300 font-semibold text-xs w-[150px]">
                     Payment
                   </th>
 
-                  <th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs">
+                  <th className="text-center py-2 px-2 text-slate-700 dark:text-slate-300 font-semibold text-xs">
                     Actions
                   </th>
 
@@ -1487,10 +1487,10 @@ export default function OrdersListPage() {
                   return (
                     <tr
                       key={order.id}
-                      className={`border-b border-slate-800 transition-colors
+                      className={`border-b border-slate-200 dark:border-slate-800 transition-colors
     ${selectedOrders.includes(order.id)
-                          ? 'bg-violet-500/10 ring-1 ring-violet-500/30'
-                          : 'hover:bg-slate-800/40'
+                          ? 'bg-violet-50 dark:bg-violet-500/10 ring-1 ring-violet-200 dark:ring-violet-500/30'
+                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
                         }`}
                       title={`Order ${order.orderNumber}`}
                     >
@@ -1500,7 +1500,7 @@ export default function OrdersListPage() {
                           type="checkbox"
                           checked={selectedOrders.includes(order.id)}
                           onChange={() => toggleSelectOrder(order.id)}
-                          className="rounded bg-slate-700 border-slate-600 text-violet-500 cursor-pointer"
+                          className="rounded bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-violet-600 dark:text-violet-500 cursor-pointer"
                           title="Select order"
                         />
                       </td>
@@ -1515,7 +1515,7 @@ export default function OrdersListPage() {
                             <img
                               src={getImageUrl(order.orderItems[0]?.productImageUrl)}
                               alt={order.orderItems[0]?.productName}
-                              className="w-12 h-12 rounded-md object-cover border border-slate-700 flex-shrink-0 cursor-pointer hover:scale-105 transition"
+                              className="w-12 h-12 rounded-md object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer hover:scale-105 transition"
                               onClick={() =>
                                 setPreviewImage(order.orderItems[0]?.productImageUrl || null)
                               }
@@ -1524,7 +1524,7 @@ export default function OrdersListPage() {
                               }}
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] text-slate-400">
+                            <div className="w-12 h-12 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[10px] text-slate-500 dark:text-slate-400">
                               No Image
                             </div>
                           )}
@@ -1538,34 +1538,34 @@ export default function OrdersListPage() {
                                 href={`/admin/orders/${order.id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-violet-400 font-medium hover:underline"
+                                className="text-violet-600 dark:text-violet-400 font-medium hover:underline"
                               >
                                 {order.orderNumber}
                               </a>
 
-                              <span className="text-slate-600">•</span>
+                              <span className="text-slate-400 dark:text-slate-600">•</span>
 
-                              <span className="text-slate-500">
+                              <span className="text-slate-600 dark:text-slate-500">
                                 {order.orderItems.length} items
                               </span>
 
-                              <span className="text-slate-600">•</span>
+                              <span className="text-slate-400 dark:text-slate-600">•</span>
 
-                              <span className="text-slate-500">
+                              <span className="text-slate-600 dark:text-slate-500">
                                 {formatDate(order.orderDate)}
                               </span>
                             </div>
 
                             {/* PRODUCT NAME */}
                             <p
-                              className="text-xs text-slate-200 leading-tight line-clamp-2 max-w-[420px]"
+                              className="text-xs text-slate-900 dark:text-slate-200 leading-tight line-clamp-2 max-w-[420px]"
                               title={order.orderItems[0]?.productName}
                             >
                               {order.orderItems[0]?.productName}
                             </p>
 
                             {/* SKU */}
-                            <p className="text-[10px] text-cyan-400 leading-none">
+                            <p className="text-[10px] text-cyan-600 dark:text-cyan-400 leading-none">
                               SKU: {order.orderItems.map((i) => i.productSku).join(", ")}
                             </p>
 
@@ -1573,7 +1573,7 @@ export default function OrdersListPage() {
                             {order.orderItems.length > 2 && (
                               <a
                                 href={`/admin/orders/${order.id}`}
-                                className="text-[10px] text-cyan-400 hover:text-cyan-300 leading-none w-fit"
+                                className="text-[10px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 leading-none w-fit"
                               >
                                 +{order.orderItems.length - 2} more
                               </a>
@@ -1596,7 +1596,7 @@ export default function OrdersListPage() {
 
                             {/* NAME */}
                             <p
-                              className="text-white text-xs font-medium truncate"
+                              className="text-slate-900 dark:text-white text-xs font-medium truncate"
                               title={order.customerName}
                             >
                               {order.customerName}
@@ -1604,7 +1604,7 @@ export default function OrdersListPage() {
 
                             {/* EMAIL */}
                             <p
-                              className="text-[11px] text-slate-400 truncate"
+                              className="text-[11px] text-slate-500 dark:text-slate-400 truncate"
                               title={order.customerEmail}
                             >
                               {order.customerEmail}
@@ -1612,7 +1612,7 @@ export default function OrdersListPage() {
 
                             {/* ADDRESS (FIXED) */}
                             <p
-                              className="text-[11px] text-slate-500 line-clamp-2 break-words leading-tight"
+                              className="text-[11px] text-slate-600 dark:text-slate-500 line-clamp-2 break-words leading-tight"
                               title={order.shippingAddress?.addressLine1}
                             >
                               {order.shippingAddress?.addressLine1}
@@ -1624,7 +1624,7 @@ export default function OrdersListPage() {
 
                       {/* AMOUNT */}
                       <td
-                        className="py-3 px-3 text-green-400 font-semibold text-sm"
+                        className="py-3 px-3 text-green-600 dark:text-green-400 font-semibold text-sm"
                         title={`Total amount ${formatCurrency(order.totalAmount, order.currency)}`}
                       >
                         {formatCurrency(order.totalAmount, order.currency)}
@@ -1644,10 +1644,10 @@ export default function OrdersListPage() {
                           {order.pharmacyVerificationStatus && (
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded ${order.pharmacyVerificationStatus === "Approved"
-                                  ? "bg-green-500/10 text-green-400"
-                                  : order.pharmacyVerificationStatus === "Pending"
-                                    ? "bg-yellow-500/10 text-yellow-400"
-                                    : "bg-red-500/10 text-red-400"
+                                ? "bg-green-500/10 text-green-400"
+                                : order.pharmacyVerificationStatus === "Pending"
+                                  ? "bg-yellow-500/10 text-yellow-400"
+                                  : "bg-red-500/10 text-red-400"
                                 }`}
                               title={`Pharmacy verification: ${order.pharmacyVerificationStatus}`}
                             >
@@ -1702,7 +1702,7 @@ export default function OrdersListPage() {
 
                           <button
                             onClick={() => router.push(`/admin/orders/${order.id}`)}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 rounded-lg transition-all"
+                            className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 border border-transparent hover:border-cyan-200 dark:hover:border-cyan-500/20 rounded-lg transition-all"
                             title="Manage order"
                           >
                             <Edit className="h-4 w-4" />
@@ -1713,7 +1713,7 @@ export default function OrdersListPage() {
                           {['Pending', 'Failed'].includes(order.paymentStatus || '') && (
                             <button
                               onClick={() => openHardDeleteModal(order)}
-                              className="p-1.5 text-red-400 hover:bg-red-500/10 border border-red-500/20 rounded-lg transition-all"
+                              className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 border border-transparent hover:border-red-200 dark:hover:border-red-500/20 rounded-lg transition-all"
                               title="Permanently delete (only for unpaid/failed orders)"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1816,8 +1816,8 @@ export default function OrdersListPage() {
                   key={page}
                   onClick={() => handlePageChange(page)}
                   className={`px-2.5 py-1.5 rounded-lg transition ${currentPage === page
-                      ? "bg-violet-500 text-white font-semibold"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    ? "bg-violet-500 text-white font-semibold"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
                     }`}
                 >
                   {page}

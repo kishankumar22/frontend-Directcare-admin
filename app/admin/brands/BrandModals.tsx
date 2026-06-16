@@ -292,12 +292,12 @@ if (!brandName) {
           ============================================ */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
+          <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
             
             {/* ============================================
                 HEADER - SIMPLE WITH LOGO & INFO
                 ============================================ */}
-          <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+          <div className="p-3 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-[#8b5cf6]/10 to-[#06b6d4]/10">
   <div className="flex items-center justify-between gap-3">
     
     {/* Left: Icon + Title */}
@@ -332,24 +332,24 @@ if (!brandName) {
 
       {/* Title */}
       <div>
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           {editingBrand ? "Edit Brand" : "Create New Brand"}
 
           {formData.name && (
-            <span className="text-violet-400 font-semibold truncate max-w-[200px]">
+            <span className="text-violet-600 dark:text-violet-400 font-semibold truncate max-w-[200px]">
               • {formData.name}
             </span>
           )}
         </h2>
 
         {/* 👉 Subtitle + Order */}
-        <p className="text-slate-400 text-sm flex items-center gap-2">
+        <p className="text-slate-500 dark:text-slate-400 text-sm flex items-center gap-2">
           {editingBrand 
             ? "✏️ Update brand information" 
             : "➕ Add a new brand"}
 
         {typeof formData.displayOrder === "number" && formData.displayOrder > 0 && (
-  <span className="text-cyan-400 font-semibold">
+  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">
     • #{formData.displayOrder}
   </span>
 )}
@@ -366,7 +366,7 @@ if (!brandName) {
         setEditingBrand(null);
         setActiveTab('basic');
       }}
-      className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+      className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-red-500/10 dark:hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
     disabled={
   isSubmitting ||
   nameStatus === "duplicate" ||
@@ -382,7 +382,7 @@ if (!brandName) {
             {/* ============================================
                 TABS NAVIGATION
                 ============================================ */}
-            <div className="flex border-b border-slate-700/50 bg-slate-800/30 px-3">
+            <div className="flex border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30 px-3">
               {[
                 { id: 'basic', label: 'Basic Info', icon: Tag },
                 { id: 'image', label: 'Logo', icon: Upload },
@@ -396,8 +396,8 @@ if (!brandName) {
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`flex items-center gap-2 px-4 py-3 font-medium transition-all relative ${
                     activeTab === tab.id
-                      ? 'text-violet-400'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'text-violet-600 dark:text-violet-400'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                   }`}
                   disabled={isSubmitting}
                 >
@@ -423,20 +423,20 @@ if (!brandName) {
                     <div className="grid grid-cols-2 gap-3">
                       {/* Brand Name */}
                       <div>
-                        <label className="block text-sm text-slate-300 font-semibold mb-2">
-                          Brand Name <span className="text-red-400">*</span>
+                        <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
+                          Brand Name <span className="text-red-500 dark:text-red-400">*</span>
                         </label>
                        <input
   type="text"
   value={formData.name}
   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
   placeholder="e.g., Apple, Samsung"
-  className={`w-full px-3 py-2.5 border rounded-lg text-white transition-all ${
+  className={`w-full px-3 py-2.5 border rounded-lg text-slate-900 dark:text-white transition-all ${
     nameStatus === "duplicate"
-      ? "border-red-500 bg-red-500/10"
+      ? "border-red-500 bg-red-50 dark:bg-red-500/10"
       : nameStatus === "valid"
-      ? "border-green-500 bg-green-500/10"
-      : "border-slate-600 bg-slate-800/50"
+      ? "border-green-500 bg-green-50 dark:bg-green-500/10"
+      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50"
   }`}
   disabled={isSubmitting}
 />
@@ -464,7 +464,7 @@ if (!brandName) {
 
                       {/* Display Order */}
                   <div>
-  <label className="block text-sm text-slate-300 font-semibold mb-2">
+  <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
     Display Order
   </label>
 
@@ -482,7 +482,7 @@ if (!brandName) {
         displayOrder: value === "" ? "" : parseInt(value)
       });
     }}
-    className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
     disabled={isSubmitting}
   />
 </div>
@@ -490,8 +490,8 @@ if (!brandName) {
 
                     {/* Description */}
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-2">
-                        Description <span className="text-red-400">*</span>
+                      <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
+                        Description <span className="text-red-500 dark:text-red-400">*</span>
                       </label>
                       <ProductDescriptionEditor
                         value={formData.description}
@@ -510,8 +510,8 @@ if (!brandName) {
                 {activeTab === 'image' && (
                   <div className="space-y-4 animate-fadeIn">
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-3">
-                        Brand Logo<span className="text-red-400">*</span>
+                      <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-3">
+                        Brand Logo<span className="text-red-500 dark:text-red-400">*</span>
                       </label>
                       
                       {/* Current Logo Preview - Centered */}
@@ -521,7 +521,7 @@ if (!brandName) {
                             <img                            
                               src={logoPreview || getImageUrl(formData.logoUrl)}
                               alt="Logo preview"
-                              className="w-44 h-44 rounded-lg border-2 border-slate-700 object-contain bg-slate-800/50 cursor-pointer hover:border-violet-500/50 transition-all"
+                              className="w-44 h-44 rounded-lg border-2 border-slate-300 dark:border-slate-700 object-contain bg-slate-50 dark:bg-slate-800/50 cursor-pointer hover:border-violet-500/50 transition-all"
                               onClick={() => setSelectedImageUrl(logoPreview || getImageUrl(formData.logoUrl))}
                                onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                             />
@@ -562,16 +562,16 @@ if (!brandName) {
                         />
                         <label
                           htmlFor="logo-upload"
-                          className="flex flex-col items-center justify-center gap-3 px-6 py-10 bg-slate-800/30 border-2 border-dashed border-slate-600 hover:border-violet-500 rounded-lg cursor-pointer transition-all group"
+                          className="flex flex-col items-center justify-center gap-3 px-6 py-10 bg-slate-50 dark:bg-slate-800/30 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-violet-500 rounded-lg cursor-pointer transition-all group"
                         >
-                          <div className="w-12 h-12 rounded-full bg-slate-700 group-hover:bg-violet-500/20 flex items-center justify-center transition-all">
-                            <Upload className="h-6 w-6 text-slate-400 group-hover:text-violet-400 transition-colors" />
+                          <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 group-hover:bg-violet-100 dark:group-hover:bg-violet-500/20 flex items-center justify-center transition-all">
+                            <Upload className="h-6 w-6 text-slate-500 dark:text-slate-400 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors" />
                           </div>
                           <div className="text-center">
-                            <span className="block text-white font-semibold mb-1">
+                            <span className="block text-slate-900 dark:text-white font-semibold mb-1">
                               {logoFile ? logoFile.name : "Click to upload"}
                             </span>
-                            <span className="text-sm text-slate-400">
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
                               WebP or PNG (Max 1MB)
                             </span>
                           </div>
@@ -584,7 +584,7 @@ if (!brandName) {
                           <div className="text-cyan-400 mt-0.5">📸</div>
                           <div>
                             <p className="text-sm text-cyan-400 font-semibold mb-2">Guidelines:</p>
-                            <ul className="text-xs text-slate-300 space-y-1">
+                            <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
                               <li>• Size: 300×300 (In px)</li>
                               <li>• Format: WebP</li>
                               <li>• Max: 1MB</li>
@@ -601,7 +601,7 @@ if (!brandName) {
                   <div className="space-y-2 animate-fadeIn">
                     {/* Meta Title */}
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-1">
+                      <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-1">
                         Meta Title
                       </label>
                       <input
@@ -610,7 +610,7 @@ if (!brandName) {
                         onChange={(e) => setFormData({ ...formData, metaTitle: e.target.value })}
                         placeholder="SEO title for search engines"
                         maxLength={60}
-                        className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                        className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                         disabled={isSubmitting}
                       />
                       <p className="text-xs text-slate-500 mt-1">
@@ -620,7 +620,7 @@ if (!brandName) {
 
                     {/* Meta Description */}
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-2">
+                      <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
                         Meta Description
                       </label>
                       <textarea
@@ -629,7 +629,7 @@ if (!brandName) {
                         placeholder="Brief description for search engines"
                         maxLength={160}
                         rows={3}
-                        className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none"
+                        className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none"
                         disabled={isSubmitting}
                       />
                       <p className="text-xs text-slate-500 mt-1">
@@ -639,7 +639,7 @@ if (!brandName) {
 
                     {/* Meta Keywords */}
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-2">
+                      <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
                         Meta Keywords
                       </label>
                       <input
@@ -648,7 +648,7 @@ if (!brandName) {
                         onChange={(e) => setFormData({ ...formData, metaKeywords: e.target.value })}
                         placeholder="keyword1, keyword2, keyword3"
                         maxLength={200}
-                        className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                        className="w-full px-3 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                         disabled={isSubmitting}
                       />
                       <p className="text-xs text-slate-500 mt-1">
@@ -662,7 +662,7 @@ if (!brandName) {
                         <div className="text-violet-400 mt-0.5">💡</div>
                         <div>
                           <p className="text-sm text-violet-400 font-semibold mb-2">SEO Tips:</p>
-                          <ul className="text-xs text-slate-300 space-y-1">
+                          <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
                             <li>• Meta title under 60 characters</li>
                             <li>• Description 120-160 characters</li>
                             <li>• Use relevant keywords</li>
@@ -679,7 +679,7 @@ if (!brandName) {
 
                     {/* Active Status */}
 <div>
-  <label className="block text-sm text-slate-300 font-semibold mb-2">
+  <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
     Active Status
   </label>
   <button
@@ -689,8 +689,8 @@ if (!brandName) {
     }
     className={`w-full px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-between ${
       formData.isActive
-        ? "bg-emerald-500/10 border-2 border-emerald-500/50 text-emerald-400"
-        : "bg-slate-500/10 border-2 border-slate-500/50 text-slate-400"
+        ? "bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-200 dark:border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
+        : "bg-slate-100 dark:bg-slate-500/10 border-2 border-slate-300 dark:border-slate-500/50 text-slate-600 dark:text-slate-400"
     }`}
     disabled={isSubmitting}
   >
@@ -709,11 +709,11 @@ if (!brandName) {
     </div>
     <div
       className={`w-11 h-6 rounded-full transition-all ${
-        formData.isActive ? "bg-emerald-500" : "bg-slate-600"
+        formData.isActive ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
       }`}
     >
       <div
-        className={`w-5 h-5 bg-white rounded-full transition-all shadow-lg ${
+        className={`w-5 h-5 bg-white rounded-full transition-all shadow-md dark:shadow-lg ${
           formData.isActive
             ? "translate-x-5 mt-0.5"
             : "translate-x-0.5 mt-0.5"
@@ -725,7 +725,7 @@ if (!brandName) {
 
                     {/* Published Status */}
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-2">
+                      <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
                         Published Status
                       </label>
                       <button
@@ -733,8 +733,8 @@ if (!brandName) {
                         onClick={() => setFormData({ ...formData, isPublished: !formData.isPublished })}
                         className={`w-full px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-between ${
                           formData.isPublished
-                            ? "bg-green-500/10 border-2 border-green-500/50 text-green-400"
-                            : "bg-red-500/10 border-2 border-red-500/50 text-red-400"
+                            ? "bg-green-50 dark:bg-green-500/10 border-2 border-green-200 dark:border-green-500/50 text-green-600 dark:text-green-400"
+                            : "bg-red-50 dark:bg-red-500/10 border-2 border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-400"
                         }`}
                         disabled={isSubmitting}
                       >
@@ -748,9 +748,9 @@ if (!brandName) {
                           </div>
                         </div>
                         <div className={`w-11 h-6 rounded-full transition-all ${
-                          formData.isPublished ? 'bg-green-500' : 'bg-slate-600'
+                          formData.isPublished ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'
                         }`}>
-                          <div className={`w-5 h-5 bg-white rounded-full transition-all shadow-lg ${
+                          <div className={`w-5 h-5 bg-white rounded-full transition-all shadow-md dark:shadow-lg ${
                             formData.isPublished ? 'translate-x-5 mt-0.5' : 'translate-x-0.5 mt-0.5'
                           }`}></div>
                         </div>
@@ -759,7 +759,7 @@ if (!brandName) {
 
                     {/* Show on Homepage */}
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-2">
+                      <label className="block text-sm text-slate-700 dark:text-slate-300 font-semibold mb-2">
                         Show on Homepage
                       </label>
                       <button
@@ -778,8 +778,8 @@ if (!brandName) {
                         }}
                         className={`w-full px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-between ${
                           formData.showOnHomepage
-                            ? "bg-violet-500/10 border-2 border-violet-500/50 text-violet-400"
-                            : "bg-slate-500/10 border-2 border-slate-500/50 text-slate-400"
+                            ? "bg-violet-50 dark:bg-violet-500/10 border-2 border-violet-200 dark:border-violet-500/50 text-violet-600 dark:text-violet-400"
+                            : "bg-slate-100 dark:bg-slate-500/10 border-2 border-slate-300 dark:border-slate-500/50 text-slate-600 dark:text-slate-400"
                         }`}
                         disabled={isSubmitting}
                       >
@@ -797,9 +797,9 @@ if (!brandName) {
                           </div>
                         </div>
                         <div className={`w-11 h-6 rounded-full transition-all ${
-                          formData.showOnHomepage ? 'bg-violet-500' : 'bg-slate-600'
+                          formData.showOnHomepage ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'
                         }`}>
-                          <div className={`w-5 h-5 bg-white rounded-full transition-all shadow-lg ${
+                          <div className={`w-5 h-5 bg-white rounded-full transition-all shadow-md dark:shadow-lg ${
                             formData.showOnHomepage ? 'translate-x-5 mt-0.5' : 'translate-x-0.5 mt-0.5'
                           }`}></div>
                         </div>
@@ -845,7 +845,7 @@ if (!brandName) {
             {/* ============================================
                 FOOTER - ALWAYS VISIBLE
                 ============================================ */}
-            <div className="p-3 border-t border-slate-700 bg-slate-800/50">
+            <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -854,7 +854,7 @@ if (!brandName) {
                     setEditingBrand(null);
                     setActiveTab('basic');
                   }}
-                  className="flex-1 px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-semibold"
+                  className="flex-1 px-4 py-2.5 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-white rounded-lg dark:hover:bg-slate-700 transition-all font-semibold"
                   disabled={isSubmitting}
                 >
                   Cancel
@@ -870,8 +870,8 @@ if (!brandName) {
                   className={`flex-1 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all
 ${
   isSubmitting || nameStatus === "duplicate" || nameStatus === "checking"
-    ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-    : "bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white cursor-pointer"
+    ? "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400 cursor-not-allowed"
+    : "bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 dark:from-violet-600 dark:to-cyan-600 dark:hover:from-violet-700 dark:hover:to-cyan-700 text-white cursor-pointer"
 }`}
                 >
                   {isSubmitting ? (
@@ -897,35 +897,35 @@ ${
 {viewingBrand && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
 
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-violet-500/10">
+    <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-violet-500/10">
 
       {/* ================= HEADER ================= */}
-      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 rounded-t-2xl">
+      <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-[#8b5cf6]/10 to-[#06b6d4]/10 rounded-t-2xl">
         <div className="flex items-center gap-4">
 
           {viewingBrand.logoUrl ? (
             <img
               src={getImageUrl(viewingBrand.logoUrl)}
-              className="w-14 h-14 rounded-lg object-cover border border-violet-500/30"
+              className="w-14 h-14 rounded-lg object-cover border border-slate-200 dark:border-violet-500/30"
               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                  onClick={() => setSelectedImageUrl(getImageUrl(viewingBrand.logoUrl))}
                                        
             />
           ) : (
-            <div className="w-14 h-14 rounded-lg bg-violet-600 flex items-center justify-center text-white font-bold">
+            <div className="w-14 h-14 rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-600 flex items-center justify-center dark:text-white font-bold">
               {viewingBrand.name?.charAt(0)}
             </div>
           )}
 
           <div className="flex-1">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
               {viewingBrand.name}
             </h2>
-            <p className="text-slate-400 text-xs">View brand information</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs">View brand information</p>
           </div>
 
           <button onClick={() => setViewingBrand(null)}>
-            <X className="text-slate-400 hover:text-white" />
+            <X className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white" />
           </button>
         </div>
       </div>
@@ -937,36 +937,36 @@ ${
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
           {/* ================= BASIC ================= */}
-          <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+          <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
 
-            <h3 className="text-white font-semibold">Basic Information</h3>
+            <h3 className="text-slate-900 dark:text-white font-semibold">Basic Information</h3>
 
-            <div className="bg-slate-900/50 p-3 rounded-lg">
-              <p className="text-xs text-slate-400">Name</p>
-              <p className="text-white font-medium">{viewingBrand.name}</p>
+            <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+              <p className="text-xs text-slate-500 dark:text-slate-400">Name</p>
+              <p className="text-slate-900 dark:text-white font-medium">{viewingBrand.name}</p>
             </div>
 
-            <div className="bg-slate-900/50 p-3 rounded-lg">
-              <p className="text-xs text-slate-400">ID</p>
-              <p className="text-xs text-slate-300 break-all">{viewingBrand.id}</p>
+            <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+              <p className="text-xs text-slate-500 dark:text-slate-400">ID</p>
+              <p className="text-xs text-slate-700 dark:text-slate-300 break-all">{viewingBrand.id}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-900/50 p-3 rounded-lg">
-                <p className="text-xs text-slate-400">Slug</p>
-                <p className="text-white text-sm">{viewingBrand.slug}</p>
+              <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Slug</p>
+                <p className="text-slate-900 dark:text-white text-sm">{viewingBrand.slug}</p>
               </div>
 
-              <div className="bg-slate-900/50 p-3 rounded-lg">
-                <p className="text-xs text-slate-400">Order</p>
-                <p className="text-white font-semibold">#{viewingBrand.displayOrder}</p>
+              <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Order</p>
+                <p className="text-slate-900 dark:text-white font-semibold">#{viewingBrand.displayOrder}</p>
               </div>
             </div>
 
-            <div className="bg-slate-900/50 p-3 rounded-lg">
-              <p className="text-xs text-slate-400">Description</p>
+            <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+              <p className="text-xs text-slate-500 dark:text-slate-400">Description</p>
               <div
-                className="text-sm text-white"
+                className="text-sm text-slate-700 dark:text-white"
                 dangerouslySetInnerHTML={{ __html: viewingBrand.description }}
               />
             </div>
@@ -976,46 +976,46 @@ ${
           {/* ================= RIGHT PANEL (SEO + TIMELINE) ================= */}
           <div className="space-y-4">
 
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
 
-              <h3 className="text-white font-semibold mb-4">
+              <h3 className="text-slate-900 dark:text-white font-semibold mb-4">
                 SEO & Metadata
               </h3>
 
               <div className="space-y-4">
 
                 {/* META TITLE */}
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/40">
-                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/40">
+                  <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                     <span>Meta Title</span>
                     <span>{viewingBrand.metaTitle?.length || 0}/60</span>
                   </div>
-                  <p className="text-white text-sm font-medium">
+                  <p className="text-slate-900 dark:text-white text-sm font-medium">
                     {viewingBrand.metaTitle || "Not set"}
                   </p>
                 </div>
 
                 {/* META DESCRIPTION */}
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/40">
-                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/40">
+                  <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                     <span>Meta Description</span>
                     <span>{viewingBrand.metaDescription?.length || 0}/160</span>
                   </div>
-                  <p className="text-slate-300 text-sm">
+                  <p className="text-slate-700 dark:text-slate-300 text-sm">
                     {viewingBrand.metaDescription || "Not set"}
                   </p>
                 </div>
 
                 {/* KEYWORDS */}
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/40">
-                  <p className="text-xs text-slate-400 mb-2">Meta Keywords</p>
+                <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/40">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Meta Keywords</p>
 
                   {viewingBrand.metaKeywords ? (
                     <div className="flex flex-wrap gap-2">
                       {viewingBrand.metaKeywords.split(",").map((tag: string, i: number) => (
                         <span
                           key={i}
-                          className="text-xs px-2 py-1 rounded-md bg-violet-500/10 text-violet-300 border border-violet-500/20"
+                          className="text-xs px-2 py-1 rounded-md bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/20"
                         >
                           {tag.trim()}
                         </span>
@@ -1027,20 +1027,20 @@ ${
                 </div>
 
                 {/* TIMELINE */}
-                <div className="border-t border-slate-700/50 pt-4">
-                  <h4 className="text-sm font-medium text-white mb-3">Timeline</h4>
+                <div className="border-t border-slate-200 dark:border-slate-700/50 pt-4">
+                  <h4 className="text-sm font-medium text-slate-900 dark:text-white mb-3">Timeline</h4>
 
                   <div className="grid grid-cols-2 gap-3 text-sm">
 
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-slate-400 text-xs">Created By</p>
-                      <p className="text-white text-sm">{formatDate(viewingBrand.createdAt)}</p>
+                    <div className="bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-transparent p-3 rounded-lg">
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">Created By</p>
+                      <p className="text-slate-900 dark:text-white text-sm">{formatDate(viewingBrand.createdAt)}</p>
                       <p className="text-xs text-slate-500">{viewingBrand.createdBy}</p>
                     </div>
 
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-slate-400 text-xs">Updated by </p>
-                      <p className="text-white text-sm">{formatDate(viewingBrand.updatedAt)}</p>
+                    <div className="bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-transparent p-3 rounded-lg">
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">Updated by </p>
+                      <p className="text-slate-900 dark:text-white text-sm">{formatDate(viewingBrand.updatedAt)}</p>
                       <p className="text-xs text-slate-500">{viewingBrand.updatedBy}</p>
                     </div>
 
@@ -1054,11 +1054,11 @@ ${
         </div>
 
         {/* ================= FAQ ================= */}
-        <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+        <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
 
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-white font-semibold">FAQs</h3>
-            <span className="text-xs px-2 py-1 bg-slate-700 rounded text-slate-300">
+            <h3 className="text-slate-900 dark:text-white font-semibold">FAQs</h3>
+            <span className="text-xs px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded text-slate-700 dark:text-slate-300">
               {viewingBrand.faqs?.length || 0}
             </span>
           </div>
@@ -1069,11 +1069,11 @@ ${
               {viewingBrand.faqs.map((faq: any, i: number) => (
                 <details
                   key={faq.id}
-                  className="group bg-slate-900/50 rounded-lg border border-slate-700/40"
+                  className="group bg-white dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700/40"
                 >
                   <summary className="cursor-pointer list-none p-3 flex justify-between items-center">
 
-                    <p className="text-sm text-white font-medium">
+                    <p className="text-sm text-slate-900 dark:text-white font-medium">
                       {i + 1}. {faq.question}
                     </p>
 
@@ -1081,8 +1081,8 @@ ${
 
                       <span className={`text-[10px] px-2 py-0.5 rounded ${
                         faq.isActive
-                          ? "bg-green-500/10 text-green-400"
-                          : "bg-red-500/10 text-red-400"
+                          ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400"
+                          : "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400"
                       }`}>
                         {faq.isActive ? "Active" : "Inactive"}
                       </span>
@@ -1095,7 +1095,7 @@ ${
 
                   </summary>
 
-                  <div className="px-3 pb-3 text-xs text-slate-400 border-t border-slate-700/40">
+                  <div className="px-3 pb-3 text-xs text-slate-700 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700/40">
                     {faq.answer}
                   </div>
 
