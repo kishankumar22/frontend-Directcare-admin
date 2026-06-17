@@ -1188,7 +1188,55 @@ export default function OrdersListPage() {
             <option value="Refunded">Refunded</option>
           </select>
 
-          {/* PHARMACY STATUS */}
+    
+
+          {/* SHIPPING METHOD NAME & CLICK AND COLLECT */}
+          <select
+            value={filters.isClickAndCollect === "true" ? "ClickAndCollect" : filters.shippingMethodName}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "ClickAndCollect") {
+                setFilters((prev) => ({
+                  ...prev,
+                  shippingMethodName: "",
+                  isClickAndCollect: "true",
+                }));
+              } else {
+                setFilters((prev) => ({
+                  ...prev,
+                  shippingMethodName: val,
+                  isClickAndCollect: "",
+                }));
+              }
+            }}
+            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+        ${(filters.shippingMethodName || filters.isClickAndCollect === "true") ? "border-fuchsia-500 bg-slate-500/10" : "border-slate-700"}`}
+          >
+            <option value="">Shipping Method: All</option>
+            <option value="Standard Delivery">Standard Delivery</option>
+            <option value="Next Day Delivery">Next Day Delivery</option>
+            <option value="ClickAndCollect">Click & Collect</option>
+          </select>
+
+          {/* IS PHARMA PRODUCT */}
+          <select
+            value={filters.isPharmaProduct}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                isPharmaProduct: e.target.value,
+              }))
+            }
+            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+        ${filters.isPharmaProduct ? "border-rose-500 bg-rose-500/10" : "border-slate-700"}`}
+          >
+            <option value="">Product Type</option>
+            <option value="true">Pharma</option>
+            <option value="false">Simple</option>
+          </select>
+
+      {/* PHARMACY STATUS */}
+          {filters.isPharmaProduct === "true" && (
           <select
             value={filters.pharmacyVerificationStatus || ""}
             onChange={(e) =>
@@ -1205,58 +1253,7 @@ export default function OrdersListPage() {
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
           </select>
-
-          {/* SHIPPING METHOD NAME */}
-          <select
-            value={filters.shippingMethodName}
-            onChange={(e) =>
-              setFilters((prev) => ({
-                ...prev,
-                shippingMethodName: e.target.value,
-              }))
-            }
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
-        ${filters.shippingMethodName ? "border-fuchsia-500 bg-slate-500/10" : "border-slate-700"}`}
-          >
-            <option value="">Shipping Method: All</option>
-            <option value="Standard Delivery">Standard Delivery</option>
-            <option value="Next Day Delivery">Next Day Delivery</option>
-          </select>
-
-          {/* IS CLICK AND COLLECT */}
-          <select
-            value={filters.isClickAndCollect}
-            onChange={(e) =>
-              setFilters((prev) => ({
-                ...prev,
-                isClickAndCollect: e.target.value,
-              }))
-            }
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
-        ${filters.isClickAndCollect ? "border-orange-500 bg-orange-500/10" : "border-slate-700"}`}
-          >
-            <option value="">Click & Collect:All</option>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
-          </select>
-
-          {/* IS PHARMA PRODUCT */}
-          <select
-            value={filters.isPharmaProduct}
-            onChange={(e) =>
-              setFilters((prev) => ({
-                ...prev,
-                isPharmaProduct: e.target.value,
-              }))
-            }
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
-        ${filters.isPharmaProduct ? "border-rose-500 bg-rose-500/10" : "border-slate-700"}`}
-          >
-            <option value="">Pharma Order:All</option>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
-          </select>
-
+          )}
           {/* DATE RANGE */}
           <div className="relative min-w-[130px]" ref={datePickerRef}>
             <button

@@ -18,7 +18,7 @@ import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon } from "lucide-react";
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle } from "lucide-react";
 import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -488,6 +488,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   }, []);
   const [shipDate, setShipDate] = useState<string | null>(null);
   const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
+  const [shipPrefix, setShipPrefix] = useState<string>("Today");
+  const [deliveryPrefix, setDeliveryPrefix] = useState<string>("Tomorrow");
   const [nextDayTimeLeft, setNextDayTimeLeft] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
 
@@ -505,7 +507,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
   const activeSaleCount = product.productType === "variable" && selectedVariant
     ? selectedVariant.saleCount
-    : product.weeklySaleCount;
+    : product.saleCount;
 
   useEffect(() => {
     if (
@@ -520,26 +522,94 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     }
     const calculateTimeLeft = () => {
       const now = new Date();
+      const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday
       const [h, m] = activeNextDayDeliveryCutoffTime!.split(":").map(Number);
-      const cutoff = new Date();
-      cutoff.setHours(h, m, 0, 0);
-      if (now >= cutoff) {
+      
+      let targetCutoff = new Date(now);
+      targetCutoff.setHours(h, m, 0, 0);
+      
+      let ship = new Date(now);
+      let deliver = new Date(now);
+      
+      let shipPrefixStr = "Today";
+      let deliveryPrefixStr = "Tomorrow";
+      let showBanner = true;
+
+      if (day === 5) { // Friday
+        if (now < targetCutoff) {
+          // Friday before 2 PM: standard today/tomorrow
+          shipPrefixStr = "Today";
+          deliveryPrefixStr = "Tomorrow";
+          ship = new Date(now);
+          deliver = new Date(now);
+          deliver.setDate(deliver.getDate() + 1); // Saturday
+        } else {
+          // Friday after 2 PM: Target is Saturday 2 PM
+          targetCutoff.setDate(targetCutoff.getDate() + 1);
+          shipPrefixStr = "Sunday";
+          deliveryPrefixStr = "Monday";
+          ship.setDate(ship.getDate() + 2); // Sunday
+          deliver.setDate(deliver.getDate() + 3); // Monday
+        }
+      } else if (day === 6) { // Saturday
+        if (now < targetCutoff) {
+          // Saturday before 2 PM: Target is Saturday 2 PM (today)
+          shipPrefixStr = "Sunday";
+          deliveryPrefixStr = "Monday";
+          ship.setDate(ship.getDate() + 1); // Sunday
+          deliver.setDate(deliver.getDate() + 2); // Monday
+        } else {
+          // Saturday after 2 PM: Target is Monday 2 PM
+          targetCutoff.setDate(targetCutoff.getDate() + 2); // Monday
+          shipPrefixStr = "Monday";
+          deliveryPrefixStr = "Tuesday";
+          ship.setDate(ship.getDate() + 2); // Monday
+          deliver.setDate(deliver.getDate() + 3); // Tuesday
+        }
+      } else if (day === 0) { // Sunday
+        // Sunday: Target is Monday 2 PM
+        targetCutoff.setDate(targetCutoff.getDate() + 1); // Monday
+        shipPrefixStr = "Monday";
+        deliveryPrefixStr = "Tuesday";
+        ship.setDate(ship.getDate() + 1); // Monday
+        deliver.setDate(deliver.getDate() + 2); // Tuesday
+      } else {
+        // Monday to Thursday
+        if (now >= targetCutoff) {
+          showBanner = false;
+        } else {
+          shipPrefixStr = "Today";
+          deliveryPrefixStr = "Tomorrow";
+          ship = new Date(now);
+          deliver = new Date(now);
+          deliver.setDate(deliver.getDate() + 1);
+          if (deliver.getDay() === 0) deliver.setDate(deliver.getDate() + 1); // Skip Sunday
+        }
+      }
+
+      if (!showBanner) {
         setNextDayTimeLeft(null);
         setShipDate(null);
         setDeliveryDate(null);
         return;
       }
-      const diffMs = cutoff.getTime() - now.getTime();
+
+      const diffMs = targetCutoff.getTime() - now.getTime();
+      if (diffMs <= 0) {
+        setNextDayTimeLeft(null);
+        setShipDate(null);
+        setDeliveryDate(null);
+        return;
+      }
+
       const hours = Math.floor(diffMs / (1000 * 60 * 60));
       const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
       setNextDayTimeLeft(
         `${hours} hour${hours !== 1 ? "s" : ""} ${minutes} minute${minutes !== 1 ? "s" : ""}`
       );
-      const ship = new Date();
+      setShipPrefix(shipPrefixStr);
+      setDeliveryPrefix(deliveryPrefixStr);
       setShipDate(formatUKDate(ship));
-      const deliver = new Date();
-      deliver.setDate(deliver.getDate() + 1);
-      if (deliver.getDay() === 0) deliver.setDate(deliver.getDate() + 1); // skip Sunday
       setDeliveryDate(formatUKDate(deliver));
     };
     calculateTimeLeft();
@@ -2189,15 +2259,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 <GenderBadge
                   gender={product.gender}
                   absolute={false}
-                  className="bg-gray-100 text-gray-700 border border-purple-200 px-2 py-0 rounded text-xs font-semibold gap-1 shadow-none"
+                  className="bg-gray-100 text-gray-700 border border-purple-200 px-2 py-0 rounded text-xs font-semibold gap-1 shadow-none "
                 />
-                {/* Pharma Product */}
-                {product.isPharmaProduct && (
-                  <div className="flex items-center gap-1 text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded text-xs font-semibold">
-                    <Pill className="h-3 w-3" />
-                    Pharma Product
-                  </div>
-                )}
+             
               </div>
             </div>
 
@@ -2231,7 +2295,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                       Ships
                     </p>
                     <p className="text-xs font-semibold text-[#445D41]">
-                      Today • {shipDate}
+                      {shipPrefix} • {shipDate}
                     </p>
                   </div>
                   {/* LINE */}
@@ -2246,7 +2310,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                       Delivers
                     </p>
                     <p className="text-xs font-semibold text-[#445D41]">
-                      Tomorrow • {deliveryDate}
+                      {deliveryPrefix} • {deliveryDate}
                     </p>
                   </div>
                 </div>
@@ -2352,16 +2416,30 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               </>
             )}
 
-            {/* Sale Count Highlight */}
-{activeSaleCount ? (
-  <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-red-100 bg-gradient-to-r from-red-50 to-orange-50 px-2.5 py-1 shadow-sm">
-    <span className="text-xs">🔥</span>
+              {(product.isPharmaProduct || activeSaleCount) && (
+              <div className="flex items-center gap-1.5 md:gap-2 mb-2.5 md:mb-3 flex-wrap">
+                {product.isPharmaProduct && (
+                  <div className="inline-flex items-center gap-1.5 bg-[#445D41]/20 border-2 border-[#445D41]/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-sm hover:shadow-md hover:bg-[#445D41]/30 transition-all duration-200">
+                    <PlusCircle className="h-3 w-3 md:h-3.5 md:w-3.5 text-[#445D41] font-bold " />
+                    <span className="text-[9px] md:text-[11px] lg:text-xs font-bold text-[#445D41] whitespace-nowrap leading-tight tracking-wide">
+             P Medicines are sold under pharmacist Supervision 
+                    </span>
+                  </div>
+                )}
 
-    <span className="text-[11px] md:text-xs font-semibold text-red-700">
-      {activeSaleCount} items sold this week
+{(activeSaleCount ?? 0) > 0 && (
+  <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500/20 to-orange-500/20 border-2 border-rose-400/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-md shadow-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20 transition-all duration-200">
+    <span className="text-[10px] md:text-xs leading-none text-rose-600">🔥</span>
+    <span className="text-[9px] md:text-[11px] lg:text-xs font-extrabold text-rose-700 whitespace-nowrap leading-tight tracking-wide">
+      {(activeSaleCount ?? 0) >= 1000 
+        ? ((activeSaleCount ?? 0) / 1000).toFixed((activeSaleCount ?? 0) >= 10000 ? 0 : 1) + 'K' 
+        : activeSaleCount
+      } Sold This Week
     </span>
   </div>
-) : null}
+)}
+              </div>
+              )}
 
             {/* Price Card */}
             <Card className="mb-4">

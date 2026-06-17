@@ -153,6 +153,7 @@ export default function Footer() {
                     Privacy Policy
                   </Link>
                 </li>
+                
               </ul>
             </div>
 
@@ -190,6 +191,15 @@ export default function Footer() {
                     Shop By Category
                   </Link>
                 </li>
+                <li className="pt-3 flex flex-col gap-3">
+                  <a href="https://www.pharmacyregulation.org/registers/pharmacy/registrationnumber/9013206" target="_blank" rel="noopener noreferrer" className="block hover:opacity-90 transition-opacity">
+                    <img src="/logo/Pharmacy Logo.jpg" alt="Pharmacy Logo" className="w-32 rounded-lg object-contain bg-white p-1" />
+                  </a>
+                  {/* <a href="https://www.pharmacyregulation.org/registers/pharmacy/registrationnumber/9013206" target="_blank" rel="noopener noreferrer" className="block hover:opacity-90 transition-opacity">
+                    <img src="/logo/Pharmacy Logo 2.jpg" alt="Pharmacy Logo 2" className="w-32 rounded-lg object-contain bg-white p-1" />
+                  </a> */}
+                </li>
+                  
               </ul>
             </div>
 
@@ -230,7 +240,7 @@ export default function Footer() {
 
                   <div className="hover:translate-x-1 transition-transform duration-150">
                     
-                    <dd className="text-white/85"> GPhC Reg No : Awaiting</dd>
+                    <dd className="text-white/85"> GPhC Reg No : 9013206</dd>
                   </div>
 
                   <div className="hover:translate-x-1 transition-transform duration-150">

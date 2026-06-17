@@ -198,7 +198,7 @@ const [bulkAction, setBulkAction] = useState<null | {
   ];
 
   const typeOptions: SelectOption[] = [
-    { value: "all", label: "All Types" },
+    { value: "all", label: "List Type" },
     { value: "simple", label: "Simple" },
     { value: "grouped", label: "Grouped" },
     { value: "variable", label: "variable" },
@@ -212,7 +212,7 @@ const statusOptions: SelectOption[] = [
 ];
 
 const pharmaOptions: SelectOption[] = [
-  { value: "all", label: "All Products" },
+  { value: "all", label: "Product Type" },
   { value: "yes", label: "Pharma " },
   { value: "no", label: "Others" },
 ];

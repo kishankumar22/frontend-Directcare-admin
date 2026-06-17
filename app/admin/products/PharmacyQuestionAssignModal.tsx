@@ -102,13 +102,18 @@ const filteredQuestions = useMemo(() => {
     );
   }
 
-  // 🔥 Latest created first
-  return [...filtered].sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() -
-      new Date(a.createdAt).getTime()
-  );
-}, [questions, debouncedSearch]);
+  // 🔥 Selected first, then latest created
+  return [...filtered].sort((a, b) => {
+    const aSelected = selections.has(a.id) ? 1 : 0;
+    const bSelected = selections.has(b.id) ? 1 : 0;
+    
+    if (aSelected !== bSelected) {
+      return bSelected - aSelected;
+    }
+    
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}, [questions, debouncedSearch, selections]);
 
 
 

@@ -46,7 +46,7 @@ export default function CompanyInfoPage() {
 </p>
 
 <p className="text-sm black">
-  <strong>GPhC registration number:</strong> Awaiting
+  <strong>GPhC registration number:</strong> 9013206
 </p>
 
 <p className="text-sm black mt-4">

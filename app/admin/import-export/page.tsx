@@ -172,7 +172,9 @@ const EDITABLE_FIELDS: { key: string; label: string }[] = [
   { key: 'nextDayDeliveryFree', label: 'Next Day Delivery Free' },
   { key: 'standardDeliveryEnabled', label: 'Standard Delivery Enabled' },
   { key: 'nextDayDeliveryCutoffTime', label: 'Next Day Cutoff Time' },
-
+  { key: 'saleCount', label: 'Sale Count' },
+  { key: 'fakeSaleCount', label: 'Fake Sale Count' },
+  
   { key: 'weight', label: 'Weight' },
   { key: 'length', label: 'Length' },
   { key: 'width', label: 'Width' },
@@ -545,105 +547,105 @@ const [selectedFields, setSelectedFields] = useState<string[]>(
       setCategoriesLoading(true);
       setCategoriesError('');
       try {
-        const response = await categoriesService.getSimple({ includeInactive: true, isDeleted: false });
-        const payload = response?.data;
-        if (!payload) throw new Error('No data received from server');
+          const response = await categoriesService.getSimple({ includeInactive: true, isDeleted: false });
+          const payload = response?.data;
+          if (!payload) throw new Error('No data received from server');
 
-        const items = (Array.isArray(payload.data)
-          ? payload.data
-          : Array.isArray((payload.data as any)?.items)
-            ? (payload.data as any).items
-          : Array.isArray((payload as any)?.items)
-            ? (payload as any).items
-          : Array.isArray(payload)
-            ? payload
-            : []) as CategoryOption[];
+          const items = (Array.isArray(payload.data)
+            ? payload.data
+            : Array.isArray((payload.data as any)?.items)
+              ? (payload.data as any).items
+            : Array.isArray((payload as any)?.items)
+              ? (payload as any).items
+            : Array.isArray(payload)
+              ? payload
+              : []) as CategoryOption[];
 
-        if (alive) setCategories(items.some(item => item.parentCategoryId !== undefined) ? buildCategoryPaths(items) : flattenCategories(items));
-      } catch (err: any) {
-        if (alive) setCategoriesError(err?.message || 'Failed to load categories.');
-        if (alive) setCategories([]);
-      } finally {
-        if (alive) setCategoriesLoading(false);
+          if (alive) setCategories(items.some(item => item.parentCategoryId !== undefined) ? buildCategoryPaths(items) : flattenCategories(items));
+        } catch (err: any) {
+          if (alive) setCategoriesError(err?.message || 'Failed to load categories.');
+          if (alive) setCategories([]);
+        } finally {
+          if (alive) setCategoriesLoading(false);
+        }
       }
+
+      loadCategories();
+      return () => { alive = false; };
+    }, []);
+
+    async function handleDownloadTemplate() {
+      setTemplateLoading(true); setTemplateDone(false);
+      try {
+        const isPublished = templateFilters.isPublished === 'true' ? true : templateFilters.isPublished === 'false' ? false : undefined;
+        const response = await productsService.downloadBulkUpdateTemplate({
+          searchTerm: templateFilters.searchTerm,
+          isPublished,
+          stockStatus: templateFilters.stockStatus,
+          categoryId: templateFilters.categoryIds.join(','),
+          fields: selectedFields,
+        });
+        const blob = response.data as Blob;
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `products-bulk-update-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        setTemplateDone(true);
+      } catch (err: any) { alert(`Download failed: ${err.message}`); }
+      finally { setTemplateLoading(false); }
     }
 
-    loadCategories();
-    return () => { alive = false; };
-  }, []);
-
-  async function handleDownloadTemplate() {
-    setTemplateLoading(true); setTemplateDone(false);
-    try {
-      const isPublished = templateFilters.isPublished === 'true' ? true : templateFilters.isPublished === 'false' ? false : undefined;
-      const response = await productsService.downloadBulkUpdateTemplate({
-        searchTerm: templateFilters.searchTerm,
-        isPublished,
-        stockStatus: templateFilters.stockStatus,
-        categoryId: templateFilters.categoryIds.join(','),
-        fields: selectedFields,
-      });
-      const blob = response.data as Blob;
-
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `products-bulk-update-${new Date().toISOString().slice(0, 10)}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      setTemplateDone(true);
-    } catch (err: any) { alert(`Download failed: ${err.message}`); }
-    finally { setTemplateLoading(false); }
-  }
-
-  async function handleUpload() {
-    if (!uploadFile) return;
-    setUploading(true); setResult(null); setUploadError('');
-    try {
-      const response = await productsService.bulkUpdateWithExcel(uploadFile);
-      if (response?.data) {
-        setResult((response.data as any).data || response.data);
-      } else {
-        throw new Error('No response from server');
-      }
-    } catch (err: any) { setUploadError(err.message); }
-    finally { setUploading(false); }
-  }
-
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file?.name.endsWith('.xlsx')) {
-      setUploadFile(file); setResult(null); setUploadError('');
+    async function handleUpload() {
+      if (!uploadFile) return;
+      setUploading(true); setResult(null); setUploadError('');
+      try {
+        const response = await productsService.bulkUpdateWithExcel(uploadFile);
+        if (response?.data) {
+          setResult((response.data as any).data || response.data);
+        } else {
+          throw new Error('No response from server');
+        }
+      } catch (err: any) { setUploadError(err.message); }
+      finally { setUploading(false); }
     }
-  }, []);
 
-  return (
-    <div className="space-y-3">
-      {/* Step cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-        {[
-          { n: '1', icon: <FileDown className="h-5 w-5" />, title: 'Download Template', desc: 'Pre-filled Excel with all current product data', grad: 'from-cyan-500/20 to-blue-500/20 border-cyan-500/30', iconCol: 'text-cyan-400' },
-          { n: '2', icon: <FileSpreadsheet className="h-5 w-5" />, title: 'Edit Blue Columns', desc: 'Price, stock, name — leave blank to skip a field', grad: 'from-violet-500/20 to-purple-500/20 border-violet-500/30', iconCol: 'text-violet-400' },
-          { n: '3', icon: <UploadCloud className="h-5 w-5" />, title: 'Upload & Apply', desc: 'Re-upload the file to push changes live', grad: 'from-emerald-500/20 to-green-500/20 border-emerald-500/30', iconCol: 'text-emerald-400' },
-        ].map(({ n, icon, title, desc, grad, iconCol }) => (
-       <div key={n} className={`relative rounded-xl border bg-gradient-to-br ${grad} p-4`}>
-  
-  <div className="flex items-start justify-between">
+    const onDrop = useCallback((e: React.DragEvent) => {
+      e.preventDefault(); setDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (file?.name.endsWith('.xlsx')) {
+        setUploadFile(file); setResult(null); setUploadError('');
+      }
+    }, []);
+
+    return (
+      <div className="space-y-3">
+        {/* Step cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+          {[
+            { n: '1', icon: <FileDown className="h-5 w-5" />, title: 'Download Template', desc: 'Pre-filled Excel with all current product data', grad: 'from-cyan-500/20 to-blue-500/20 border-cyan-500/30', iconCol: 'text-cyan-400' },
+            { n: '2', icon: <FileSpreadsheet className="h-5 w-5" />, title: 'Edit Blue Columns', desc: 'Price, stock, name — leave blank to skip a field', grad: 'from-violet-500/20 to-purple-500/20 border-violet-500/30', iconCol: 'text-violet-400' },
+            { n: '3', icon: <UploadCloud className="h-5 w-5" />, title: 'Upload & Apply', desc: 'Re-upload the file to push changes live', grad: 'from-emerald-500/20 to-green-500/20 border-emerald-500/30', iconCol: 'text-emerald-400' },
+          ].map(({ n, icon, title, desc, grad, iconCol }) => (
+        <div key={n} className={`relative rounded-xl border bg-gradient-to-br ${grad} p-4`}>
     
-    {/* LEFT SIDE */}
-    <div className="flex items-start gap-3">
-      <div className={`inline-flex items-center justify-center rounded-lg bg-slate-800/60 p-2 ${iconCol}`}>
-        {icon}
+    <div className="flex items-start justify-between">
+      
+      {/* LEFT SIDE */}
+      <div className="flex items-start gap-3">
+        <div className={`inline-flex items-center justify-center rounded-lg bg-slate-800/60 p-2 ${iconCol}`}>
+          {icon}
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-slate-200">{title}</p>
+          <p className="text-xs text-slate-400 mt-1 leading-relaxed">{desc}</p>
+        </div>
       </div>
 
-      <div>
-        <p className="text-sm font-semibold text-slate-200">{title}</p>
-        <p className="text-xs text-slate-400 mt-1 leading-relaxed">{desc}</p>
-      </div>
-    </div>
-
-    {/* RIGHT SIDE (01) */}
-    <span className="text-xs font-bold text-slate-600">0{n}</span>
+      {/* RIGHT SIDE (01) */}
+      <span className="text-xs font-bold text-slate-600">0{n}</span>
 
   </div>
 
@@ -781,6 +783,7 @@ const [selectedFields, setSelectedFields] = useState<string[]>(
                   {selectedFields.length || 'All'} fields
                 </span>
                 <button onClick={selectAllFields} className="text-cyan-400 hover:text-cyan-300 font-medium">Select all</button>
+                <button onClick={clearAllFields} className="text-rose-400 hover:text-rose-300 font-medium ml-2">Deselect all</button>
 
                 <div className="relative ml-1">
                   <input
