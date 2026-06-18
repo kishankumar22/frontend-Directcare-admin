@@ -64,7 +64,7 @@ export const StaffFilters = React.memo(function StaffFilters({
   const roleOptions = useMemo(() => roles.map((r) => r.name), [roles]);
 
   return (
-    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-2">
+    <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 shadow-sm">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[280px]">
           <Search className="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -72,10 +72,10 @@ export const StaffFilters = React.memo(function StaffFilters({
             value={query.searchTerm || ''}
             onChange={(e) => onChange({ searchTerm: e.target.value, page: 1 })}
             placeholder="Search by name, email or phone..."
-            className={`w-full pl-9 pr-10 py-2 bg-slate-950/40 border rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
+            className={`w-full pl-9 pr-10 py-2 bg-white dark:bg-slate-950/40 border rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
               (query.searchTerm || '').trim()
                 ? 'border-violet-500/50 ring-2 ring-violet-500/10'
-                : 'border-slate-800'
+                : 'border-slate-200 dark:border-slate-800'
             }`}
           />
           {searching && (
@@ -88,8 +88,8 @@ export const StaffFilters = React.memo(function StaffFilters({
         <select
           value={query.role || ''}
           onChange={(e) => onChange({ role: e.target.value || undefined, page: 1 })}
-          className={`min-w-[170px] px-3 py-2 bg-slate-950/80 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
-            query.role ? 'border-violet-500/50 ring-2 ring-violet-500/10' : 'border-slate-800'
+          className={`min-w-[170px] px-3 py-2 bg-white dark:bg-slate-950/80 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
+            query.role ? 'border-violet-500/50 ring-2 ring-violet-500/10' : 'border-slate-200 dark:border-slate-800'
           }`}
         >
           <option value="">All Roles</option>
@@ -108,8 +108,8 @@ export const StaffFilters = React.memo(function StaffFilters({
               page: 1,
             })
           }
-          className={`min-w-[150px] px-3 py-2 bg-slate-950/80 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
-            query.isActive !== undefined ? 'border-violet-500/50 ring-2 ring-violet-500/10' : 'border-slate-800'
+          className={`min-w-[150px] px-3 py-2 bg-white dark:bg-slate-950/80 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
+            query.isActive !== undefined ? 'border-violet-500/50 ring-2 ring-violet-500/10' : 'border-slate-200 dark:border-slate-800'
           }`}
         >
           <option value="">All Status</option>
@@ -120,10 +120,10 @@ export const StaffFilters = React.memo(function StaffFilters({
         <select
           value={query.sortBy || 'createdAt'}
           onChange={(e) => onChange({ sortBy: e.target.value, page: 1 })}
-          className={`min-w-[160px] px-3 py-2 bg-slate-950/80 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
+          className={`min-w-[160px] px-3 py-2 bg-white dark:bg-slate-950/80 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
             (query.sortBy || 'createdAt') !== 'createdAt'
               ? 'border-violet-500/50 ring-2 ring-violet-500/10'
-              : 'border-slate-800'
+              : 'border-slate-200 dark:border-slate-800'
           }`}
         >
           <option value="createdAt">Created</option>
@@ -136,10 +136,10 @@ export const StaffFilters = React.memo(function StaffFilters({
         <select
           value={(query.sortDirection as SortDirection) || 'desc'}
           onChange={(e) => onChange({ sortDirection: e.target.value as SortDirection, page: 1 })}
-          className={`min-w-[110px] px-3 py-2 bg-slate-950/80 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
+          className={`min-w-[110px] px-3 py-2 bg-white dark:bg-slate-950/80 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${
             ((query.sortDirection as SortDirection) || 'desc') !== 'desc'
               ? 'border-violet-500/50 ring-2 ring-violet-500/10'
-              : 'border-slate-800'
+              : 'border-slate-200 dark:border-slate-800'
           }`}
         >
           <option value="desc">Desc</option>
@@ -150,7 +150,7 @@ export const StaffFilters = React.memo(function StaffFilters({
           <button
             disabled={loading}
             onClick={onReset}
-            className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-200 hover:bg-red-500/20 hover:border-red-500/60 transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-500/20 hover:border-red-300 dark:hover:border-red-500/60 transition-all disabled:opacity-50"
             type="button"
           >
             Clear All
@@ -182,17 +182,17 @@ export const StaffTable = React.memo(function StaffTable({
   }, [items, selectedIds]);
 
   return (
-    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
+    <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-950/50 border-b border-slate-800">
-            <tr className="text-slate-300">
+          <thead className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800">
+            <tr className="text-slate-600 dark:text-slate-300">
               <th className="text-left px-4 py-3 font-semibold w-12">
                 <input
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={(e) => onToggleAll(e.target.checked)}
-                  className="w-4 h-4 rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500"
+                  className="w-4 h-4 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-violet-500"
                 />
               </th>
               <th className="text-left px-4 py-3 font-semibold">Name</th>
@@ -204,10 +204,10 @@ export const StaffTable = React.memo(function StaffTable({
               <th className="text-right px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {loading ? (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={8}>
+                <td className="px-4 py-6 text-slate-500 dark:text-slate-400" colSpan={8}>
                   <div className="flex items-center gap-2">
                     <RefreshCw className="h-4 w-4 animate-spin" />
                     Loading staff...
@@ -216,29 +216,29 @@ export const StaffTable = React.memo(function StaffTable({
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={8}>
+                <td className="px-4 py-6 text-slate-500 dark:text-slate-400" colSpan={8}>
                   No staff found.
                 </td>
               </tr>
             ) : (
               items.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-950/30 transition-colors">
+                <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-950/30 transition-colors">
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(row.id)}
                       onChange={() => onToggleOne(row.id)}
-                      className="w-4 h-4 rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500"
+                      className="w-4 h-4 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-violet-500"
                     />
                   </td>
-                  <td className="px-4 py-3 text-slate-100">
+                  <td className="px-4 py-3 text-slate-800 dark:text-slate-100">
                     <div className="font-semibold">{row.fullName || `${row.firstName} ${row.lastName}`}</div>
-                    <div className="text-xs text-slate-500">{row.phoneNumber}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{row.phoneNumber}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-200"> {row.email}</td>
-                  <td className="px-4 py-3 text-slate-200">
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-200"> {row.email}</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
                     <div className="inline-flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-violet-400" />
+                      <Shield className="h-4 w-4 text-violet-500 dark:text-violet-400" />
                       {row.primaryRole || row.roles?.[0] || '—'}
                     </div>
                   </td>
@@ -246,15 +246,15 @@ export const StaffTable = React.memo(function StaffTable({
                     <span
                       className={`px-2 py-1 rounded-lg text-xs font-semibold ${
                         row.isActive
-                          ? 'bg-green-500/10 border border-green-500/30 text-green-300'
-                          : 'bg-red-500/10 border border-red-500/30 text-red-300'
+                          ? 'bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300'
+                          : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300'
                       }`}
                     >
                       {row.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-300">{formatDate(row.createdAt)}</td>
-                  <td className="px-4 py-3 text-slate-300">{formatDate(row.lastLoginAt)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDate(row.createdAt)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDate(row.lastLoginAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <IconButton title="View" onClick={() => onAction({ type: 'view', id: row.id })}>
@@ -302,8 +302,8 @@ function IconButton({
     'p-2 rounded-xl border transition-all hover:shadow-lg hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed';
   const cls =
     variant === 'danger'
-      ? `${base} bg-red-500/10 border-red-500/30 text-red-200 hover:bg-red-500/20 hover:shadow-red-500/20 hover:border-red-500/60`
-      : `${base} bg-slate-800/40 border-slate-700 text-slate-200 hover:bg-slate-800 hover:shadow-slate-900/40 hover:border-violet-500/50 hover:text-white`;
+      ? `${base} bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-500/20 hover:shadow-red-500/20 hover:border-red-300 dark:hover:border-red-500/60`
+      : `${base} bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-slate-200/40 dark:hover:shadow-slate-900/40 hover:border-violet-500/50 dark:hover:border-violet-500/50 hover:text-violet-600 dark:hover:text-white`;
   return (
     <button type="button" title={title} onClick={onClick} className={cls}>
       {children}
@@ -348,10 +348,10 @@ export const StaffPagination = React.memo(function StaffPagination({
   const goToNextPage = useCallback(() => onPageChange(page + 1), [onPageChange, page]);
 
   return (
-    <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+    <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="text-sm text-slate-400">
+          <div className="text-sm text-slate-600 dark:text-slate-400">
             Page {page} of {totalPages || 1}
           </div>
           <div className="flex items-center gap-2">
@@ -359,7 +359,7 @@ export const StaffPagination = React.memo(function StaffPagination({
             <select
               value={String(pageSize)}
               onChange={(e) => onPageSizeChange(parseInt(e.target.value, 10))}
-              className="px-2 py-1.5 bg-slate-950/70 border border-slate-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+              className="px-2 py-1.5 bg-white dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
             >
               {[10, 20, 50, 100].map((n) => (
                 <option key={n} value={n}>
@@ -376,7 +376,7 @@ export const StaffPagination = React.memo(function StaffPagination({
             <button
               onClick={goToFirstPage}
               disabled={page === 1}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-50"
+              className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50"
               type="button"
             >
               <ChevronsLeft className="h-4 w-4" />
@@ -384,7 +384,7 @@ export const StaffPagination = React.memo(function StaffPagination({
             <button
               onClick={goToPreviousPage}
               disabled={page === 1}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-50"
+              className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50"
               type="button"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -396,7 +396,7 @@ export const StaffPagination = React.memo(function StaffPagination({
                   onClick={() => onPageChange(p)}
                   type="button"
                   className={`px-3 py-2 text-sm rounded-lg transition-all ${
-                    page === p ? 'bg-violet-500 text-white font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    page === p ? 'bg-violet-500 text-white font-semibold' : 'text-slate-650 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   {p}
@@ -406,7 +406,7 @@ export const StaffPagination = React.memo(function StaffPagination({
             <button
               onClick={goToNextPage}
               disabled={page === totalPages}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-50"
+              className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50"
               type="button"
             >
               <ChevronRight className="h-4 w-4" />
@@ -414,7 +414,7 @@ export const StaffPagination = React.memo(function StaffPagination({
             <button
               onClick={goToLastPage}
               disabled={page === totalPages}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-50"
+              className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50"
               type="button"
             >
               <ChevronsRight className="h-4 w-4" />
@@ -422,7 +422,7 @@ export const StaffPagination = React.memo(function StaffPagination({
           </div>
         )}
 
-        <div className="text-sm text-slate-400">Total: {totalCount} items</div>
+        <div className="text-sm text-slate-650 dark:text-slate-400">Total: {totalCount} items</div>
       </div>
     </div>
   );
@@ -567,20 +567,20 @@ export function StaffFormModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 flex items-center justify-between">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-violet-600/10 dark:to-cyan-500/10 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
               {mode === 'create' ? 'Create Staff' : 'Edit Staff'}
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {mode === 'create' ? 'Create a new staff account' : 'Update staff details'}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -589,38 +589,38 @@ export function StaffFormModal({
         <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400">First Name <span className="text-red-500">*</span></label>
+              <label className="text-xs text-slate-700 dark:text-slate-400">First Name <span className="text-red-500">*</span></label>
               <input
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Enter first name"
-                className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
-                  errors.some(e => e.toLowerCase().includes('first name')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                className={`w-full mt-1 px-3 py-2 bg-white dark:bg-slate-950/40 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                  errors.some(e => e.toLowerCase().includes('first name')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-200 dark:border-slate-800'
                 }`}
               />
             </div>
             <div>
-              <label className="text-xs text-slate-400">Last Name <span className="text-red-500">*</span></label>
+              <label className="text-xs text-slate-700 dark:text-slate-400">Last Name <span className="text-red-500">*</span></label>
               <input
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Enter last name"
-                className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
-                  errors.some(e => e.toLowerCase().includes('last name')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                className={`w-full mt-1 px-3 py-2 bg-white dark:bg-slate-950/40 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                  errors.some(e => e.toLowerCase().includes('last name')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-200 dark:border-slate-800'
                 }`}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-slate-400">Email {mode === 'create' && <span className="text-red-500">*</span>}</label>
+            <label className="text-xs text-slate-700 dark:text-slate-400">Email {mode === 'create' && <span className="text-red-500">*</span>}</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={mode === 'edit'}
               placeholder="staff@example.com"
-              className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
-                errors.some(e => e.toLowerCase().includes('email')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+              className={`w-full mt-1 px-3 py-2 bg-white dark:bg-slate-950/40 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                errors.some(e => e.toLowerCase().includes('email')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-200 dark:border-slate-800'
               } disabled:opacity-60`}
             />
           </div>
@@ -628,7 +628,7 @@ export function StaffFormModal({
           {mode === 'create' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-400">Password <span className="text-red-500">*</span></label>
+                <label className="text-xs text-slate-700 dark:text-slate-400">Password <span className="text-red-500">*</span></label>
                 <div className="relative mt-1">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -636,21 +636,21 @@ export function StaffFormModal({
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="new-password"
                     placeholder="Min 8 characters"
-                    className={`w-full px-3 py-2 pr-10 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
-                      errors.some(e => e.toLowerCase().includes('password')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                    className={`w-full px-3 py-2 pr-10 bg-white dark:bg-slate-950/40 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                      errors.some(e => e.toLowerCase().includes('password')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-200 dark:border-slate-800'
                     }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-400">Confirm Password <span className="text-red-500">*</span></label>
+                <label className="text-xs text-slate-700 dark:text-slate-400">Confirm Password <span className="text-red-500">*</span></label>
                 <div className="relative mt-1">
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
@@ -658,20 +658,20 @@ export function StaffFormModal({
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     autoComplete="new-password"
                     placeholder="Re-enter password"
-                    className={`w-full px-3 py-2 pr-10 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
-                      confirmPassword && password !== confirmPassword ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                    className={`w-full px-3 py-2 pr-10 bg-white dark:bg-slate-950/40 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                      confirmPassword && password !== confirmPassword ? 'border-red-500/50 bg-red-500/5' : 'border-slate-200 dark:border-slate-800'
                     }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
                   >
                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
                 {confirmPassword && (
-                  <p className={`mt-1 text-[10px] ${password === confirmPassword ? 'text-green-400' : 'text-red-400'}`}>
+                  <p className={`mt-1 text-[10px] ${password === confirmPassword ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
                   </p>
                 )}
@@ -681,12 +681,12 @@ export function StaffFormModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400">Role <span className="text-red-500">*</span></label>
+              <label className="text-xs text-slate-700 dark:text-slate-400">Role <span className="text-red-500">*</span></label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className={`w-full mt-1 px-3 py-2 bg-slate-950/70 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
-                  errors.some(e => e.toLowerCase().includes('role')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+                className={`w-full mt-1 px-3 py-2 bg-white dark:bg-slate-950/70 border rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                  errors.some(e => e.toLowerCase().includes('role')) ? 'border-red-500/50 bg-red-500/5' : 'border-slate-200 dark:border-slate-800'
                 }`}
               >
                 <option value="">Select role</option>
@@ -698,23 +698,23 @@ export function StaffFormModal({
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-400">Phone</label>
+              <label className="text-xs text-slate-700 dark:text-slate-400">Phone</label>
               <input
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="Optional"
-                className="w-full mt-1 px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+                className="w-full mt-1 px-3 py-2 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
               />
             </div>
           </div>
         </div>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-end gap-2">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 disabled:opacity-50 transition-all"
+            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 transition-all"
           >
             Cancel
           </button>
@@ -725,7 +725,7 @@ export function StaffFormModal({
             className={`flex items-center gap-2 px-6 py-2 rounded-xl font-semibold shadow-lg transition-all active:scale-[0.98] ${
               isFormValid
                 ? 'bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white shadow-violet-500/20'
-                : 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60'
             }`}
           >
             {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : mode === 'create' ? <Plus className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
@@ -779,17 +779,15 @@ export function ResetPasswordModal({
     onSubmit(newPassword);
   }, [newPassword, confirmPassword, isMatch, onSubmit]);
 
-  if (!isOpen || !staff) return null;
-
-  return (
+  if (!isOpen || !staff) return null;  return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-amber-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-amber-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
 
         {/* HEADER */}
-        <div className="p-4 border-b border-amber-500/20 bg-gradient-to-r from-amber-500/10 to-orange-500/10 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 dark:border-amber-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-amber-500/10 dark:to-orange-500/10 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Reset Password</h2>
-            <p className="text-xs text-slate-400">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Reset Password</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               for {staff.fullName || staff.email}
             </p>
           </div>
@@ -797,7 +795,7 @@ export function ResetPasswordModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-655 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -808,7 +806,7 @@ export function ResetPasswordModal({
 
           {/* NEW PASSWORD */}
           <div>
-            <label className="text-xs text-slate-400">New Password</label>
+            <label className="text-xs text-slate-700 dark:text-slate-400">New Password</label>
 
             <div className="relative mt-1">
               <input
@@ -817,13 +815,13 @@ export function ResetPasswordModal({
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
                 placeholder="Enter new password"
-                className="w-full px-3 py-2 pr-10 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/60"
+                className="w-full px-3 py-2 pr-10 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/60"
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -832,7 +830,7 @@ export function ResetPasswordModal({
 
           {/* CONFIRM PASSWORD */}
           <div>
-            <label className="text-xs text-slate-400">Confirm Password</label>
+            <label className="text-xs text-slate-700 dark:text-slate-400">Confirm Password</label>
 
             <div className="relative mt-1">
               <input
@@ -841,13 +839,13 @@ export function ResetPasswordModal({
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
                 placeholder="Re-enter password"
-                className="w-full px-3 py-2 pr-10 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/60"
+                className="w-full px-3 py-2 pr-10 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/60"
               />
 
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
               >
                 {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -857,7 +855,7 @@ export function ResetPasswordModal({
             {confirmPassword && (
               <p
                 className={`mt-1 text-xs ${
-                  isMatch ? 'text-green-400' : 'text-red-400'
+                  isMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                 }`}
               >
                 {isMatch ? 'Passwords match' : 'Passwords do not match'}
@@ -868,12 +866,12 @@ export function ResetPasswordModal({
         </div>
 
         {/* FOOTER */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-end gap-2">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -892,7 +890,6 @@ export function ResetPasswordModal({
             {saving ? 'Resetting...' : 'Reset'}
           </button>
         </div>
-
       </div>
     </div>
   );
@@ -912,16 +909,16 @@ export function StaffViewModal({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-cyan-500/20 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-violet-500/10 flex items-center justify-between">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-cyan-500/20 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-200 dark:border-cyan-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-cyan-500/10 dark:to-violet-600/10 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Staff Details</h2>
-            <p className="text-xs text-slate-400">{item?.email || '—'}</p>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Staff Details</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{item?.email || '—'}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -929,12 +926,12 @@ export function StaffViewModal({
 
         <div className="p-4">
           {loading ? (
-            <div className="flex items-center gap-2 text-slate-400">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <RefreshCw className="h-4 w-4 animate-spin" />
               Loading details...
             </div>
           ) : !item ? (
-            <div className="flex items-center gap-2 text-slate-400">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <AlertCircle className="h-4 w-4" />
               No data.
             </div>
@@ -958,9 +955,9 @@ export function StaffViewModal({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-slate-950/30 border border-slate-800 rounded-xl p-3">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="text-slate-100 font-semibold mt-0.5 break-words">{value}</div>
+    <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="text-slate-800 dark:text-slate-100 font-semibold mt-0.5 break-words">{value}</div>
     </div>
   );
 }
@@ -1049,17 +1046,17 @@ export function BulkSelectionBar({
   return (
     <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
       <div className="flex justify-center px-2">
-        <div className="pointer-events-auto mx-auto w-fit max-w-[95%] rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md">
+        <div className="pointer-events-auto mx-auto w-fit max-w-[95%] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm">
                 <span className="h-2 w-2 rounded-full bg-violet-500"></span>
-                <span className="font-semibold text-white">{count}</span>
-                <span className="text-slate-300">staff selected</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{count}</span>
+                <span className="text-slate-700 dark:text-slate-300">staff selected</span>
               </div>
-              <p className="mt-1 text-xs text-slate-400">Bulk actions: export selected staff.</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Bulk actions: export selected staff.</p>
             </div>
-            <div className="h-5 w-px bg-slate-700 hidden md:block" />
+            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
             <button
               onClick={onExport}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700"
@@ -1069,7 +1066,7 @@ export function BulkSelectionBar({
             </button>
             <button
               onClick={onClear}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-all"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white text-sm rounded-lg transition-all"
               type="button"
             >
               Clear

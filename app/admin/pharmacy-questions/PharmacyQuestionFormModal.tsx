@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, X, AlertCircle, ToggleLeft, ToggleRight, List, Type } from "lucide-react";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { PharmacyQuestion, CreatePharmacyQuestionDto, UpdatePharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
+import { getBackendMessage } from "../_utils/errorUtils";
 
 
 interface PharmacyQuestionFormModalProps {
@@ -31,10 +32,10 @@ export default function PharmacyQuestionFormModal({
     isActive: true,
     displayOrder: nextDisplayOrder,
     answerType: "Options",
-  options: [
-  { optionText: "Yes", displayOrder: 1 },
-  { optionText: "No", displayOrder: 2 },
-],
+    options: [
+      { optionText: "Yes", displayOrder: 1, requiresFollowUpText: false, followUpPrompt: "" },
+      { optionText: "No", displayOrder: 2, requiresFollowUpText: false, followUpPrompt: "" },
+    ],
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -50,6 +51,8 @@ export default function PharmacyQuestionFormModal({
           options: question.options.map((opt) => ({
             optionText: opt.optionText,
             displayOrder: opt.displayOrder,
+            requiresFollowUpText: opt.requiresFollowUpText ?? false,
+            followUpPrompt: opt.followUpPrompt ?? "",
           })),
         });
       } else {
@@ -59,8 +62,8 @@ export default function PharmacyQuestionFormModal({
           displayOrder: nextDisplayOrder,
           answerType: "Options",
           options: [
-            { optionText: "Yes", displayOrder: 1 },
-            { optionText: "No", displayOrder: 2 },
+            { optionText: "Yes", displayOrder: 1, requiresFollowUpText: false, followUpPrompt: "" },
+            { optionText: "No", displayOrder: 2, requiresFollowUpText: false, followUpPrompt: "" },
           ],
         });
       }
@@ -109,51 +112,98 @@ const validateForm = (): boolean => {
 
 
 
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      toast.error("Please fix form errors");
-      return;
+const handleSubmit = async () => {
+  if (!validateForm()) {
+    toast.error("Please fix form errors");
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    if (isEditMode && question) {
+      const updateData: UpdatePharmacyQuestionDto = {
+        id: question.id,
+        questionText: formData.questionText,
+        isActive: formData.isActive,
+        displayOrder: formData.displayOrder,
+        answerType: formData.answerType,
+        options:
+          formData.answerType === "Text"
+            ? []
+            : formData.options.map((opt, index) => {
+                const existingOption = question.options[index];
+
+                return {
+                  id: existingOption?.id || crypto.randomUUID(),
+                  optionText: opt.optionText,
+                  displayOrder: opt.displayOrder,
+                  requiresFollowUpText: opt.requiresFollowUpText ?? false,
+                  followUpPrompt: opt.followUpPrompt ?? "",
+                };
+              }),
+      };
+
+      console.log(
+        "UPDATE DATA",
+        JSON.stringify(updateData, null, 2)
+      );
+
+      const response = await pharmacyQuestionsService.update(
+        question.id,
+        updateData
+      );
+
+      console.log("UPDATE RESPONSE", response);
+
+      toast.success(
+        getBackendMessage(response)
+      );
+    } else {
+      const createData = {
+        ...formData,
+        options:
+          formData.answerType === "Text"
+            ? []
+            : formData.options.map((opt) => ({
+                optionText: opt.optionText,
+                displayOrder: opt.displayOrder,
+                requiresFollowUpText: opt.requiresFollowUpText ?? false,
+                followUpPrompt: opt.followUpPrompt ?? "",
+              })),
+      };
+
+      console.log(
+        "CREATE DATA",
+        JSON.stringify(createData, null, 2)
+      );
+
+      const response = await pharmacyQuestionsService.create(
+        createData
+      );
+
+      console.log("CREATE RESPONSE", response);
+
+      toast.success(
+        getBackendMessage(response)
+      );
     }
 
-    try {
-      setLoading(true);
+    onClose();
+    onSuccess?.();
+  } catch (error: any) {
+    console.error(
+      `${isEditMode ? "UPDATE" : "CREATE"} ERROR`,
+      error
+    );
 
-      if (isEditMode && question) {
-        const updateData: UpdatePharmacyQuestionDto = {
-          id: question.id,
-          questionText: formData.questionText,
-          isActive: formData.isActive,
-          displayOrder: formData.displayOrder,
-          answerType: formData.answerType,
-          options: formData.answerType === "Text" ? [] : formData.options.map((opt, index) => {
-            const existingOption = question.options[index];
-            return {
-              id: existingOption?.id || crypto.randomUUID(),
-              optionText: opt.optionText,
-              displayOrder: opt.displayOrder,
-            };
-          }),
-        };
-
-        await pharmacyQuestionsService.update(question.id, updateData);
-        toast.success("Question updated successfully");
-      } else {
-        const createData = {
-          ...formData,
-          options: formData.answerType === "Text" ? [] : formData.options,
-        };
-        await pharmacyQuestionsService.create(createData);
-        toast.success("Question created successfully");
-      }
-
-      onClose();
-      onSuccess?.();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || `Failed to ${isEditMode ? "update" : "create"} question`);
-    } finally {
-      setLoading(false);
-    }
-  };
+    toast.error(
+      getBackendMessage(error)
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const addOption = () => {
     setFormData({
@@ -162,7 +212,9 @@ const validateForm = (): boolean => {
         ...formData.options,
         {
           optionText: "",
-         displayOrder: formData.options.length + 1,
+          displayOrder: formData.options.length + 1,
+          requiresFollowUpText: false,
+          followUpPrompt: "",
         },
       ],
     });
@@ -322,45 +374,75 @@ const validateForm = (): boolean => {
       {formData.options.map((option, index) => (
         <div
           key={index}
-          className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40"
+          className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 space-y-2"
         >
-          {/* Index */}
-          <span className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
-            {index + 1}
-          </span>
+          <div className="flex items-center gap-2">
+            {/* Index */}
+            <span className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
+              {index + 1}
+            </span>
 
-          {/* Option Text */}
-          <input
-            type="text"
-            value={option.optionText}
-            onChange={(e) => {
-              const newOptions = [...formData.options];
-              newOptions[index].optionText = e.target.value;
+            {/* Option Text */}
+            <input
+              type="text"
+              value={option.optionText}
+              onChange={(e) => {
+                const newOptions = [...formData.options];
+                newOptions[index] = { ...newOptions[index], optionText: e.target.value };
+                setFormData({ ...formData, options: newOptions });
+              }}
+              placeholder="Option text"
+              className={`flex-1 px-3 py-2 bg-white dark:bg-slate-800/50 border rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                formErrors[`option_${index}`]
+                  ? "border-red-500"
+                  : "border-slate-200 dark:border-slate-600"
+              }`}
+            />
 
-              setFormData({
-                ...formData,
-                options: newOptions,
-              });
-            }}
-            placeholder="Option text"
-            className={`flex-1 px-3 py-2 bg-white dark:bg-slate-800/50 border rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-              formErrors[`option_${index}`]
-                ? "border-red-500"
-                : "border-slate-200 dark:border-slate-600"
-            }`}
-          />
+            {/* Remove Option */}
+            {formData.options.length > 2 && (
+              <button
+                onClick={() => removeOption(index)}
+                type="button"
+                className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                title="Remove Option"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
-          {/* Remove Option */}
-          {formData.options.length > 2 && (
-            <button
-              onClick={() => removeOption(index)}
-              type="button"
-              className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
-              title="Remove Option"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+          {/* Follow-up checkbox */}
+          <div className="pl-10">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 dark:text-slate-400">
+              <input
+                type="checkbox"
+                checked={option.requiresFollowUpText ?? false}
+                onChange={(e) => {
+                  const newOptions = [...formData.options];
+                  newOptions[index] = { ...newOptions[index], requiresFollowUpText: e.target.checked, followUpPrompt: e.target.checked ? newOptions[index].followUpPrompt : "" };
+                  setFormData({ ...formData, options: newOptions });
+                }}
+                className="rounded border-slate-300 dark:border-slate-600 text-violet-600 focus:ring-violet-500"
+              />
+              Requires follow-up text input
+            </label>
+
+            {option.requiresFollowUpText && (
+              <input
+                type="text"
+                value={option.followUpPrompt ?? ""}
+                onChange={(e) => {
+                  const newOptions = [...formData.options];
+                  newOptions[index] = { ...newOptions[index], followUpPrompt: e.target.value };
+                  setFormData({ ...formData, options: newOptions });
+                }}
+                disabled
+                placeholder='Follow-up prompt (e.g., "Please describe your symptoms")'
+                className="mt-1.5 w-full px-3 py-1.5 bg-white dark:bg-slate-800/50 border border-violet-300 dark:border-violet-500/50 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            )}
+          </div>
         </div>
       ))}
     </div>

@@ -66,14 +66,14 @@ const getStatusBadge = (contact: ContactItem) => {
   const status = getNormalizedStatus(contact);
 
   if (status === "replied") {
-    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300";
   }
 
   if (status === "in-progress") {
-    return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300";
   }
 
-  return "border-cyan-500/20 bg-cyan-500/10 text-cyan-300";
+  return "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300";
 };
 
 const getUserName = () => {
@@ -299,8 +299,8 @@ export default function ContactPage() {
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Contact Requests</h1>
-          <p className="text-xs text-slate-300">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Contact Requests</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-300">
             Customer enquiries, replies, assignment notes, and delete actions.
           </p>
         </div>
@@ -309,7 +309,7 @@ export default function ContactPage() {
           type="button"
           onClick={() => fetchContacts(false)}
           disabled={isRefreshing}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-500/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/70 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-400 dark:hover:border-cyan-500/30 dark:hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           Refresh
@@ -317,37 +317,37 @@ export default function ContactPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{stats.total}</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{stats.total}</p>
         </div>
-        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">New</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{stats.fresh}</p>
+        <div className="rounded-2xl border border-cyan-200 dark:border-cyan-500/20 bg-cyan-50 dark:bg-cyan-500/10 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300">New</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{stats.fresh}</p>
         </div>
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-amber-300">
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">
             In Progress
           </p>
-          <p className="mt-2 text-2xl font-semibold text-white">
+          <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">
             {stats.inProgress}
           </p>
         </div>
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">
             Replied
           </p>
-          <p className="mt-2 text-2xl font-semibold text-white">{stats.replied}</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{stats.replied}</p>
         </div>
-        <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-violet-300">
+        <div className="rounded-2xl border border-indigo-200 dark:border-violet-500/20 bg-indigo-50 dark:bg-violet-500/10 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-indigo-700 dark:text-violet-300">
             Assigned
           </p>
-          <p className="mt-2 text-2xl font-semibold text-white">{stats.assigned}</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{stats.assigned}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -356,10 +356,10 @@ export default function ContactPage() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search name, email,  subject, order number..."
-              className="w-full rounded-xl border border-slate-700 bg-slate-950/80 py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             />
             {searchTerm !== debouncedSearch && (
-              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-cyan-300" />
+              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-cyan-600 dark:text-cyan-300" />
             )}
           </div>
 
@@ -367,7 +367,7 @@ export default function ContactPage() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             >
               <option value="all">All status</option>
               <option value="New">New</option>
@@ -380,14 +380,14 @@ export default function ContactPage() {
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
               placeholder="Category filter"
-              className="rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             />
 
             <div className="flex items-center gap-2">
               <select
                 value={itemsPerPage}
                 onChange={(event) => setItemsPerPage(Number(event.target.value))}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2.5 text-sm text-white focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
               >
                 <option value={10}>10 / page</option>
                 <option value={20}>20 / page</option>
@@ -399,7 +399,7 @@ export default function ContactPage() {
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="inline-flex items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200 transition hover:bg-rose-500/20"
+                  className="inline-flex items-center justify-center rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:bg-rose-500/20"
                   title="Clear filters"
                 >
                   <XCircle className="h-4 w-4" />
@@ -409,11 +409,11 @@ export default function ContactPage() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
           <p>
-            Showing <span className="font-semibold text-white">{pageStart}</span> to{" "}
-            <span className="font-semibold text-white">{pageEnd}</span> of{" "}
-            <span className="font-semibold text-white">{meta.totalCount}</span>{" "}
+            Showing <span className="font-semibold text-slate-800 dark:text-white">{pageStart}</span> to{" "}
+            <span className="font-semibold text-slate-800 dark:text-white">{pageEnd}</span> of{" "}
+            <span className="font-semibold text-slate-800 dark:text-white">{meta.totalCount}</span>{" "}
             contact requests
           </p>
           <p>
@@ -422,20 +422,20 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/50 shadow-2xl shadow-slate-950/40">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm dark:shadow-2xl dark:shadow-slate-950/40">
         {loading ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center gap-3">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-500/20 border-t-cyan-400" />
-            <p className="text-sm text-slate-400">Loading contact requests...</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Loading contact requests...</p>
           </div>
         ) : contacts.length === 0 ? (
           <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 px-6 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-slate-800 bg-slate-950 text-cyan-300">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-cyan-600 dark:text-cyan-300">
               <Mail className="h-7 w-7" />
             </div>
             <div>
-              <p className="text-lg font-semibold text-white">No contact requests found</p>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="text-lg font-semibold text-slate-900 dark:text-white">No contact requests found</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 Try changing the backend filters or refresh the list.
               </p>
             </div>
@@ -454,15 +454,15 @@ export default function ContactPage() {
       <col className="w-[110px]" />
     </colgroup>
 
-    <thead className="bg-slate-950/70">
-      <tr className="border-b border-slate-800 text-left">
-        <th className="px-3 py-2 text-slate-400">Customer</th>
-        <th className="px-3 py-2 text-slate-400">Subject</th>
-        <th className="px-3 py-2 text-slate-400">Status</th>
-        <th className="px-3 py-2 text-slate-400">Category</th>
-        <th className="px-3 py-2 text-slate-400">Assigned</th>
-        <th className="px-3 py-2 text-slate-400">Created</th>
-        <th className="px-3 py-2 text-center text-slate-400">Actions</th>
+    <thead className="bg-slate-50 dark:bg-slate-950/70">
+      <tr className="border-b border-slate-200 dark:border-slate-800 text-left">
+        <th className="px-3 py-2 text-slate-500 dark:text-slate-400 font-semibold">Customer</th>
+        <th className="px-3 py-2 text-slate-500 dark:text-slate-400 font-semibold">Subject</th>
+        <th className="px-3 py-2 text-slate-500 dark:text-slate-400 font-semibold">Status</th>
+        <th className="px-3 py-2 text-slate-500 dark:text-slate-400 font-semibold">Category</th>
+        <th className="px-3 py-2 text-slate-500 dark:text-slate-400 font-semibold">Assigned</th>
+        <th className="px-3 py-2 text-slate-500 dark:text-slate-400 font-semibold">Created</th>
+        <th className="px-3 py-2 text-center text-slate-500 dark:text-slate-400 font-semibold">Actions</th>
       </tr>
     </thead>
 
@@ -470,25 +470,25 @@ export default function ContactPage() {
       {contacts.map((contact) => (
         <tr
           key={contact.id}
-          className="border-b border-slate-800/70 hover:bg-slate-800/20"
+          className="border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50 dark:hover:bg-slate-800/20"
         >
 
           {/* CUSTOMER */}
         <td className="px-3 py-2 align-middle">
   <div className="flex items-center gap-2">
 
-    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-violet-500/20 text-cyan-200">
+    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-50 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200">
       <UserRound className="h-3.5 w-3.5" />
     </div>
 
     <div className="min-w-0">
-      <p className="truncate text-sm font-medium text-white leading-tight">
+      <p className="truncate text-sm font-medium text-slate-900 dark:text-white leading-tight">
         {contact.name || "N/A"}
       </p>
-      <p className="truncate text-[11px] text-slate-400">
+      <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
         {contact.email || "N/A"}
       </p>
-      <p className="truncate text-[11px] text-slate-400">
+      <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
         {contact.phone || "N/A"}
       </p>
     </div>
@@ -500,11 +500,11 @@ export default function ContactPage() {
          <td className="px-3 py-2 align-middle">
   <div className="min-w-0">
 
-    <p className="truncate text-sm font-medium text-white leading-tight">
+    <p className="truncate text-sm font-medium text-slate-900 dark:text-white leading-tight">
       {contact.subject || "No subject"}
     </p>
 
-    <p className="text-[11px] text-slate-400 line-clamp-1 leading-snug">
+    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 leading-snug">
       {contact.message || "No message"}
     </p>
 
@@ -523,7 +523,7 @@ export default function ContactPage() {
 </td>
           {/* CATEGORY */}
           <td
-            className="truncate px-3 py-2 text-slate-300"
+            className="truncate px-3 py-2 text-slate-700 dark:text-slate-300"
             title={contact.category || "N/A"}
           >
             {contact.category || "N/A"}
@@ -531,14 +531,14 @@ export default function ContactPage() {
 
           {/* ASSIGNED */}
           <td
-            className="truncate px-3 py-2 text-slate-300"
+            className="truncate px-3 py-2 text-slate-700 dark:text-slate-300"
             title={contact.assignedTo || "Unassigned"}
           >
             {contact.assignedTo || "Unassigned"}
           </td>
 
           {/* CREATED */}
-          <td className="px-3 py-2 text-slate-400">
+          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
             {formatDate(contact.createdAt)}
           </td>
 
@@ -548,21 +548,21 @@ export default function ContactPage() {
 
               <button
                 onClick={() => setViewingContact(contact)}
-                className="rounded-lg border border-slate-700 p-1.5 text-slate-200 hover:text-cyan-300"
+                className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-300"
               >
                 <Eye className="h-3.5 w-3.5" />
               </button>
 
               <button
                 onClick={() => openReplyModal(contact)}
-                className="rounded-lg border border-slate-700 p-1.5 text-slate-200 hover:text-violet-300"
+                className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-violet-300"
               >
                 <MessageCircleReply className="h-3.5 w-3.5" />
               </button>
 
               <button
                 onClick={() => setDeleteTarget(contact)}
-                className="rounded-lg border border-slate-700 p-1.5 text-slate-200 hover:text-rose-300"
+                className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-300"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -579,11 +579,11 @@ export default function ContactPage() {
       </div>
 
       {meta.totalPages > 1 && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4">
           <div className="flex flex-col items-center justify-between gap-4 lg:flex-row">
-            <p className="text-sm text-slate-400">
-              Page <span className="font-semibold text-white">{meta.page}</span> of{" "}
-              <span className="font-semibold text-white">{meta.totalPages}</span>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Page <span className="font-semibold text-slate-800 dark:text-white">{meta.page}</span> of{" "}
+              <span className="font-semibold text-slate-800 dark:text-white">{meta.totalPages}</span>
             </p>
 
             <div className="flex items-center gap-1">
@@ -591,7 +591,7 @@ export default function ContactPage() {
                 type="button"
                 onClick={() => setCurrentPage(1)}
                 disabled={!meta.hasPrevious}
-                className="rounded-xl border border-slate-700 bg-slate-950/70 p-2 text-slate-300 transition hover:border-slate-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/70 p-2 text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronsLeft className="h-4 w-4" />
               </button>
@@ -599,7 +599,7 @@ export default function ContactPage() {
                 type="button"
                 onClick={() => setCurrentPage((previous) => previous - 1)}
                 disabled={!meta.hasPrevious}
-                className="rounded-xl border border-slate-700 bg-slate-950/70 p-2 text-slate-300 transition hover:border-slate-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/70 p-2 text-slate-600 dark:text-slate-305 transition hover:bg-slate-105 dark:hover:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -611,8 +611,8 @@ export default function ContactPage() {
                   onClick={() => setCurrentPage(pageNumber)}
                   className={`min-w-10 rounded-xl px-3 py-2 text-sm font-medium transition ${
                     currentPage === pageNumber
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white"
-                      : "border border-slate-700 bg-slate-950/70 text-slate-300 hover:border-slate-600 hover:text-white"
+                      ? "bg-gradient-to-r from-indigo-600 to-cyan-600 text-[#ffffff] dark:from-violet-500 dark:to-cyan-500"
+                      : "border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/70 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600 hover:text-slate-800 dark:hover:text-white"
                   }`}
                 >
                   {pageNumber}
@@ -623,7 +623,7 @@ export default function ContactPage() {
                 type="button"
                 onClick={() => setCurrentPage((previous) => previous + 1)}
                 disabled={!meta.hasNext}
-                className="rounded-xl border border-slate-700 bg-slate-950/70 p-2 text-slate-300 transition hover:border-slate-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/70 p-2 text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -631,15 +631,15 @@ export default function ContactPage() {
                 type="button"
                 onClick={() => setCurrentPage(meta.totalPages)}
                 disabled={!meta.hasNext}
-                className="rounded-xl border border-slate-700 bg-slate-950/70 p-2 text-slate-300 transition hover:border-slate-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/70 p-2 text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronsRight className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Current page items:{" "}
-              <span className="font-semibold text-white">{contacts.length}</span>
+              <span className="font-semibold text-slate-800 dark:text-white">{contacts.length}</span>
             </p>
           </div>
         </div>

@@ -929,18 +929,18 @@ export default function LoyaltyPointsPage() {
       {/* HISTORY MODAL */}
   {historyModalOpen && selectedUser && (
   <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-cyan-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-cyan-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
       
       {/* HEADER */}
-      <div className="p-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 shrink-0">
+      <div className="p-4 border-b border-slate-200 dark:border-cyan-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-cyan-500/10 dark:to-blue-500/10 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
               <History className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Transaction History</h2>
-              <p className="text-xs text-slate-400">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Transaction History</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {selectedUser.fullName} • {selectedUser.email}
               </p>
             </div>
@@ -953,7 +953,7 @@ setUserHistory([]);
 setHistoryPage(1);
 setExpandedTx(null);
             }}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all"
+            className="p-2 text-slate-400 hover:text-slate-955 dark:hover:text-white hover:bg-red-500/10 dark:hover:bg-red-500/20 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -964,14 +964,42 @@ setExpandedTx(null);
       <div className="overflow-y-auto p-4 space-y-4">
         {loadingModal && userHistory.length === 0 ? (
           <div className="text-center py-12">
-            <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mx-auto mb-3" />
-            <p className="text-slate-400 text-sm">Loading history...</p>
+            <Loader2 className="w-12 h-12 text-cyan-500 dark:text-cyan-400 animate-spin mx-auto mb-3" />
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Loading history...</p>
           </div>
         ) : userHistory.length > 0 ? (
           <>
             {userHistory.map((tx) => {
               const typeInfo = getTransactionTypeInfo(tx.transactionType);
               const isPositive = tx.points > 0;
+
+              // Light mode contrast overrides for transaction tags
+              let lightColorClass = "";
+              switch (tx.transactionType) {
+                case 'Earned':
+                  lightColorClass = "text-green-700 dark:text-green-400";
+                  break;
+                case 'Redeemed':
+                  lightColorClass = "text-blue-700 dark:text-blue-400";
+                  break;
+                case 'FirstOrderBonus':
+                  lightColorClass = "text-cyan-700 dark:text-cyan-400";
+                  break;
+                case 'ReviewBonus':
+                  lightColorClass = "text-purple-700 dark:text-violet-400";
+                  break;
+                case 'ReferralBonus':
+                  lightColorClass = "text-pink-700 dark:text-pink-400";
+                  break;
+                case 'Expired':
+                  lightColorClass = "text-red-700 dark:text-red-400";
+                  break;
+                case 'Adjustment':
+                  lightColorClass = "text-orange-700 dark:text-orange-400";
+                  break;
+                default:
+                  lightColorClass = "text-slate-700 dark:text-slate-400";
+              }
 
               return (
                 <div
@@ -982,7 +1010,7 @@ setExpandedTx(null);
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 text-xs rounded ${typeInfo.bgColor} ${typeInfo.color}`}>
+                        <span className={`px-2 py-0.5 text-xs rounded ${typeInfo.bgColor} ${lightColorClass}`}>
                           {typeInfo.label}
                         </span>
 
@@ -991,12 +1019,12 @@ setExpandedTx(null);
                         </span>
                       </div>
 
-                      <p className="text-sm text-slate-300">
+                      <p className="text-sm text-slate-700 dark:text-slate-300">
                         {tx.description}
                       </p>
                     </div>
 
-                    <div className={`text-lg font-bold ${isPositive ? "text-green-400" : "text-red-400"}`}>
+                    <div className={`text-lg font-bold ${isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                       {isPositive ? "+" : ""}
                       {formatPoints(tx.points)}
                     </div>
@@ -1004,7 +1032,7 @@ setExpandedTx(null);
 
                   {/* ORDER INFO */}
                   {tx.orderNumber && (
-                    <div className="text-xs text-slate-400 mb-3 flex flex-wrap gap-3">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex flex-wrap gap-3 font-medium">
                       <span>Order: {tx.orderNumber}</span>
                       <span>Status: {tx.orderStatus}</span>
                       <span>Total: {formatCurrency(tx.orderTotal || 0)}</span>
@@ -1020,23 +1048,23 @@ setExpandedTx(null);
       {visibleProducts.map((p: any, i: number) => (
         <div
           key={i}
-          className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg"
+          className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-transparent"
         >
           <img
             src={getImageUrl(p.productImageUrl)}
-            className="w-10 h-10 rounded object-cover"
+            className="w-10 h-10 rounded object-cover border border-slate-200 dark:border-slate-700"
           />
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-white truncate">
+            <p className="text-sm text-slate-800 dark:text-white truncate font-medium">
               {p.productName}
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Qty: {p.quantity} × {formatCurrency(p.unitPrice)}
             </p>
           </div>
 
-          <div className="text-xs text-white">
+          <div className="text-xs text-slate-800 dark:text-white font-semibold">
             {formatCurrency(p.quantity * p.unitPrice)}
           </div>
         </div>
@@ -1048,7 +1076,7 @@ setExpandedTx(null);
           onClick={() =>
             setExpandedTx(isExpanded ? null : tx.id)
           }
-          className="text-xs text-cyan-400 hover:underline"
+          className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline font-semibold"
         >
           {isExpanded
             ? "Show less"
@@ -1072,7 +1100,7 @@ setExpandedTx(null);
               <button
                 onClick={loadMoreHistory}
                 disabled={loadingModal}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-xl text-sm flex items-center justify-center gap-2 border border-slate-200 dark:border-transparent font-medium"
               >
                 {loadingModal ? (
                   <>
@@ -1087,8 +1115,8 @@ setExpandedTx(null);
           </>
         ) : (
           <div className="text-center py-12">
-            <AlertCircle className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">No transactions found</p>
+            <AlertCircle className="h-12 w-12 text-slate-500 mx-auto mb-3" />
+            <p className="text-slate-500 dark:text-slate-400">No transactions found</p>
           </div>
         )}
       </div>

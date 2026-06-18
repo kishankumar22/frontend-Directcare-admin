@@ -556,19 +556,19 @@ useEffect(() => {
   return (
     <>
       {/* ========== ADD/EDIT DISCOUNT MODAL ========== */}
-{showModal && (
+      {showModal && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-6">
     
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full h-[90vh] flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
+    <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-6xl w-full h-[90vh] flex flex-col overflow-hidden shadow-2xl dark:shadow-violet-500/10">
       
       {/* ================= HEADER ================= */}
-      <div className="p-4 border-b shrink-0 border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+      <div className="p-4 border-b shrink-0 border-slate-200 dark:border-purple-500/20 bg-slate-50 dark:bg-purple-950/20">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            <h2 className="text-3xl font-bold text-slate-900 dark:bg-gradient-to-r dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 dark:bg-clip-text dark:text-transparent">
               {editingDiscount ? "Edit Discount" : "Create New Discount"}
             </h2>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
               {editingDiscount ? "Update discount information" : "Add a new discount to your store"}
             </p>
           </div>
@@ -585,10 +585,10 @@ useEffect(() => {
     w-10 h-10
     flex items-center justify-center
     rounded-xl
-    border border-slate-700/60
-    bg-slate-800/60
-    text-slate-400
-    hover:text-white
+    border border-slate-200 dark:border-slate-700/60
+    bg-slate-100/60 dark:bg-slate-800/60
+    text-slate-500 dark:text-slate-400
+    hover:text-slate-950 dark:hover:text-white
     hover:bg-red-500/15
     hover:border-red-500/40
     active:scale-95
@@ -607,9 +607,9 @@ useEffect(() => {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
               
               {/* SECTION 1: BASIC INFORMATION */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-sm">1</span>
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-2 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-sm text-white">1</span>
                   <span>Basic Information</span>
                 </h3>
                 
@@ -621,25 +621,25 @@ useEffect(() => {
                   
                   {/* Discount Name */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Name    <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Discount Name    <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
                       placeholder="Enter discount name"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     />
                   </div>
                   
                   {/* Discount Type */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type     <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Discount Type     <span className="text-red-500">*</span></label>
                     <select
                       required
                       value={formData.discountType}
                       onChange={(e) => handleDiscountTypeChange(e.target.value as DiscountType)}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     >
                       <option value="AssignedToOrderTotal">Assigned to order total</option>
                       <option value="AssignedToProducts">Assigned to products</option>
@@ -651,9 +651,9 @@ useEffect(() => {
                   {/* Category Selector (Third Column) */}
                   {formData.discountType === "AssignedToCategories" && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                         Select Category     <span className="text-red-500">*</span>
-                        <span className="text-xs text-slate-400 ml-2">Choose one category</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">Choose one category</span>
                       </label>
                       <Select
                         isClearable
@@ -687,9 +687,9 @@ useEffect(() => {
               </div>
 
               {/* SECTION 2: ASSIGNMENT SETTINGS */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center text-sm">2</span>
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-2 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center text-sm text-white">2</span>
                   <span>Assignment Settings</span>
                 </h3>
 
@@ -698,9 +698,9 @@ useEffect(() => {
                   {/* FOR ASSIGNED TO PRODUCTS */}
                   {formData.discountType === "AssignedToProducts" && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                         Select Products     <span className="text-red-500">*</span>
-                        <span className="text-xs text-slate-400 ml-2">Choose which products this discount applies to</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">Choose which products this discount applies to</span>
                       </label>
 
 
@@ -710,7 +710,7 @@ useEffect(() => {
 {/* INPUT BOX TO OPEN MODAL */}
 <div
   onClick={() => setIsProductSelectionModalOpen(true)}
-  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-slate-400 cursor-pointer hover:border-violet-500 transition-all flex items-center justify-between"
+  className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-700 dark:text-slate-400 cursor-pointer hover:border-violet-500 transition-all flex items-center justify-between"
 >
   <span>
     {formData.assignedProductIds.length > 0
@@ -722,16 +722,16 @@ useEffect(() => {
 </div>
 
 <div className="flex items-center justify-between mt-2">
-  <p className="text-xs text-slate-400">
+  <p className="text-xs text-slate-500 dark:text-slate-400">
     Click to view and select products
   </p>
-  <p className="text-xs text-blue-400">
+  <p className="text-xs text-blue-500 dark:text-blue-400">
     {mergedOptions.length} product{mergedOptions.length !== 1 ? 's' : ''} available
   </p>
 </div>
 
                       <div className="flex items-center justify-between mt-2">
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {formData.assignedProductIds.length > 0
                             ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? "s" : ""} selected`
                             : "No products selected"}
@@ -743,7 +743,7 @@ useEffect(() => {
                               setProductCategoryFilter("");
                               setProductBrandFilter("");
                             }}
-                            className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
+                            className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition-colors flex items-center gap-1"
                           >
                             <FilterX className="h-3 w-3" />
                             Clear Filters
@@ -758,15 +758,15 @@ useEffect(() => {
                     <>
                       {formData.assignedCategoryIds.length > 0 ? (
                         <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             Additional Products     <span className="text-red-500">*</span>
-                            <span className="text-xs text-slate-400 ml-2">Select specific products from selected categories</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">Select specific products from selected categories</span>
                           </label>
                           
                           {/* INPUT BOX TO OPEN MODAL */}
                           <div
                             onClick={() => setIsProductSelectionModalOpen(true)}
-                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-slate-400 cursor-pointer hover:border-violet-500 transition-all flex items-center justify-between"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-700 dark:text-slate-400 cursor-pointer hover:border-violet-500 transition-all flex items-center justify-between"
                           >
                             <span>
                               {formData.assignedProductIds.length > 0
@@ -779,10 +779,10 @@ useEffect(() => {
 
                           {/* Product Count */}
                           <div className="flex items-center justify-between mt-2">
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
                               Click to view and select products
                             </p>
-                            <p className="text-xs text-blue-400">
+                            <p className="text-xs text-blue-500 dark:text-blue-400">
                               {categoryFilteredProductOptions.length} product{categoryFilteredProductOptions.length !== 1 ? 's' : ''} available
                             </p>
                           </div>
@@ -796,7 +796,7 @@ useEffect(() => {
                             if (formData.assignedProductIds.length > 0) {
                               return (
                                 <div className="mt-3 bg-violet-500/10 border border-violet-500/30 rounded-xl p-3">
-                                  <p className="text-violet-400 text-sm flex items-center gap-2">
+                                  <p className="text-violet-600 dark:text-violet-400 text-sm flex items-center gap-2">
                                     <Target className="h-4 w-4 shrink-0" />
                                     Discount will apply only to <span className="font-bold mx-1">{formData.assignedProductIds.length}</span> selected product{formData.assignedProductIds.length !== 1 ? 's' : ''}, not the entire category
                                   </p>
@@ -813,7 +813,7 @@ useEffect(() => {
                             if (conflictedProducts.length === 0) {
                               return (
                                 <div className="mt-3 bg-green-500/10 border border-green-500/30 rounded-xl p-3">
-                                  <p className="text-green-400 text-sm font-semibold flex items-center gap-2">
+                                  <p className="text-green-600 dark:text-green-400 text-sm font-semibold flex items-center gap-2">
                                     <span className="text-base">✓</span>
                                     This discount will apply to ALL {total} products in this category
                                   </p>
@@ -824,22 +824,22 @@ useEffect(() => {
                             return (
                               <div className="mt-3 space-y-2">
                                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-                                  <p className="text-amber-400 text-sm font-semibold flex items-center gap-2 mb-2">
+                                  <p className="text-amber-600 dark:text-amber-400 text-sm font-semibold flex items-center gap-2 mb-2">
                                     <AlertCircle className="h-4 w-4 shrink-0" />
                                     {conflictedProducts.length} product{conflictedProducts.length !== 1 ? 's' : ''} already {conflictedProducts.length === 1 ? 'has' : 'have'} an active discount:
                                   </p>
                                   <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
                                     {conflictedProducts.map((item, i) => (
                                       <div key={i} className="flex items-center justify-between text-xs gap-2">
-                                        <span className="text-slate-300 truncate">{item.name.length > 38 ? item.name.slice(0, 38) + '...' : item.name}</span>
-                                        <span className="text-amber-400 font-medium shrink-0">"{item.discountName}"</span>
+                                        <span className="text-slate-700 dark:text-slate-300 truncate">{item.name.length > 38 ? item.name.slice(0, 38) + '...' : item.name}</span>
+                                        <span className="text-amber-600 dark:text-amber-400 font-medium shrink-0">"{item.discountName}"</span>
                                       </div>
                                     ))}
                                   </div>
                                 </div>
                                 {cleanCount > 0 && (
                                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-                                    <p className="text-blue-400 text-sm flex items-center gap-2">
+                                    <p className="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-2">
                                       <span className="text-base">→</span>
                                       This discount will apply to the remaining <span className="font-bold mx-1">{cleanCount}</span> product{cleanCount !== 1 ? 's' : ''} in this category
                                     </p>
@@ -851,7 +851,7 @@ useEffect(() => {
                         </div>
                       ) : (
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-                          <p className="text-blue-400 text-sm flex items-center gap-2">
+                          <p className="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-2">
                             <AlertCircle className="h-4 w-4" />
                             Select a category first to choose specific products
                           </p>
@@ -863,16 +863,16 @@ useEffect(() => {
                   {/* Settings Checkboxes */}
                   <div className="grid grid-cols-2 gap-4 mt-6">
                     <div>
-                      <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+                      <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                         <input
                           type="checkbox"
                           checked={formData.isActive}
                           onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                          className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                          className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                         />
                         <div>
-                          <p className="text-white font-medium">Active</p>
-                          <p className="text-slate-400 text-xs">Enable this discount</p>
+                          <p className="text-slate-900 dark:text-white font-medium">Active</p>
+                          <p className="text-slate-500 dark:text-slate-400 text-xs">Enable this discount</p>
                         </div>
                       </label>
                     </div>
@@ -880,16 +880,16 @@ useEffect(() => {
                 
 
                     <div>
-                      <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+                      <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                         <input
                           type="checkbox"
                           checked={formData.appliedToSubOrders}
                           onChange={(e) => setFormData({ ...formData, appliedToSubOrders: e.target.checked })}
-                          className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                          className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                         />
                         <div>
-                          <p className="text-white font-medium">Apply to Sub Orders</p>
-                          <p className="text-slate-400 text-xs">Apply discount to sub orders as well</p>
+                          <p className="text-slate-900 dark:text-white font-medium">Apply to Sub Orders</p>
+                          <p className="text-slate-500 dark:text-slate-400 text-xs">Apply discount to sub orders as well</p>
                         </div>
                       </label>
                     </div>
@@ -897,7 +897,7 @@ useEffect(() => {
 
                   {/* Admin Comment */}
          <div className="mt-6">
-  <label className="block text-sm font-medium text-slate-300 mb-2">
+  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
     Admin Comment <span className="text-red-500">*</span>
   </label>
 
@@ -916,9 +916,9 @@ useEffect(() => {
               </div>
 
               {/* SECTION 3: DISCOUNT VALUE */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-sm">3</span>
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-2 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-sm text-white">3</span>
                   <span>Discount Value</span>
                 </h3>
                 
@@ -930,7 +930,7 @@ useEffect(() => {
       ${
         formData.usePercentage
           ? "border-violet-500 bg-violet-500/10 ring-1 ring-violet-500/40"
-          : "border-slate-600 bg-slate-900/50 hover:border-violet-500"
+          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900/50 hover:border-violet-500"
       }`}
   >
     <input
@@ -943,8 +943,8 @@ useEffect(() => {
       className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
     />
     <div>
-      <p className="text-white font-medium">Percentage</p>
-      <p className="text-slate-400 text-xs">
+      <p className="text-slate-900 dark:text-white font-medium">Percentage</p>
+      <p className="text-slate-500 dark:text-slate-400 text-xs">
         Discount by percentage
       </p>
     </div>
@@ -956,7 +956,7 @@ useEffect(() => {
       ${
         !formData.usePercentage
           ? "border-violet-500 bg-violet-500/10 ring-1 ring-violet-500/40"
-          : "border-slate-600 bg-slate-900/50 hover:border-violet-500"
+          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900/50 hover:border-violet-500"
       }`}
   >
     <input
@@ -969,8 +969,8 @@ useEffect(() => {
       className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
     />
     <div>
-      <p className="text-white font-medium">Fixed Amount</p>
-      <p className="text-slate-400 text-xs">
+      <p className="text-slate-900 dark:text-white font-medium">Fixed Amount</p>
+      <p className="text-slate-500 dark:text-slate-400 text-xs">
         Discount by fixed amount
       </p>
     </div>
@@ -982,7 +982,7 @@ useEffect(() => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {formData.usePercentage ? (
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Discount Percentage <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Discount Percentage <span className="text-red-500">*</span></label>
                       <div className="relative">
                        <input
   type="number"
@@ -994,15 +994,15 @@ useEffect(() => {
     const value = Math.min(100, Math.max(0, Number(e.target.value)));
     setFormData({ ...formData, discountPercentage: value });
   }}
-                          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
 
 />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">%</span>
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">%</span>
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Discount Amount *</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Discount Amount *</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -1012,15 +1012,15 @@ useEffect(() => {
                           value={formData.discountAmount}
                           onChange={(e) => setFormData({...formData, discountAmount: parseFloat(e.target.value) || 0})}
                           placeholder="0.00"
-                          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
                         />
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">£</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">£</span>
                       </div>
                     </div>
                   )}
                   
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Discount Amount</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Maximum Discount Amount</label>
                     <div className="relative">
                       <input
                         type="number"
@@ -1029,60 +1029,60 @@ useEffect(() => {
                         value={formData.maximumDiscountAmount || ''}
                         onChange={(e) => setFormData({...formData, maximumDiscountAmount: e.target.value ? parseFloat(e.target.value) : null})}
                         placeholder="No limit"
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
                       />
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">£</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">£</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Discounted Quantity</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Maximum Discounted Quantity</label>
                     <input
                       type="number"
                       min="0"
                       value={formData.maximumDiscountedQuantity || ''}
                       onChange={(e) => setFormData({...formData, maximumDiscountedQuantity: e.target.value ? parseInt(e.target.value) : null})}
                       placeholder="No limit"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 4: VALID PERIOD */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm">4</span>
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-2 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm text-white">4</span>
                   <span>Valid Period</span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time     <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Start Date & Time     <span className="text-red-500">*</span></label>
                     <input
                       type="datetime-local"
                       required
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time     <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">End Date & Time     <span className="text-red-500">*</span></label>
                     <input
                       type="datetime-local"
                       required
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     />
                   </div>
                 </div>
               </div>
 
-<div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
-  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm">
+<div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm text-white">
       5
     </span>
     <span>Coupon & Combination Settings</span>
@@ -1090,7 +1090,7 @@ useEffect(() => {
 
   {/* REQUIRE COUPON TOGGLE */}
   <div className="mb-6">
-    <label className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+    <label className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
       <input
         type="checkbox"
         checked={formData.requiresCouponCode}
@@ -1104,11 +1104,11 @@ useEffect(() => {
             isCumulative: checked ? formData.isCumulative : false, // 🔥 force false when off
           });
         }}
-        className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+        className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
       />
       <div>
-        <p className="text-white font-medium">Requires Coupon Code</p>
-        <p className="text-slate-400 text-xs">
+        <p className="text-slate-900 dark:text-white font-medium">Requires Coupon Code</p>
+        <p className="text-slate-500 dark:text-slate-400 text-xs">
           Customer must enter a coupon to activate this discount
         </p>
       </div>
@@ -1121,7 +1121,7 @@ useEffect(() => {
 
       {/* LEFT: COUPON CODE */}
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
           Coupon Code     <span className="text-red-500">*</span>
         </label>
         <input
@@ -1135,13 +1135,13 @@ useEffect(() => {
             })
           }
           placeholder="ENTER-CODE"
-          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all font-mono"
+          className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all font-mono"
         />
       </div>
 
       {/* RIGHT: CUMULATIVE (Only when coupon enabled) */}
       <div>
-        <label className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all h-full">
+        <label className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all h-full">
           <input
             type="checkbox"
             checked={formData.isCumulative}
@@ -1151,11 +1151,11 @@ useEffect(() => {
                 isCumulative: e.target.checked,
               })
             }
-            className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+            className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
           />
           <div>
-            <p className="text-white font-medium">Cumulative</p>
-            <p className="text-slate-400 text-xs">
+            <p className="text-slate-900 dark:text-white font-medium">Cumulative</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs">
               Can combine with other discounts
             </p>
           </div>
@@ -1166,22 +1166,19 @@ useEffect(() => {
   )}
 </div>
 
-
-
-
               {/* SECTION 6: USAGE LIMITATIONS */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-sm">6</span>
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-2 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-sm text-white">6</span>
                   <span>Usage Limitations</span>
                 </h3>
                 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Limitation Type</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Limitation Type</label>
                   <select
                     value={formData.discountLimitation}
                     onChange={(e) => setFormData({...formData, discountLimitation: e.target.value as DiscountLimitationType})}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   >
                     <option value="Unlimited">Unlimited</option>
                     <option value="NTimesOnly">Limited number of uses total</option>
@@ -1191,9 +1188,9 @@ useEffect(() => {
 
                 {formData.discountLimitation !== "Unlimited" && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                       Number of Uses *
-                      <span className="text-xs text-slate-400 ml-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
                         {formData.discountLimitation === "NTimesOnly" 
                           ? "(Total uses across all customers)"
                           : "(Uses per individual customer)"
@@ -1207,15 +1204,15 @@ useEffect(() => {
                       value={formData.limitationTimes || ''}
                       onChange={(e) => setFormData({...formData, limitationTimes: e.target.value ? parseInt(e.target.value) : null})}
                       placeholder="Enter number of uses"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     />
                   </div>
                 )}
               </div>
 
-<div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
-  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm">🖼</span>
+<div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm text-white">🖼</span>
     <span>Banner Images</span>
   </h3>
 
@@ -1223,8 +1220,8 @@ useEffect(() => {
 
 {/* ================= DESKTOP ================= */}
 <div>
-  <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
-    <Monitor size={16} className="text-violet-400" /> Desktop Banner
+  <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+    <Monitor size={16} className="text-violet-600 dark:text-violet-400" /> Desktop Banner
   </label>
 
   {desktopPreview ? (
@@ -1233,7 +1230,7 @@ useEffect(() => {
         src={desktopPreview}
         className="w-full h-32 object-cover"
       />
-      <p className="text-green-400 text-xs text-center mt-1">
+      <p className="text-green-600 dark:text-green-400 text-xs text-center mt-1">
         ✅ {desktopFile?.name}
       </p>
       {/* ✅ DELETE BUTTON - Clear selected file */}
@@ -1246,7 +1243,7 @@ useEffect(() => {
       </button>
     </div>
 ) : formData.desktopBannerImageUrl ? (
-  <div className="relative rounded-xl overflow-hidden border border-slate-600 group">
+  <div className="relative rounded-xl overflow-hidden border border-slate-300 dark:border-slate-600 group">
     <img
       src={`${process.env.NEXT_PUBLIC_API_URL}${formData.desktopBannerImageUrl}`}
       className="w-full h-32 object-cover"
@@ -1266,9 +1263,9 @@ useEffect(() => {
     )}
   </div>
 ) : (
-    <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all bg-slate-900/50">
+    <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all bg-white dark:bg-slate-900/50">
       <Upload size={20} className="text-slate-400 mb-1" />
-      <span className="text-xs text-slate-400">
+      <span className="text-xs text-slate-505 dark:text-slate-400">
         Click to upload desktop image
       </span>
 
@@ -1293,8 +1290,8 @@ useEffect(() => {
 
 {/* ================= MOBILE ================= */}
 <div>
-  <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
-    <Smartphone size={16} className="text-cyan-400" /> Mobile Banner
+  <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+    <Smartphone size={16} className="text-cyan-600 dark:text-cyan-400" /> Mobile Banner
   </label>
 
   {mobilePreview ? (
@@ -1303,7 +1300,7 @@ useEffect(() => {
         src={mobilePreview}
         className="w-full h-32 object-cover"
       />
-      <p className="text-green-400 text-xs text-center mt-1">
+      <p className="text-green-600 dark:text-green-400 text-xs text-center mt-1">
         ✅ {mobileFile?.name}
       </p>
       {/* ✅ DELETE BUTTON - Clear selected file */}
@@ -1316,7 +1313,7 @@ useEffect(() => {
       </button>
     </div>
 ) : formData.mobileBannerImageUrl ? (
-  <div className="relative rounded-xl overflow-hidden border border-slate-600 group">
+  <div className="relative rounded-xl overflow-hidden border border-slate-300 dark:border-slate-600 group">
     <img
       src={`${process.env.NEXT_PUBLIC_API_URL}${formData.mobileBannerImageUrl}`}
       className="w-full h-32 object-cover"
@@ -1335,9 +1332,9 @@ useEffect(() => {
     )}
   </div>
 ) : (
-    <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-cyan-500 transition-all bg-slate-900/50">
+    <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:border-cyan-500 transition-all bg-white dark:bg-slate-900/50">
       <Upload size={20} className="text-slate-400 mb-1" />
-      <span className="text-xs text-slate-400">
+      <span className="text-xs text-slate-500 dark:text-slate-400">
         Click to upload mobile image
       </span>
 
@@ -1371,7 +1368,7 @@ useEffect(() => {
         </div>
 
         {/* ================= FOOTER (FIXED) ================= */}
-        <div className="shrink-0 bg-slate-900 border-t border-slate-700/50 px-4 py-3 flex justify-end gap-3">
+        <div className="shrink-0 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700/50 px-4 py-3 flex justify-end gap-3">
           
           <button
             type="button"
@@ -1379,7 +1376,7 @@ useEffect(() => {
               setShowModal(false);
               resetForm();
             }}
-            className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
+            className="px-6 py-3 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-all font-medium"
           >
             Cancel
           </button>
@@ -1397,18 +1394,15 @@ useEffect(() => {
     </div>
   </div>
 )}
-
-
-{/* ========== PRODUCT SELECTION MODAL ========== */}
 {isProductSelectionModalOpen && (
   <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden shadow-2xl">
+    <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden shadow-2xl">
       
       {/* Modal Header */}
-      <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+      <div className="p-3 border-b border-slate-200 dark:border-purple-500/20 bg-slate-50 dark:bg-purple-950/20">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-slate-200 text-base font-semibold">
+            <p className="text-slate-900 dark:text-slate-200 text-base font-semibold">
               {formData.discountType === "AssignedToCategories" 
                 ? "Choose products from the selected category" 
                 : "Choose products to apply discount"}
@@ -1420,7 +1414,7 @@ useEffect(() => {
               setIsProductSelectionModalOpen(false);
               setProductSearchTerm("");
             }}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-red-500/10 dark:hover:bg-red-600 rounded-lg transition-all"
           >
             ✕
           </button>
@@ -1436,7 +1430,7 @@ useEffect(() => {
                 placeholder="Search products..."
                 value={productSearchTerm}
                 onChange={(e) => setProductSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-sm"
+                className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-sm"
               />
               {productsLoading && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -1484,7 +1478,7 @@ useEffect(() => {
                   setProductCategoryFilter("");
                   setProductBrandFilter("");
                 }}
-                className="p-2.5 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all"
+                className="p-2.5 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all"
                 title="Clear all filters"
               >
                 <FilterX className="h-4 w-4" />
@@ -1492,7 +1486,7 @@ useEffect(() => {
             )}
           </div>
 
-          <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-800/40 rounded-xl border border-slate-700/50">
+          <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-100/60 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/50">
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-3 cursor-pointer group">
                 <div 
@@ -1523,7 +1517,7 @@ useEffect(() => {
                     return `w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
                       isAllSelected 
                         ? "bg-violet-500 border-violet-500 shadow-lg shadow-violet-500/20" 
-                        : "bg-slate-900 border-slate-600 group-hover:border-violet-400"
+                        : "bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 group-hover:border-violet-400"
                     }`;
                   })()}
                 >
@@ -1541,27 +1535,27 @@ useEffect(() => {
                     );
                   })()}
                 </div>
-                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider group-hover:text-violet-400 transition-colors">Select All Available</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Select All Available</span>
               </label>
 
-              <div className="h-4 w-px bg-slate-700 hidden sm:block"></div>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
 
               <div className="hidden lg:flex items-center gap-5 text-[11px] font-bold uppercase tracking-widest">
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-500">Total:</span>
-                  <span className="text-slate-300">{stats.total}</span>
+                  <span className="text-slate-800 dark:text-slate-300">{stats.total}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-500">Discounted:</span>
-                  <span className="text-red-400">{stats.conflictCount}</span>
+                  <span className="text-red-600 dark:text-red-400">{stats.conflictCount}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-500">Available:</span>
-                  <span className="text-green-400">{stats.availableCount}</span>
+                  <span className="text-green-600 dark:text-green-400">{stats.availableCount}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-500">Selected:</span>
-                  <span className="text-violet-400">{formData.assignedProductIds.length}</span>
+                  <span className="text-violet-600 dark:text-violet-400">{formData.assignedProductIds.length}</span>
                 </div>
               </div>
             </div>
@@ -1573,7 +1567,7 @@ useEffect(() => {
                 const newIds = formData.assignedProductIds.filter((id: string) => !filteredIds.includes(id));
                 setFormData({ ...formData, assignedProductIds: newIds });
               }}
-              className="text-[11px] font-bold text-red-400 hover:text-red-300 transition-all uppercase tracking-wider flex items-center gap-1.5 px-3 py-1.5 hover:bg-red-500/10 rounded-lg group"
+              className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all uppercase tracking-wider flex items-center gap-1.5 px-3 py-1.5 hover:bg-red-500/5 dark:hover:bg-red-500/10 rounded-lg group"
             >
               <Trash2 className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
               Clear All From List
@@ -1590,7 +1584,7 @@ useEffect(() => {
           
           if (filteredProducts.length === 0) {
             return (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-slate-500 dark:text-slate-400">
                 <Package className="h-16 w-16 mx-auto mb-4 opacity-30" />
                 <p className="text-lg mb-1">
                   {productSearchTerm ? "No products found" : "No products available"}
@@ -1625,10 +1619,10 @@ useEffect(() => {
                     key={productOption.value}
                     className={`relative flex items-center gap-3 p-1.5 rounded-xl border transition-all text-left w-full focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
                       isDisabled
-                        ? 'bg-slate-800/30 border-slate-700/50 cursor-not-allowed opacity-60'
+                        ? 'bg-slate-100/30 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/50 cursor-not-allowed opacity-60'
                         : isSelected
-                        ? 'bg-violet-500/20 border-violet-500/50 cursor-pointer'
-                        : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50 cursor-pointer'
+                        ? 'bg-violet-500/10 dark:bg-violet-500/20 border-violet-500/50 cursor-pointer'
+                        : 'bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-violet-500/50 cursor-pointer'
                     }`}
                     onClick={(e) => {
                       e.preventDefault();
@@ -1645,14 +1639,14 @@ useEffect(() => {
                       checked={isChecked}
                       disabled={isDisabled}
                       onChange={() => {}} // Handled by button click
-                      className="w-4 h-4 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed pointer-events-none"
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed pointer-events-none"
                       readOnly
                     />
 
                   <div className="flex items-center gap-2 flex-1 min-w-0">
 
   {/* IMAGE */}
-<div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 shrink-0">
+<div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 shrink-0">
   {imageUrl ? (
     <img
       src={imageUrl}
@@ -1660,7 +1654,7 @@ useEffect(() => {
       className="w-full h-full object-cover"
     />
   ) : (
-    <div className="w-full h-full flex items-center justify-center text-slate-500 text-[10px]">
+    <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-500 text-[10px]">
       No Img
     </div>
   )}
@@ -1671,28 +1665,28 @@ useEffect(() => {
 
   {/* NAME */}
   <p className={`text-sm font-medium truncate ${
-    isDisabled ? "text-slate-500" : "text-white"
+    isDisabled ? "text-slate-400 dark:text-slate-500" : "text-slate-800 dark:text-white"
   }`}>
     {productOption.label}
   </p>
 
   {/* SKU */}
-  <p className="text-[11px] text-slate-500 truncate">
+  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
     SKU: {product?.sku ?? "N/A"}
   </p>
 
   <div className="flex items-center gap-2">
 
   {/* PRICE */}
-  <span className="text-xs text-cyan-400 font-semibold">
+  <span className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold">
     £{product?.price ?? "0.00"}
   </span>
 
   {/* STOCK */}
   <span className={`text-[11px] font-medium ${
     (product?.stockQuantity ?? 0) > 0
-      ? "text-green-400"
-      : "text-red-400"
+      ? "text-green-600 dark:text-green-400"
+      : "text-red-600 dark:text-red-400"
   }`}>
     {(product?.stockQuantity ?? 0) > 0
       ? `In Stock (${product?.stockQuantity})`
@@ -1707,8 +1701,8 @@ useEffect(() => {
                     {/* 🎯 CASE 1: CURRENT DISCOUNT - Show for assigned products */}
                     {isAssignedToCurrentDiscount && editingDiscount && (
                       <div className="flex items-center gap-2">
-                        <div className="px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-lg">
-                          <p className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
+                        <div className="px-3 py-1.5 bg-orange-500/10 dark:bg-orange-500/20 border border-orange-500/30 rounded-lg">
+                          <p className="text-xs font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
                    
                             {editingDiscount.usePercentage 
                               ? `${editingDiscount.discountPercentage} % OFF`
@@ -1716,7 +1710,7 @@ useEffect(() => {
                             }
                           </p>
                         </div>
-                        <div className="px-2.5 py-1 bg-blue-500/20 border border-blue-500/40 rounded-lg text-xs font-semibold text-blue-400">
+                        <div className="px-2.5 py-1 bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/30 rounded-lg text-xs font-semibold text-blue-600 dark:text-blue-400">
                           Current Discount
                         </div>
                       </div>
@@ -1724,21 +1718,21 @@ useEffect(() => {
 
                     {/* 🎯 CASE 2: CONFLICTING DISCOUNT - Show for products with other active discounts */}
                     {hasConflict && !isAssignedToCurrentDiscount && primaryConflict && (
-                      <div className="px-3 py-1.5 bg-red-500/20 border border-red-500/40 rounded-lg">
-                        <p className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                      <div className="px-3 py-1.5 bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 rounded-lg">
+                        <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
                           <Percent className="h-3.5 w-3.5" />
                           {primaryConflict.usePercentage 
                             ? `${primaryConflict.discountPercentage}% OFF`
                             : `£${primaryConflict.discountAmount} OFF`
                           }
                         </p>
-                        <p className="text-[10px] text-red-300/70 mt-0.5 flex items-center gap-1">
+                        <p className="text-[10px] text-red-600/80 dark:text-red-300/70 mt-0.5 flex items-center gap-1">
                           <span>Active • {primaryConflict.name}</span>
                           {primaryConflict.discountType === "AssignedToCategories" ? 
                             "(Category)" : "(Product)"}
                         </p>
                         {uniqueConflicts.length > 1 && (
-                          <p className="text-[10px] text-red-300/50 mt-0.5">
+                          <p className="text-[10px] text-red-500/50 mt-0.5">
                             +{uniqueConflicts.length - 1} more discount(s)
                           </p>
                         )}
@@ -1747,14 +1741,14 @@ useEffect(() => {
 
                     {/* 🎯 CASE 3: SELECTED BADGE - For manually selected products with no conflicts */}
                     {isSelected && !isAssignedToCurrentDiscount && !hasConflict && (
-                      <div className="px-2.5 py-1 bg-green-500/20 border border-green-500/40 rounded-lg text-xs font-semibold text-green-400">
+                      <div className="px-2.5 py-1 bg-green-500/10 dark:bg-green-500/20 border border-green-500/30 rounded-lg text-xs font-semibold text-green-600 dark:text-green-400">
                         ✓ Selected
                       </div>
                     )}
 
                     {/* 🎯 CASE 4: AVAILABLE FOR SELECTION - No conflicts, not selected */}
                     {!hasConflict && !isSelected && !isAssignedToCurrentDiscount && (
-                      <div className="px-2.5 py-1 bg-slate-600/20 border border-slate-600/40 rounded-lg text-xs font-semibold text-slate-400">
+                      <div className="px-2.5 py-1 bg-slate-100 dark:bg-slate-600/20 border border-slate-200 dark:border-slate-600/40 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400">
                         Available
                       </div>
                     )}
@@ -1767,13 +1761,11 @@ useEffect(() => {
       </div>
 
       {/* Modal Footer */}
-      <div className="p-3 border-t border-slate-700/50 bg-slate-800/30">
+      <div className="p-3 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         {(() => {
           const allDiscounts = (props.discounts || []) as any[];
           let conflictCount = 0;
           let availableCount = 0;
-
-      
 
           const selectedCount = formData.assignedProductIds.length;
 
@@ -1800,14 +1792,14 @@ useEffect(() => {
       {/* ========== VIEW DISCOUNT DETAILS MODAL ========== */}
       {viewingDiscount && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+          <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-purple-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl dark:shadow-purple-500/10">
+            <div className="p-4 border-b border-slate-200 dark:border-purple-500/20 bg-slate-50 dark:bg-purple-950/20">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+                  <h2 className="text-2xl font-bold text-slate-900 dark:bg-gradient-to-r dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 dark:bg-clip-text dark:text-transparent">
                   {viewingDiscount.name}
                   </h2>
-                  <p className="text-slate-300 text-xs mt-1 font-medium" title={viewingDiscount.id}>
+                  <p className="text-slate-600 dark:text-slate-300 text-xs mt-1 font-medium" title={viewingDiscount.id}>
                     View discount information
                   </p>
                 </div>
@@ -1818,10 +1810,10 @@ useEffect(() => {
     w-10 h-10
     flex items-center justify-center
     rounded-xl
-    border border-slate-700/60
-    bg-slate-800/50
-    text-slate-400
-    hover:text-white
+    border border-slate-200 dark:border-slate-700/60
+    bg-slate-100/50 dark:bg-slate-800/50
+    text-slate-500 dark:text-slate-400
+    hover:text-slate-955 dark:hover:text-white
     hover:bg-red-500/15
     hover:border-red-500/40
     transition-all duration-200
@@ -1839,19 +1831,19 @@ useEffect(() => {
                 <div className="space-y-4">
 
                   {/* Type, Status & Limitation */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold flex items-center gap-2">
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-2">
                         <Target className="w-4 h-4" />
                         Discount Type:
                       </span>
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold ${
-                        viewingDiscount.discountType === 'AssignedToProducts' ? 'bg-blue-500/10 text-blue-400' :
-                        viewingDiscount.discountType === 'AssignedToCategories' ? 'bg-green-500/10 text-green-400' :
-                        viewingDiscount.discountType === 'AssignedToManufacturers' ? 'bg-purple-500/10 text-purple-400' :
-                        viewingDiscount.discountType === 'AssignedToOrderTotal' ? 'bg-orange-500/10 text-orange-400' :
-                        viewingDiscount.discountType === 'AssignedToOrderSubTotal' ? 'bg-pink-500/10 text-pink-400' :
-                        'bg-cyan-500/10 text-cyan-400'
+                        viewingDiscount.discountType === 'AssignedToProducts' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
+                        viewingDiscount.discountType === 'AssignedToCategories' ? 'bg-green-500/10 text-green-600 dark:text-green-400' :
+                        viewingDiscount.discountType === 'AssignedToManufacturers' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' :
+                        viewingDiscount.discountType === 'AssignedToOrderTotal' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' :
+                        viewingDiscount.discountType === 'AssignedToOrderSubTotal' ? 'bg-pink-500/10 text-pink-600 dark:text-pink-400' :
+                        'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
                       }`}>
                         {getDiscountTypeIcon(viewingDiscount.discountType)}
                         {getDiscountTypeLabel(viewingDiscount.discountType)}
@@ -1859,19 +1851,19 @@ useEffect(() => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Status:</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Status:</span>
                       {isDiscountActive(viewingDiscount) ? (
-                        <span className="px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                        <span className="px-3 py-1.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
                           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                           Active Now
                         </span>
                       ) : viewingDiscount.isActive ? (
-                        <span className="px-3 py-1.5 bg-orange-500/10 text-orange-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                        <span className="px-3 py-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
                           <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
                           Scheduled
                         </span>
                       ) : (
-                        <span className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                        <span className="px-3 py-1.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
                           <div className="w-2 h-2 bg-red-400 rounded-full"></div>
                           Inactive
                         </span>
@@ -1879,29 +1871,29 @@ useEffect(() => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Limitation:</span>
-                      <span className="text-white font-bold">{viewingDiscount.discountLimitation}</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Limitation:</span>
+                      <span className="text-slate-800 dark:text-white font-bold">{viewingDiscount.discountLimitation}</span>
                     </div>
 
                     {viewingDiscount.limitationTimes && (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-300 font-semibold">Limitation Times:</span>
-                        <span className="text-white font-bold">{viewingDiscount.limitationTimes}</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Limitation Times:</span>
+                        <span className="text-slate-800 dark:text-white font-bold">{viewingDiscount.limitationTimes}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Discount Value */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
-                    <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
                       <Percent className="w-4 h-4" />
                       Discount Value
                     </h3>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Use Percentage:</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Use Percentage:</span>
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        viewingDiscount.usePercentage ? 'bg-green-500/10 text-green-400' : 'bg-blue-500/10 text-blue-400'
+                        viewingDiscount.usePercentage ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                       }`}>
                         {viewingDiscount.usePercentage ? 'Yes' : 'No'}
                       </span>
@@ -1909,47 +1901,47 @@ useEffect(() => {
 
                     {viewingDiscount.usePercentage ? (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-300 font-semibold">Discount Percentage:</span>
-                        <span className="text-green-400 font-extrabold text-2xl">{viewingDiscount.discountPercentage}%</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Discount Percentage:</span>
+                        <span className="text-green-600 dark:text-green-400 font-extrabold text-2xl">{viewingDiscount.discountPercentage}%</span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-300 font-semibold">Discount Amount:</span>
-                        <span className="text-blue-400 font-extrabold text-2xl">£{viewingDiscount.discountAmount}</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Discount Amount:</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-extrabold text-2xl">£{viewingDiscount.discountAmount}</span>
                       </div>
                     )}
 
                     {viewingDiscount.maximumDiscountAmount && (
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
-                        <span className="text-sm text-slate-300 font-semibold">Maximum Discount:</span>
-                        <span className="text-orange-400 font-bold text-lg">£{viewingDiscount.maximumDiscountAmount}</span>
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700/50">
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Maximum Discount:</span>
+                        <span className="text-orange-600 dark:text-orange-400 font-bold text-lg">£{viewingDiscount.maximumDiscountAmount}</span>
                       </div>
                     )}
 
                     {viewingDiscount.maximumDiscountedQuantity && (
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
-                        <span className="text-sm text-slate-300 font-semibold">Max Discounted Qty:</span>
-                        <span className="text-purple-400 font-bold text-lg">{viewingDiscount.maximumDiscountedQuantity} items</span>
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700/50">
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Max Discounted Qty:</span>
+                        <span className="text-purple-600 dark:text-purple-400 font-bold text-lg">{viewingDiscount.maximumDiscountedQuantity} items</span>
                       </div>
                     )}
                   </div>
 
                   {/* Coupon Code */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Requires Coupon Code:</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Requires Coupon Code:</span>
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        viewingDiscount.requiresCouponCode ? 'bg-green-500/10 text-green-400' : 'bg-slate-500/10 text-slate-400'
+                        viewingDiscount.requiresCouponCode ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-slate-500/10 text-slate-500 dark:text-slate-400'
                       }`}>
                         {viewingDiscount.requiresCouponCode ? 'Yes' : 'No'}
                       </span>
                     </div>
 
                     {viewingDiscount.requiresCouponCode && viewingDiscount.couponCode && (
-                      <div className="pt-2 border-t border-slate-700/50">
-                        <p className="text-xs text-slate-300 font-semibold mb-2">Coupon Code:</p>
-                        <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-3">
-                          <p className="text-green-400 font-mono font-bold text-xl text-center tracking-wider">
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700/50">
+                        <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mb-2">Coupon Code:</p>
+                        <div className="bg-gradient-to-r from-green-500/5 to-emerald-500/5 dark:from-green-500/10 dark:to-emerald-500/10 border border-green-500/20 dark:border-green-500/30 rounded-lg p-3">
+                          <p className="text-green-600 dark:text-green-400 font-mono font-bold text-xl text-center tracking-wider">
                             {viewingDiscount.couponCode}
                           </p>
                         </div>
@@ -1958,31 +1950,31 @@ useEffect(() => {
                   </div>
 
                   {/* Additional Options */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
-                    <h3 className="text-sm font-bold text-white mb-2">Additional Options</h3>
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">Additional Options</h3>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Is Cumulative:</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Is Cumulative:</span>
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        viewingDiscount.isCumulative ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                        viewingDiscount.isCumulative ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
                       }`}>
                         {viewingDiscount.isCumulative ? 'Yes' : 'No'}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Applied to Sub-Orders:</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Applied to Sub-Orders:</span>
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        viewingDiscount.appliedToSubOrders ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                        viewingDiscount.appliedToSubOrders ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'
                       }`}>
                         {viewingDiscount.appliedToSubOrders ? 'Yes' : 'No'}
                       </span>
                     </div>
                   </div>
                   {(viewingDiscount.desktopBannerImageUrl || viewingDiscount.mobileBannerImageUrl) && (
-  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
     
-    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
       🖼 Banner Images
     </h3>
 
@@ -1991,11 +1983,11 @@ useEffect(() => {
       {/* DESKTOP */}
       {viewingDiscount.desktopBannerImageUrl && (
         <div>
-          <p className="text-xs text-slate-400 mb-1">Desktop</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Desktop</p>
 
          <img
   src={getImageUrl(viewingDiscount.desktopBannerImageUrl)}
-  className="w-full h-40 object-cover rounded-lg border border-slate-600 cursor-pointer"
+  className="w-full h-40 object-cover rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer"
   onClick={() => setPreviewImage(viewingDiscount.desktopBannerImageUrl)}
 />
         </div>
@@ -2004,11 +1996,11 @@ useEffect(() => {
       {/* MOBILE */}
       {viewingDiscount.mobileBannerImageUrl && (
         <div>
-          <p className="text-xs text-slate-400 mb-1">Mobile</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Mobile</p>
 
          <img
   src={getImageUrl(viewingDiscount.mobileBannerImageUrl)}
-  className="w-full h-40 object-cover rounded-lg border border-slate-600 cursor-pointer"
+  className="w-full h-40 object-cover rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer"
   onClick={() => setPreviewImage(viewingDiscount.mobileBannerImageUrl)}
 />
         </div>
@@ -2023,7 +2015,7 @@ useEffect(() => {
                 <div className="space-y-4">
                   {/* Valid Period */}
              {/* Valid Period */}
-<div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
+<div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-200 dark:border-slate-700/50">
 
   {(() => {
     const now = new Date();
@@ -2033,7 +2025,7 @@ useEffect(() => {
 
     let status = "Active";
     let statusClasses =
-      "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/30";
 
     let dotClasses = "bg-emerald-400";
 
@@ -2041,7 +2033,7 @@ useEffect(() => {
       status = "Scheduled";
 
       statusClasses =
-        "bg-amber-500/15 text-amber-400 border-amber-500/30";
+        "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/30";
 
       dotClasses = "bg-amber-400";
     }
@@ -2050,7 +2042,7 @@ useEffect(() => {
       status = "Expired";
 
       statusClasses =
-        "bg-red-500/15 text-red-400 border-red-500/30";
+        "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 dark:border-red-500/30";
 
       dotClasses = "bg-red-400";
     }
@@ -2060,8 +2052,8 @@ useEffect(() => {
         {/* HEADER */}
         <div className="flex items-center justify-between mb-4">
 
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-violet-400" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             Valid Period
           </h3>
 
@@ -2090,21 +2082,21 @@ useEffect(() => {
         <div className="space-y-3">
 
           <div className="flex items-center justify-between py-1">
-            <span className="text-sm text-slate-300 font-semibold">
+            <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">
               Start Date:
             </span>
 
-            <span className="text-slate-100 text-sm font-medium">
+            <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
               {formatDate(viewingDiscount.startDate)}
             </span>
           </div>
 
           <div className="flex items-center justify-between py-1">
-            <span className="text-sm text-slate-300 font-semibold">
+            <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">
               End Date:
             </span>
 
-            <span className="text-slate-100 text-sm font-medium">
+            <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
               {formatDate(viewingDiscount.endDate)}
             </span>
           </div>
@@ -2117,8 +2109,8 @@ useEffect(() => {
 
                   {/* Assignments */}
                   {(viewingDiscount.assignedProductIds || viewingDiscount.assignedCategoryIds || viewingDiscount.assignedManufacturerIds) && (
-                    <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-                      <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                         <span className="text-xl">🎯</span>
                         Assignments
                       </h3>
@@ -2128,10 +2120,10 @@ useEffect(() => {
                         {viewingDiscount.discountType === 'AssignedToProducts' && viewingDiscount.assignedProductIds && (
                           <div>
                             <div className="flex items-center gap-2 mb-3">
-                              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                                <Package className="h-4 w-4 text-blue-400" />
+                              <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                                <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                               </div>
-                              <p className="text-sm text-blue-400 font-bold">Discount Applied on Products:</p>
+                              <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">Discount Applied on Products:</p>
                             </div>
                       <div className="flex flex-col gap-2 pl-10">
   {viewingDiscount.assignedProductIds
@@ -2154,10 +2146,10 @@ useEffect(() => {
       return (
         <div
           key={index}
-          className="px-3 py-2 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-semibold border border-blue-500/30 hover:bg-blue-500/20 transition-all flex items-center gap-2"
+          className="px-3 py-2 bg-blue-500/5 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-semibold border border-blue-500/20 dark:border-blue-500/30 hover:bg-blue-500/10 dark:hover:bg-blue-500/20 transition-all flex items-center gap-2"
         >
           {/* Index */}
-          <span className="w-5 h-5 rounded-full bg-blue-500/20 text-[10px] flex items-center justify-center text-blue-300 font-bold flex-shrink-0">
+          <span className="w-5 h-5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-[10px] flex items-center justify-center text-blue-600 dark:text-blue-300 font-bold flex-shrink-0">
             {index + 1}
           </span>
 
@@ -2172,8 +2164,8 @@ useEffect(() => {
               }
             />
           ) : (
-            <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
-              <Package className="h-3 w-3 text-slate-400" />
+            <div className="w-6 h-6 rounded bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+              <Package className="h-3 w-3 text-slate-500 dark:text-slate-400" />
             </div>
           )}
 
@@ -2194,16 +2186,16 @@ useEffect(() => {
     {viewingDiscount.assignedCategoryIds && (
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-            <Target className="h-4 w-4 text-green-400" />
+          <div className="w-8 h-8 rounded-lg bg-green-500/15 flex items-center justify-center">
+            <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
           </div>
 
           <div>
-            <p className="text-sm text-green-400 font-bold">
+            <p className="text-sm text-green-600 dark:text-green-400 font-bold">
               Category Discount Applied on:
             </p>
 
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {viewingDiscount.assignedProductIds &&
               viewingDiscount.assignedProductIds.trim() !== ""
                 ? "This discount applies only to selected products from this category"
@@ -2227,13 +2219,17 @@ useEffect(() => {
                   key={index}
                   className="
                     px-3 py-2
-                    bg-green-500/10
-                    text-green-400
+                    bg-green-500/5
+                    dark:bg-green-500/10
+                    text-green-600
+                    dark:text-green-400
                     rounded-lg
                     text-xs
                     font-semibold
-                    border border-green-500/30
-                    hover:bg-green-500/20
+                    border border-green-500/20
+                    dark:border-green-500/30
+                    hover:bg-green-500/10
+                    dark:hover:bg-green-500/20
                     transition-all
                     flex items-center gap-2
                   "
@@ -2253,19 +2249,19 @@ useEffect(() => {
     {/* SPECIFIC PRODUCTS */}
     {viewingDiscount.assignedProductIds &&
       viewingDiscount.assignedProductIds.trim() !== "" && (
-        <div className="mt-4 pt-4 border-t border-slate-700/50">
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/50">
 
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-              <Package className="h-4 w-4 text-violet-400" />
+            <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
+              <Package className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             </div>
 
             <div>
-              <p className="text-sm text-violet-400 font-bold">
+              <p className="text-sm text-violet-600 dark:text-violet-400 font-bold">
                 Selected Products:
               </p>
 
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Only these products receive the category discount
               </p>
             </div>
@@ -2284,15 +2280,18 @@ useEffect(() => {
           className="
             flex items-center gap-2
             px-3 py-2
-            bg-violet-500/10
-            text-violet-400
+            bg-violet-500/5
+            dark:bg-violet-500/10
+            text-violet-600
+            dark:text-violet-400
             rounded-xl
             text-xs
             font-semibold
-            border border-violet-500/30
-            hover:bg-violet-500/20
+            border border-violet-500/20
+            dark:border-violet-500/30
+            hover:bg-violet-500/10
+            dark:hover:bg-violet-500/20
             transition-all
-
           "
         >
           {/* COUNT */}
@@ -2300,8 +2299,10 @@ useEffect(() => {
             className="
               w-5 h-5
               rounded-full
-              bg-violet-500/20
-              border border-violet-500/30
+              bg-violet-500/10
+              dark:bg-violet-500/20
+              border border-violet-500/20
+              dark:border-violet-500/30
               flex items-center justify-center
               text-[10px]
               font-bold
@@ -2317,8 +2318,10 @@ useEffect(() => {
               w-8 h-8
               rounded-lg
               overflow-hidden
-              bg-slate-800
-              border border-violet-500/20
+              bg-slate-50
+              dark:bg-slate-800
+              border border-violet-500/10
+              dark:border-violet-500/20
               shrink-0
             "
           >
@@ -2337,7 +2340,7 @@ useEffect(() => {
     />
   ) : (
     <div className="w-full h-full flex items-center justify-center">
-      <Package className="h-3 w-3 text-violet-400" />
+      <Package className="h-3 w-3 text-violet-600 dark:text-violet-400" />
     </div>
   );
 })()}
@@ -2366,7 +2369,7 @@ useEffect(() => {
                           viewingDiscount.discountType === 'AssignedToShipping' ||
                           viewingDiscount.discountType === 'AssignedToOrderSubTotal') && (
                           <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
-                            <p className="text-cyan-400 text-sm flex items-center gap-2">
+                            <p className="text-cyan-600 dark:text-cyan-400 text-sm flex items-center gap-2">
                               <AlertCircle className="h-4 w-4" />
                               This discount applies to {' '}
                               <span className="font-bold">
@@ -2383,10 +2386,10 @@ useEffect(() => {
 
                   {/* Admin Comment */}
                   {viewingDiscount.adminComment && (
-                    <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-                      <h3 className="text-base font-bold text-white mb-3">Admin Comment</h3>
+                    <div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Admin Comment</h3>
                       <div
-                        className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"
+                        className="prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-200 text-sm leading-relaxed"
                         dangerouslySetInnerHTML={{
                           __html: viewingDiscount.adminComment || "No comment available",
                         }}
@@ -2395,41 +2398,41 @@ useEffect(() => {
                   )}
 
                   {/* Audit Information */}
-                  <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-                    <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5 text-violet-400" />
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                       Audit Information
                     </h3>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between py-1">
-                        <span className="text-sm text-slate-300 font-semibold">Created At:</span>
-                        <span className="text-slate-100 text-sm font-medium">
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Created At:</span>
+                        <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
                            {formatDate(viewingDiscount.createdAt)}
                         </span>
                       </div>
   <div className="py-1">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
-                          <span className="text-slate-100 text-sm font-medium text-right break-all">
+                          <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
+                          <span className="text-slate-800 dark:text-slate-100 text-sm font-medium text-right break-all">
                             {(viewingDiscount as any).createdBy || 'Unknown'}
                           </span>
                         </div>
                       </div>
                      
 
-                      <div className="border-t border-slate-700/50 my-3"></div>
+                      <div className="border-t border-slate-200 dark:border-slate-700/50 my-3"></div>
 
                      <div className="flex items-center justify-between py-1">
-                        <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
-                        <span className="text-slate-100 text-sm font-medium">
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">Updated At:</span>
+                        <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
                       {formatDate(viewingDiscount.updatedAt)}
                         </span>
                       </div>
 
                       <div className="py-1">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Updated By:</span>
-                          <span className="text-slate-100 text-sm font-medium text-right break-all">
+                          <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold whitespace-nowrap">Updated By:</span>
+                          <span className="text-slate-800 dark:text-slate-100 text-sm font-medium text-right break-all">
                             {(viewingDiscount as any).updatedBy || 'Never updated'}
                           </span>
                         </div>
@@ -2441,7 +2444,7 @@ useEffect(() => {
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700/50 bg-slate-900/50">
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 bg-slate-55/50 dark:bg-slate-900/50">
               <button
                 onClick={() => {
                   if (handleViewUsageHistory) {
@@ -2466,7 +2469,7 @@ useEffect(() => {
               </button>
               <button
                 onClick={() => setViewingDiscount(null)}
-                className="px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-bold text-sm"
+                className="px-6 py-3 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-all font-bold text-sm"
               >
                 Close
               </button>
@@ -2478,17 +2481,17 @@ useEffect(() => {
       {/* ========== ✅ ULTRA COMPACT USAGE HISTORY MODAL ========== */}
       {usageHistoryModal && selectedDiscountHistory && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[97vh] overflow-hidden shadow-2xl">
+          <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-purple-500/20 rounded-3xl max-w-5xl w-full max-h-[97vh] overflow-hidden shadow-2xl">
             
             {/* Compact Header - Inline */}
-     <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+     <div className="p-3 border-b border-slate-200 dark:border-purple-500/20 bg-slate-50 dark:bg-purple-950/20">
   <div className="flex items-start justify-between gap-3">
 
     {/* LEFT */}
     <div className="flex items-start gap-3 min-w-0">
 
       {/* ICON */}
-      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-lg shadow-lg shadow-violet-500/20 shrink-0">
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg shadow-lg shadow-purple-500/20 shrink-0">
         {getDiscountTypeIcon(selectedDiscountHistory.discountType)}
       </div>
 
@@ -2496,12 +2499,12 @@ useEffect(() => {
       <div className="min-w-0">
 
         {/* TITLE */}
-        <h2 className="text-lg font-bold text-white leading-tight truncate">
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate">
           {selectedDiscountHistory.name}
         </h2>
 
         {/* HELPER TEXT */}
-        <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
           Track discount usage activity, customer redemptions,
           and order-level analytics for this promotion.
         </p>
@@ -2509,11 +2512,11 @@ useEffect(() => {
         {/* COUPON */}
         {selectedDiscountHistory.couponCode && (
           <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-green-500/10 border border-green-500/20">
-            <span className="text-[10px] uppercase tracking-wider text-green-400 font-bold">
+            <span className="text-[10px] uppercase tracking-wider text-green-600 dark:text-green-400 font-bold">
               Coupon
             </span>
 
-            <span className="text-green-300 font-mono text-xs font-semibold">
+            <span className="text-green-700 dark:text-green-300 font-mono text-xs font-semibold">
               {selectedDiscountHistory.couponCode}
             </span>
           </div>
@@ -2533,10 +2536,10 @@ useEffect(() => {
         w-10 h-10
         flex items-center justify-center
         rounded-xl
-        border border-slate-700/60
-        bg-slate-800/60
-        text-slate-400
-        hover:text-white
+        border border-slate-200 dark:border-slate-700/60
+        bg-slate-100/60 dark:bg-slate-800/60
+        text-slate-500 dark:text-slate-400
+        hover:text-slate-955 dark:hover:text-white
         hover:bg-red-500/15
         hover:border-red-500/40
         active:scale-95
@@ -2551,10 +2554,10 @@ useEffect(() => {
 </div>
 
             {/* ✅ COMPACT DATE FILTER - INLINE */}
-            <div className="p-3 border-b border-slate-800 bg-slate-900/30">
+            <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <CalendarRange className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-slate-300 font-medium">Filter:</span>
+                <CalendarRange className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span className="text-slate-600 dark:text-slate-300 font-medium">Filter:</span>
 
                 {/* Quick Presets */}
                 <button
@@ -2562,21 +2565,21 @@ useEffect(() => {
                   className={`px-2 py-1 rounded-md font-medium transition-all ${
                     dateRangeFilter.startDate === new Date().toISOString().split('T')[0] &&
                     dateRangeFilter.endDate === new Date().toISOString().split('T')[0]
-                      ? 'bg-violet-500 text-white'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      ? 'bg-violet-600 dark:bg-violet-500 text-white'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
                   Today
                 </button>
                 <button
                   onClick={() => setQuickDateRange('week')}
-                  className="px-2 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-md font-medium transition-all"
+                  className="px-2 py-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-md font-medium transition-all"
                 >
                   7D
                 </button>
                 <button
                   onClick={() => setQuickDateRange('month')}
-                  className="px-2 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-md font-medium transition-all"
+                  className="px-2 py-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-md font-medium transition-all"
                 >
                   30D
                 </button>
@@ -2584,40 +2587,40 @@ useEffect(() => {
                   onClick={() => setQuickDateRange('all')}
                   className={`px-2 py-1 rounded-md font-medium transition-all ${
                     !hasDateFilters
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      ? 'bg-blue-600 dark:bg-blue-500 text-white'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
                   All
                 </button>
 
-                <span className="text-slate-600 mx-1">|</span>
+                <span className="text-slate-300 dark:text-slate-600 mx-1">|</span>
 
                 {/* Custom Dates */}
                 <input
                   type="date"
                   value={dateRangeFilter.startDate}
                   onChange={(e) => setDateRangeFilter({...dateRangeFilter, startDate: e.target.value})}
-                  className="px-2 py-1 bg-slate-800 border border-slate-600 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 w-32"
+                  className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 w-32"
                 />
-                <span className="text-slate-500">→</span>
+                <span className="text-slate-400 dark:text-slate-500">→</span>
                 <input
                   type="date"
                   value={dateRangeFilter.endDate}
                   onChange={(e) => setDateRangeFilter({...dateRangeFilter, endDate: e.target.value})}
-                  className="px-2 py-1 bg-slate-800 border border-slate-600 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 w-32"
+                  className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 w-32"
                 />
                 
                 {hasDateFilters && (
                   <>
                     <button
                       onClick={clearDateFilters}
-                      className="p-1 text-red-400 hover:bg-red-500/10 rounded-md transition-all"
+                      className="p-1 text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-md transition-all"
                       title="Clear Filter"
                     >
                       <FilterX className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-blue-400 ml-auto">
+                    <span className="text-blue-600 dark:text-blue-400 ml-auto">
                       {getFilteredUsageHistory().length}/{usageHistory.length} shown
                     </span>
                   </>
@@ -2626,45 +2629,45 @@ useEffect(() => {
             </div>
 
             {/* ✅ ULTRA COMPACT STATS */}
-            <div className="p-3 border-b border-slate-800">
+            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
               <div className="grid grid-cols-4 gap-2">
                 {/* Value */}
-                <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-purple-500/5 to-indigo-500/5 dark:from-purple-500/10 dark:to-indigo-500/10 border border-purple-500/10 dark:border-purple-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <Percent className="w-3.5 h-3.5 text-violet-400" />
-                    <span className="text-[10px] text-slate-400">Value</span>
+                    <Percent className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Value</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight">
                     {formatDiscountValue(selectedDiscountHistory)}
                   </p>
                   {selectedDiscountHistory.maximumDiscountAmount && (
-                    <p className="text-[10px] text-slate-400">Max £{selectedDiscountHistory.maximumDiscountAmount}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Max £{selectedDiscountHistory.maximumDiscountAmount}</p>
                   )}
                 </div>
 
                 {/* Times Used */}
-                <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-blue-500/5 to-cyan-500/5 dark:from-blue-500/10 dark:to-cyan-500/10 border border-blue-500/10 dark:border-blue-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-[10px] text-slate-400">Used</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Used</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight">
                     {calculateFilteredStats().totalUsage}
                   </p>
                   {selectedDiscountHistory.limitationTimes && (
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
                       / {selectedDiscountHistory.limitationTimes}
                     </p>
                   )}
                 </div>
 
                 {/* Remaining */}
-                <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 dark:from-green-500/10 dark:to-emerald-500/10 border border-green-500/10 dark:border-green-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <Target className="w-3.5 h-3.5 text-green-400" />
-                    <span className="text-[10px] text-slate-400">Left</span>
+                    <Target className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Left</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight flex items-center gap-1">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight flex items-center gap-1">
                     {selectedDiscountHistory.discountLimitation === 'Unlimited' ? (
                       <InfinityIcon className="w-5 h-5" />
                     ) : (
@@ -2674,62 +2677,62 @@ useEffect(() => {
                 </div>
 
                 {/* Expires */}
-                <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-orange-500/5 to-amber-500/5 dark:from-orange-500/10 dark:to-amber-500/10 border border-orange-500/10 dark:border-orange-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <Clock className="w-3.5 h-3.5 text-orange-400" />
-                    <span className="text-[10px] text-slate-400">Expires</span>
+                    <Clock className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Expires</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight">
                     {(() => {
                       const days = calculateDaysUntilExpiry(selectedDiscountHistory);
                       return days < 0 ? "Expired" : days === 0 ? "Today" : `${days}d`;
                     })()}
                   </p>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
                     {new Date(selectedDiscountHistory.endDate).toLocaleDateString('en-IN', {day: '2-digit', month: 'short'})}
                   </p>
                 </div>
 
                 {/* Total Saved */}
-                <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-pink-500/5 to-rose-500/5 dark:from-pink-500/10 dark:to-rose-500/10 border border-pink-500/10 dark:border-pink-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <Gift className="w-3.5 h-3.5 text-pink-400" />
-                    <span className="text-[10px] text-slate-400">Saved</span>
+                    <Gift className="w-3.5 h-3.5 text-pink-600 dark:text-pink-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Saved</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight">
                     £{calculateFilteredStats().totalRevenue.toFixed(2)}
                   </p>
                 </div>
 
                 {/* Customers */}
-                <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-cyan-500/5 to-blue-500/5 dark:from-cyan-500/10 dark:to-blue-500/10 border border-cyan-500/10 dark:border-cyan-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <Users className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-[10px] text-slate-400">Users</span>
+                    <Users className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Users</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight">
                     {calculateFilteredStats().uniqueCustomers}
                   </p>
                 </div>
 
                 {/* Avg Discount */}
-                <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 border border-indigo-500/10 dark:border-indigo-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-[10px] text-slate-400">Avg</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Avg</span>
                   </div>
-                  <p className="text-lg font-bold text-white leading-tight">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight">
                     £{calculateFilteredStats().averageDiscount.toFixed(2)}
                   </p>
                 </div>
 
                 {/* Type */}
-                <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-lg p-2">
+                <div className="bg-gradient-to-br from-amber-500/5 to-yellow-500/5 dark:from-amber-500/10 dark:to-yellow-500/10 border border-amber-500/10 dark:border-amber-500/20 rounded-lg p-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-[10px] text-slate-400">Type</span>
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Type</span>
                   </div>
-                  <p className="text-xs font-semibold text-white leading-tight">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-white leading-tight">
                     {selectedDiscountHistory.discountLimitation === "Unlimited" 
                       ? "∞" 
                       : selectedDiscountHistory.discountLimitation === "NTimesOnly"
@@ -2746,13 +2749,13 @@ useEffect(() => {
                 <div className="flex items-center justify-center py-8">
                   <div className="text-center">
                     <div className="w-10 h-10 border-3 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-slate-400 text-sm">Loading...</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Loading...</p>
                   </div>
                 </div>
               ) : getFilteredUsageHistory().length === 0 ? (
                 <div className="text-center py-10">
-                  <History className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400 mb-1">
+                  <History className="h-12 w-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-700 dark:text-slate-400 mb-1">
                     {hasDateFilters ? "No transactions in range" : "No usage yet"}
                   </p>
                   <p className="text-slate-500 text-xs">
@@ -2760,22 +2763,22 @@ useEffect(() => {
                   </p>
                 </div>
               ) : (
-                <div className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden">
+                <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-slate-800 bg-slate-800/30">
-                        <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">#</th>
-                        <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">Order</th>
-                        <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">Customer</th>
-                        <th className="text-center py-2 px-3 text-slate-400 font-medium text-xs">Saved</th>
-                        <th className="text-center py-2 px-3 text-slate-400 font-medium text-xs">Date</th>
+                      <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+                        <th className="text-left py-2 px-3 text-slate-500 dark:text-slate-400 font-medium text-xs">#</th>
+                        <th className="text-left py-2 px-3 text-slate-500 dark:text-slate-400 font-medium text-xs">Order</th>
+                        <th className="text-left py-2 px-3 text-slate-500 dark:text-slate-400 font-medium text-xs">Customer</th>
+                        <th className="text-center py-2 px-3 text-slate-500 dark:text-slate-400 font-medium text-xs">Saved</th>
+                        <th className="text-center py-2 px-3 text-slate-500 dark:text-slate-400 font-medium text-xs">Date</th>
                       </tr>
                     </thead>
                     <tbody>
                       {getFilteredUsageHistory().map((history, index) => (
                         <tr
                           key={history.id}
-                          className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+                          className="border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
                         >
                           {/* Index */}
                           <td className="py-2 px-3">
@@ -2787,7 +2790,7 @@ useEffect(() => {
                           {/* Order */}
                           <td className="py-2 px-3">
                             <div className="flex flex-col">
-                              <span className="text-white font-medium text-xs">
+                              <span className="text-slate-800 dark:text-white font-medium text-xs">
                                 {(history as any).orderNumber}
                               </span>
                               <span className="text-[10px] text-slate-500">
@@ -2799,8 +2802,8 @@ useEffect(() => {
                           {/* Customer */}
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-1.5">
-                              <Users className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                              <span className="text-white text-xs truncate max-w-[200px]">
+                              <Users className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                              <span className="text-slate-800 dark:text-white text-xs truncate max-w-[200px]">
                                 {history.customerEmail}
                               </span>
                             </div>
@@ -2808,7 +2811,7 @@ useEffect(() => {
 
                           {/* Discount */}
                           <td className="py-2 px-3 text-center">
-                            <span className="inline-flex items-center px-2 py-0.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded text-xs font-semibold">
+                            <span className="inline-flex items-center px-2 py-0.5 bg-green-500/10 border border-green-500/20 dark:border-green-500/30 text-green-600 dark:text-green-400 rounded text-xs font-semibold">
                               £{history.discountAmount.toFixed(2)}
                             </span>
                           </td>
@@ -2816,7 +2819,7 @@ useEffect(() => {
                           {/* Date */}
                           <td className="py-2 px-3 text-center">
                             <div className="flex flex-col">
-                              <span className="text-white text-xs font-medium">
+                              <span className="text-slate-800 dark:text-white text-xs font-medium">
                                 {formatDate(history.usedAt)}
                               </span>
                              
@@ -2831,8 +2834,8 @@ useEffect(() => {
             </div>
 
             {/* Compact Footer */}
-            <div className="p-3 border-t border-slate-700/50 bg-slate-900/50 flex justify-between items-center">
-              <span className="text-xs text-slate-400">
+            <div className="p-3 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 {hasDateFilters 
                   ? `${getFilteredUsageHistory().length}/${usageHistory.length} shown`
                   : `${usageHistory.length} total`
@@ -2843,7 +2846,7 @@ useEffect(() => {
                   setUsageHistoryModal(false);
                   clearDateFilters();
                 }}
-                className="px-4 py-1.5 bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-500 transition-all font-medium text-xs"
+                className="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-all font-medium text-xs"
               >
                 Close
               </button>

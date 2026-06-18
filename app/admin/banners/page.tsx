@@ -628,7 +628,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading banners...</p>
+          <p className="text-slate-500 dark:text-slate-400">Loading banners...</p>
         </div>
       </div>
     );
@@ -641,10 +641,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 <div className="flex flex-wrap items-center justify-between gap-3">
 
   <div>
-    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-650 via-cyan-650 to-pink-650 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text   ">
       Banner Management
     </h1>
-    <p className="text-[12px] text-slate-500">
+    <p className="text-[12px] text-slate-500 dark:text-slate-400">
     Manage promotional banners for your store. 
     </p>
   </div>
@@ -666,14 +666,14 @@ const handleSubmit = async (e: React.FormEvent) => {
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
 
   {/* Total */}
-  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+  <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
     <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
-        <ImageIcon className="h-4 w-4 text-violet-400" />
+      <div className="w-8 h-8 bg-violet-50 dark:bg-violet-500/10 rounded-md flex items-center justify-center">
+        <ImageIcon className="h-4 w-4 text-violet-600 dark:text-violet-400" />
       </div>
       <div>
-        <p className="text-[11px] text-slate-500">Total</p>
-        <p className="text-lg font-semibold text-white">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">Total</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-white">
           {stats.totalBanners}
         </p>
       </div>
@@ -681,14 +681,14 @@ const handleSubmit = async (e: React.FormEvent) => {
   </div>
 
   {/* Active */}
-  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+  <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
     <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
-        <CheckCircle className="h-4 w-4 text-green-400" />
+      <div className="w-8 h-8 bg-green-50 dark:bg-green-500/10 rounded-md flex items-center justify-center">
+        <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
       </div>
       <div>
-        <p className="text-[11px] text-slate-500">Active</p>
-        <p className="text-lg font-semibold text-white">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">Active</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-white">
           {stats.activeBanners}
         </p>
       </div>
@@ -696,14 +696,14 @@ const handleSubmit = async (e: React.FormEvent) => {
   </div>
 
   {/* Inactive */}
-  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+  <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
     <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-red-500/10 rounded-md flex items-center justify-center">
-        <AlertCircle className="h-4 w-4 text-red-400" />
+      <div className="w-8 h-8 bg-red-50 dark:bg-red-500/10 rounded-md flex items-center justify-center">
+        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
       </div>
       <div>
-        <p className="text-[11px] text-slate-500">Inactive</p>
-        <p className="text-lg font-semibold text-white">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">Inactive</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-white">
           {stats.inactiveBanners}
         </p>
       </div>
@@ -711,14 +711,14 @@ const handleSubmit = async (e: React.FormEvent) => {
   </div>
 
   {/* Upcoming */}
-  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+  <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
     <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
-        <Calendar className="h-4 w-4 text-cyan-400" />
+      <div className="w-8 h-8 bg-cyan-50 dark:bg-cyan-500/10 rounded-md flex items-center justify-center">
+        <Calendar className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
       </div>
       <div>
-        <p className="text-[11px] text-slate-500">Upcoming</p>
-        <p className="text-lg font-semibold text-white">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">Upcoming</p>
+        <p className="text-lg font-semibold text-slate-900 dark:text-white">
           {stats.upcomingBanners}
         </p>
       </div>
@@ -729,35 +729,35 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 
 {/* Items Per Page (SAME SYSTEM EVERYWHERE) */}
-<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+<div className="bg-slate-55 dark:bg-slate-900/40 bg-slate-50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
 
   <div className="flex items-center justify-between gap-2 flex-wrap">
 
     <div className="flex items-center gap-2">
-      <span className="text-[11px] text-slate-500">Show</span>
+      <span className="text-[11px] text-slate-500 dark:text-slate-400">Show</span>
 
       <select
         value={itemsPerPage}
         onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-        className="px-2 py-1 bg-slate-800 border border-slate-700 rounded-md text-white text-[11px]"
+        className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-white text-[11px]"
       >
-        <option value={25}>25</option>
-        <option value={50}>50</option>
-        <option value={75}>75</option>
-        <option value={100}>100</option>
+        <option value={25} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">25</option>
+        <option value={50} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">50</option>
+        <option value={75} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">75</option>
+        <option value={100} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">100</option>
       </select>
 
-      <span className="text-[11px] text-slate-500">per page</span>
+      <span className="text-[11px] text-slate-500 dark:text-slate-400">per page</span>
     </div>
 
-    <div className="text-[11px] text-slate-500">
-      <span className="text-white font-medium">{startIndex + 1}</span>
+    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+      <span className="text-slate-900 dark:text-white font-medium">{startIndex + 1}</span>
       {" – "}
-      <span className="text-white font-medium">
+      <span className="text-slate-900 dark:text-white font-medium">
         {Math.min(endIndex, totalItems)}
       </span>
       {" of "}
-      <span className="text-white font-medium">{totalItems}</span>
+      <span className="text-slate-900 dark:text-white font-medium">{totalItems}</span>
     </div>
 
   </div>
@@ -765,19 +765,19 @@ const handleSubmit = async (e: React.FormEvent) => {
  
 
       {/* Search and Filters */}
-<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+<div className="bg-slate-55 dark:bg-slate-900/40 bg-slate-50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
 
   <div className="flex flex-wrap items-center gap-2">
 
     {/* Search */}
     <div className="relative flex-1 min-w-[220px]">
-      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
       <input
         type="search"
         placeholder="Search banners..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[12px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+        className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-white text-[12px] focus:outline-none focus:ring-1 focus:ring-violet-500"
       />
     </div>
 
@@ -785,55 +785,55 @@ const handleSubmit = async (e: React.FormEvent) => {
     <select
       value={statusFilter}
       onChange={(e) => setStatusFilter(e.target.value)}
-      className={`p-2 text-[11px] rounded-md border bg-slate-800 ${
+      className={`p-2 text-[11px] rounded-md border bg-white dark:bg-slate-800 ${
         statusFilter !== "all"
-          ? "border-blue-500 ring-1 ring-blue-500/40 text-white"
-          : "border-slate-700 text-slate-300"
+          ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-white font-medium"
+          : "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
       }`}
     >
-      <option value="all">Status</option>
-      <option value="active">Active</option>
-      <option value="inactive">Inactive</option>
+      <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Status</option>
+      <option value="active" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Active</option>
+      <option value="inactive" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Inactive</option>
     </select>
 
     {/* Type */}
     <select
       value={bannerTypeFilter}
       onChange={(e) => setBannerTypeFilter(e.target.value)}
-      className={`p-2 text-[11px] rounded-md border bg-slate-800 ${
+      className={`p-2 text-[11px] rounded-md border bg-white dark:bg-slate-800 ${
         bannerTypeFilter !== "all"
-          ? "border-violet-500 ring-1 ring-violet-500/40 text-white"
-          : "border-slate-700 text-slate-300"
+          ? "border-violet-500 bg-violet-55 dark:bg-violet-500/10 bg-violet-55 text-violet-750 dark:text-white font-medium"
+          : "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
       }`}
     >
-      <option value="all">Type</option>
-      <option value="Homepage">Homepage</option>
-      <option value="Offer">Offer</option>
-      <option value="Promotional">Promotional</option>
-      <option value="Category">Category</option>
-      <option value="Seasonal">Seasonal</option>
-      <option value="FlashSale">Flash</option>
+      <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Type</option>
+      <option value="Homepage" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Homepage</option>
+      <option value="Offer" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Offer</option>
+      <option value="Promotional" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Promotional</option>
+      <option value="Category" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Category</option>
+      <option value="Seasonal" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Seasonal</option>
+      <option value="FlashSale" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Flash</option>
     </select>
 
     {/* Deleted */}
     <select
       value={deletedFilter}
       onChange={(e) => setDeletedFilter(e.target.value)}
-      className={`p-2 text-[11px] rounded-md border bg-slate-800 ${
+      className={`p-2 text-[11px] rounded-md border bg-white dark:bg-slate-800 ${
         deletedFilter !== "notDeleted"
-          ? "border-red-500 ring-1 ring-red-500/40 text-white"
-          : "border-slate-700 text-slate-300"
+          ? "border-red-500 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-white font-medium"
+          : "border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
       }`}
     >
-      <option value="notDeleted">Live</option>
-      <option value="deleted">Deleted</option>
+      <option value="notDeleted" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Live</option>
+      <option value="deleted" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Deleted</option>
     </select>
 
     {/* Clear */}
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="p-2 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
+        className="p-2 text-[11px] bg-red-55 dark:bg-red-500/10 border border-red-200 dark:border-red-500/40 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center gap-1 transition-all"
       >
         <FilterX className="h-3 w-3" />
         Clear
@@ -841,7 +841,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     )}
 
     {/* Count */}
-    <div className="ml-auto text-[11px] text-slate-500">
+    <div className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">
       {totalItems} banners
     </div>
   </div>
@@ -849,12 +849,12 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       {/* Banners List */}
    {/* Banners List */}
-<div className="bg-slate-900/40 border border-slate-800 rounded-lg overflow-hidden">
+<div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden shadow-sm">
 
   {currentData.length === 0 ? (
     <div className="text-center py-10">
-      <ImageIcon className="h-10 w-10 text-slate-600 mx-auto mb-2" />
-      <p className="text-slate-400 text-sm">
+      <ImageIcon className="h-10 w-10 text-slate-400 dark:text-slate-600 mx-auto mb-2" />
+      <p className="text-slate-650 dark:text-slate-400 text-sm">
         {banners.length === 0
           ? "No banners found. Create your first banner!"
           : "No banners match your search criteria."}
@@ -865,16 +865,16 @@ const handleSubmit = async (e: React.FormEvent) => {
       <table className="w-full">
 
         {/* HEADER */}
-        <thead className="bg-slate-800/40">
-          <tr className="border-b border-slate-800">
-            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Banner</th>
-            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Banner Type</th>
-            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Status</th>
-            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Display Order</th>
-            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date  Start</th>
-            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date End</th>
-            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Created At   </th>
-            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Actions</th>
+        <thead className="bg-slate-50 dark:bg-slate-800/40">
+          <tr className="border-b border-slate-200 dark:border-slate-800">
+            <th className="text-left py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Banner</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Banner Type</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Status</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Display Order</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Date  Start</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Date End</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Created At   </th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400 font-medium">Actions</th>
           </tr>
         </thead>
 
@@ -883,7 +883,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           {currentData.map((banner) => (
             <tr
               key={banner.id}
-              className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+              className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
             >
 
               {/* Banner Info */}
@@ -893,7 +893,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {/* Image */}
                   {banner.imageUrl ? (
                     <div
-                      className="w-14 h-9 rounded-md overflow-hidden border border-slate-700 cursor-pointer hover:ring-1 hover:ring-violet-500"
+                      className="w-14 h-9 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 cursor-pointer hover:ring-1 hover:ring-violet-500"
                       onClick={() => setSelectedImageUrl(getImageUrl(banner.imageUrl))}
                     >
                       <img
@@ -912,14 +912,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {/* Text */}
                   <div className="min-w-0">
                     <p
-                      className="text-white text-[12px] font-medium truncate cursor-pointer hover:text-violet-400"
+                      className="text-slate-900 dark:text-white text-[12px] font-medium truncate cursor-pointer hover:text-violet-650 dark:hover:text-violet-400"
                       onClick={() => setViewingBanner(banner)}
                     >
                       {banner.title || "Untitled Banner"}
                     </p>
 
                     <p
-                      className="text-[10px] text-slate-500 truncate"
+                      className="text-[10px] text-slate-500 dark:text-slate-400 truncate"
                       dangerouslySetInnerHTML={{
                         __html: banner.description
                           ? banner.description.length > 50
@@ -936,9 +936,9 @@ const handleSubmit = async (e: React.FormEvent) => {
     rel="noopener noreferrer"
     className="flex items-center gap-1 group cursor-pointer"
   >
-    <ExternalLink className="h-3 w-3 text-slate-500 group-hover:text-violet-400 transition-colors" />
+    <ExternalLink className="h-3 w-3 text-slate-500 dark:text-slate-400 group-hover:text-violet-650 dark:group-hover:text-violet-400 transition-colors" />
     
-    <span className="text-[10px] text-slate-500 truncate group-hover:text-violet-400 group-hover:underline transition-all">
+    <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate group-hover:text-violet-650 dark:group-hover:text-violet-400 group-hover:underline transition-all">
       {banner.link}
     </span>
   </a>
@@ -950,12 +950,12 @@ const handleSubmit = async (e: React.FormEvent) => {
               {/* Type */}
               <td className="py-2 px-3 text-center">
                 <span className={`px-2 p-2 rounded-md text-[10px] font-medium ${
-                  banner.bannerType === 'Offer' ? 'bg-green-500/10 text-green-400' :
-                  banner.bannerType === 'FlashSale' ? 'bg-red-500/10 text-red-400' :
-                  banner.bannerType === 'Seasonal' ? 'bg-orange-500/10 text-orange-400' :
-                  banner.bannerType === 'Category' ? 'bg-blue-500/10 text-blue-400' :
-                  banner.bannerType === 'Promotional' ? 'bg-purple-500/10 text-purple-400' :
-                  'bg-cyan-500/10 text-cyan-400'
+                  banner.bannerType === 'Offer' ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400' :
+                  banner.bannerType === 'FlashSale' ? 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400' :
+                  banner.bannerType === 'Seasonal' ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400' :
+                  banner.bannerType === 'Category' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400' :
+                  banner.bannerType === 'Promotional' ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400' :
+                  'bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400'
                 }`}>
                   {banner.bannerType || "Homepage"}
                 </span>
@@ -969,8 +969,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                     onClick={() => setStatusConfirm(banner)}
                     className={`px-2 py-0.5 text-[10px] rounded-md ${
                       banner.isActive
-                        ? "bg-green-500/10 text-green-400"
-                        : "bg-slate-500/10 text-slate-400"
+                        ? "bg-green-55 dark:bg-green-500/10 bg-green-50 text-green-750 dark:text-green-400"
+                        : "bg-slate-100 dark:bg-slate-500/10 text-slate-700 dark:text-slate-400"
                     }`}
                   >
                     {banner.isActive ? "Active" : "Inactive"}
@@ -979,13 +979,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {(() => {
                     const status = getBannerStatus(banner);
                     const map = {
-                      LIVE: "text-green-400",
-                      EXPIRED: "text-red-400",
-                      SCHEDULED: "text-yellow-400",
-                      INACTIVE: "text-slate-500",
+                      LIVE: "text-green-600 dark:text-green-400 font-medium",
+                      EXPIRED: "text-red-600 dark:text-red-400 font-medium",
+                      SCHEDULED: "text-yellow-600 dark:text-yellow-400 font-medium",
+                      INACTIVE: "text-slate-500 dark:text-slate-400",
                     };
                     return (
-                      <span className={`text-[10px] ${map[status]}`}>
+                      <span className={`text-[10px] ${(map as any)[status]}`}>
                         {status}
                       </span>
                     );
@@ -995,19 +995,19 @@ const handleSubmit = async (e: React.FormEvent) => {
               </td>
 
               {/* Order */}
-              <td className="py-2 px-3 text-center text-[11px] text-slate-300">
+              <td className="py-2 px-3 text-center text-[11px] text-slate-755 dark:text-slate-300">
              {banner.displayOrder === 0 ? "-" : banner.displayOrder}
               </td>
 
               {/* Dates */}
-              <td className="py-2 px-3 text-[11px] text-slate-400">
+              <td className="py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400">
             {formatDate(banner.startDate)}
               </td>
 
-              <td className="py-2 px-3 text-[11px] text-slate-400">    {formatDate(banner.endDate)}
+              <td className="py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400">    {formatDate(banner.endDate)}
               </td>
 
-              <td className="py-2 px-3 text-[11px] text-slate-400">
+              <td className="py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400">
                  {formatDate(banner.createdAt)}
               </td>
 
@@ -1017,14 +1017,14 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                   <button
                     onClick={() => setViewingBanner(banner)}
-                    className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                    className="p-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 rounded-md transition"
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </button>
 
                   <button
                     onClick={() => handleEdit(banner)}
-                    className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
+                    className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 rounded-md transition"
                   >
                     <Edit className="h-3.5 w-3.5" />
                   </button>
@@ -1032,7 +1032,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {banner.isDeleted ? (
                     <button
                       onClick={() => handleRestore(banner.id)}
-                      className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-md"
+                      className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-md transition"
                     >
                       <CheckCircle className="h-3.5 w-3.5" />
                     </button>
@@ -1041,7 +1041,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onClick={() =>
                         setDeleteConfirm({ id: banner.id, title: banner.title })
                       }
-                      className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-md"
+                      className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-55 dark:hover:bg-red-500/10 rounded-md transition"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -1061,9 +1061,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+        <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-slate-550 dark:text-slate-400">
               Page {currentPage} of {totalPages}
             </div>
             
@@ -1071,7 +1071,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <button
                 onClick={goToFirstPage}
                 disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title="First Page"
               >
                 <ChevronsLeft className="h-4 w-4" />
@@ -1080,7 +1080,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <button
                 onClick={goToPreviousPage}
                 disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Previous Page"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -1094,7 +1094,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     className={`px-3 py-2 text-sm rounded-lg transition-all ${
                       currentPage === page
                         ? 'bg-violet-500 text-white font-semibold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-955 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
                     {page}
@@ -1105,7 +1105,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Next Page"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -1114,14 +1114,14 @@ const handleSubmit = async (e: React.FormEvent) => {
               <button
                 onClick={goToLastPage}
                 disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-955 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Last Page"
               >
                 <ChevronsRight className="h-4 w-4" />
               </button>
             </div>
             
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-slate-550 dark:text-slate-400">
               Total: {totalItems} items
             </div>
           </div>
@@ -1131,16 +1131,15 @@ const handleSubmit = async (e: React.FormEvent) => {
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 
-border border-violet-500/20 rounded-3xl max-w-4xl w-full h-[90vh] 
-flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+          <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-4xl w-full h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            {/* Header: changed from-violet-500/10 to from-indigo-500/10 to avoid wildcard white text rule */}
+            <div className="p-4 border-b border-slate-100 dark:border-violet-500/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 dark:from-indigo-950/20 dark:to-cyan-950/20">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
                     {editingBanner ? `Edit Banner` : 'Create New Banner'}
                   </h2>
-                  <p className="text-slate-400 text-sm mt-1">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                     {editingBanner ? 'Update banner information' : 'Add a new banner to your website'}
                   </p>
                 </div>
@@ -1150,7 +1149,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                  className="p-2 text-slate-500 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-red-600 rounded-lg transition-all"
                 >
                   ✕
                 </button>
@@ -1160,48 +1159,49 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
               {/* Basic Information */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm">1</span>
+              <div className="bg-slate-55 dark:bg-slate-800/30 bg-slate-50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm text-white">1</span>
                   <span>Basic Information</span>
                 </h3>
                 <div className="space-y-4">
                   {/* Row 1: Title & Banner Type */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Banner Title *</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Banner Title *</label>
                       <input
                         type="text"
                         required
                         value={formData.title}
                         onChange={(e) => setFormData({...formData, title: e.target.value})}
                         placeholder="Enter banner title"
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Banner Type *</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Banner Type *</label>
                       <select
                         required
                         value={formData.bannerType}
                         onChange={(e) => setFormData({...formData, bannerType: e.target.value})}
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                       >
-                        <option value="Homepage">Homepage</option>
-                        <option value="Offer">Offer</option>
-                        <option value="Promotional">Promotional</option>
-                        <option value="Category">Category</option>
-                        <option value="Seasonal">Seasonal</option>
-                        <option value="FlashSale">Flash Sale</option>
+                        <option value="Homepage" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Homepage</option>
+                        <option value="Offer" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Offer</option>
+                        <option value="Promotional" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Promotional</option>
+                        <option value="Category" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Category</option>
+                        <option value="Seasonal" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Seasonal</option>
+                        <option value="FlashSale" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Flash Sale</option>
                       </select>
                     </div>
                   </div>
 
+
                   {/* Row 2: Display Order & Link */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Display Order</label>
                       <input
   type="number"
   value={formData.displayOrder ?? ""}
@@ -1215,18 +1215,18 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
   }}
   placeholder="Enter display order"
   min="1"
-  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+  className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-405 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
 />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Banner Link URL (Optional)</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Banner Link URL (Optional)</label>
                       <input
                         type="url"
                         value={formData.link}
                         onChange={(e) => setFormData({...formData, link: e.target.value})}
                         placeholder="https://example.com/your-link"
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-405 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                       />
                     </div>
                   </div>
@@ -1241,7 +1241,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                       {/* Row 3: Offer Code & Discount % */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             Offer Code {(formData.bannerType === "Offer" || formData.bannerType === "FlashSale") && "*"}
                           </label>
                           <input
@@ -1249,12 +1249,12 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                             value={formData.offerCode}
                             onChange={(e) => setFormData({...formData, offerCode: e.target.value})}
                             placeholder="SUMMER2025"
-                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-405 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             Discount % {(formData.bannerType === "Offer" || formData.bannerType === "FlashSale") && "*"}
                           </label>
                           <input
@@ -1264,7 +1264,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                             placeholder="20"
                             min="0"
                             max="100"
-                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-405 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                           />
                         </div>
                       </div>
@@ -1272,24 +1272,24 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                       {/* Row 4: Offer Text & Button Text */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Offer Text</label>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Offer Text</label>
                           <input
                             type="text"
                             value={formData.offerText}
                             onChange={(e) => setFormData({...formData, offerText: e.target.value})}
                             placeholder="Get 50% Off on Summer Collection!"
-                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-405 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Button Text</label>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Button Text</label>
                           <input
                             type="text"
                             value={formData.buttonText}
                             onChange={(e) => setFormData({...formData, buttonText: e.target.value})}
                             placeholder="Shop Now"
-                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-405 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                           />
                         </div>
                       </div>
@@ -1317,8 +1317,8 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
 
 
               {/* Banner Image Section */}
-              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+              <div className="bg-slate-55 dark:bg-slate-800/30 bg-slate-50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
                   <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
                     <Monitor className="w-4 h-4 text-white" />
                   </span>
@@ -1327,7 +1327,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
 
                 <div className="space-y-4">
                   {(imagePreview || formData.imageUrl) && (
-                    <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+                    <div className="flex items-center gap-4 p-3 bg-slate-100 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-600">
                       <div
                         className="w-20 h-12 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
                         onClick={() => setSelectedImageUrl(imagePreview || getImageUrl(formData.imageUrl))}
@@ -1340,10 +1340,10 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                         />
                       </div>
                       <div className="flex-1">
-                        <p className="text-white font-medium">
+                        <p className="text-slate-900 dark:text-white font-medium">
                           {imagePreview ? "New Image Selected" : "Current Image"}
                         </p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-550 dark:text-slate-400">
                           {imagePreview ? "Will replace old image on save" : "Click to view full size"}
                         </p>
                         {!imagePreview && (
@@ -1355,8 +1355,8 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                         <label
                           className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
                             !formData.title
-                              ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
-                              : "bg-violet-500/20 text-violet-400 hover:bg-violet-500/30"
+                              ? "bg-slate-200 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                              : "bg-violet-50 dark:bg-violet-500/20 text-violet-750 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/30"
                           }`}
                         >
                           Change Image
@@ -1381,7 +1381,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                               setImagePreview(null);
                               toast.success("New image selection removed");
                             }}
-                            className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
+                            className="px-3 py-2 bg-red-50 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/30 transition-all text-sm font-medium"
                           >
                             Cancel
                           </button>
@@ -1395,19 +1395,19 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                       <label
                         className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl transition-all cursor-pointer ${
                           !formData.title
-                            ? "border-slate-700 bg-slate-900/20 cursor-not-allowed opacity-50"
-                            : "border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 group"
+                            ? "border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20 cursor-not-allowed opacity-50"
+                            : "border-slate-400 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 group"
                         }`}
                       >
                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
                           <Upload
                             className={`w-8 h-8 mb-4 transition-colors ${
                               !formData.title
-                                ? "text-slate-600"
-                                : "text-slate-500 group-hover:text-violet-400"
+                                ? "text-slate-400 dark:text-slate-600"
+                                : "text-slate-500 dark:text-slate-500 group-hover:text-violet-600 dark:group-hover:text-violet-400"
                             }`}
                           />
-                          <p className={`mb-2 text-sm ${!formData.title ? "text-slate-600" : "text-slate-500"}`}>
+                          <p className={`mb-2 text-sm ${!formData.title ? "text-slate-400 dark:text-slate-600" : "text-slate-500 dark:text-slate-500"}`}>
                             {!formData.title ? (
                               "Enter title first"
                             ) : (
@@ -1434,8 +1434,8 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                     </div>
                   )}
                   
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                    <p className="text-xs text-blue-400 flex items-center gap-2">
+                  <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3">
+                    <p className="text-xs text-blue-700 dark:text-blue-400 flex items-center gap-2">
                       <AlertCircle className="h-4 w-4" />
                       {editingBanner
                         ? "Uploading new image will automatically delete the old one from server"
@@ -1446,19 +1446,19 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
               </div>
 
               {/* Mobile Banner Image Section */}
-              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
-                    <Smartphone className="w-4 h-4 text-white" />
+              <div className="bg-slate-55 dark:bg-slate-800/30 bg-slate-50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white">
+                    <Smartphone className="w-4 h-4" />
                   </span>
                   <span>Mobile Banner Image</span>
-                  <span className="text-xs text-slate-400 font-normal ml-1">(optional)</span>
+                  <span className="text-xs text-slate-550 dark:text-slate-400 font-normal ml-1">(optional)</span>
                 </h3>
-                <p className="text-xs text-slate-400 mb-4">If set, this image will be shown on mobile devices. Otherwise the desktop image will be used.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">If set, this image will be shown on mobile devices. Otherwise the desktop image will be used.</p>
 
                 <div className="space-y-4">
                   {(mobileImagePreview || formData.mobileImageUrl) && (
-                    <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+                    <div className="flex items-center gap-4 p-3 bg-slate-105 dark:bg-slate-900/30 bg-slate-100 rounded-xl border border-slate-200 dark:border-slate-600">
                       <div
                         className="w-20 h-12 rounded-lg overflow-hidden border-2 border-pink-500/30 cursor-pointer hover:border-pink-500 transition-all"
                         onClick={() => setSelectedImageUrl(mobileImagePreview || getImageUrl(formData.mobileImageUrl))}
@@ -1471,15 +1471,15 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                         />
                       </div>
                       <div className="flex-1">
-                        <p className="text-white font-medium">
+                        <p className="text-slate-900 dark:text-white font-medium">
                           {mobileImagePreview ? "New Mobile Image Selected" : "Current Mobile Image"}
                         </p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-550 dark:text-slate-400">
                           {mobileImagePreview ? "Will replace on save" : "Click to view full size"}
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <label className="px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all bg-pink-500/20 text-pink-400 hover:bg-pink-500/30">
+                        <label className="px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all bg-pink-50 dark:bg-pink-500/20 text-pink-700 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-500/30">
                           Change
                           <input
                             type="file"
@@ -1499,7 +1499,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                             setMobileImagePreview(null);
                             setFormData(prev => ({ ...prev, mobileImageUrl: "" }));
                           }}
-                          className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
+                          className="px-3 py-2 bg-red-50 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/30 transition-all text-sm font-medium"
                         >
                           Remove
                         </button>
@@ -1509,9 +1509,9 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
 
                   {!formData.mobileImageUrl && !mobileImagePreview && (
                     <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 rounded-xl transition-all cursor-pointer group">
+                      <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-xl transition-all cursor-pointer group">
                         <div className="flex flex-col items-center justify-center pt-4 pb-5">
-                          <Smartphone className="w-7 h-7 mb-2 text-slate-500 group-hover:text-pink-400 transition-colors" />
+                          <Smartphone className="w-7 h-7 mb-2 text-slate-400 dark:text-slate-500 group-hover:text-pink-600 dark:group-hover:text-pink-450 transition-colors" />
                           <p className="text-sm text-slate-500">
                             <span className="font-semibold">Click to upload</span> mobile image
                           </p>
@@ -1533,15 +1533,15 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
               </div>
 
               {/* Schedule */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-sm">3</span>
+              <div className="bg-slate-55 dark:bg-slate-800/30 bg-slate-50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-sm text-white">3</span>
                   <span>Schedule</span>
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
 {/* Start Date Time */}
 <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
+  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
     Start Date & Time <span className="text-red-400">*</span>
   </label>
   <input
@@ -1551,13 +1551,13 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
     onChange={(e) =>
       setFormData({ ...formData, startDate: e.target.value })
     }
-    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+    className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
   />
 </div>
 
 {/* End Date Time */}
 <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
+  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
     End Date & Time <span className="text-red-400">*</span>
   </label>
   <input
@@ -1567,7 +1567,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
     onChange={(e) =>
       setFormData({ ...formData, endDate: e.target.value })
     }
-    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+    className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
   />
 </div>
 
@@ -1575,43 +1575,43 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
               </div>
 
               {/* Settings */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm">4</span>
+              <div className="bg-slate-55 dark:bg-slate-800/30 bg-slate-50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm text-white">4</span>
                   <span>Settings</span>
                 </h3>
                 <div>
-                  <label className="flex items-center gap-3 p-3.5 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all group">
+                  <label className="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all group">
                     <input
                       type="checkbox"
                       checked={formData.isActive}
                       onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 focus:ring-offset-0 focus:ring-offset-slate-900"
+                      className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 focus:ring-offset-0 focus:ring-offset-slate-900"
                     />
                     <div>
-                      <p className="text-sm font-medium text-white group-hover:text-violet-400 transition-colors">Active</p>
-                      <p className="text-xs text-slate-500">Banner will be visible on the website</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white group-hover:text-violet-650 dark:group-hover:text-violet-400 transition-colors">Active</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Banner will be visible on the website</p>
                     </div>
                   </label>
                 </div>
               </div>
               </div>
 
-              <div className="shrink-0 bg-slate-900 border-t border-slate-700/50 px-4 py-3 flex justify-end gap-3">
+              <div className="shrink-0 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700/50 px-4 py-3 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
+                  className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 transition-all font-medium rounded-xl"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!formData.title.trim() || (!editingBanner && !imageFile)}
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="px-6 py-3 bg-gradient-to-r from-violet-600 via-purple-600 to-cyan-600 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   {editingBanner ? "Update Banner" : "Create Banner"}
                 </button>
@@ -1621,24 +1621,25 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
         </div>
       )}
 
+
 {/* View Details Modal - FINAL OPTIMIZED */}
 {viewingBanner && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+    <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+      <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 dark:from-indigo-950/20 dark:to-cyan-950/20">
         <div className="flex items-start justify-between gap-4">
 
   {/* LEFT CONTENT */}
   <div className="flex flex-col gap-1">
 
     {/* Heading */}
-    <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+    <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
       Banner Details
     </h2>
 
     {/* Title + Link */}
     <div className="flex items-center gap-2 flex-wrap">
-      <p className="text-base font-semibold text-white">
+      <p className="text-base font-semibold text-slate-900 dark:text-white">
         {viewingBanner.title || 'Untitled'}
       </p>
 
@@ -1647,7 +1648,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
           href={viewingBanner.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-violet-400 hover:text-violet-300 text-sm transition-all hover:underline"
+          className="flex items-center gap-1 text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 text-sm transition-all hover:underline"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           <span className="truncate max-w-[200px]">
@@ -1663,9 +1664,9 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
   <button
     onClick={() => setViewingBanner(null)}
     className="flex items-center justify-center w-9 h-9 rounded-lg 
-               bg-slate-800/60 border border-slate-700
-               text-slate-400 hover:text-white 
-               hover:bg-red-500/20 hover:border-red-500/50
+               bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700
+               text-slate-500 dark:text-slate-400 hover:text-red-650 dark:hover:text-white 
+               hover:bg-red-50 dark:hover:bg-red-500/20 hover:border-red-200 dark:hover:border-red-500/50
                transition-all"
   >
     ✕
@@ -1680,16 +1681,16 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
           <div className="space-y-2">
       
             {/* Banner Type, Status & Display Order */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Banner Type:</span>
+                <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Banner Type:</span>
                 <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold ${
-                  viewingBanner.bannerType === 'Offer' ? 'bg-green-500/10 text-green-400' :
-                  viewingBanner.bannerType === 'FlashSale' ? 'bg-red-500/10 text-red-400' :
-                  viewingBanner.bannerType === 'Seasonal' ? 'bg-orange-500/10 text-orange-400' :
-                  viewingBanner.bannerType === 'Category' ? 'bg-blue-500/10 text-blue-400' :
-                  viewingBanner.bannerType === 'Promotional' ? 'bg-purple-500/10 text-purple-400' :
-                  'bg-cyan-500/10 text-cyan-400'
+                  viewingBanner.bannerType === 'Offer' ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400' :
+                  viewingBanner.bannerType === 'FlashSale' ? 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400' :
+                  viewingBanner.bannerType === 'Seasonal' ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400' :
+                  viewingBanner.bannerType === 'Category' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400' :
+                  viewingBanner.bannerType === 'Promotional' ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400' :
+                  'bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400'
                 }`}>
                   <Tag className="h-4 w-4 mr-1.5" />
                   {viewingBanner.bannerType || 'Homepage'}
@@ -1697,30 +1698,30 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Status:</span>
+                <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Status:</span>
                 <span className={`inline-flex px-3 py-1.5 rounded text-sm font-bold ${
-                  viewingBanner.isActive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                  viewingBanner.isActive ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400'
                 }`}>
                   {viewingBanner.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Display Order:</span>
-                <span className="text-white font-bold text-lg">{viewingBanner.displayOrder || 0}</span>
+                <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Display Order:</span>
+                <span className="text-slate-900 dark:text-white font-bold text-lg">{viewingBanner.displayOrder || 0}</span>
               </div>
             </div>
 
        
 
             {/* Banner Image */}
-<div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+<div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
     {/* DESKTOP IMAGE */}
     {viewingBanner.imageUrl && (
       <div>
-        <p className="text-xs text-cyan-400 mb-2 font-semibold">Desktop Image</p>
+        <p className="text-xs text-cyan-600 dark:text-cyan-400 mb-2 font-semibold">Desktop Image</p>
 
         <div
           className="rounded-lg overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500"
@@ -1733,7 +1734,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
           />
         </div>
 
-        <p className="text-[10px] text-slate-400 mt-1 break-all">
+        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 break-all">
           {viewingBanner.imageUrl}
         </p>
       </div>
@@ -1742,7 +1743,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
     {/* MOBILE IMAGE */}
     {viewingBanner.mobileImageUrl && (
       <div>
-        <p className="text-xs text-pink-400 mb-2 font-semibold">Mobile Image</p>
+        <p className="text-xs text-pink-600 dark:text-pink-400 mb-2 font-semibold">Mobile Image</p>
 
         <div
           className="rounded-lg overflow-hidden border-2 border-pink-500/20 cursor-pointer hover:border-pink-500"
@@ -1759,7 +1760,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
           />
         </div>
 
-        <p className="text-[10px] text-slate-400 mt-1 break-all">
+        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 break-all">
           {viewingBanner.mobileImageUrl}
         </p>
       </div>
@@ -1773,16 +1774,16 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
           <div className="space-y-2">
             {/* Offer Details - LARGER */}
             {(viewingBanner.offerCode || viewingBanner.discountPercentage || viewingBanner.offerText || viewingBanner.buttonText) && (
-              <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+              <div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                   <span className="text-2xl">🎁</span>
                   Offer Details
                 </h3>
                 <div className="space-y-4">
                   {viewingBanner.offerCode && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Offer Code:</span>
-                      <span className="text-white font-mono font-bold text-lg bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
+                      <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Offer Code:</span>
+                      <span className="text-violet-600 dark:text-white font-mono font-bold text-lg bg-gradient-to-r from-violet-650 to-cyan-655 dark:from-violet-400 dark:to-cyan-400 bg-clip-text dark:text-transparent">
                         {viewingBanner.offerCode}
                       </span>
                     </div>
@@ -1790,22 +1791,22 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
 
                   {viewingBanner.discountPercentage && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 font-semibold">Discount:</span>
-                      <span className="text-green-400 font-extrabold text-2xl">{viewingBanner.discountPercentage}% OFF</span>
+                      <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Discount:</span>
+                      <span className="text-green-600 dark:text-green-400 font-extrabold text-2xl">{viewingBanner.discountPercentage}% OFF</span>
                     </div>
                   )}
 
                   {viewingBanner.offerText && (
-                    <div className="pt-2 border-t border-slate-700/50">
-                      <p className="text-sm text-slate-300 font-semibold mb-2">Offer Text:</p>
-                      <p className="text-slate-100 text-sm leading-relaxed">{viewingBanner.offerText}</p>
+                    <div className="pt-2 border-t border-slate-200 dark:border-slate-700/50">
+                      <p className="text-sm text-slate-650 dark:text-slate-300 font-semibold mb-2">Offer Text:</p>
+                      <p className="text-slate-800 dark:text-slate-100 text-sm leading-relaxed">{viewingBanner.offerText}</p>
                     </div>
                   )}
 
                   {viewingBanner.buttonText && (
                     <div className="flex items-center justify-between pt-2">
-                      <span className="text-sm text-slate-300 font-semibold">Button Text:</span>
-                      <span className="text-white font-bold text-base">{viewingBanner.buttonText}</span>
+                      <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Button Text:</span>
+                      <span className="text-slate-900 dark:text-white font-bold text-base">{viewingBanner.buttonText}</span>
                     </div>
                   )}
                 </div>
@@ -1814,48 +1815,48 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
 
 
      {/* Description */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-              <p className="text-sm text-slate-300 font-semibold mb-2">Description:</p>
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+              <p className="text-sm text-slate-650 dark:text-slate-300 font-semibold mb-2">Description:</p>
               <div
-                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"
+                className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed"
                 dangerouslySetInnerHTML={{
                   __html: viewingBanner.description || "No description",
                 }}
               />
             </div>
             {/* Schedule & Activity - LARGER */}
-            <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-violet-400" />
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-5 rounded-xl border border-slate-200 dark:border-slate-700/50">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                 Schedule & Activity
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">Start Date:</span>
-                  <span className="text-slate-100 text-sm font-medium">
+                  <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Start Date:</span>
+                  <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
                      {formatDate(viewingBanner.startDate)}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">End Date:</span>
-                  <span className="text-slate-100 text-sm font-medium">
+                  <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">End Date:</span>
+                  <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
                       {formatDate(viewingBanner.endDate)}
                   </span>
                 </div>
 
-                <div className="border-t border-slate-700/50 my-3"></div>
+                <div className="border-t border-slate-200 dark:border-slate-700/50 my-3"></div>
 
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">Created At:</span>
-                  <span className="text-slate-100 text-sm font-medium">
+                  <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Created At:</span>
+                  <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
                     {formatDate(viewingBanner.createdAt)}
                   </span>
                 </div>
                 <div className="py-1">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
-                    <span className="text-slate-100 text-sm font-medium text-right break-all">
+                    <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
+                    <span className="text-slate-800 dark:text-slate-100 text-sm font-medium text-right break-all">
                       {viewingBanner.createdBy || 'Unknown'}
                     </span>
                   </div>
@@ -1864,11 +1865,11 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
                 </div>
 
 
-                <div className="border-t border-slate-700/50 my-3"></div>
+                <div className="border-t border-slate-200 dark:border-slate-700/50 my-3"></div>
 
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
-                  <span className="text-slate-100 text-sm font-medium">
+                  <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Updated At:</span>
+                  <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
          
                       {formatDate(viewingBanner.updatedAt )}
                   </span>
@@ -1876,8 +1877,8 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
 
                 <div className="py-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-300 font-semibold">Updated By:</span>
-                    <span className="text-slate-100 text-sm font-medium">
+                    <span className="text-sm text-slate-650 dark:text-slate-300 font-semibold">Updated By:</span>
+                    <span className="text-slate-800 dark:text-slate-100 text-sm font-medium">
                       {(viewingBanner.updatedBy)}
                     </span>
                   </div>
@@ -1891,7 +1892,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
       </div>
 
       {/* Footer Buttons */}
-      <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700/50 bg-slate-900/50">
+      <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50">
         <button
           onClick={() => {
             setViewingBanner(null);
@@ -1904,7 +1905,7 @@ flex flex-col overflow-hidden shadow-2xl shadow-violet-500/10">
         </button>
         <button
           onClick={() => setViewingBanner(null)}
-          className="px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-bold text-sm"
+          className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 transition-all font-bold text-sm"
         >
           Close
         </button>

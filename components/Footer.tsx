@@ -191,16 +191,14 @@ export default function Footer() {
                     Shop By Category
                   </Link>
                 </li>
-                <li className="pt-3 flex flex-col gap-3">
-                  <a href="https://www.pharmacyregulation.org/registers/pharmacy/registrationnumber/9013206" target="_blank" rel="noopener noreferrer" className="block hover:opacity-90 transition-opacity">
-                    <img src="/logo/Pharmacy Logo.jpg" alt="Pharmacy Logo" className="w-32 rounded-lg object-contain bg-white p-1" />
-                  </a>
-                  {/* <a href="https://www.pharmacyregulation.org/registers/pharmacy/registrationnumber/9013206" target="_blank" rel="noopener noreferrer" className="block hover:opacity-90 transition-opacity">
-                    <img src="/logo/Pharmacy Logo 2.jpg" alt="Pharmacy Logo 2" className="w-32 rounded-lg object-contain bg-white p-1" />
-                  </a> */}
-                </li>
-                  
               </ul>
+
+              {/* Pharmacy logo — always visible, outside collapse */}
+              <div className="pt-3">
+                <a href="https://www.pharmacyregulation.org/registers/pharmacy/registrationnumber/9013206" target="_blank" rel="noopener noreferrer" className="block hover:opacity-90 transition-opacity w-fit">
+                  <img src="/logo/Pharmacy%20Logo.jpg" alt="GPhC Registered Pharmacy" className="w-32 rounded-lg object-contain bg-white p-1" />
+                </a>
+              </div>
             </div>
 
             {/* Online Pharmacy Information - LARGER SECTION (4 cols on lg) */}

@@ -178,6 +178,11 @@ export interface ProductItem {
   displaySaleCount?: number;
   monthlySaleCount?: number;
   weeklySaleCount?: number;
+
+  pharmaApprovalStatus?: string;
+  pharmaApprovedAt?: string | null;
+  pharmaApprovedBy?: string | null;
+  pharmaApprovalComment?: string | null;
 }
 
 export interface CategoryData {
@@ -423,6 +428,7 @@ export interface ProductQueryParams {
 
   // ✅ NEW
   isPharmaProduct?: boolean;
+  pharmaApprovalStatus?: string; // NotRequired | Pending | Approved | Rejected
   // Category / Brand
   categoryId?: string;
   categorySlug?: string;
@@ -522,6 +528,9 @@ getAll: async (params?: ProductQueryParams) => {
       "isPharmaProduct",
       params.isPharmaProduct.toString()
     );
+
+  if (params?.pharmaApprovalStatus)
+    queryParams.append("pharmaApprovalStatus", params.pharmaApprovalStatus);
 
   if (params?.categoryId)
     queryParams.append("categoryId", params.categoryId);
@@ -724,8 +733,42 @@ togglePublish: async (id: string) => {
     productId: string;
     productName: string;
     isPublished: boolean;
+    pharmaApprovalStatus?: string;
+    pharmaApprovedAt?: string | null;
+    pharmaApprovedBy?: string | null;
+    pharmaApprovalComment?: string | null;
   }>>(
     `${API_ENDPOINTS.products}/${id}/toggle-publish`
+  );
+},
+
+pharmaApprove: async (id: string, comment?: string) => {
+  return apiClient.post<ApiResponse<{
+    productId: string;
+    productName: string;
+    isPublished: boolean;
+    pharmaApprovalStatus: string;
+    pharmaApprovedAt: string;
+    pharmaApprovedBy: string;
+    pharmaApprovalComment?: string;
+  }>>(
+    `${API_ENDPOINTS.products}/${id}/pharma-approve`,
+    { comment }
+  );
+},
+
+pharmaReject: async (id: string, comment?: string) => {
+  return apiClient.post<ApiResponse<{
+    productId: string;
+    productName: string;
+    isPublished: boolean;
+    pharmaApprovalStatus: string;
+    pharmaApprovedAt: string;
+    pharmaApprovedBy: string;
+    pharmaApprovalComment?: string;
+  }>>(
+    `${API_ENDPOINTS.products}/${id}/pharma-reject`,
+    { comment }
   );
 },
 

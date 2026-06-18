@@ -53,7 +53,8 @@ async function getProduct(slug: string) {
       (
         !product ||
         product.isActive !== true ||
-        product.isPublished !== true
+        product.isPublished !== true ||
+        (product.isPharmaProduct === true && product.pharmaApprovalStatus !== "Approved")
       )
     ) {
       return null;

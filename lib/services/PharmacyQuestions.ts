@@ -7,6 +7,8 @@ export interface PharmacyQuestionOption {
   pharmacyQuestionId: string;
   optionText: string;
   displayOrder: number;
+  requiresFollowUpText?: boolean;
+  followUpPrompt?: string;
 }
 
 export interface PharmacyQuestion {
@@ -41,10 +43,12 @@ export interface CreatePharmacyQuestionDto {
   isActive: boolean;
   displayOrder: number;
   answerType: string;
- options: {
-  optionText: string;
-  displayOrder: number;
-}[];
+  options: {
+    optionText: string;
+    displayOrder: number;
+    requiresFollowUpText?: boolean;
+    followUpPrompt?: string;
+  }[];
 }
 
 export interface UpdatePharmacyQuestionDto {
@@ -54,10 +58,13 @@ export interface UpdatePharmacyQuestionDto {
   isActive: boolean;
   displayOrder: number;
   answerType: string;
-options: {
-  optionText: string;
-  displayOrder: number;
-}[];
+  options: {
+    id?: string;
+    optionText: string;
+    displayOrder: number;
+    requiresFollowUpText?: boolean;
+    followUpPrompt?: string;
+  }[];
 }
 
 

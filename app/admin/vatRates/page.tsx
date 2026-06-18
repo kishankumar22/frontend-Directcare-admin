@@ -85,29 +85,29 @@ const ConfirmationModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/30 rounded-2xl max-w-md w-full shadow-2xl">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/30 rounded-2xl max-w-md w-full shadow-2xl">
 
         {/* Header */}
-        <div className="p-5 border-b border-slate-700">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-500/20 rounded-full">
-              <AlertTriangle className="w-6 h-6 text-yellow-400" />
+            <div className="p-2 bg-yellow-50 dark:bg-yellow-500/20 rounded-full">
+              <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
             </div>
-            <h2 className="text-xl font-bold text-white">{title}</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
           </div>
         </div>
 
         {/* Body */}
         <div className="p-5">
-          <p className="text-slate-300">{description}</p>
+          <p className="text-slate-700 dark:text-slate-300">{description}</p>
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-slate-700 flex gap-3">
+        <div className="p-5 border-t border-slate-100 dark:border-slate-700 flex gap-3">
           <button
             onClick={onCancel}
             disabled={loading}
-            className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 transition-all disabled:opacity-50 rounded-xl"
           >
             Cancel
           </button>
@@ -631,7 +631,7 @@ const clearFilters = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading VAT Rates...</p>
+          <p className="text-slate-500 dark:text-slate-400">Loading VAT Rates...</p>
         </div>
       </div>
     );
@@ -642,10 +642,10 @@ const clearFilters = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold text-white">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
             VAT Rate Management
           </h1>
-          <p className="text-[12px] text-slate-500">
+          <p className="text-[12px] text-slate-500 dark:text-slate-400">
             Manage tax rates for different countries
           </p>
         </div>
@@ -654,7 +654,7 @@ const clearFilters = () => {
           <div className="relative">
             <button 
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-700 text-slate-300 rounded-md text-[12px] hover:text-white hover:border-emerald-500/40 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-[12px] hover:text-slate-950 dark:hover:text-white hover:border-emerald-500/40 transition-all"
             >
               <Download className="h-3.5 w-3.5" />
               Export
@@ -664,25 +664,25 @@ const clearFilters = () => {
             {showExportMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
                   <button
                     onClick={() => { handleExport(false); setShowExportMenu(false); }}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 border-b border-slate-700"
+                    className="w-full px-4 py-3 text-left text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-3 border-b border-slate-100 dark:border-slate-700"
                   >
-                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
+                    <FileSpreadsheet className="w-4 h-4 text-green-600 dark:text-green-400" />
                     <div>
                       <p className="text-sm font-medium">Export Selected</p>
-                      <p className="text-xs text-slate-400">{filteredRates.length} rates</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{filteredRates.length} rates</p>
                     </div>
                   </button>
                   <button
                     onClick={() => { handleExport(true); setShowExportMenu(false); }}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3"
+                    className="w-full px-4 py-3 text-left text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-3"
                   >
-                    <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+                    <FileSpreadsheet className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                     <div>
                       <p className="text-sm font-medium">Export All</p>
-                      <p className="text-xs text-slate-400">{totalRates} rates</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{totalRates} rates</p>
                     </div>
                   </button>
                 </div>
@@ -703,15 +703,15 @@ const clearFilters = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
-              <Percent className="h-4 w-4 text-violet-400" />
+            <div className="w-8 h-8 bg-violet-55 dark:bg-violet-500/10 bg-violet-50 rounded-md flex items-center justify-center">
+              <Percent className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 font-medium">Total VAT Rates</p>
-              <p className="text-lg font-semibold text-white">{totalRates}</p>
-              <p className="text-[10px] text-violet-400 flex items-center gap-1">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Total VAT Rates</p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-white">{totalRates}</p>
+              <p className="text-[10px] text-violet-600 dark:text-violet-400 flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" />
                 Active
               </p>
@@ -719,41 +719,41 @@ const clearFilters = () => {
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
-              <CheckCircle className="h-4 w-4 text-cyan-400" />
+            <div className="w-8 h-8 bg-cyan-55 dark:bg-cyan-500/10 bg-cyan-50 rounded-md flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 font-medium">Active Rates</p>
-              <p className="text-lg font-semibold text-white">{activeRates}</p>
-              <p className="text-[10px] text-cyan-400">Enabled</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Active Rates</p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-white">{activeRates}</p>
+              <p className="text-[10px] text-cyan-600 dark:text-cyan-400">Enabled</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-pink-500/10 rounded-md flex items-center justify-center">
-              <Star className="h-4 w-4 text-pink-400" />
+            <div className="w-8 h-8 bg-pink-55 dark:bg-pink-500/10 bg-pink-50 rounded-md flex items-center justify-center">
+              <Star className="h-4 w-4 text-pink-600 dark:text-pink-400" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 font-medium">Default Rate</p>
-              <p className="text-lg font-semibold text-white">{defaultRate}%</p>
-              <p className="text-[10px] text-pink-400">Standard</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Default Rate</p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-white">{defaultRate}%</p>
+              <p className="text-[10px] text-pink-600 dark:text-pink-400">Standard</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
-              <Globe className="h-4 w-4 text-green-400" />
+            <div className="w-8 h-8 bg-green-55 dark:bg-green-500/10 bg-green-50 rounded-md flex items-center justify-center">
+              <Globe className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 font-medium">Countries</p>
-              <p className="text-lg font-semibold text-white">{countriesCount}</p>
-              <p className="text-[10px] text-green-400">Covered</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Countries</p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-white">{countriesCount}</p>
+              <p className="text-[10px] text-green-600 dark:text-green-400">Covered</p>
             </div>
           </div>
         </div>
@@ -761,50 +761,50 @@ const clearFilters = () => {
 
       
 {/* Items Per Page */}
-<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+<div className="bg-slate-55 dark:bg-slate-900/40 bg-slate-50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
   <div className="flex flex-wrap items-center justify-between gap-3">
 
     <div className="flex items-center gap-2">
-      <span className="text-[11px] text-slate-500">Show</span>
+      <span className="text-[11px] text-slate-500 dark:text-slate-400">Show</span>
       <select
         value={itemsPerPage}
         onChange={(e) => {
           setItemsPerPage(Number(e.target.value));
           setCurrentPage(1);
         }}
-        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+        className="px-2 py-1 bg-white dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500"
       >
-        <option value={25}>25</option>
-        <option value={50}>50</option>
-        <option value={75}>75</option>
-        <option value={100}>100</option>
+        <option value={25} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">25</option>
+        <option value={50} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">50</option>
+        <option value={75} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">75</option>
+        <option value={100} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">100</option>
       </select>
-      <span className="text-[11px] text-slate-500">entries</span>
+      <span className="text-[11px] text-slate-500 dark:text-slate-400">entries</span>
     </div>
 
-    <div className="text-[11px] text-slate-500">
-      <span className="text-white font-medium">
+    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+      <span className="text-slate-900 dark:text-white font-medium">
         {filteredRates.length === 0
           ? 0
           : (currentPage - 1) * itemsPerPage + 1}
       </span>
       {" - "}
-      <span className="text-white font-medium">
+      <span className="text-slate-900 dark:text-white font-medium">
         {Math.min(currentPage * itemsPerPage, filteredRates.length)}
       </span>
       {" of "}
-      <span className="text-white font-medium">{filteredRates.length}</span>
+      <span className="text-slate-900 dark:text-white font-medium">{filteredRates.length}</span>
     </div>
   </div>
 </div>
 
       {/* Search and Filter */}
-      <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+      <div className="bg-slate-55 dark:bg-slate-900/40 bg-slate-50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2">
   <div className="flex flex-wrap items-center gap-3">
 
     {/* Search */}
     <div className="relative flex-1 min-w-[220px]">
-      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
       <input
         type="text"
         placeholder="Search VAT rates..."
@@ -813,7 +813,7 @@ const clearFilters = () => {
           setSearchTerm(e.target.value);
           setCurrentPage(1);
         }}
-        className="w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[12px] placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+        className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-white text-[12px] placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
       />
     </div>
 
@@ -825,21 +825,21 @@ const clearFilters = () => {
     setStatusFilter(e.target.value);
     setCurrentPage(1);
   }}
-  className={`h-10 min-w-[140px] px-2 pr-8 bg-slate-800 border rounded-lg text-xs text-white
+  className={`h-10 min-w-[140px] px-2 pr-8 bg-white dark:bg-slate-800 border rounded-lg text-xs text-slate-900 dark:text-white
   focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition-all appearance-none cursor-pointer
   ${
     statusFilter !== "all"
-      ? "border-violet-500 bg-violet-500/10"
-      : "border-slate-700 hover:border-slate-600"
+      ? "border-violet-500 bg-violet-55 dark:bg-violet-500/10 bg-violet-50 text-violet-700 dark:text-white font-medium"
+      : "border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600"
   }`}
 >
-  <option value="all" className="bg-slate-900 text-white">
+  <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
     All Status
   </option>
-  <option value="enabled" className="bg-slate-900 text-white">
+  <option value="enabled" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
     Enabled
   </option>
-  <option value="disabled" className="bg-slate-900 text-white">
+  <option value="disabled" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
     Disabled
   </option>
 </select>
@@ -851,15 +851,15 @@ const clearFilters = () => {
     setDeletedFilter(e.target.value as any);
     setCurrentPage(1);
   }}
-  className={`p-2 bg-slate-800/90 border rounded-md text-white text-[11px] focus:outline-none transition-all
+  className={`p-2 bg-white dark:bg-slate-800/90 border rounded-md text-slate-900 dark:text-white text-[11px] focus:outline-none transition-all
   ${
     deletedFilter !== "notDeleted"
-      ? "border-red-500 bg-red-500/10"
-      : "border-slate-700 focus:ring-1 focus:ring-violet-500"
+      ? "border-red-500 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-white font-medium"
+      : "border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-violet-500"
   }`}
 >
-  <option value="notDeleted">Available VAT Rates</option>
-  <option value="deleted">Deleted VAT Rates</option>
+  <option value="notDeleted" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-normal">Available VAT Rates</option>
+  <option value="deleted" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-normal">Deleted VAT Rates</option>
 </select>
 
 
@@ -870,18 +870,18 @@ const clearFilters = () => {
     setCountryFilter(e.target.value);
     setCurrentPage(1);
   }}
-  className={`p-2 bg-slate-800/90 border rounded-md text-white text-[11px] focus:outline-none transition-all
+  className={`p-2 bg-white dark:bg-slate-800/90 border rounded-md text-slate-900 dark:text-white text-[11px] focus:outline-none transition-all
   ${
     countryFilter !== "All Countries"
-      ? "border-cyan-500 bg-cyan-500/10"
-      : "border-slate-700 focus:ring-1 focus:ring-violet-500"
+      ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-white font-medium"
+      : "border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-violet-500"
   }`}
 >
-  <option>All Countries</option>
+  <option className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-normal">All Countries</option>
   {Array.from(new Set(vatRates.map(r => r.country)))
     .sort()
     .map(country => (
-      <option key={country} value={country}>
+      <option key={country} value={country} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
         {country}
       </option>
     ))}
@@ -891,15 +891,15 @@ const clearFilters = () => {
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="p-2 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
+        className="p-2 text-[11px] bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/40 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center gap-1 transition-all"
       >
         <X className="h-3 w-3" />
         Clear Filters
       </button>
     )}
 
-    <div className="ml-auto text-[11px] text-slate-500">
-      <span className="text-white font-medium">{filteredRates.length}</span> rate
+    <div className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">
+      <span className="text-slate-900 dark:text-white font-medium">{filteredRates.length}</span> rate
       {filteredRates.length !== 1 ? "s" : ""}
     </div>
   </div>
@@ -1085,7 +1085,7 @@ const clearFilters = () => {
        animate-[gradientMove_6s_linear_infinite]">
 
         {/* 🔥 INNER CONTENT */}
-        <div className="rounded-xl bg-slate-900/95 px-4 py-3 backdrop-blur-md shadow-xl">
+        <div className="rounded-xl bg-white dark:bg-slate-900/95 px-4 py-3 backdrop-blur-md shadow-2xl border border-slate-200 dark:border-slate-800">
 
           <div className="flex flex-wrap items-center gap-3">
 
@@ -1094,27 +1094,27 @@ const clearFilters = () => {
               <div className="flex items-center gap-2 text-sm">
                 <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
                 
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-slate-900 dark:text-white">
                   {selectedRates.length}
                 </span>
                 
-                <span className="text-slate-300">VAT rates selected</span>
+                <span className="text-slate-700 dark:text-slate-300">VAT rates selected</span>
               </div>
 
-              <p className="mt-1 text-xs text-slate-400">
-                Bulk actions: export selected VAT rates .
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Bulk actions: export selected VAT rates.
               </p>
             </div>
 
             {/* Divider */}
-            <div className="h-5 w-px bg-slate-700 hidden md:block" />
+            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
             {/* EXPORT */}
             <button
               onClick={handleExportSelected}
               className="inline-flex items-center gap-2 rounded-lg 
               bg-emerald-600 px-4 py-2 text-sm font-medium text-white 
-              hover:bg-emerald-700 transition-all"
+              hover:bg-emerald-700 transition-all shadow-sm"
             >
               <Download className="h-4 w-4" />
               Export ({selectedRates.length})
@@ -1123,8 +1123,8 @@ const clearFilters = () => {
             {/* CLEAR */}
             <button
               onClick={() => setSelectedRates([])}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
-              text-white text-sm rounded-lg transition-all"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 
+              text-slate-700 dark:text-white text-sm rounded-lg transition-all"
             >
               Clear
             </button>
@@ -1139,9 +1139,9 @@ const clearFilters = () => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+        <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-slate-500 dark:text-slate-400">
               Page {currentPage} of {totalPages}
             </div>
             
@@ -1149,14 +1149,14 @@ const clearFilters = () => {
               <button
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronsLeft className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -1168,7 +1168,7 @@ const clearFilters = () => {
                   className={`px-3 py-2 text-sm rounded-lg transition-all ${
                     currentPage === page
                       ? 'bg-violet-500 text-white font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   {page}
@@ -1178,20 +1178,20 @@ const clearFilters = () => {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronsRight className="h-4 w-4" />
               </button>
             </div>
             
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-slate-500 dark:text-slate-400">
               Total: {filteredRates.length} rates
             </div>
           </div>
@@ -1201,34 +1201,34 @@ const clearFilters = () => {
       {/* ✅ Delete Confirmation Modal */}
       {deletingRate && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[70] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border-2 border-red-500/30 rounded-3xl max-w-lg w-full shadow-2xl shadow-red-500/20 overflow-hidden">
-            <div className="p-5 border-b border-red-500/20 bg-gradient-to-r from-red-500/10 to-orange-500/10">
+          <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-red-500/30 rounded-3xl max-w-lg w-full shadow-2xl shadow-red-500/20 overflow-hidden">
+            <div className="p-5 border-b border-red-100 dark:border-red-500/20 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-500/10 dark:to-orange-500/10">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-red-500/20 rounded-full">
-                  <AlertTriangle className="w-7 h-7 text-red-400" />
+                <div className="p-2.5 bg-red-100 dark:bg-red-500/20 rounded-full">
+                  <AlertTriangle className="w-7 h-7 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Delete VAT Rate</h2>
-                  <p className="text-slate-400 text-sm mt-0.5">This action cannot be undone</p>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Delete VAT Rate</h2>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">This action cannot be undone</p>
                 </div>
               </div>
             </div>
 
             <div className="p-5 space-y-3">
-              <p className="text-slate-300 text-center">
-                Are you sure you want to delete <span className="font-bold text-white">"{deletingRate.name}"</span>?
+              <p className="text-slate-700 dark:text-slate-300 text-center">
+                Are you sure you want to delete <span className="font-bold text-slate-950 dark:text-white">"{deletingRate.name}"</span>?
               </p>
               
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+              <div className="bg-red-50/50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-3">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                  <div className="space-y-1.5 text-sm text-slate-300">
-                    <p className="font-semibold text-red-400">VAT Rate Details:</p>
+                  <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
+                    <p className="font-semibold text-red-600 dark:text-red-400">VAT Rate Details:</p>
                     <div className="space-y-0.5">
-                      <p>• Rate: <span className="text-white font-semibold">{deletingRate.rate}%</span></p>
-                      <p>• Country: <span className="text-white font-semibold">{deletingRate.country}</span></p>
-                      <p>• Region: <span className="text-white font-semibold">{deletingRate.region || "N/A"}</span></p>
-                      <p>• Status: <span className={`font-semibold ${deletingRate.isActive ? 'text-green-400' : 'text-red-400'}`}>
+                      <p>• Rate: <span className="text-slate-900 dark:text-white font-semibold">{deletingRate.rate}%</span></p>
+                      <p>• Country: <span className="text-slate-900 dark:text-white font-semibold">{deletingRate.country}</span></p>
+                      <p>• Region: <span className="text-slate-900 dark:text-white font-semibold">{deletingRate.region || "N/A"}</span></p>
+                      <p>• Status: <span className={`font-semibold ${deletingRate.isActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {deletingRate.isActive ? "Active" : "Inactive"}
                       </span></p>
                     </div>
@@ -1237,11 +1237,11 @@ const clearFilters = () => {
               </div>
             </div>
 
-            <div className="p-5 border-t border-slate-700 bg-slate-900/50 flex gap-3">
+            <div className="p-5 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex gap-3">
               <button
                 onClick={() => setDeletingRate(null)}
                 disabled={isSubmitting}
-                className="flex-1 px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold disabled:opacity-50"
+                className="flex-1 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 transition-all font-semibold disabled:opacity-50 rounded-xl"
               >
                 Cancel
               </button>
@@ -1270,16 +1270,17 @@ const clearFilters = () => {
       {/* ✅ Create/Edit Modal with Searchable Country Dropdown */}
       {(showCreateModal || editingRate) && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 sticky top-0 z-10">
+          <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+            {/* Header: changed from-violet-500/10 to from-indigo-500/10 to avoid wildcard white text rule */}
+            <div className="p-5 border-b border-slate-100 dark:border-violet-500/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 dark:from-indigo-950/20 dark:to-cyan-950/20 sticky top-0 z-10">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
                   {editingRate ? "Edit VAT Rate" : "Create New VAT Rate"}
                 </h2>
                 <button
                   onClick={() => { setShowCreateModal(false); setEditingRate(null); resetForm(); }}
                   disabled={isSubmitting}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all disabled:opacity-50"
+                  className="p-2 text-slate-500 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-red-600 rounded-lg transition-all disabled:opacity-50"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1290,7 +1291,7 @@ const clearFilters = () => {
               <div className="grid grid-cols-2 gap-4">
                 {/* Name */}
                 <div className="col-span-2">
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Name <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -1301,9 +1302,9 @@ const clearFilters = () => {
                       setFormData({ ...formData, name: e.target.value });
                       setFormErrors({ ...formErrors, name: '' });
                     }}
-                    className={`w-full px-4 py-2.5 bg-slate-800/50 border ${
-                      formErrors.name ? 'border-red-500' : 'border-slate-700'
-                    } rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
+                    className={`w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border ${
+                      formErrors.name ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'
+                    } rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
                     placeholder="e.g., Standard VAT"
                   />
                   {formErrors.name && (
@@ -1316,7 +1317,7 @@ const clearFilters = () => {
 
                 {/* Description */}
                 <div className="col-span-2">
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Description <span className="text-red-400">*</span>
                   </label>
                   <textarea
@@ -1326,9 +1327,9 @@ const clearFilters = () => {
                       setFormData({ ...formData, description: e.target.value });
                       setFormErrors({ ...formErrors, description: '' });
                     }}
-                    className={`w-full px-4 py-2.5 bg-slate-800/50 border ${
-                      formErrors.description ? 'border-red-500' : 'border-slate-700'
-                    } rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none`}
+                    className={`w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border ${
+                      formErrors.description ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'
+                    } rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none`}
                     rows={3}
                     placeholder="Enter a detailed description..."
                   />
@@ -1342,7 +1343,7 @@ const clearFilters = () => {
 
                 {/* Rate */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Rate (%) <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -1360,9 +1361,9 @@ const clearFilters = () => {
 });
                       setFormErrors({ ...formErrors, rate: '' });
                     }}
-                    className={`w-full px-4 py-2.5 bg-slate-800/50 border ${
-                      formErrors.rate ? 'border-red-500' : 'border-slate-700'
-                    } rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
+                    className={`w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border ${
+                      formErrors.rate ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'
+                    } rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
                     placeholder="20.00"
                   />
                   {formErrors.rate && (
@@ -1375,7 +1376,7 @@ const clearFilters = () => {
 
 {/* Country with Search - Auto fills Region */}
 <div className="relative">
-  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
     Country <span className="text-red-400">*</span>
   </label>
   <div className="relative">
@@ -1390,12 +1391,12 @@ const clearFilters = () => {
         setFormErrors({ ...formErrors, country: '' });
       }}
       onFocus={() => setShowCountryDropdown(true)}
-      className={`w-full px-4 py-2.5 bg-slate-800/50 border ${
-        formErrors.country ? 'border-red-500' : 'border-slate-700'
-      } rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
+      className={`w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border ${
+        formErrors.country ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'
+      } rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
       placeholder="Search country..."
     />
-    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
   </div>
 
   {/* Dropdown */}
@@ -1405,7 +1406,7 @@ const clearFilters = () => {
         className="fixed inset-0 z-10" 
         onClick={() => setShowCountryDropdown(false)}
       />
-      <div className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-2xl">
+      <div className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl">
         {filteredCountries.slice(0, 50).map((country) => (
           <button
             key={country.cca2}
@@ -1421,11 +1422,11 @@ const clearFilters = () => {
               setShowCountryDropdown(false);
               setFormErrors({ ...formErrors, country: '' });
             }}
-            className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2"
+            className="w-full px-4 py-2 text-left text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-all flex items-center gap-2"
           >
             <span className="text-xl">{country.flag}</span>
             <span>{country.name.common}</span>
-            <span className="ml-auto text-xs text-slate-400">{country.region}</span>
+            <span className="ml-auto text-xs text-slate-500 dark:text-slate-400">{country.region}</span>
           </button>
         ))}
       </div>
@@ -1442,18 +1443,18 @@ const clearFilters = () => {
 
 {/* Region - Auto-filled (Read-only or Editable) */}
 <div>
-  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
     Region
   </label>
   <input
     type="text"
     value={formData.region}
     onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    className="w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
     placeholder="e.g., Europe, Asia"
     readOnly // ✅ Optional: Make it read-only if you don't want manual edits
   />
-  <p className="text-xs text-slate-400 mt-1">
+  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
     Auto-filled based on selected country
   </p>
 </div>
@@ -1461,7 +1462,7 @@ const clearFilters = () => {
 
                 {/* Display Order */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Display Order <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -1473,9 +1474,9 @@ const clearFilters = () => {
                       setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 });
                       setFormErrors({ ...formErrors, displayOrder: '' });
                     }}
-                    className={`w-full px-4 py-2.5 bg-slate-800/50 border ${
-                      formErrors.displayOrder ? 'border-red-500' : 'border-slate-700'
-                    } rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
+                    className={`w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border ${
+                      formErrors.displayOrder ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'
+                    } rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
                     placeholder="0"
                   />
                   {formErrors.displayOrder && (
@@ -1487,15 +1488,15 @@ const clearFilters = () => {
                 </div>
 
                 {/* Checkboxes */}
-                <div className="col-span-2 grid grid-cols-2 gap-6 p-3 bg-slate-800/30 rounded-xl border border-slate-700">
+                <div className="col-span-2 grid grid-cols-2 gap-6 p-3 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700">
                   <label className="flex items-center gap-2 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={formData.isActive}
                       onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 cursor-pointer"
+                      className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 cursor-pointer"
                     />
-                    <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-950 dark:text-slate-300 dark:group-hover:text-white transition-colors">
                       Is Active
                     </span>
                   </label>
@@ -1505,9 +1506,9 @@ const clearFilters = () => {
                       type="checkbox"
                       checked={formData.isDefault}
                       onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
-                      className="w-5 h-5 rounded border-slate-600 text-yellow-500 focus:ring-2 focus:ring-yellow-500 cursor-pointer"
+                      className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-yellow-500 focus:ring-2 focus:ring-yellow-500 cursor-pointer"
                     />
-                    <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors flex items-center gap-1">
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-950 dark:text-slate-300 dark:group-hover:text-white transition-colors flex items-center gap-1">
                       Is Default <Star className="w-3 h-3 text-yellow-400" />
                     </span>
                   </label>
@@ -1515,12 +1516,12 @@ const clearFilters = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-3 border-t border-slate-700">
+              <div className="flex gap-3 pt-3 border-t border-slate-100 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => { setShowCreateModal(false); setEditingRate(null); resetForm(); }}
                   disabled={isSubmitting}
-                  className="flex-1 px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold disabled:opacity-50"
+                  className="flex-1 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 transition-all font-semibold disabled:opacity-50 rounded-xl"
                 >
                   Cancel
                 </button>
@@ -1568,18 +1569,19 @@ const clearFilters = () => {
       {/* View Details Modal */}
       {viewingRate && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 sticky top-0 z-10">
+          <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+            {/* Header: changed from-violet-500/10 to from-indigo-500/10 to avoid wildcard white text rule */}
+            <div className="p-5 border-b border-slate-100 dark:border-violet-500/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 dark:from-indigo-950/20 dark:to-cyan-950/20 sticky top-0 z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
                     VAT Rate Details
                   </h2>
-                  <p className="text-slate-400 text-sm mt-0.5">{viewingRate.name}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{viewingRate.name}</p>
                 </div>
                 <button
                   onClick={() => setViewingRate(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                  className="p-2 text-slate-500 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-red-600 rounded-lg transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1588,51 +1590,51 @@ const clearFilters = () => {
 
             <div className="p-6 overflow-y-auto max-h-[calc(95vh-120px)] space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <InfoCard icon={<Percent className="w-5 h-5 text-violet-400" />} label="Rate" value={`${viewingRate.rate}%`} />
-                <InfoCard icon={<Globe className="w-5 h-5 text-cyan-400" />} label="Country" value={viewingRate.country} />
-                <InfoCard icon={<MapPin className="w-5 h-5 text-green-400" />} label="Region" value={viewingRate.region || "N/A"} />
-                <InfoCard icon={<Hash className="w-5 h-5 text-orange-400" />} label="Display Order" value={viewingRate.displayOrder.toString()} />
+                <InfoCard icon={<Percent className="w-5 h-5 text-violet-600 dark:text-violet-400" />} label="Rate" value={`${viewingRate.rate}%`} />
+                <InfoCard icon={<Globe className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />} label="Country" value={viewingRate.country} />
+                <InfoCard icon={<MapPin className="w-5 h-5 text-green-600 dark:text-green-400" />} label="Region" value={viewingRate.region || "N/A"} />
+                <InfoCard icon={<Hash className="w-5 h-5 text-orange-600 dark:text-orange-400" />} label="Display Order" value={viewingRate.displayOrder.toString()} />
               </div>
 
-              <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700">
-                <h4 className="text-lg font-bold text-white mb-2">Description</h4>
-                <p className="text-slate-300 text-sm leading-relaxed">{viewingRate.description}</p>
+              <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Description</h4>
+                <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{viewingRate.description}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700">
+                <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center gap-2">
                     {viewingRate.isActive ? (
-                      <CheckCircle className="w-6 h-6 text-green-400" />
+                      <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
                     ) : (
-                      <XCircle className="w-6 h-6 text-red-400" />
+                      <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
                     )}
                     <div>
-                      <p className="text-xs text-slate-400">Status</p>
-                      <p className="text-white font-semibold">{viewingRate.isActive ? "Active" : "Inactive"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Status</p>
+                      <p className="text-slate-900 dark:text-white font-semibold">{viewingRate.isActive ? "Active" : "Inactive"}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700">
+                <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center gap-2">
-                    <Star className={`w-6 h-6 text-yellow-400 ${viewingRate.isDefault ? 'fill-yellow-400' : ''}`} />
+                    <Star className={`w-6 h-6 text-yellow-500 dark:text-yellow-400 ${viewingRate.isDefault ? 'fill-yellow-500 dark:fill-yellow-400' : ''}`} />
                     <div>
-                      <p className="text-xs text-slate-400">Default Rate</p>
-                      <p className="text-white font-semibold">{viewingRate.isDefault ? "Yes" : "No"}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Default Rate</p>
+                      <p className="text-slate-900 dark:text-white font-semibold">{viewingRate.isDefault ? "Yes" : "No"}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {(viewingRate.createdAt || viewingRate.updatedAt) && (
-                <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-2">Timestamps</h4>
+                <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                  <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Timestamps</h4>
                   <div className="space-y-2 text-sm">
                     {viewingRate.createdAt && (
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Created At</span>
-                        <span className="text-white flex items-center gap-2 font-medium">
+                        <span className="text-slate-500 dark:text-slate-400">Created At</span>
+                        <span className="text-slate-900 dark:text-white flex items-center gap-2 font-medium">
                           <Calendar className="w-4 h-4 text-slate-400" />
                           {formatDate(viewingRate.createdAt)}
                         </span>
@@ -1640,8 +1642,8 @@ const clearFilters = () => {
                     )}
                     {viewingRate.updatedAt && (
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Updated At</span>
-                        <span className="text-white flex items-center gap-2 font-medium">
+                        <span className="text-slate-500 dark:text-slate-400">Updated At</span>
+                        <span className="text-slate-900 dark:text-white flex items-center gap-2 font-medium">
                           <Calendar className="w-4 h-4 text-slate-400" />
                           {formatDate(viewingRate.updatedAt)}
                         </span>
@@ -1660,12 +1662,12 @@ const clearFilters = () => {
 
 // Helper Component
 const InfoCard = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
-  <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700 hover:border-violet-500/50 transition-all">
+  <div className="bg-slate-55 dark:bg-slate-800/30 bg-slate-50 border border-slate-200 dark:border-slate-700 hover:border-violet-500/50 transition-all rounded-xl p-4">
     <div className="flex items-center gap-2">
       {icon}
       <div>
-        <p className="text-xs text-slate-400">{label}</p>
-        <p className="text-white font-semibold">{value}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-slate-900 dark:text-white font-semibold">{value}</p>
       </div>
     </div>
   </div>

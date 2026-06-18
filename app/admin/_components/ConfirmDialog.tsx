@@ -125,7 +125,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       >
         {/* MODAL CONTENT */}
         <div
-          className={`relative bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl transition-all duration-200 ${
+          className={`relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full shadow-2xl transition-all duration-200 ${
             isClosing
               ? 'opacity-0 scale-95'
               : 'opacity-100 scale-100'
@@ -142,7 +142,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             <button
               onClick={handleClose}
               disabled={isLoading}
-              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
+              className="absolute top-4 right-4 p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
               aria-label="Close"
               type="button"
             >
@@ -155,12 +155,12 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             </div>
 
             {/* Title */}
-            <h3 className="text-xl font-bold text-white text-center mb-2">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white text-center mb-2">
               {title}
             </h3>
 
             {/* Message */}
-            <p className="text-slate-400 text-center mb-6 leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 text-center mb-6 leading-relaxed">
               {message}
             </p>
 
@@ -170,7 +170,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 onClick={handleClose}
                 disabled={isLoading}
                 type="button"
-                className="flex-1 px-4 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelText}
               </button>

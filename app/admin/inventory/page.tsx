@@ -597,19 +597,19 @@ export default function InventoryPage() {
       {selected.size > 0 && (
         <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
           <div className="flex justify-center px-2">
-            <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-xl">
+            <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-xl">
               <div className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
                 <div className="leading-tight">
-                  <p className="text-sm font-semibold text-white">{selected.size} item(s) selected</p>
-                  <p className="text-xs text-slate-400">Export the selected inventory rows to Excel</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{selected.size} item(s) selected</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Export the selected inventory rows to Excel</p>
                 </div>
               </div>
-              <div className="h-8 w-px bg-slate-700/80" />
+              <div className="h-8 w-px bg-slate-200 dark:bg-slate-700/80" />
               <button onClick={downloadSelectedTemplate} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all">
                 <Download className="w-3.5 h-3.5" /> Export Selected ({selected.size})
               </button>
-              <button onClick={() => setSelected(new Set())} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all">
+              <button onClick={() => setSelected(new Set())} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white rounded-lg font-semibold transition-all border border-slate-200 dark:border-transparent">
                 Cancel
               </button>
             </div>

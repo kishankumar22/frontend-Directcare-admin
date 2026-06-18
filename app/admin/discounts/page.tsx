@@ -1571,7 +1571,7 @@ const filteredDiscounts = discounts.filter((discount) => {
 </p>
 
                       {discount.couponCode && (
-                        <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded mt-0.5 inline-block">
+                        <span className="text-[10px] bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 rounded mt-0.5 inline-block font-medium">
                           {discount.couponCode}
                         </span>
                       )}
@@ -1616,13 +1616,13 @@ const filteredDiscounts = discounts.filter((discount) => {
                   rounded-md
                   bg-emerald-500/10
                   border border-emerald-500/20
-                  text-emerald-300
+                  text-emerald-700 dark:text-emerald-300
                   text-[10px]
                   truncate
                   max-w-[180px]
                 "
                 >
-             Assigned to Categories
+             {cat.name}
               </span>
             ))}
           </div>
@@ -1641,7 +1641,7 @@ const filteredDiscounts = discounts.filter((discount) => {
               px-2 py-1 rounded-md
               bg-blue-500/10
               border border-blue-500/20
-              text-blue-300 text-[10px]
+              text-blue-700 dark:text-blue-300 text-[10px]
             "
           >
          Assigned to Products
@@ -1660,7 +1660,7 @@ const filteredDiscounts = discounts.filter((discount) => {
             px-2 py-1 rounded-md
             bg-violet-500/10
             border border-violet-500/20
-            text-violet-300
+            text-violet-700 dark:text-violet-300
             text-[10px]
             font-medium
           "
@@ -1680,7 +1680,7 @@ const filteredDiscounts = discounts.filter((discount) => {
             px-2 py-1 rounded-md
             bg-amber-500/10
             border border-amber-500/20
-            text-amber-300
+            text-amber-700 dark:text-amber-300
             text-[10px]
             font-medium
           "
@@ -1698,7 +1698,7 @@ const filteredDiscounts = discounts.filter((discount) => {
           inline-flex items-center gap-1
           px-2 py-1 rounded-md
           bg-slate-500/10
-          text-slate-400
+          text-slate-700 dark:text-slate-400
           text-[10px]
           font-medium
         "
@@ -1729,16 +1729,16 @@ const filteredDiscounts = discounts.filter((discount) => {
 
     const statusStyles: Record<string, string> = {
       green:
-        "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+        "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30",
 
       red:
-        "bg-red-500/15 text-red-300 border border-red-500/30",
+        "bg-red-500/15 text-red-600 dark:text-red-300 border border-red-500/30",
 
       orange:
-        "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+        "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30",
 
       gray:
-        "bg-slate-500/15 text-slate-300 border border-slate-500/30",
+        "bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30",
     };
 
     const statusTitles: Record<string, string> = {
@@ -1779,13 +1779,13 @@ const filteredDiscounts = discounts.filter((discount) => {
                 >
                   <div>
                     {isExpired ? (
-                      <span className="text-red-400">Expired</span>
+                      <span className="text-red-650 dark:text-red-400 font-semibold">Expired</span>
                     ) : totalDays > 0 ? (
-                      <span className="text-emerald-400">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                         {totalDays} day{totalDays !== 1 ? "s" : ""} left
                       </span>
                     ) : (
-                      <span className="text-orange-400">Ends Today</span>
+                      <span className="text-orange-600 dark:text-orange-400 font-semibold">Ends Today</span>
                     )}
                   </div>
 

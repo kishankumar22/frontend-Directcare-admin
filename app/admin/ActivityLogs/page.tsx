@@ -67,7 +67,12 @@ const ACTIVITY_TYPES: { value: ActivityLogType | "all"; label: string }[] = [
   { value: "AddOrder", label: "Add Order" },
   { value: "UpdateOrder", label: "Update Order" },
   { value: "CancelOrder", label: "Cancel Order" },
+  { value: "UpdateOrderStatus", label: "Update Order Status" },
   { value: "CreateShipment", label: "Create Shipment" },
+  { value: "EditOrderItem", label: "Edit Order Item" },
+  { value: "RefundOrder", label: "Refund Order" },
+  { value: "PartialRefundOrder", label: "Partial Refund Order" },
+  { value: "RegenerateInvoice", label: "Regenerate Invoice" },
   { value: "AddCustomer", label: "Add Customer" },
   { value: "UpdateCustomer", label: "Update Customer" },
   { value: "DeleteCustomer", label: "Delete Customer" },
@@ -89,6 +94,7 @@ const ACTIVITY_TYPES: { value: ActivityLogType | "all"; label: string }[] = [
   { value: "AddProductReview", label: "Add Product Review" },
   { value: "UpdateProductReview", label: "Update Product Review" },
   { value: "DeleteProductReview", label: "Delete Product Review" },
+  { value: "ApproveProductReview", label: "Approve Product Review" },
   { value: "RejectProductReview", label: "Reject Product Review" },
   { value: "AddDiscount", label: "Add Discount" },
   { value: "UpdateDiscount", label: "Update Discount" },
@@ -113,6 +119,21 @@ const ACTIVITY_TYPES: { value: ActivityLogType | "all"; label: string }[] = [
   { value: "UpdateSettings", label: "Update Settings" },
   { value: "Other", label: "Other" },
 ];
+
+const GROUPED_ACTIVITY_TYPES = [
+  { label: "General", options: ACTIVITY_TYPES.filter((t) => t.value === "all") },
+  { label: "Products", options: ACTIVITY_TYPES.filter((t) => ["AddProduct", "UpdateProduct", "DeleteProduct", "BulkUpdateInventory"].includes(t.value)) },
+  { label: "Orders", options: ACTIVITY_TYPES.filter((t) => ["AddOrder", "UpdateOrder", "CancelOrder", "UpdateOrderStatus", "CreateShipment", "EditOrderItem", "RefundOrder", "PartialRefundOrder", "RegenerateInvoice"].includes(t.value)) },
+  { label: "Customers", options: ACTIVITY_TYPES.filter((t) => ["AddCustomer", "UpdateCustomer", "DeleteCustomer"].includes(t.value)) },
+  { label: "Users", options: ACTIVITY_TYPES.filter((t) => ["UserLogin", "UserLogout", "UserRegister"].includes(t.value)) },
+  { label: "Content", options: ACTIVITY_TYPES.filter((t) => ["AddBanner", "UpdateBanner", "DeleteBanner", "AddBlogPost", "UpdateBlogPost", "DeleteBlogPost", "AddBlogCategory", "UpdateBlogCategory", "DeleteBlogCategory", "AddBlogComment", "UpdateBlogComment", "DeleteBlogComment"].includes(t.value)) },
+  { label: "Reviews", options: ACTIVITY_TYPES.filter((t) => ["AddProductReview", "UpdateProductReview", "DeleteProductReview", "ApproveProductReview", "RejectProductReview"].includes(t.value)) },
+  { label: "Marketing", options: ACTIVITY_TYPES.filter((t) => ["AddDiscount", "UpdateDiscount", "DeleteDiscount"].includes(t.value)) },
+  { label: "Configuration", options: ACTIVITY_TYPES.filter((t) => ["AddShippingZone", "UpdateShippingZone", "DeleteShippingZone", "AddShippingMethod", "UpdateShippingMethod", "DeleteShippingMethod", "AddVATRate", "UpdateVATRate", "DeleteVATRate", "UpdateSettings"].includes(t.value)) },
+  { label: "Loyalty/Subs", options: ACTIVITY_TYPES.filter((t) => ["AddNewsletterSubscription", "DeleteNewsletterSubscription", "AddSubscription", "UpdateSubscription", "CancelSubscription", "AddLoyaltyPoints", "RedeemLoyaltyPoints"].includes(t.value)) },
+  { label: "Other", options: ACTIVITY_TYPES.filter((t) => t.value === "Other") },
+];
+
 const Info = ({
   label,
   children,
@@ -123,9 +144,9 @@ const Info = ({
   mono?: boolean;
 }) => (
   <div>
-    <p className="text-slate-400 text-xs mb-1">{label}</p>
+    <p className="text-slate-550 dark:text-slate-400 text-xs mb-1">{label}</p>
     <p
-      className={`text-white break-words ${
+      className={`text-slate-800 dark:text-white break-words ${
         mono ? "font-mono text-xs" : "font-medium"
       }`}
     >
@@ -166,30 +187,30 @@ function ConfirmationModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-red-500/20 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl shadow-red-500/10">
+      <div className="bg-gradient-to-br from-white to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-red-500/20 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl shadow-red-500/10">
         {/* Modal Header */}
-        <div className="p-4 border-b border-red-500/20 bg-gradient-to-r from-red-500/10 to-orange-500/10">
+        <div className="p-4 border-b border-slate-200 dark:border-red-500/20 bg-gradient-to-r from-slate-50 to-slate-50 dark:from-red-500/10 dark:to-orange-500/10">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center">
               <AlertTriangle className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">{title}</h2>
-              <p className="text-slate-400 text-sm">This action requires confirmation</p>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
+              <p className="text-slate-550 dark:text-slate-400 text-sm">This action requires confirmation</p>
             </div>
           </div>
         </div>
 
         {/* Modal Content */}
         <div className="p-6">
-          <p className="text-white text-base leading-relaxed">{message}</p>
+          <p className="text-slate-800 dark:text-white text-base leading-relaxed">{message}</p>
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 border-t border-slate-700 bg-slate-800/30 flex items-center justify-end gap-3">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all font-medium"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-750 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white rounded-lg transition-all font-medium border border-slate-200 dark:border-transparent"
           >
             {cancelText}
           </button>
@@ -789,18 +810,18 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
   // ✅ Get Activity Type Badge
   const getActivityTypeBadge = (activityType: string) => {
     const typeMap: Record<string, { color: string; bg: string; border: string; icon: any }> = {
-      AddProduct: { color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", icon: Package },
-      UpdateProduct: { color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", icon: Package },
-      DeleteProduct: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", icon: Package },
-      AddOrder: { color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20", icon: ShoppingCart },
-      UpdateOrder: { color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", icon: ShoppingCart },
-      AddCustomer: { color: "text-pink-400", bg: "bg-pink-500/10", border: "border-pink-500/20", icon: Users },
-      UpdateCustomer: { color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20", icon: Users },
-      UserLogin: { color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20", icon: Shield },
-      UserLogout: { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", icon: Shield },
+      AddProduct: { color: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-500/10", border: "border-green-200 dark:border-green-500/20", icon: Package },
+      UpdateProduct: { color: "text-blue-700 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10", border: "border-blue-200 dark:border-blue-500/20", icon: Package },
+      DeleteProduct: { color: "text-red-700 dark:text-red-400", bg: "bg-red-50 dark:bg-red-500/10", border: "border-red-200 dark:border-red-500/20", icon: Package },
+      AddOrder: { color: "text-cyan-700 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-200 dark:border-cyan-500/20", icon: ShoppingCart },
+      UpdateOrder: { color: "text-violet-700 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", border: "border-violet-200 dark:border-violet-500/20", icon: ShoppingCart },
+      AddCustomer: { color: "text-pink-700 dark:text-pink-400", bg: "bg-pink-50 dark:bg-pink-500/10", border: "border-pink-200 dark:border-pink-500/20", icon: Users },
+      UpdateCustomer: { color: "text-purple-700 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-500/10", border: "border-purple-200 dark:border-purple-500/20", icon: Users },
+      UserLogin: { color: "text-amber-700 dark:text-yellow-400", bg: "bg-amber-50 dark:bg-yellow-500/10", border: "border-amber-200 dark:border-yellow-500/20", icon: Shield },
+      UserLogout: { color: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20", icon: Shield },
     };
 
-    const config = typeMap[activityType] || { color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/20", icon: Activity };
+    const config = typeMap[activityType] || { color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-50 dark:bg-slate-500/10", border: "border-slate-200 dark:border-slate-500/20", icon: Activity };
     const Icon = config.icon;
 
     return (
@@ -814,14 +835,14 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
   // ✅ Get Entity Badge
   const getEntityBadge = (entityName: string) => {
     const entityMap: Record<string, { color: string; bg: string; border: string; icon: any }> = {
-      Product: { color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", icon: Package },
-      Order: { color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20", icon: ShoppingCart },
-      Customer: { color: "text-pink-400", bg: "bg-pink-500/10", border: "border-pink-500/20", icon: Users },
-      Category: { color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", icon: Layers },
-      Brand: { color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20", icon: FileText },
+      Product: { color: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-500/10", border: "border-green-200 dark:border-green-500/20", icon: Package },
+      Order: { color: "text-cyan-700 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-200 dark:border-cyan-500/20", icon: ShoppingCart },
+      Customer: { color: "text-pink-700 dark:text-pink-400", bg: "bg-pink-50 dark:bg-pink-500/10", border: "border-pink-200 dark:border-pink-500/20", icon: Users },
+      Category: { color: "text-violet-700 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", border: "border-violet-200 dark:border-violet-500/20", icon: Layers },
+      Brand: { color: "text-amber-700 dark:text-yellow-400", bg: "bg-amber-50 dark:bg-yellow-500/10", border: "border-amber-200 dark:border-yellow-500/20", icon: FileText },
     };
 
-    const config = entityMap[entityName] || { color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/20", icon: Database };
+    const config = entityMap[entityName] || { color: "text-slate-650 dark:text-slate-400", bg: "bg-slate-50 dark:bg-slate-500/10", border: "border-slate-200 dark:border-slate-500/20", icon: Database };
     const Icon = config.icon;
 
     return (
@@ -860,10 +881,10 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
       {/* ✅ Header with Buttons */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
             Activity Logs
           </h1>
-          <p className="text-slate-400 mt-0.5">Monitor and track all system activities</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-0.5">Monitor and track all system activities</p>
         </div>
 
         {/* Button Group: Export + Clear All */}
@@ -884,41 +905,41 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
             {showExportMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
                 
 
                   <button
                     onClick={handleExportCurrentPage}
-                    className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-700"
+                    className="w-full px-3 py-2.5 text-left text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-700"
                   >
-                    <FileSpreadsheet className="w-4 h-4 text-violet-400" />
+                    <FileSpreadsheet className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                     <div>
                       <p className="text-sm font-medium">Export Current Page</p>
-                      <p className="text-xs text-slate-400">{activityLogs.length} logs</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{activityLogs.length} logs</p>
                     </div>
                   </button>
 
                   {hasActiveFilters && (
                     <button
                       onClick={handleExportFiltered}
-                      className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-700"
+                      className="w-full px-3 py-2.5 text-left text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-700"
                     >
-                      <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+                      <FileSpreadsheet className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                       <div>
                         <p className="text-sm font-medium">Export Filtered Results</p>
-                        <p className="text-xs text-slate-400">{totalCount} logs</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{totalCount} logs</p>
                       </div>
                     </button>
                   )}
 
                   <button
                     onClick={handleExportAll}
-                    className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5"
+                    className="w-full px-3 py-2.5 text-left text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center gap-2.5"
                   >
-                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
+                    <FileSpreadsheet className="w-4 h-4 text-green-600 dark:text-green-400" />
                     <div>
                       <p className="text-sm font-medium">Export All Logs</p>
-                      <p className="text-xs text-slate-400">{allActivityLogs.length} logs</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{allActivityLogs.length} logs</p>
                     </div>
                   </button>
                 </div>
@@ -953,53 +974,53 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
       {/* ✅ Top 4 Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {/* 1. Total Logs */}
-        <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-violet-500/20 rounded-xl p-3 hover:border-violet-500/50 transition-all">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-violet-500/20 rounded-xl p-3 hover:border-violet-500/50 dark:hover:border-violet-500/50 transition-all shadow-sm dark:shadow-none">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0">
-              <Database className="h-5 w-5 text-violet-400" />
+            <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center shrink-0">
+              <Database className="h-5 w-5 text-violet-600 dark:text-violet-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-slate-400 text-xs font-medium">Total Logs</p>
-              <p className="text-white text-xl font-bold truncate">{stats.total.toLocaleString()}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Total Logs</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold truncate">{stats.total.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         {/* 2. Today's Activity */}
-        <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/5 border border-cyan-500/20 rounded-xl p-3 hover:border-cyan-500/50 transition-all">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-cyan-500/20 rounded-xl p-3 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 transition-all shadow-sm dark:shadow-none">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center shrink-0">
-              <Activity className="h-5 w-5 text-cyan-400" />
+            <div className="w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center shrink-0">
+              <Activity className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-slate-400 text-xs font-medium">Today's Activity</p>
-              <p className="text-white text-xl font-bold truncate">{stats.todayCount.toLocaleString()}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Today's Activity</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold truncate">{stats.todayCount.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
         {/* 3. Activity Types */}
-        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-xl p-3 hover:border-green-500/50 transition-all">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-green-500/20 rounded-xl p-3 hover:border-green-500/50 dark:hover:border-green-500/50 transition-all shadow-sm dark:shadow-none">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
-              <Layers className="h-5 w-5 text-green-400" />
+            <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/20 flex items-center justify-center shrink-0">
+              <Layers className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-slate-400 text-xs font-medium">Activity Types</p>
-              <p className="text-white text-xl font-bold truncate">{stats.uniqueActivityTypes}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Activity Types</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold truncate">{stats.uniqueActivityTypes}</p>
             </div>
           </div>
         </div>
 
         {/* 4. Entity Types */}
-        <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/5 border border-pink-500/20 rounded-xl p-3 hover:border-pink-500/50 transition-all">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-pink-500/20 rounded-xl p-3 hover:border-pink-500/50 dark:hover:border-pink-500/50 transition-all shadow-sm dark:shadow-none">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center shrink-0">
-              <Settings className="h-5 w-5 text-pink-400" />
+            <div className="w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-500/20 flex items-center justify-center shrink-0">
+              <Settings className="h-5 w-5 text-pink-600 dark:text-pink-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-slate-400 text-xs font-medium">Entity Types</p>
-              <p className="text-white text-xl font-bold truncate">{stats.uniqueEntities}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Entity Types</p>
+              <p className="text-slate-900 dark:text-white text-xl font-bold truncate">{stats.uniqueEntities}</p>
             </div>
           </div>
         </div>
@@ -1061,7 +1082,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           setFilters({ ...filters, activityType: option?.value || "all" });
           setCurrentPage(1);
         }}
-        options={ACTIVITY_TYPES}
+        options={GROUPED_ACTIVITY_TYPES}
         placeholder="All Activities"
         isClearable={false}
         isSearchable={true}
@@ -1475,7 +1496,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
     <div className="flex justify-center px-2">
 
       <div className="pointer-events-auto mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
-        rounded-xl border border-slate-700 bg-slate-900/95 
+        rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 
         px-4 py-3 shadow-xl backdrop-blur-md transition-all duration-300">
 
         <div className="flex flex-wrap items-center gap-3">
@@ -1484,19 +1505,19 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm">
               <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-slate-900 dark:text-white">
                 {selectedLogs.length}
               </span>
-              <span className="text-slate-300">logs selected</span>
+              <span className="text-slate-500 dark:text-slate-300">logs selected</span>
             </div>
 
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Bulk actions: export selected logs or delete them permanently.
             </p>
           </div>
 
           {/* Divider */}
-          <div className="h-5 w-px bg-slate-700 hidden md:block" />
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
           {/* EXPORT */}
           <button
@@ -1523,8 +1544,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           {/* CLEAR */}
           <button
             onClick={() => setSelectedLogs([])}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
-            text-white text-sm rounded-lg transition-all"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm rounded-lg transition-all border border-slate-200 dark:border-transparent"
           >
             Clear
           </button>
@@ -1605,23 +1625,23 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
    {/* ✅ Activity Log Details Modal */}
 {isModalOpen && selectedLog && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-violet-500/20 bg-gradient-to-br from-transparent to-transparent dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
 
       {/* Header */}
-      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+      <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-slate-50 dark:bg-slate-900 bg-gradient-to-r from-transparent to-transparent dark:from-violet-600/10 dark:to-cyan-500/10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-violet-600 to-cyan-600 flex items-center justify-center">
               <Activity className="h-6 w-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-white">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   Activity Log Details
                 </h2>
                 {getActivityTypeBadge(selectedLog.activityLogTypeName)}
               </div>
-              <p className="text-slate-400 text-sm mt-0.5">
+              <p className="text-slate-550 dark:text-slate-400 text-sm mt-0.5">
                 {formatExactDate(selectedLog.createdOnUtc)}
               </p>
             </div>
@@ -1632,7 +1652,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
               setIsModalOpen(false);
               setSelectedLog(null);
             }}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1643,9 +1663,9 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
       <div className="overflow-y-auto p-5 space-y-5">
 
         {/* Basic Info */}
-        <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-          <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-violet-400" />
+        <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             Basic Information
           </h3>
 
@@ -1678,12 +1698,12 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
 
         {/* Comment */}
         {selectedLog.comment && (
-          <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-            <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-cyan-400" />
+          <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               Activity Comment
             </h3>
-            <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line">
+            <p className="text-slate-750 dark:text-slate-200 text-sm leading-relaxed whitespace-pre-line">
               {selectedLog.comment}
             </p>
           </div>
@@ -1691,9 +1711,9 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
 
         {/* Entity Details (Formatted View) */}
         {selectedLog.entityDetails && (
-          <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-            <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-              <Package className="h-4 w-4 text-pink-400" />
+          <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Package className="h-4 w-4 text-pink-600 dark:text-pink-400" />
               Entity Details
             </h3>
 

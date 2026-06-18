@@ -406,6 +406,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   const [subscriptionQty, setSubscriptionQty] = useState(1);
   const [subscriptionStockError, setSubscriptionStockError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null);
   const [thumbStart, setThumbStart] = useState(0);
   const [thumbVisible, setThumbVisible] = useState(5);
   useEffect(() => {
@@ -421,7 +422,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   const [crossSellProducts, setCrossSellProducts] = useState<CrossSellProduct[]>([]);
   const shouldShowRelatedNav = relatedProducts.length > 4;
   const shouldShowCrossNav = crossSellProducts.length > 4;
-  const [activeTab, setActiveTab] = useState<"description" | "specifications" | "delivery">("description");
+  const [activeTab, setActiveTab] = useState<"description" | "delivery">("description");
   const [purchaseType, setPurchaseType] = useState<"one" | "subscription">("one");
   // Use vatRate directly from API response
   const vatRate: number | null = (product as any).vatRate ?? null;
@@ -1254,6 +1255,27 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     return getImageUrl(sortedImages[selectedImage]?.imageUrl);
   }, [sortedImages, selectedImage, getImageUrl]);
 
+  const videoList = useMemo(() => {
+    if (!product.videoUrls) return [];
+    const urls = typeof product.videoUrls === "string"
+      ? product.videoUrls.split(",").map(u => u.trim()).filter(Boolean)
+      : Array.isArray(product.videoUrls)
+      ? (product.videoUrls as string[]).filter(Boolean)
+      : [];
+    return urls.map(url => {
+      let videoId = "";
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes("youtu.be")) {
+          videoId = u.pathname.slice(1).split("?")[0];
+        } else if (u.hostname.includes("youtube.com")) {
+          videoId = u.searchParams.get("v") || u.pathname.split("/").pop() || "";
+        }
+      } catch {}
+      return { url, videoId, embedUrl: videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1` : "" };
+    }).filter(v => v.videoId);
+  }, [product.videoUrls]);
+
   useEffect(() => {
     if (selectedVariant?.imageUrl) {
       setSelectedImage(0);
@@ -1821,9 +1843,9 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
                       return (
                         <div
                           key={img.id}
-                          onClick={() => setSelectedImage(realIndex)}
+                          onClick={() => { setSelectedImage(realIndex); setSelectedVideoIndex(null); }}
                           className={`cursor-pointer rounded-xl overflow-hidden w-[50px] h-[50px] md:w-[66px] md:h-[66px] flex-shrink-0 transition-all duration-200 border-2 bg-white
-                          ${selectedImage === realIndex
+                          ${selectedImage === realIndex && selectedVideoIndex === null
                               ? "border-[#445D41] shadow-lg"
                               : "border-gray-200 hover:border-gray-300 hover:shadow-md"
                             }`}
@@ -1849,13 +1871,46 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
                     <ChevronDown className="h-4 w-4 text-gray-600" />
                   </button>
                 )}
+                {/* Video Thumbnails */}
+                {videoList.map((video, vIdx) => (
+                  <div
+                    key={video.videoId}
+                    onClick={() => setSelectedVideoIndex(vIdx)}
+                    className={`cursor-pointer rounded-xl overflow-hidden w-[50px] h-[50px] md:w-[66px] md:h-[66px] flex-shrink-0 transition-all duration-200 border-2 relative
+                    ${selectedVideoIndex === vIdx
+                        ? "border-red-500 shadow-lg"
+                        : "border-gray-200 hover:border-red-400 hover:shadow-md"
+                      }`}
+                  >
+                    <img
+                      src={`https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`}
+                      alt="Video thumbnail"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
+                        <svg viewBox="0 0 24 24" className="w-3 h-3 fill-white ml-0.5"><polygon points="5,3 19,12 5,21" /></svg>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* Main Image */}
               <div className="flex-1 relative bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="relative bg-white overflow-hidden h-[250px] md:h-[390px] lg:h-[460px] flex items-center justify-center">
 
-                  {/* ✅ ONLY IMAGE AREA HAS ZOOM */}
+                  {selectedVideoIndex !== null && videoList[selectedVideoIndex] ? (
+                    <iframe
+                      key={videoList[selectedVideoIndex].videoId}
+                      src={videoList[selectedVideoIndex].embedUrl}
+                      title="Product video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full border-0"
+                    />
+                  ) : (
+                  /* ✅ ONLY IMAGE AREA HAS ZOOM */
                   <div
                     className="relative w-full h-full"
                     onMouseEnter={() => setShowZoom(true)}
@@ -1890,6 +1945,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
                       }}
                     />
                   </div>
+                  )}
 
                   <div className="absolute top-1 md:top-3 right-1 md:right-3 flex flex-col gap-2 z-30">
                     {/* Wishlist */}
@@ -3122,9 +3178,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               <button onClick={() => setActiveTab("description")} className={`px-4 sm:px-6 py-3 text-sm sm:text-base font-semibold whitespace-nowrap transition ${activeTab === "description" ? "border-b-2 border-[#445D41] text-[#445D41]" : "text-gray-600 hover:text-[#445D41]"}`}>
                 Product Description
               </button>
-              <button onClick={() => setActiveTab("specifications")} className={`px-4 sm:px-6 py-3 text-sm sm:text-base font-semibold whitespace-nowrap transition ${activeTab === "specifications" ? "border-b-2 border-[#445D41] text-[#445D41]" : "text-gray-600 hover:text-[#445D41]"}`}>
-                Specifications
-              </button>
               <button onClick={() => setActiveTab("delivery")} className={`px-4 sm:px-6 py-3 text-sm sm:text-base font-semibold whitespace-nowrap transition ${activeTab === "delivery" ? "border-b-2 border-[#445D41] text-[#445D41]" : "text-gray-600 hover:text-[#445D41]"}`}>
                 Delivery
               </button>
@@ -3132,42 +3185,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             <div className="p-4 sm:p-6">
               {activeTab === "description" && (
                 <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: product.description }} />
-              )}
-              {activeTab === "specifications" && (
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  {(product.attributes && product.attributes.length > 0 ? (
-                    product.attributes
-                      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                      .map((attr, idx) => (
-                        <div
-                          key={attr.id}
-                          className={`flex items-start sm:items-center justify-between gap-4 px-4 py-3
-              ${idx !== product.attributes!.length - 1 ? "border-b" : ""}
-              hover:bg-gray-50 transition`}
-                        >
-                          <span className="text-sm font-semibold text-gray-700">
-                            {attr.displayName || attr.name}
-                          </span>
-                          <span className="text-sm text-gray-600 text-right max-w-[60%]">
-                            {attr.value}
-                          </span>
-                        </div>
-                      ))
-                  ) : (
-                    <>
-                      <div className="flex justify-between px-4 py-3 border-b">
-                        <span className="text-sm font-semibold text-gray-700">Weight</span>
-                        <span className="text-sm text-gray-600">
-                          {product.weight} {product.weightUnit}
-                        </span>
-                      </div>
-                      <div className="flex justify-between px-4 py-3">
-                        <span className="text-sm font-semibold text-gray-700">SKU</span>
-                        <span className="text-sm text-gray-600">{product.sku}</span>
-                      </div>
-                    </>
-                  ))}
-                </div>
               )}
               {activeTab === "delivery" && (
                 <div className="space-y-6">

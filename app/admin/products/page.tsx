@@ -71,9 +71,12 @@ interface FormattedProduct {
   updatedAt: string;
   updatedBy: string;
   variantsCount: number;
-    // ✅ ADD THIS
-  isPharmaProduct: boolean;
-  
+    isPharmaProduct: boolean;
+  pharmaApprovalStatus: string;
+  pharmaApprovedAt?: string | null;
+  pharmaApprovedBy?: string | null;
+  pharmaApprovalComment?: string | null;
+
   // Inventory System
   trackQuantity: boolean;
   manageInventoryMethod: string;
@@ -215,6 +218,14 @@ const pharmaOptions: SelectOption[] = [
   { value: "all", label: "Product Type" },
   { value: "yes", label: "Pharma " },
   { value: "no", label: "Others" },
+];
+
+const pharmaApprovalOptions: SelectOption[] = [
+  { value: "all", label: "Approval: All" },
+  { value: "Pending", label: "Pending Review" },
+  { value: "Approved", label: "Approved" },
+  { value: "Rejected", label: "Rejected" },
+  { value: "NotRequired", label: "Not Required" },
 ];
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
@@ -419,6 +430,20 @@ const [pharmaFilter, setPharmaFilter] = useState<SelectOption>({
   label: "All Products",
 });
 
+const [pharmaApprovalFilter, setPharmaApprovalFilter] = useState<SelectOption>({
+  value: "all",
+  label: "Approval: All",
+});
+
+const [pharmaApprovalModal, setPharmaApprovalModal] = useState<{
+  isOpen: boolean;
+  mode: "approve" | "reject";
+  productId: string;
+  productName: string;
+} | null>(null);
+const [pharmaComment, setPharmaComment] = useState("");
+const [pharmaProcessing, setPharmaProcessing] = useState(false);
+
 
 useEffect(()=>{
  fetchVATRates();
@@ -485,6 +510,10 @@ if (debouncedSearchTerm.trim()) {
     }
     if (pharmaFilter.value !== "all") {
   params.isPharmaProduct = pharmaFilter.value === "yes";
+}
+
+if (pharmaApprovalFilter.value !== "all") {
+  params.pharmaApprovalStatus = pharmaApprovalFilter.value;
 }
 
 if (selectedType.value !== "all") {
@@ -614,8 +643,11 @@ const resolvedStockStatus =
         return {
           id: p.id,
           name: p.name,
-            // ✅ ADD THIS
         isPharmaProduct: p.isPharmaProduct === true,
+        pharmaApprovalStatus: p.pharmaApprovalStatus || "NotRequired",
+        pharmaApprovedAt: p.pharmaApprovedAt || null,
+        pharmaApprovedBy: p.pharmaApprovedBy || null,
+        pharmaApprovalComment: p.pharmaApprovalComment || null,
           categoryName: primaryCategoryName,
          price: resolvedPrice,
     stock: resolvedStockQuantity,
@@ -887,6 +919,7 @@ useEffect(() => {
   vatFilter.value,
   statusFilter.value,
   pharmaFilter.value,
+  pharmaApprovalFilter.value,
 
   sortBy,
   sortDirection
@@ -908,7 +941,8 @@ const clearFilters = useCallback(() => {
   setVatFilter({ value: "all", label: "VAT: All" });
   setDeletedFilter({ value: "all", label: "All Records" });
   setPharmaFilter({  value: "all", label: "All Products" });
- 
+  setPharmaApprovalFilter({ value: "all", label: "Approval: All" });
+
   setSearchInput("");
 setSearchLoading(false);
   // 🔥 ADD THIS (IMPORTANT)
@@ -934,6 +968,7 @@ const hasActiveFilters = useMemo(
     recurringFilter.value !== "all" ||
     vatFilter.value !== "all" ||
     pharmaFilter.value !== "all" ||
+    pharmaApprovalFilter.value !== "all" ||
     searchInput.trim() !== "" ||
     deletedFilter.value !== "all" || // 
 
@@ -955,12 +990,54 @@ const hasActiveFilters = useMemo(
     vatFilter,
     deletedFilter,
     pharmaFilter,
+    pharmaApprovalFilter,
 
     // 🔥 ADD DEPENDENCIES
     sortBy,
     sortDirection,
   ]
 );
+
+  // ✅ PHARMA APPROVE / REJECT HANDLER
+  const handlePharmaReview = async () => {
+    if (!pharmaApprovalModal) return;
+    setPharmaProcessing(true);
+    try {
+      const { mode, productId, productName } = pharmaApprovalModal;
+      const response = mode === "approve"
+        ? await productsService.pharmaApprove(productId, pharmaComment)
+        : await productsService.pharmaReject(productId, pharmaComment);
+
+      if (response.data?.success) {
+        const result = response.data.data;
+        setProducts(prev => prev.map(p =>
+          p.id === productId
+            ? {
+                ...p,
+                pharmaApprovalStatus: result?.pharmaApprovalStatus ?? p.pharmaApprovalStatus,
+                pharmaApprovedAt: result?.pharmaApprovedAt ?? p.pharmaApprovedAt,
+                pharmaApprovedBy: result?.pharmaApprovedBy ?? p.pharmaApprovedBy,
+                pharmaApprovalComment: result?.pharmaApprovalComment ?? null,
+                isPublished: result?.isPublished ?? p.isPublished,
+              }
+            : p
+        ));
+        toast.success(
+          mode === "approve"
+            ? `"${productName}" approved and visible to customers`
+            : `"${productName}" rejected and unpublished`
+        );
+        setPharmaApprovalModal(null);
+        setPharmaComment("");
+      } else {
+        toast.error(response.data?.message || "Action failed");
+      }
+    } catch {
+      toast.error("Failed to process pharma review");
+    } finally {
+      setPharmaProcessing(false);
+    }
+  };
 
   // ✅ FLATTEN CATEGORIES WITH FULL PATH
   const categoryOptions: SelectOption[] = useMemo(() => {
@@ -1327,20 +1404,20 @@ const handleExportSelected = async () => {
 
   return (
   <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
-      <div className="mx-auto w-fit max-w-full rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md pointer-events-auto">
+      <div className="mx-auto w-fit max-w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md pointer-events-auto">
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm">
               <span className="h-2 w-2 rounded-full bg-violet-500"></span>
-              <span className="font-semibold text-white">{selectedItems.length}</span>
-              <span className="text-slate-300">products selected</span>
+              <span className="font-semibold text-slate-900 dark:text-white">{selectedItems.length}</span>
+              <span className="text-slate-500 dark:text-slate-300">products selected</span>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
            Bulk actions: export, update status, publish, or delete selected products.
             </p>
           </div>
 
-          <div className="h-5 w-px bg-slate-700 hidden md:block" />
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
           <button
             onClick={handleExportSelected}
@@ -1444,7 +1521,7 @@ const handleExportSelected = async () => {
             onClick={() => setSelectedProducts([])}
             disabled={exportingSelected}
             title="Clear current product selection"
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm rounded-lg transition-all border border-slate-200 dark:border-transparent disabled:cursor-not-allowed disabled:opacity-60"
           >
             Clear
           </button>
@@ -1707,37 +1784,39 @@ const handleExportSelected = async () => {
 </div>
 
       {/* ✅ FILTERS SECTION - ROW 1 */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1">
-        <div className="flex items-center gap-1">
-   <div className="relative flex-1 min-w-[180px] max-w-[300px]">
-     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* SEARCH */}
+          <div className="relative flex-[2] min-w-[200px] w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
 
-  <input
-    type="text"
-    placeholder="Search products by name or Sku..."
-    value={searchInput}
-    onChange={(e) => setSearchInput(e.target.value)}
-    className="w-full pl-8 pr-9 py-1.5 bg-slate-800/50 border border-slate-700 rounded-xl placeholder:text-xs text-white text-[13px] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-  />
+            <input
+              type="text"
+              placeholder="Search products by name or Sku..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-8 pr-9 py-1.5 bg-slate-800/50 border border-slate-700 rounded-xl placeholder:text-xs text-white text-[13px] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+            />
 
-  {/* RIGHT ICON */}
-  {searchLoading ? (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-      <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  ) : (
-    searchInput && (
-      <button
-        onClick={() => setSearchInput("")}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-      >
-        <X className="h-4 w-4" />
-      </button>
-    )
-  )}
-</div>
+            {/* RIGHT ICON */}
+            {searchLoading ? (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              searchInput && (
+                <button
+                  onClick={() => setSearchInput("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )
+            )}
+          </div>
 
-          <div className="flex-1 min-w-[120px] ">
+          {/* CATEGORY */}
+          <div className="flex-[1.5] min-w-[160px] w-full">
             <Select
               value={selectedCategory}
               onChange={(option) => setSelectedCategory((option as SelectOption) || { value: "all", label: "All Categories" })}
@@ -1752,7 +1831,8 @@ const handleExportSelected = async () => {
             />
           </div>
 
-          <div className="flex-1 max-w-[150px]">
+          {/* BRAND */}
+          <div className="flex-1 min-w-[120px] max-w-[160px] w-full">
             <Select
               value={selectedBrand}
               onChange={(option) => setSelectedBrand((option as SelectOption) || { value: "all", label: "All Brands" })}
@@ -1766,7 +1846,8 @@ const handleExportSelected = async () => {
             />
           </div>
 
-          <div className="flex-1 max-w-[140px]">
+          {/* HOMEPAGE */}
+          <div className="flex-1 min-w-[120px] max-w-[150px] w-full">
             <select
               value={selectedHomepage.value}
               onChange={(e) => {
@@ -1787,69 +1868,74 @@ const handleExportSelected = async () => {
             </select>
           </div>
 
-          <div className="flex gap-3">
-            <div className="max-w-[140px] w-full">
-              <select
-                value={selectedType.value}
-                onChange={(e) => {
-                  const option = typeOptions.find(opt => opt.value === e.target.value);
-                  if (option) setSelectedType(option);
-                }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  selectedType.value !== "all"
-                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                    : "border-slate-600"
-                }`}
-              >
-                {typeOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="max-w-[150px] w-full">
-              <select
-                value={deletedFilter.value}
-                onChange={(e) => {
-                  const option = deletedOptions.find(opt => opt.value === e.target.value);
-                  if (option) setDeletedFilter(option);
-                }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  deletedFilter.value !== "all"
-                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                    : "border-slate-600"
-                }`}
-              >
-                {deletedOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-                 <select
-                value={publishedFilter.value}
-                onChange={(e) => {
-                  const option = visibilityOptions.find(opt => opt.value === e.target.value);
-                  if (option) setPublishedFilter(option);
-                }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  publishedFilter.value !== "all"
-                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                    : "border-slate-600"
-                }`}
-              >
-                {visibilityOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+          {/* TYPE */}
+          <div className="flex-1 min-w-[110px] max-w-[130px] w-full">
+            <select
+              value={selectedType.value}
+              onChange={(e) => {
+                const option = typeOptions.find(opt => opt.value === e.target.value);
+                if (option) setSelectedType(option);
+              }}
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                selectedType.value !== "all"
+                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                  : "border-slate-600"
+              }`}
+            >
+              {typeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+          {/* DELETED */}
+          <div className="flex-1 min-w-[110px] max-w-[130px] w-full">
+            <select
+              value={deletedFilter.value}
+              onChange={(e) => {
+                const option = deletedOptions.find(opt => opt.value === e.target.value);
+                if (option) setDeletedFilter(option);
+              }}
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                deletedFilter.value !== "all"
+                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                  : "border-slate-600"
+              }`}
+            >
+              {deletedOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* PUBLISHED */}
+          <div className="flex-1 min-w-[110px] max-w-[130px] w-full">
+            <select
+              value={publishedFilter.value}
+              onChange={(e) => {
+                const option = visibilityOptions.find(opt => opt.value === e.target.value);
+                if (option) setPublishedFilter(option);
+              }}
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                publishedFilter.value !== "all"
+                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                  : "border-slate-600"
+              }`}
+            >
+              {visibilityOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* BUTTONS */}
+          <div className="flex items-center gap-2 ml-auto flex-shrink-0 w-full sm:w-auto justify-end">
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
@@ -1883,7 +1969,7 @@ const handleExportSelected = async () => {
         {/* ✅ ROW 2 - COLLAPSIBLE FILTERS */}
         {showMoreFilters && (
           <div className="mt-1 pt-1 border-t border-slate-700">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-7 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
               <select
                 value={statusFilter.value}
                 onChange={(e) => {
@@ -2039,7 +2125,26 @@ const handleExportSelected = async () => {
     </option>
   ))}
 </select>
-            
+
+<select
+  value={pharmaApprovalFilter.value}
+  onChange={(e) => {
+    const option = pharmaApprovalOptions.find(opt => opt.value === e.target.value);
+    if (option) setPharmaApprovalFilter(option);
+  }}
+  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+    pharmaApprovalFilter.value !== "all"
+      ? "border-cyan-500 bg-cyan-500/10 ring-2 ring-cyan-500/50"
+      : "border-slate-600"
+  }`}
+>
+  {pharmaApprovalOptions.map((opt) => (
+    <option key={opt.value} value={opt.value}>
+      {opt.label}
+    </option>
+  ))}
+</select>
+
             </div>
           </div>
         )}
@@ -2418,6 +2523,26 @@ onClick={async (e) => {
         : "Standard"}
     </span>
 
+    {product.isPharmaProduct && (
+      <span
+        title={`Pharma approval: ${product.pharmaApprovalStatus}${product.pharmaApprovedBy ? ` by ${product.pharmaApprovedBy}` : ""}${product.pharmaApprovalComment ? ` — ${product.pharmaApprovalComment}` : ""}`}
+        className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-semibold leading-5 ${
+          product.pharmaApprovalStatus === "Approved"
+            ? "bg-emerald-500/15 text-emerald-400"
+            : product.pharmaApprovalStatus === "Pending"
+            ? "bg-amber-500/15 text-amber-400"
+            : product.pharmaApprovalStatus === "Rejected"
+            ? "bg-red-500/15 text-red-400"
+            : "bg-slate-600/20 text-slate-500"
+        }`}
+      >
+        {product.pharmaApprovalStatus === "Approved" && "✓ Approved"}
+        {product.pharmaApprovalStatus === "Pending" && "⏳ Pending"}
+        {product.pharmaApprovalStatus === "Rejected" && "✗ Rejected"}
+        {product.pharmaApprovalStatus === "NotRequired" && "— N/A"}
+      </span>
+    )}
+
   </div>
 </td>
  <td
@@ -2475,6 +2600,32 @@ Updated By: ${product.updatedBy || "N/A"}`}
         <Edit className="h-3.5 w-3.5" />
       </button>
     </Link>
+  )}
+
+  {/* PHARMA APPROVE / REJECT */}
+  {product.isPharmaProduct && (product.pharmaApprovalStatus === "Pending" || (product.isPublished && product.pharmaApprovalStatus === "NotRequired")) && !product.isDeleted && (
+    <>
+      <button
+        onClick={() => {
+          setPharmaComment("");
+          setPharmaApprovalModal({ isOpen: true, mode: "approve", productId: product.id, productName: product.name });
+        }}
+        className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
+        title="Approve pharma product"
+      >
+        <CheckCircle className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => {
+          setPharmaComment("");
+          setPharmaApprovalModal({ isOpen: true, mode: "reject", productId: product.id, productName: product.name });
+        }}
+        className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
+        title="Reject pharma product"
+      >
+        <XCircle className="h-3.5 w-3.5" />
+      </button>
+    </>
   )}
 
   {/* DELETE / RESTORE */}
@@ -2905,6 +3056,68 @@ Updated By: ${product.updatedBy || "N/A"}`}
             : "bg-gradient-to-r from-emerald-600 to-green-600"
         }
       />
+
+      {/* PHARMA APPROVAL MODAL */}
+      {pharmaApprovalModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`p-2 rounded-xl ${pharmaApprovalModal.mode === "approve" ? "bg-emerald-500/15" : "bg-red-500/15"}`}>
+                {pharmaApprovalModal.mode === "approve"
+                  ? <CheckCircle className="h-5 w-5 text-emerald-400" />
+                  : <XCircle className="h-5 w-5 text-red-400" />}
+              </div>
+              <div>
+                <h3 className="text-white font-semibold text-base">
+                  {pharmaApprovalModal.mode === "approve" ? "Approve Pharma Product" : "Reject Pharma Product"}
+                </h3>
+                <p className="text-slate-400 text-xs mt-0.5 truncate max-w-[280px]">{pharmaApprovalModal.productName}</p>
+              </div>
+            </div>
+
+            {pharmaApprovalModal.mode === "reject" && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-red-300 text-xs">This product will be unpublished and hidden from customers.</p>
+              </div>
+            )}
+
+            <div className="mb-5">
+              <label className="block text-slate-300 text-xs font-medium mb-1.5">
+                {pharmaApprovalModal.mode === "approve" ? "Approval comment (optional)" : "Rejection reason (optional)"}
+              </label>
+              <textarea
+                value={pharmaComment}
+                onChange={e => setPharmaComment(e.target.value)}
+                placeholder={pharmaApprovalModal.mode === "approve" ? "e.g. Reviewed — meets all safety standards" : "e.g. Missing active ingredients documentation"}
+                rows={3}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setPharmaApprovalModal(null); setPharmaComment(""); }}
+                disabled={pharmaProcessing}
+                className="flex-1 px-4 py-2 rounded-xl border border-slate-600 text-slate-300 text-sm hover:bg-slate-800 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePharmaReview}
+                disabled={pharmaProcessing}
+                className={`flex-1 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
+                  pharmaApprovalModal.mode === "approve"
+                    ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500"
+                    : "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500"
+                }`}
+              >
+                {pharmaProcessing && <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {pharmaApprovalModal.mode === "approve" ? "Approve" : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

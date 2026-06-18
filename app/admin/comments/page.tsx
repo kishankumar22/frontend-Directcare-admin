@@ -1332,19 +1332,19 @@ const getDateRangeLabel = () => {
         {/* Reply Modal */}
         {replyingTo && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-blue-500/20 rounded-3xl max-w-2xl w-full shadow-2xl shadow-blue-500/10">
-              <div className="p-6 border-b border-blue-500/20 bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
+            <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-blue-500/20 rounded-3xl max-w-2xl w-full shadow-2xl shadow-blue-500/10">
+              <div className="p-6 border-b border-slate-200 dark:border-blue-500/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 dark:from-blue-950/20 dark:to-cyan-950/20">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-white">Reply to Comment</h2>
-                    <p className="text-slate-400 text-sm mt-1">Replying to {replyingTo.authorName}</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Reply to Comment</h2>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Replying to {replyingTo.authorName}</p>
                   </div>
                   <button
                     onClick={() => {
                       setReplyingTo(null);
                       setReplyText("");
                     }}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                    className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1352,13 +1352,13 @@ const getDateRangeLabel = () => {
               </div>
 
               <div className="p-6 space-y-4">
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700">
-                  <p className="text-slate-400 text-sm mb-2">Original Comment</p>
-                  <p className="text-white">{replyingTo.commentText}</p>
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-2 font-medium">Original Comment</p>
+                  <p className="text-slate-800 dark:text-white text-sm">{replyingTo.commentText}</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                     Your Reply
                   </label>
                   <textarea
@@ -1366,29 +1366,29 @@ const getDateRangeLabel = () => {
                     onChange={(e) => setReplyText(e.target.value)}
                     placeholder="Write your reply..."
                     rows={4}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 p-6 border-t border-slate-700/50">
+              <div className="flex justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700/50">
                 <button
                   onClick={() => {
                     setReplyingTo(null);
                     setReplyText("");
                   }}
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 transition-all font-medium text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleReply}
                   disabled={!replyText.trim() || actionLoading === replyingTo.id}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:shadow-lg  hover:shadow-blue-500/50 transition-all font-medium text-sm disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-[#ffffff] rounded-lg hover:shadow-lg  hover:shadow-blue-500/50 transition-all font-medium text-sm disabled:opacity-50 flex items-center gap-2"
                 >
                   {actionLoading === replyingTo.id ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       Posting...
                     </>
                   ) : (
@@ -1406,18 +1406,18 @@ const getDateRangeLabel = () => {
         {/* View Comment Modal */}
         {viewingComment && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-              <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+            <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+              <div className="p-6 border-b border-slate-200 dark:border-violet-500/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 dark:from-indigo-950/20 dark:to-cyan-950/20">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                       Comment Details
                     </h2>
-                    <p className="text-slate-400 text-sm mt-1">View comment information</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">View comment information</p>
                   </div>
                   <button
                     onClick={() => setViewingComment(null)}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                    className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1426,23 +1426,23 @@ const getDateRangeLabel = () => {
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <div className="space-y-4">
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                  <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-                        <span className="text-white text-lg font-bold">
+                        <span className="text-[#ffffff] text-lg font-bold">
                           {viewingComment.authorName?.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-white font-medium">{viewingComment.authorName}</p>
-                        <p className="text-slate-400 text-sm">{viewingComment.authorEmail}</p>
+                        <p className="text-slate-900 dark:text-white font-medium">{viewingComment.authorName}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm">{viewingComment.authorEmail}</p>
                       </div>
-                      <span className={`ml-auto px-3 py-1 rounded-lg text-xs font-medium ${
+                      <span className={`ml-auto px-3 py-1 rounded-lg text-xs font-semibold border ${
                         viewingComment.isSpam 
-                          ? 'bg-red-500/10 text-red-400' 
+                          ? 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/30' 
                           : viewingComment.isApproved 
-                          ? 'bg-green-500/10 text-green-400' 
-                          : 'bg-yellow-500/10 text-yellow-400'
+                          ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30' 
+                          : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-250 dark:border-amber-500/30'
                       }`}>
                         {viewingComment.isSpam ? 'Spam' : viewingComment.isApproved ? 'Approved' : 'Pending'}
                       </span>
@@ -1450,18 +1450,18 @@ const getDateRangeLabel = () => {
 
                     <div className="space-y-3">
                       <div>
-                        <p className="text-slate-400 text-sm mb-1">Comment</p>
-                        <p className="text-white">{viewingComment.commentText}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Comment</p>
+                        <p className="text-slate-800 dark:text-slate-200">{viewingComment.commentText}</p>
                       </div>
 
                       <div>
-                        <p className="text-slate-400 text-sm mb-1">Post</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">Post</p>
                         <button
                           onClick={() => {
                             setPostFilter(viewingComment.blogPostId);
                             setViewingComment(null);
                           }}
-                          className="text-blue-400 hover:text-blue-300 hover:underline"
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline text-left font-medium"
                         >
                           {viewingComment.blogPostTitle || 'Unknown Post'}
                         </button>
@@ -1469,16 +1469,16 @@ const getDateRangeLabel = () => {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-slate-400 text-sm mb-1">Date</p>
-                          <p className="text-white text-sm">
+                          <p className="text-slate-505 dark:text-slate-400 text-sm mb-1">Date</p>
+                          <p className="text-slate-800 dark:text-slate-200 text-sm">
                               {formatDate(viewingComment.createdAt)}
                           </p>
                         </div>
 
                         {viewingComment.approvedAt && (
                           <div>
-                            <p className="text-slate-400 text-sm mb-1">Approved At</p>
-                            <p className="text-white text-sm">
+                            <p className="text-slate-505 dark:text-slate-400 text-sm mb-1">Approved At</p>
+                            <p className="text-slate-800 dark:text-slate-200 text-sm">
                                 {formatDate(viewingComment.approvedAt)}
                             </p>
                           </div>
@@ -1486,13 +1486,13 @@ const getDateRangeLabel = () => {
                       </div>
 
                       {viewingComment.isSpam && (
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-                          <p className="text-red-400 text-sm font-medium mb-1">Spam Information</p>
-                          <p className="text-slate-300 text-sm">
+                        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-3">
+                          <p className="text-red-700 dark:text-red-400 text-sm font-semibold mb-1">Spam Information</p>
+                          <p className="text-slate-700 dark:text-slate-300 text-sm">
                             Reason: {viewingComment.spamReason || 'Flagged by admin'}
                           </p>
                           {viewingComment.flaggedAt && (
-                            <p className="text-slate-400 text-xs mt-1">
+                            <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
                               Flagged at: {new Date(viewingComment.flaggedAt).toLocaleString()}
                             </p>
                           )}
@@ -1503,14 +1503,14 @@ const getDateRangeLabel = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50 p-6">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700/50 p-6">
                 {!viewingComment.isApproved && !viewingComment.isSpam && (
                   <button
                     onClick={() => {
                       handleApprove(viewingComment.id);
                       setViewingComment(null);
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium text-sm"
+                    className="px-4 py-2 bg-green-600 text-[#ffffff] rounded-lg hover:bg-green-700 transition-all font-medium text-sm"
                   >
                     Approve Comment
                   </button>
@@ -1522,7 +1522,7 @@ const getDateRangeLabel = () => {
                       handleUnflagSpam(viewingComment.id);
                       setViewingComment(null);
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium text-sm"
+                    className="px-4 py-2 bg-blue-600 text-[#ffffff] rounded-lg hover:bg-blue-700 transition-all font-medium text-sm"
                   >
                     Restore from Spam
                   </button>
@@ -1530,7 +1530,7 @@ const getDateRangeLabel = () => {
 
                 <button
                   onClick={() => setViewingComment(null)}
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-650 transition-all font-medium text-sm"
                 >
                   Close
                 </button>
@@ -1542,22 +1542,22 @@ const getDateRangeLabel = () => {
         {/* ✅ Spam Flag Modal */}
         {spamFlagModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-red-500/20 rounded-3xl max-w-2xl w-full my-8 shadow-2xl shadow-red-500/10 max-h-[90vh] flex flex-col">
-              <div className="p-6 border-b border-red-500/20 bg-gradient-to-r from-red-500/10 to-rose-500/10 flex-shrink-0">
+            <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-red-500/20 rounded-3xl max-w-2xl w-full my-8 shadow-2xl shadow-red-500/10 max-h-[90vh] flex flex-col">
+              <div className="p-6 border-b border-slate-200 dark:border-red-500/20 bg-gradient-to-r from-red-500/10 to-rose-500/10 dark:from-red-950/20 dark:to-rose-950/20 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <Shield className="h-6 w-6 text-red-400" />
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Shield className="h-6 w-6 text-red-655 dark:text-red-400" />
                       Flag as Spam
                     </h2>
-                    <p className="text-slate-400 text-sm mt-1">
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                       Report this comment as spam
                     </p>
                   </div>
                   <button
                     onClick={() => setSpamFlagModal(null)}
                     disabled={isSubmittingSpam}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
+                    className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1565,22 +1565,22 @@ const getDateRangeLabel = () => {
               </div>
 
               <div className="p-6 space-y-4 overflow-y-auto flex-1">
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700">
-                  <p className="text-slate-400 text-sm mb-2">Comment to Flag</p>
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Comment to Flag</p>
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-sm font-bold">
+                      <span className="text-[#ffffff] text-sm font-bold">
                         {spamFlagModal.comment.authorName?.charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium text-sm">
+                      <p className="text-slate-900 dark:text-white font-medium text-sm">
                         {spamFlagModal.comment.authorName}
                       </p>
-                      <p className="text-slate-400 text-xs">
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">
                         {spamFlagModal.comment.authorEmail}
                       </p>
-                      <p className="text-slate-300 text-sm mt-2 break-words">
+                      <p className="text-slate-700 dark:text-slate-300 text-sm mt-2 break-words">
                         {spamFlagModal.comment.commentText}
                       </p>
                     </div>
@@ -1588,8 +1588,8 @@ const getDateRangeLabel = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Reason for Flagging <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Reason for Flagging <span className="text-red-500 dark:text-red-400">*</span>
                   </label>
                   <textarea
                     value={spamFlagModal.reason}
@@ -1600,16 +1600,16 @@ const getDateRangeLabel = () => {
                     placeholder="e.g., Contains inappropriate content, promotional spam, etc."
                     rows={3}
                     disabled={isSubmittingSpam}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
-                  <p className="text-slate-500 text-xs mt-1">
+                  <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
                     Provide a clear reason for flagging this comment
                   </p>
                 </div>
 
               <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Spam Score <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Spam Score <span className="text-red-505 dark:text-red-400">*</span>
                   </label>
                   <input
                     type="number"
@@ -1624,10 +1624,10 @@ const getDateRangeLabel = () => {
                       });
                     }}
                     disabled={isSubmittingSpam}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-slate-500 text-xs">
+                    <p className="text-slate-505 dark:text-slate-400 text-xs">
                       Severity level (1-10)
                     </p>
                     <div className="flex items-center gap-1">
@@ -1637,11 +1637,11 @@ const getDateRangeLabel = () => {
                           className={`h-2 w-2 rounded-full transition-colors ${
                             score <= spamFlagModal.spamScore
                               ? score <= 3
-                                ? 'bg-yellow-400'
+                                ? 'bg-yellow-450 bg-yellow-400'
                                 : score <= 6
-                                ? 'bg-orange-400'
-                                : 'bg-red-400'
-                              : 'bg-slate-700'
+                                ? 'bg-orange-455 bg-orange-400'
+                                : 'bg-red-455 bg-red-400'
+                              : 'bg-slate-200 dark:bg-slate-700'
                           }`}
                         />
                       ))}
@@ -1650,8 +1650,8 @@ const getDateRangeLabel = () => {
                 </div>
 
      <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Flagged By <span className="text-red-400">*</span>
+  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+    Flagged By <span className="text-red-505 dark:text-red-400">*</span>
   </label>
 
   <input
@@ -1659,18 +1659,18 @@ const getDateRangeLabel = () => {
     value={spamFlagModal.flaggedBy || ""}
     readOnly
     disabled={isSubmittingSpam}
-    className="w-full px-4 py-3 bg-slate-800/40 border border-slate-700 rounded-xl text-white placeholder-slate-500 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 transition-all disabled:opacity-50"
+    className="w-full px-4 py-3 bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 placeholder-slate-400 dark:placeholder-slate-500 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 transition-all disabled:opacity-50"
   />
 
-  <p className="text-slate-500 text-xs mt-1">
+  <p className="text-slate-505 dark:text-slate-400 text-xs mt-1">
     Name is auto-filled from your profile (Not editable)
   </p>
 </div>
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-650 dark:text-red-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-red-400 text-sm font-semibold">Warning</p>
-                    <p className="text-slate-400 text-xs mt-1">
+                    <p className="text-red-700 dark:text-red-400 text-sm font-semibold">Warning</p>
+                    <p className="text-slate-605 dark:text-slate-400 text-xs mt-1">
                       This action will mark the comment as spam and hide it from public view.
                       The comment can be restored later if needed.
                     </p>
@@ -1678,11 +1678,11 @@ const getDateRangeLabel = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 p-6 border-t border-slate-700/50 flex-shrink-0 bg-slate-900/50">
+              <div className="flex justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700/50 flex-shrink-0 bg-slate-50 dark:bg-slate-900/50">
                 <button
                   onClick={() => setSpamFlagModal(null)}
                   disabled={isSubmittingSpam}
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm disabled:opacity-50"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-750 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 transition-all font-medium text-sm disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1693,11 +1693,11 @@ const getDateRangeLabel = () => {
                     !spamFlagModal.reason.trim() || 
                     !spamFlagModal.flaggedBy.trim()
                   }
-                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-lg hover:shadow-lg hover:shadow-red-500/50 transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 text-[#ffffff] rounded-lg hover:shadow-lg hover:shadow-red-500/50 transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmittingSpam ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       Flagging...
                     </>
                   ) : (

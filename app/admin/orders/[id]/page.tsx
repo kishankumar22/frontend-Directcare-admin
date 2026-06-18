@@ -379,7 +379,7 @@ const StatusBadge = ({
 <div
   className="
     absolute top-full mt-2 z-[9999] w-80 p-3 
-    bg-slate-50 dark:bg-slate-800\/95 backdrop-blur-sm 
+    bg-slate-50 dark:bg-slate-800/95 backdrop-blur-sm 
     border border-slate-300 dark:border-slate-600 
     rounded-lg shadow-2xl
     left-1/2 -translate-x-1/2
@@ -619,7 +619,7 @@ if (order.paymentStatus === 'Pending' && isOrderActive) {
     label: 'View Edit History',
     action: 'view-edit-history',
     icon: <History className="h-3.5 w-3.5" />,
-    color: 'bg-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700',
+    color: 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700',
     category: 'financial',
   });
 
@@ -712,7 +712,7 @@ const RegenerateInvoiceModal = ({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Reason for regeneration..."
               rows={3}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800\/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
@@ -1421,7 +1421,7 @@ const allActions = getAllAvailableActions(
 
       {/* ✅ CONSOLIDATED ACTION BUTTONS (Single Row, Dynamic) */}
 {allActions.length > 0 && (
-  <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 backdrop-blur-sm">
+  <div className="bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-2 backdrop-blur-sm">
     
     {/* Header */}
     <div className="flex items-center gap-2 mb-3">
@@ -1438,7 +1438,7 @@ const allActions = getAllAvailableActions(
           key={index}
           onClick={() => handleAction(btn.action)}
           disabled={btn.action === 'download-invoice' && downloadingInvoice}
-          className={`px-3 py-2 ${btn.color} text-slate-900 dark:text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100`}
+          className={`px-3 py-2 ${btn.color} ${btn.color.includes('bg-slate-100') ? 'text-slate-900 dark:text-white' : 'text-white'} rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100`}
           title={`Click to ${btn.label.toLowerCase()}`}
         >
           {btn.action === 'download-invoice' && downloadingInvoice
@@ -1521,7 +1521,7 @@ const allActions = getAllAvailableActions(
 
         {/* ── Expandable Q&A Panel ── */}
         {showPharmaQA && (
-          <div className="border-t border-slate-200 dark:border-slate-700\/50 px-4 py-4 space-y-4 bg-white dark:bg-slate-900\/40">
+          <div className="border-t border-slate-200 dark:border-slate-700/50 px-4 py-4 space-y-4 bg-white dark:bg-slate-900/40">
 
             {/* Q&A Responses */}
             {order.pharmacyResponses && order.pharmacyResponses.length > 0 ? (
@@ -1539,7 +1539,7 @@ const allActions = getAllAvailableActions(
                       {order.pharmacyResponses!
                         .filter((r) => r.productName === productName)
                         .map((r, i) => (
-                          <div key={i} className="flex items-start justify-between gap-4 bg-slate-50 dark:bg-slate-800\/60 rounded-lg px-3 py-2.5 border border-slate-200 dark:border-slate-700\/40">
+                          <div key={i} className="flex items-start justify-between gap-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg px-3 py-2.5 border border-slate-200 dark:border-slate-700/40">
                             <p className="text-slate-700 dark:text-slate-300 text-xs flex-1">{r.questionText}</p>
                             <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
                               r.answerText?.toLowerCase() === 'yes'
@@ -1577,7 +1577,7 @@ const allActions = getAllAvailableActions(
 
             {/* Approve / Reject Buttons — only for Pending */}
             {order.pharmacyVerificationStatus === 'Pending' && (
-              <div className="flex gap-2 pt-1 border-t border-slate-200 dark:border-slate-700\/50">
+              <div className="flex gap-2 pt-1 border-t border-slate-200 dark:border-slate-700/50">
                 <button
                   onClick={() => setPharmaAction('approve')}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-slate-900 dark:text-white rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-green-500/20"
@@ -2079,7 +2079,7 @@ const allActions = getAllAvailableActions(
         </div>
       )}
 
-<div className="bg-gradient-to-br from-slate-900/80 to-slate-800 border border-pink-500/20 rounded-xl p-4 space-y-3">
+<div className="bg-slate-50/50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3 hover:border-pink-500/30 transition-all backdrop-blur-sm">
 
   {/* Header */}
   <div className="flex items-center justify-between">
@@ -2121,7 +2121,7 @@ const allActions = getAllAvailableActions(
 
     <div
       key={item.id}
-      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800\/60 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-pink-500/30 transition-all"
+      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-pink-500/30 transition-all"
     >
 
       {/* Left */}
@@ -2401,7 +2401,7 @@ const allActions = getAllAvailableActions(
               return (
                 <div
                   key={payment.id}
-                  className="p-3 bg-slate-50 dark:bg-slate-800\/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-violet-500/30 transition-all"
+                  className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-violet-500/30 transition-all"
                   title={`Payment via ${payment.paymentMethod}`}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -2451,7 +2451,7 @@ const allActions = getAllAvailableActions(
             {order.shipments.map((shipment, index) => (
               <div
                 key={shipment.id}
-                className="p-3 bg-slate-50 dark:bg-slate-800\/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-purple-500/30 transition-all"
+                className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-purple-500/30 transition-all"
                 title={`Shipment #${index + 1}`}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -2577,7 +2577,7 @@ const allActions = getAllAvailableActions(
               <Info className="h-3 w-3 inline" /> Customer Notes
             </span>
           </div>
-          <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap bg-slate-50 dark:bg-slate-800\/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+          <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
             {order.notes}
           </p>
         </div>

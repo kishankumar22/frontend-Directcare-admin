@@ -31,6 +31,7 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { PharmacyQuestion, pharmacyQuestionsService, UpdatePharmacyQuestionDto } from "@/lib/services/PharmacyQuestions";
 import PharmacyQuestionFormModal from "./PharmacyQuestionFormModal";
 import { useDebounce } from "@/app/hooks/useDebounce";
+import { getBackendMessage } from "../_utils/errorUtils";
 
 
 type ViewMode = "all" | "active" | "inactive";
@@ -228,11 +229,14 @@ else if (viewMode === "inactive") {
       onConfirm: async () => {
         try {
           setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
-          await pharmacyQuestionsService.delete(question.id);
-          toast.success("Question deleted successfully");
+         const response = await pharmacyQuestionsService.delete(question.id);
+
+toast.success(
+  getBackendMessage(response)
+);
           fetchQuestions();
         } catch (error: any) {
-          toast.error(error?.response?.data?.message || "Failed to delete question");
+          toast.error(getBackendMessage(error));
         } finally {
           setConfirmDialog((prev) => ({ ...prev, isOpen: false, isLoading: false }));
         }
@@ -252,11 +256,14 @@ else if (viewMode === "inactive") {
       onConfirm: async () => {
         try {
           setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
-          await pharmacyQuestionsService.restore(question.id);
-          toast.success("Question restored successfully");
+        const response = await pharmacyQuestionsService.restore(question.id);
+
+toast.success(
+  getBackendMessage(response)
+);
           fetchQuestions();
         } catch (error: any) {
-          toast.error(error?.response?.data?.message || "Failed to restore question");
+          toast.error(getBackendMessage(error));
         } finally {
           setConfirmDialog((prev) => ({ ...prev, isOpen: false, isLoading: false }));
         }
@@ -277,11 +284,9 @@ else if (viewMode === "inactive") {
       ? "bg-gradient-to-r from-red-500 to-rose-500"
       : "bg-gradient-to-r from-green-500 to-emerald-500",
     isLoading: false,
-  onConfirm: async () => {
+onConfirm: async () => {
   try {
     setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
-
-  
 
     const updateData: UpdatePharmacyQuestionDto = {
       id: question.id,
@@ -296,20 +301,24 @@ else if (viewMode === "inactive") {
               id: opt.id,
               optionText: opt.optionText,
               displayOrder: opt.displayOrder,
+              requiresFollowUpText: opt.requiresFollowUpText ?? false,
+              followUpPrompt: opt.followUpPrompt ?? "",
             })),
     };
 
-    await pharmacyQuestionsService.update(question.id, updateData);
+    const response = await pharmacyQuestionsService.update(
+      question.id,
+      updateData
+    );
 
     toast.success(
-      `Question ${question.isActive ? "deactivated" : "activated"} successfully`
+      getBackendMessage(response)
     );
 
     fetchQuestions();
   } catch (error: any) {
     toast.error(
-      error?.response?.data?.message ||
-      "Failed to update question status"
+      getBackendMessage(error)
     );
   } finally {
     setConfirmDialog((prev) => ({
@@ -342,11 +351,7 @@ else if (viewMode === "inactive") {
 
 
 
-const hasActiveFilters =
-  searchTerm.trim() ||
-  viewMode !== "all" ||
-  statusFilter !== "all" ||
-  includeDeleted;
+
 
 
   const totalPages = Math.ceil(totalCount / pageSize);

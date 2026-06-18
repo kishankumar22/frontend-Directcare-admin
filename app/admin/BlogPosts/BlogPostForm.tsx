@@ -479,6 +479,7 @@ async function handleSave(publish?: boolean) {
         : {};
 
     const finalPayload: any = {
+      ...(mode === "edit" ? initialData : {}),
       id: mode === "edit" ? initialData?.id : undefined,
 
       title: title.trim(),

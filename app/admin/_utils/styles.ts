@@ -21,9 +21,9 @@ export function getSelectStyles(isDark: boolean) {
         : border,
       borderWidth: state.selectProps.value && state.selectProps.value.value !== 'all' ? '2px' : '1px',
       borderRadius: '0.75rem',
-      padding: '0.10rem',
+      padding: '0px',
       boxShadow: state.isFocused ? '0 0 0 2px rgba(139,92,246,0.5)' : 'none',
-      minHeight: '42px',
+      minHeight: '37px',
     }),
     menu: (base: any) => ({
       ...base,
@@ -50,14 +50,9 @@ export function getSelectStyles(isDark: boolean) {
     singleValue: (base: any) => ({
       ...base,
       color: text,
-      whiteSpace: 'normal',
-      overflow: 'visible',
-      textOverflow: 'unset',
     }),
     valueContainer: (base: any) => ({
       ...base,
-      whiteSpace: 'normal',
-      overflow: 'visible',
     }),
     input:               (base: any) => ({ ...base, color: text }),
     placeholder:         (base: any) => ({ ...base, color: muted }),

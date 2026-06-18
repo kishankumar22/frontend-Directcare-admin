@@ -659,21 +659,21 @@ const modalTier = selectedCustomer
       {selectedCustomers.length > 0 && (
         <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
           <div className="flex justify-center px-2">
-            <div className="pointer-events-auto mx-auto w-fit max-w-[95%] rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md">
+            <div className="pointer-events-auto mx-auto w-fit max-w-[95%] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-sm">
                     <span className="h-2 w-2 rounded-full bg-violet-500"></span>
-                    <span className="font-semibold text-white">{selectedCustomers.length}</span>
-                    <span className="text-slate-300">customers selected</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{selectedCustomers.length}</span>
+                    <span className="text-slate-500 dark:text-slate-300">customers selected</span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-400">Bulk actions: export selected customers.</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Bulk actions: export selected customers.</p>
                 </div>
-                <div className="h-5 w-px bg-slate-700 hidden md:block" />
+                <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
                 <button onClick={handleExportSelected} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700">
                   <Download className="h-4 w-4" /> Export ({selectedCustomers.length})
                 </button>
-                <button onClick={() => setSelectedCustomers([])} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-all">Clear</button>
+                <button onClick={() => setSelectedCustomers([])} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm rounded-lg transition-all border border-slate-200 dark:border-transparent">Clear</button>
               </div>
             </div>
           </div>
@@ -703,22 +703,22 @@ const modalTier = selectedCustomer
 
       {isOrderModalOpen && selectedOrderCustomer && (
   <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-cyan-500/20 rounded-2xl w-full max-w-[85vw] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-[85vw] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
 
       {/* HEADER */}
-      <div className="p-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 flex justify-between items-center">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">
             Order History ({selectedOrderCustomer.orders.length})
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {selectedOrderCustomer.fullName}
           </p>
         </div>
 
         <button
           onClick={() => setIsOrderModalOpen(false)}
-          className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg"
+          className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-red-500/20 rounded-lg"
         >
           <X className="h-5 w-5" />
         </button>
@@ -731,15 +731,15 @@ const modalTier = selectedCustomer
     // 🔥 EMPTY STATE
     <div className="flex flex-col items-center justify-center py-16 text-center">
 
-      <div className="w-16 h-16 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 mb-4">
+      <div className="w-16 h-16 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mb-4">
         <PackageX className="h-8 w-8 text-slate-500" />
       </div>
 
-      <h3 className="text-white text-lg font-semibold">
+      <h3 className="text-slate-900 dark:text-white text-lg font-semibold">
         No Orders Found
       </h3>
 
-      <p className="text-slate-400 text-sm mt-1">
+      <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
         This customer has not placed any orders yet.
       </p>
 
@@ -754,13 +754,13 @@ const modalTier = selectedCustomer
         : order.items?.slice(0, MAX_ITEMS);
 
       return (
-        <div key={order.id} className="border border-slate-700 rounded-xl overflow-hidden">
+        <div key={order.id} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
 
           {/* ORDER HEADER */}
-          <div className="p-3 flex justify-between items-center bg-gradient-to-r from-slate-800/60 to-slate-900">
+          <div className="p-3 flex justify-between items-center bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
             <div>
-              <p className="text-white font-semibold">{order.orderNumber}</p>
-              <p className="text-xs text-slate-400">
+              <p className="text-slate-900 dark:text-white font-semibold">{order.orderNumber}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {formatDate(order.orderDate)}
               </p>
             </div>
@@ -780,8 +780,8 @@ const modalTier = selectedCustomer
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-8">
 
             {/* ITEMS */}
-            <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700">
-              <h4 className="text-sm font-semibold text-white mb-3">Items</h4>
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Items</h4>
 
               <div className="space-y-2">
                 {visibleItems?.map((item) => (
@@ -789,11 +789,11 @@ const modalTier = selectedCustomer
 
                     <img
                       src={getImageUrl(item.productImageUrl)}
-                      className="w-11 h-11 rounded-md object-cover border border-slate-700"
+                      className="w-11 h-11 rounded-md object-cover border border-slate-200 dark:border-slate-700"
                     />
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">
+                      <p className="text-sm text-slate-700 dark:text-white truncate font-medium">
                         {item.productName}
                       </p>
                       <p className="text-[11px] text-slate-500">
@@ -802,8 +802,8 @@ const modalTier = selectedCustomer
                     </div>
 
                     <div className="text-right">
-                      <p className="text-xs text-slate-300">x{item.quantity}</p>
-                      <p className="text-xs text-cyan-400">
+                      <p className="text-xs text-slate-500 dark:text-slate-300">x{item.quantity}</p>
+                      <p className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold">
                         {formatCurrency(item.totalPrice)}
                       </p>
                     </div>
@@ -816,7 +816,7 @@ const modalTier = selectedCustomer
                   onClick={() =>
                     setExpandedOrderId(isExpanded ? null : order.id)
                   }
-                  className="text-xs text-violet-400 hover:text-violet-300 mt-2"
+                  className="text-xs text-violet-500 hover:text-violet-400 mt-2 font-medium"
                 >
                   {isExpanded
                     ? "Show less"
@@ -826,16 +826,16 @@ const modalTier = selectedCustomer
             </div>
 
             {/* PAYMENT */}
-            <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700">
-              <h4 className="text-sm font-semibold text-white mb-3">Payment</h4>
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Payment</h4>
 
-              <div className="space-y-1 text-white text-sm">
-                <p>Method: <span className="text-white">{order.payment?.paymentMethod}</span></p>
-                <p>Status: <span className={getPaymentColor(order.paymentStatus)}>{order.paymentStatus}</span></p>
-                <p>Paid: <span className="text-green-400">{formatCurrency(order.totalPaidAmount)}</span></p>
+              <div className="space-y-1 text-slate-700 dark:text-white text-sm">
+                <p>Method: <span className="text-slate-900 dark:text-white font-medium">{order.payment?.paymentMethod}</span></p>
+                <p>Status: <span className={`${getPaymentColor(order.paymentStatus)} font-medium`}>{order.paymentStatus}</span></p>
+                <p>Paid: <span className="text-green-600 dark:text-green-400 font-semibold">{formatCurrency(order.totalPaidAmount)}</span></p>
 
                 {order.payment?.transactionId && (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     TXN: {order.payment.transactionId}
                   </p>
                 )}
@@ -843,42 +843,42 @@ const modalTier = selectedCustomer
             </div>
 
             {/* SHIPPING */}
-            <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700">
-              <h4 className="text-sm font-semibold text-white mb-3">Shipping</h4>
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Shipping</h4>
 
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-slate-800 dark:text-slate-300 font-medium">
                 {order.shippingAddress.firstName} {order.shippingAddress.lastName}
               </p>
 
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {order.shippingAddress.addressLine1}
               </p>
 
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {order.shippingAddress.city}, {order.shippingAddress.country}
               </p>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                 {order.shippingAddress.phoneNumber}
               </p>
             </div>
 
             {/* SUMMARY */}
-            <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-700">
-              <h4 className="text-sm font-semibold text-white mb-3">Summary</h4>
+            <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Summary</h4>
 
-              <div className="text-sm text-white space-y-1">
+              <div className="text-sm text-slate-700 dark:text-white space-y-1">
                 <p>Subtotal: {formatCurrency(order.subtotalAmount)}</p>
                 <p>Tax: {formatCurrency(order.taxAmount)}</p>
                 <p>Shipping: {formatCurrency(order.shippingAmount)}</p>
 
                 {order.discountAmount > 0 && (
-                  <p className="text-red-400">
+                  <p className="text-red-500 dark:text-red-400 font-medium">
                     Discount: -{formatCurrency(order.discountAmount)}
                   </p>
                 )}
 
-                <p className="text-cyan-400 font-semibold">
+                <p className="text-cyan-600 dark:text-cyan-400 font-semibold border-t border-slate-200 dark:border-slate-700 pt-1 mt-1">
                   Total: {formatCurrency(order.totalAmount)}
                 </p>
               </div>
@@ -887,7 +887,7 @@ const modalTier = selectedCustomer
           </div>
 
           {order.unshippedItems?.length > 0 && (
-            <div className="p-4 border-t border-slate-700">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800">
               <h4 className="text-sm text-orange-400 mb-2">
                 Pending Shipment
               </h4>
@@ -914,10 +914,10 @@ const modalTier = selectedCustomer
 {isModalOpen && selectedCustomer && (
   
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-[80vw] w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-[80vw] w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
       
       {/* Modal Header */}
-      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-violet-600/10 to-cyan-500/10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">
@@ -925,14 +925,14 @@ const modalTier = selectedCustomer
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-white">{selectedCustomer.fullName}</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedCustomer.fullName}</h2>
            {modalTier === "loading" ? (
   <span className="text-xs text-slate-500">Loading...</span>
 ) : (
   getTierBadge(modalTier)
 )}
               </div>
-              <p className="text-slate-400 text-sm mt-0.5">{selectedCustomer.email}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{selectedCustomer.email}</p>
             </div>
           </div>
           <button
@@ -941,7 +941,7 @@ const modalTier = selectedCustomer
               setSelectedCustomer(null);
               setExpandedOrderId(null);
             }}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+            className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-red-500/20 border border-transparent dark:hover:border-red-500/50 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -959,8 +959,8 @@ const modalTier = selectedCustomer
                 <ShoppingBag className="h-5 w-5 text-cyan-400" />
               </div>
               <div>
-                <p className="text-slate-400 text-xs font-medium">Total Orders</p>
-                <p className="text-2xl font-bold text-white">{selectedCustomer.totalOrders}</p>
+                <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Total Orders</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{selectedCustomer.totalOrders}</p>
               </div>
             </div>
           </div>
@@ -971,8 +971,8 @@ const modalTier = selectedCustomer
                 <PoundSterling className="h-5 w-5 text-green-400" />
               </div>
               <div>
-                <p className="text-slate-400 text-xs font-medium">Total Spent</p>
-                <p className="text-xl font-bold text-white">{formatCurrency(selectedCustomer.totalSpent)}</p>
+                <p className="text-slate-555 dark:text-slate-400 text-xs font-medium">Total Spent</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">{formatCurrency(selectedCustomer.totalSpent)}</p>
               </div>
             </div>
           </div>
@@ -983,8 +983,8 @@ const modalTier = selectedCustomer
                 <TrendingUp className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-slate-400 text-xs font-medium">Avg Order Value</p>
-                <p className="text-xl font-bold text-white">
+                <p className="text-slate-555 dark:text-slate-400 text-xs font-medium">Avg Order Value</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">
                   £{selectedCustomer.totalOrders > 0 
                     ? (selectedCustomer.totalSpent / selectedCustomer.totalOrders).toFixed(2)
                     : "0.00"}
@@ -999,8 +999,8 @@ const modalTier = selectedCustomer
                 <Activity className="h-5 w-5 text-violet-400" />
               </div>
               <div>
-                <p className="text-slate-400 text-xs font-medium">Status</p>
-                <p className="text-lg font-bold text-white capitalize">
+                <p className="text-slate-555 dark:text-slate-400 text-xs font-medium">Status</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white capitalize">
                   {selectedCustomer.isActive ? "Active" : "Inactive"}
                 </p>
               </div>
@@ -1009,9 +1009,9 @@ const modalTier = selectedCustomer
         </div>
 
         {/* ✅ HORIZONTAL TIMELINE - NEW VERSION */}
-        <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-          <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-cyan-400" />
+        <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
             Customer Timeline
           </h3>
           
@@ -1030,10 +1030,10 @@ const modalTier = selectedCustomer
                     <UserPlus className="h-5 w-5 text-cyan-400" />
                   </div>
                 </div>
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-cyan-500/30 hover:border-cyan-500/60 transition-all">
-                  <p className="text-sm text-cyan-400 font-semibold mb-1">Registered</p>
-                  <p className="text-xs text-white font-medium">{formatDate(selectedCustomer.createdAt)}</p>
-                  <p className="text-xs text-slate-400 mt-1">
+                <div className="bg-white dark:bg-slate-900/50 rounded-lg p-3 border border-slate-200 dark:border-slate-800/60 hover:border-cyan-500/60 transition-all shadow-sm">
+                  <p className="text-sm text-cyan-600 dark:text-cyan-400 font-semibold mb-1">Registered</p>
+                  <p className="text-xs text-slate-700 dark:text-white font-medium">{formatDate(selectedCustomer.createdAt)}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                     {Math.floor((new Date().getTime() - new Date(selectedCustomer.createdAt).getTime()) / (1000 * 60 * 60 * 24))} days ago
                   </p>
                 </div>
@@ -1045,29 +1045,29 @@ const modalTier = selectedCustomer
                   <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center backdrop-blur-sm hover:scale-110 transition-transform ${
                     selectedCustomer.orders.length > 0
                       ? "bg-green-500/20 border-green-500"
-                      : "bg-slate-700/20 border-slate-600"
+                      : "bg-slate-100 dark:bg-slate-700/20 border-slate-300 dark:border-slate-600"
                   }`}>
                     <ShoppingCart className={`h-5 w-5 ${
-                      selectedCustomer.orders.length > 0 ? "text-green-400" : "text-slate-500"
+                      selectedCustomer.orders.length > 0 ? "text-green-600 dark:text-green-400" : "text-slate-500"
                     }`} />
                   </div>
                 </div>
-                <div className={`bg-slate-900/50 rounded-lg p-3 border hover:border-green-500/60 transition-all ${
+                <div className={`bg-white dark:bg-slate-900/50 rounded-lg p-3 border hover:border-green-500/60 transition-all shadow-sm ${
                   selectedCustomer.orders.length > 0
                     ? "border-green-500/30"
-                    : "border-slate-700/30"
+                    : "border-slate-200 dark:border-slate-800/60"
                 }`}>
                   <p className={`text-sm font-semibold mb-1 ${
-                    selectedCustomer.orders.length > 0 ? "text-green-400" : "text-slate-500"
+                    selectedCustomer.orders.length > 0 ? "text-green-600 dark:text-green-400" : "text-slate-500"
                   }`}>
                     First Order
                   </p>
                   {selectedCustomer.orders.length > 0 ? (
                     <>
-                      <p className="text-xs text-white font-medium">
+                      <p className="text-xs text-slate-700 dark:text-white font-medium">
                         {formatDate(selectedCustomer.orders[selectedCustomer.orders.length - 1].orderDate)}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1 truncate">
+                      <p className="text-xs text-slate-555 dark:text-slate-400 mt-1 truncate">
                         {selectedCustomer.orders[selectedCustomer.orders.length - 1].orderNumber}
                       </p>
                     </>
@@ -1083,29 +1083,29 @@ const modalTier = selectedCustomer
                   <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center backdrop-blur-sm hover:scale-110 transition-transform ${
                     selectedCustomer.orders.length > 0
                       ? "bg-violet-500/20 border-violet-500"
-                      : "bg-slate-700/20 border-slate-600"
+                      : "bg-slate-100 dark:bg-slate-700/20 border-slate-300 dark:border-slate-600"
                   }`}>
                     <Package className={`h-5 w-5 ${
-                      selectedCustomer.orders.length > 0 ? "text-violet-400" : "text-slate-500"
+                      selectedCustomer.orders.length > 0 ? "text-violet-600 dark:text-violet-400" : "text-slate-500"
                     }`} />
                   </div>
                 </div>
-                <div className={`bg-slate-900/50 rounded-lg p-3 border hover:border-violet-500/60 transition-all ${
+                <div className={`bg-white dark:bg-slate-900/50 rounded-lg p-3 border hover:border-violet-500/60 transition-all shadow-sm ${
                   selectedCustomer.orders.length > 0
                     ? "border-violet-500/30"
-                    : "border-slate-700/30"
+                    : "border-slate-200 dark:border-slate-800/60"
                 }`}>
                   <p className={`text-sm font-semibold mb-1 ${
-                    selectedCustomer.orders.length > 0 ? "text-violet-400" : "text-slate-500"
+                    selectedCustomer.orders.length > 0 ? "text-violet-600 dark:text-violet-400" : "text-slate-500"
                   }`}>
                     Latest Order
                   </p>
                   {selectedCustomer.orders.length > 0 ? (
                     <>
-                      <p className="text-xs text-white font-medium">
+                      <p className="text-xs text-slate-700 dark:text-white font-medium">
                         {formatDate(selectedCustomer.orders[0].orderDate)}
                       </p>
-                      <p className="text-xs text-cyan-400 font-semibold mt-1">
+                      <p className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold mt-1">
                         {formatCurrency(selectedCustomer.orders[0].totalAmount)}
                       </p>
                     </>
@@ -1121,29 +1121,29 @@ const modalTier = selectedCustomer
                   <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center backdrop-blur-sm hover:scale-110 transition-transform ${
                     selectedCustomer.lastLoginAt
                       ? "bg-yellow-500/20 border-yellow-500"
-                      : "bg-slate-700/20 border-slate-600"
+                      : "bg-slate-100 dark:bg-slate-700/20 border-slate-300 dark:border-slate-600"
                   }`}>
                     <LogIn className={`h-5 w-5 ${
-                      selectedCustomer.lastLoginAt ? "text-yellow-400" : "text-slate-500"
+                      selectedCustomer.lastLoginAt ? "text-yellow-600 dark:text-yellow-400" : "text-slate-500"
                     }`} />
                   </div>
                 </div>
-                <div className={`bg-slate-900/50 rounded-lg p-3 border hover:border-yellow-500/60 transition-all ${
+                <div className={`bg-white dark:bg-slate-900/50 rounded-lg p-3 border hover:border-yellow-500/60 transition-all shadow-sm ${
                   selectedCustomer.lastLoginAt
                     ? "border-yellow-500/30"
-                    : "border-slate-700/30"
+                    : "border-slate-200 dark:border-slate-800/60"
                 }`}>
                   <p className={`text-sm font-semibold mb-1 ${
-                    selectedCustomer.lastLoginAt ? "text-yellow-400" : "text-slate-500"
+                    selectedCustomer.lastLoginAt ? "text-yellow-600 dark:text-yellow-400" : "text-slate-500"
                   }`}>
                     Last Login
                   </p>
                   {selectedCustomer.lastLoginAt ? (
                     <>
-                      <p className="text-xs text-white font-medium">
+                      <p className="text-xs text-slate-700 dark:text-white font-medium">
                         {formatExactDate(selectedCustomer.lastLoginAt)}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-slate-555 dark:text-slate-400 mt-1 font-medium">
                         {formatRelativeDate(selectedCustomer.lastLoginAt)}
                       </p>
                     </>
@@ -1167,8 +1167,8 @@ const modalTier = selectedCustomer
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-orange-400 font-semibold">⚠️ Dormant Customer Alert</p>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    No orders in <span className="font-semibold text-white">{daysSinceLastOrder} days</span> • Consider sending a re-engagement campaign
+                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5 font-medium">
+                    No orders in <span className="font-semibold text-slate-900 dark:text-white">{daysSinceLastOrder} days</span> • Consider sending a re-engagement campaign
                   </p>
                 </div>
               </div>
@@ -1177,52 +1177,52 @@ const modalTier = selectedCustomer
         </div>
 
         {/* ✅ Personal Information */}
-        <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-          <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
-            <User className="h-4 w-4 text-violet-400" />
+        <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+            <User className="h-4 w-4 text-violet-555 dark:text-violet-400" />
             Personal Information
           </h3>
           <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-violet-400 shrink-0" />
-              <span className="text-slate-400 min-w-[80px]">Email:</span>
-              <span className="text-white font-medium truncate">{selectedCustomer.email}</span>
+              <Mail className="h-4 w-4 text-violet-555 dark:text-violet-400 shrink-0" />
+              <span className="text-slate-500 dark:text-slate-400 min-w-[80px]">Email:</span>
+              <span className="text-slate-950 dark:text-white font-medium truncate">{selectedCustomer.email}</span>
             </div>
 
             {selectedCustomer.phoneNumber && (
               <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-violet-400 shrink-0" />
-                <span className="text-slate-400 min-w-[80px]">Phone:</span>
-                <span className="text-white font-medium">{selectedCustomer.phoneNumber}</span>
+                <Phone className="h-4 w-4 text-violet-555 dark:text-violet-400 shrink-0" />
+                <span className="text-slate-500 dark:text-slate-400 min-w-[80px]">Phone:</span>
+                <span className="text-slate-950 dark:text-white font-medium">{selectedCustomer.phoneNumber}</span>
               </div>
             )}
 
             {selectedCustomer.dateOfBirth && (
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-violet-400 shrink-0" />
-                <span className="text-slate-400 min-w-[80px]">DOB:</span>
-                <span className="text-white font-medium">{formatDate(selectedCustomer.dateOfBirth)}</span>
+                <Calendar className="h-4 w-4 text-violet-555 dark:text-violet-400 shrink-0" />
+                <span className="text-slate-500 dark:text-slate-400 min-w-[80px]">DOB:</span>
+                <span className="text-slate-950 dark:text-white font-medium">{formatDate(selectedCustomer.dateOfBirth)}</span>
               </div>
             )}
 
             {selectedCustomer.gender && (
               <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-violet-400 shrink-0" />
-                <span className="text-slate-400 min-w-[80px]">Gender:</span>
-                <span className="text-white font-medium capitalize">{selectedCustomer.gender}</span>
+                <User className="h-4 w-4 text-violet-555 dark:text-violet-400 shrink-0" />
+                <span className="text-slate-500 dark:text-slate-400 min-w-[80px]">Gender:</span>
+                <span className="text-slate-950 dark:text-white font-medium capitalize">{selectedCustomer.gender}</span>
               </div>
             )}
 
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-violet-400 shrink-0" />
-              <span className="text-slate-400 min-w-[80px]">Joined:</span>
-              <span className="text-white font-medium">{formatDate(selectedCustomer.createdAt)}</span>
+              <Calendar className="h-4 w-4 text-violet-555 dark:text-violet-400 shrink-0" />
+              <span className="text-slate-500 dark:text-slate-400 min-w-[80px]">Joined:</span>
+              <span className="text-slate-950 dark:text-white font-medium">{formatDate(selectedCustomer.createdAt)}</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-violet-400 shrink-0" />
-              <span className="text-slate-400 min-w-[80px]">Last Active:</span>
-              <span className="text-white font-medium">
+              <Activity className="h-4 w-4 text-violet-555 dark:text-violet-400 shrink-0" />
+              <span className="text-slate-500 dark:text-slate-400 min-w-[80px]">Last Active:</span>
+              <span className="text-slate-950 dark:text-white font-medium">
                 {selectedCustomer.lastLoginAt ? formatRelativeDate(selectedCustomer.lastLoginAt) : "Never"}
               </span>
             </div>
@@ -1231,31 +1231,31 @@ const modalTier = selectedCustomer
 
         {/* ✅ Saved Addresses */}
         {selectedCustomer.addresses.length > 0 && (
-          <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-            <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-pink-400" />
+          <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-pink-500 dark:text-pink-400" />
               Saved Addresses ({selectedCustomer.addresses.length})
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {selectedCustomer.addresses.map((address, index) => (
-                <div key={index} className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                <div key={index} className="p-3 bg-white dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
                   <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-violet-400 mt-0.5 shrink-0" />
+                    <MapPin className="h-4 w-4 text-violet-500 dark:text-violet-400 mt-0.5 shrink-0" />
                     <div className="flex-1 text-sm">
-                      <p className="font-medium text-white">
+                      <p className="font-semibold text-slate-900 dark:text-white">
                         {address.firstName} {address.lastName}
                       </p>
                       {address.company && (
-                        <p className="text-xs text-slate-400 mt-0.5">{address.company}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{address.company}</p>
                       )}
-                      <p className="text-xs text-slate-300 mt-1">{address.addressLine1}</p>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">{address.addressLine1}</p>
                       {address.addressLine2 && (
-                        <p className="text-xs text-slate-300">{address.addressLine2}</p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300">{address.addressLine2}</p>
                       )}
-                      <p className="text-xs text-slate-300">
+                      <p className="text-xs text-slate-700 dark:text-slate-300">
                         {address.city}, {address.state} {address.postalCode}
                       </p>
-                      <p className="text-xs text-slate-300">{address.country}</p>
+                      <p className="text-xs text-slate-700 dark:text-slate-300">{address.country}</p>
                     </div>
                   </div>
                 </div>

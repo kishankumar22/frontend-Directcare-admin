@@ -1205,13 +1205,40 @@ const frequencyPresets: Record<string, string> = {
           console.log('🔍 RAW VARIANT DATA FROM API:', productData.variants);
 
           const vars = productData.variants.map((variant: any) => {
-            // Parse optionValues - can be array or comma-separated string
+            // Find the actual option names in order they appear in options array
+            const orderedOptionNames = (productData.options && Array.isArray(productData.options))
+              ? productData.options.map((opt: any) => opt.name).filter(Boolean)
+              : [];
+
+            // Helper to get value matching option name
+            const getValueForOption = (name: string) => {
+              if (name === variant.option1Name) return variant.option1Value;
+              if (name === variant.option2Name) return variant.option2Value;
+              if (name === variant.option3Name) return variant.option3Value;
+              return null;
+            };
+
+            // Re-aligned optionValues array matching option order
             let optionValues: string[] = [];
-            if (Array.isArray(variant.optionValues)) {
-              optionValues = variant.optionValues;
-            } else if (typeof variant.optionValues === 'string' && variant.optionValues) {
-              optionValues = variant.optionValues.split(',').map((v: string) => v.trim());
+            if (orderedOptionNames.length > 0) {
+              optionValues = orderedOptionNames.map((name: string) => getValueForOption(name) || '');
+            } else {
+              if (Array.isArray(variant.optionValues)) {
+                optionValues = variant.optionValues;
+              } else if (typeof variant.optionValues === 'string' && variant.optionValues) {
+                optionValues = variant.optionValues.split(',').map((v: string) => v.trim());
+              }
             }
+
+            // Re-aligned option names and values
+            const opt1Name = orderedOptionNames[0] || null;
+            const opt1Value = opt1Name ? getValueForOption(opt1Name) : null;
+
+            const opt2Name = orderedOptionNames[1] || null;
+            const opt2Value = opt2Name ? getValueForOption(opt2Name) : null;
+
+            const opt3Name = orderedOptionNames[2] || null;
+            const opt3Value = opt3Name ? getValueForOption(opt3Name) : null;
 
             return {
               id: variant.id || `var-${Date.now()}-${Math.random()}`,
@@ -1223,12 +1250,12 @@ const frequencyPresets: Record<string, string> = {
               stockQuantity: variant.stockQuantity || 0,
               trackInventory: variant.trackInventory ?? true,
               optionValues: optionValues,  // NEW: Option values as list
-              option1Name: variant.option1Name || null,
-              option1Value: variant.option1Value || null,
-              option2Name: variant.option2Name || null,
-              option2Value: variant.option2Value || null,
-              option3Name: variant.option3Name || null,
-              option3Value: variant.option3Value || null,
+              option1Name: opt1Name,
+              option1Value: opt1Value,
+              option2Name: opt2Name,
+              option2Value: opt2Value,
+              option3Name: opt3Name,
+              option3Value: opt3Value,
               imageUrl: variant.imageUrl || null,
               imageFile: null,
               isDefault: variant.isDefault ?? false,

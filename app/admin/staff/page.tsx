@@ -426,17 +426,17 @@ const submitReset = useCallback(
     <div className="space-y-2">
       <BulkSelectionBar count={selectedIds.size} onExport={exportSelected} onClear={clearSelection} />
       <div
-        className="sticky z-20 -mx-4 px-4 py-3 border-b border-slate-800"
+        className="sticky z-20 -mx-4 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md"
       >
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-end gap-3 flex-wrap">
-              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
                 Staff Management
               </h1>
-              <div className="text-sm text-slate-400 mb-1">{list.totalCount} staff</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{list.totalCount} staff</div>
             </div>
-            <p className="text-slate-400 text-sm mt-0.5">Create, manage roles, and control staff access</p>
+            <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">Create, manage roles, and control staff access</p>
           </div>
 
           <div className="flex items-center gap-2 justify-between">
@@ -444,7 +444,7 @@ const submitReset = useCallback(
               type="button"
               onClick={fetchList}
               disabled={loading}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-all"
             >
               {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Refresh
@@ -460,7 +460,7 @@ const submitReset = useCallback(
             <button
               type="button"
               onClick={() => router.push('/admin/staff-roles')}
-              className="px-4 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
             >
               Go To Roles page
             </button>
@@ -545,8 +545,8 @@ const submitReset = useCallback(
       />
 
       {list.items.length === 0 && !loading && (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex items-center gap-3 text-slate-300">
-          <ShieldAlert className="h-5 w-5 text-amber-400" />
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-3 text-slate-700 dark:text-slate-300">
+          <ShieldAlert className="h-5 w-5 text-amber-500 dark:text-amber-400" />
           No staff data found for current filters.
         </div>
       )}

@@ -198,12 +198,12 @@ export default function StaffRolesPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-end gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
               Staff Roles
             </h1>
-            <div className="text-sm text-slate-400 mb-1">{filtered.length} roles</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{filtered.length} roles</div>
           </div>
-          <p className="text-slate-400 text-sm mt-0.5">Create and manage roles </p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">Create and manage roles </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -211,7 +211,7 @@ export default function StaffRolesPage() {
             type="button"
             onClick={fetchRoles}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-all"
           >
             {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh
@@ -229,7 +229,7 @@ export default function StaffRolesPage() {
           <button
             type="button"
             onClick={() => router.push('/admin/staff')}
-            className="px-4 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 transition-all"
+            className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
           >
             Go To Staff page
           </button>

@@ -16,6 +16,8 @@ import { ShieldCheck, Loader2, AlertCircle, CheckCircle2, X } from "lucide-react
 interface PharmaOption {
   optionId: string;
   optionText: string;
+  requiresFollowUpText?: boolean;
+  followUpPrompt?: string;
 }
 
 interface PharmaQuestion {
@@ -51,6 +53,7 @@ export default function PharmaQuestionsModal({
 
   const [questions, setQuestions] = useState<PharmaQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [followUpAnswers, setFollowUpAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -62,7 +65,14 @@ export default function PharmaQuestionsModal({
     const val = answers[q.questionId];
 
     if (q.answerType === "Options") {
-      return !!val;
+      if (!val) return false;
+      // also check follow-up if the selected option requires it
+      const selectedOpt = q.options?.find(o => o.optionId === val);
+      if (selectedOpt?.requiresFollowUpText) {
+        const followUp = followUpAnswers[q.questionId];
+        return !!(followUp && followUp.trim().length > 0);
+      }
+      return true;
     }
 
     // For Text/Number fields - just check if not empty (trim removes whitespace)
@@ -122,20 +132,28 @@ export default function PharmaQuestionsModal({
 
           if (existing.length > 0) {
             const prefilled: Record<string, any> = {};
+            const prefilledFollowUp: Record<string, string> = {};
 
             existing.forEach((r) => {
               prefilled[r.questionId] = r.selectedOptionId ?? r.answerText ?? "";
+              // if there's answerText alongside a selectedOptionId, it's a follow-up answer
+              if (r.selectedOptionId && r.answerText) {
+                prefilledFollowUp[r.questionId] = r.answerText;
+              }
             });
 
             setAnswers(prefilled);
+            setFollowUpAnswers(prefilledFollowUp);
             setIsEditMode(true);
           } else {
             setAnswers({});
+            setFollowUpAnswers({});
             setIsEditMode(false);
           }
         } else {
           // 🔥 ADD TO CART MODE → always fresh form
           setAnswers({});
+          setFollowUpAnswers({});
           setIsEditMode(false);
         }
       } catch (err) {
@@ -178,10 +196,20 @@ export default function PharmaQuestionsModal({
               return null;
             }
 
+            if (q.answerType === "Options") {
+              const selectedOpt = q.options?.find(o => o.optionId === val);
+              const followUp = selectedOpt?.requiresFollowUpText ? (followUpAnswers[q.questionId] ?? null) : null;
+              return {
+                questionId: q.questionId,
+                selectedOptionId: val,
+                answerText: followUp,
+              };
+            }
+
             return {
               questionId: q.questionId,
-              selectedOptionId: q.answerType === "Options" ? val : null,
-              answerText: q.answerType !== "Options" ? String(val) : null,
+              selectedOptionId: null,
+              answerText: String(val),
             };
           })
           .filter(Boolean),
@@ -267,33 +295,59 @@ export default function PharmaQuestionsModal({
 
                 {/* OPTIONS TYPE */}
                 {q.answerType === "Options" && (
-                  <div className="flex flex-wrap gap-2">
-                    {q.options?.map((opt) => {
-                      const selected = answers[q.questionId] === opt.optionId;
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {q.options?.map((opt) => {
+                        const selected = answers[q.questionId] === opt.optionId;
 
+                        return (
+                          <button
+                            key={opt.optionId}
+                            type="button"
+                            onClick={() => {
+                              setAnswers((prev) => ({ ...prev, [q.questionId]: opt.optionId }));
+                              // clear follow-up if switching to an option that doesn't need it
+                              if (!opt.requiresFollowUpText) {
+                                setFollowUpAnswers((prev) => ({ ...prev, [q.questionId]: "" }));
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5
+                              ${
+                                selected
+                                  ? "bg-[#445D41] text-white border-[#445D41] shadow"
+                                  : "bg-white text-gray-700 border-gray-300 hover:border-[#445D41]"
+                              }
+                            `}
+                          >
+                            {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
+                            {opt.optionText}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Follow-up textarea — shown when selected option requiresFollowUpText */}
+                    {(() => {
+                      const selectedOptId = answers[q.questionId];
+                      const selectedOpt = q.options?.find(o => o.optionId === selectedOptId);
+                      if (!selectedOpt?.requiresFollowUpText) return null;
                       return (
-                        <button
-                          key={opt.optionId}
-                          type="button"
-                          onClick={() =>
-                            setAnswers((prev) => ({
-                              ...prev,
-                              [q.questionId]: opt.optionId,
-                            }))
-                          }
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5
-                            ${
-                              selected
-                                ? "bg-[#445D41] text-white border-[#445D41] shadow"
-                                : "bg-white text-gray-700 border-gray-300 hover:border-[#445D41]"
+                        <div className="mt-1">
+                          <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                            {selectedOpt.followUpPrompt || "Please provide more details"} <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={followUpAnswers[q.questionId] ?? ""}
+                            onChange={(e) =>
+                              setFollowUpAnswers((prev) => ({ ...prev, [q.questionId]: e.target.value }))
                             }
-                          `}
-                        >
-                          {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
-                          {opt.optionText}
-                        </button>
+                            placeholder="Type your answer here..."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:ring-2 focus:ring-[#445D41]/30 focus:border-[#445D41] outline-none resize-y transition-all"
+                          />
+                        </div>
                       );
-                    })}
+                    })()}
                   </div>
                 )}
 

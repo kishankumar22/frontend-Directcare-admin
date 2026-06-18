@@ -3,9 +3,7 @@
   import { useState, useEffect, useRef } from "react";
   import { useRouter } from "next/navigation";
   import {
-    Package,
-
-    CheckCircle,
+    Package,CheckCircle,
     X,
     Search,
   
@@ -360,28 +358,28 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
     switch (status) {
       case "Active":
         return (
-          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-green-500/10 text-green-400">
+          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
             Active
           </span>
         );
 
       case "Paused":
         return (
-          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-yellow-500/10 text-yellow-400">
+          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-yellow-500/10 text-amber-600 dark:text-yellow-400">
             Paused
           </span>
         );
 
       case "Cancelled":
         return (
-          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-red-500/10 text-red-400">
+          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400">
             Cancelled
           </span>
         );
 
       default:
         return (
-          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-500/10 text-slate-400">
+          <span className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-500/10 text-slate-600 dark:text-slate-400">
             {status}
           </span>
         );
@@ -410,10 +408,10 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
     {/* ================= HEADER ================= */}
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:bg-gradient-to-r dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 dark:bg-clip-text dark:text-transparent">
           Subscriptions Management
         </h1>
-        <p className="text-slate-400 text-sm mt-0.5">
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
           Manage and monitor customer subscriptions
         </p>
       </div>
@@ -435,22 +433,22 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
     {/* ================= STATS ================= */}
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {[
-        { label: "Total", value: stats.total, icon: Package, color: "blue" },
-        { label: "Active", value: stats.active, icon: CheckCircle, color: "green" },
-        { label: "Paused", value: stats.paused, icon: Pause, color: "yellow" },
-        { label: "Cancelled", value: stats.cancelled, icon: Ban, color: "red" },
-        { label: "Revenue", value: `$${stats.totalRevenue.toFixed(2)}`, icon: PoundSterling, color: "violet" }
+        { label: "Total", value: stats.total, icon: Package, colorClass: "text-blue-600 dark:text-blue-400", bgClass: "bg-blue-500/10" },
+        { label: "Active", value: stats.active, icon: CheckCircle, colorClass: "text-green-600 dark:text-green-400", bgClass: "bg-green-500/10" },
+        { label: "Paused", value: stats.paused, icon: Pause, colorClass: "text-amber-600 dark:text-yellow-400", bgClass: "bg-yellow-500/10" },
+        { label: "Cancelled", value: stats.cancelled, icon: Ban, colorClass: "text-red-600 dark:text-red-400", bgClass: "bg-red-500/10" },
+        { label: "Revenue", value: `£${stats.totalRevenue.toFixed(2)}`, icon: PoundSterling, colorClass: "text-purple-600 dark:text-violet-400", bgClass: "bg-purple-500/10" }
       ].map((item, i) => (
         <div
           key={i}
-          className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 flex items-center gap-3 hover:border-slate-600 transition"
+          className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/40 rounded-xl p-4 flex items-center gap-3 hover:border-slate-300 dark:hover:border-slate-600 transition"
         >
-          <div className={`w-9 h-9 rounded-lg bg-${item.color}-500/10 flex items-center justify-center`}>
-            <item.icon className={`h-5 w-5 text-${item.color}-400`} />
+          <div className={`w-9 h-9 rounded-lg ${item.bgClass} flex items-center justify-center`}>
+            <item.icon className={`h-5 w-5 ${item.colorClass}`} />
           </div>
           <div>
-            <p className="text-xs text-slate-400">{item.label}</p>
-            <p className="text-white font-semibold text-sm">{item.value}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{item.label}</p>
+            <p className="text-slate-900 dark:text-white font-semibold text-sm">{item.value}</p>
           </div>
         </div>
       ))}
@@ -458,13 +456,13 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
 
     {/* ================= ITEMS PER PAGE ================= */}
     <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-2">
           <span>Show</span>
           <select
             value={itemsPerPage}
             onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-            className="px-2 py-1 bg-slate-800 border border-slate-700 rounded-md text-white text-xs"
+            className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-slate-800 dark:text-white text-xs"
           >
             <option value={25}>25</option>
             <option value={50}>50</option>
@@ -493,7 +491,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="h-10 px-3 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white min-w-[145px]"
+        className="h-10 px-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-white min-w-[145px]"
       >
         <option value="all">All Status</option>
         <option value="active">Active</option>
@@ -505,7 +503,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
       <select
         value={frequencyFilter}
         onChange={(e) => setFrequencyFilter(e.target.value)}
-        className="h-10 px-3 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white min-w-[170px]"
+        className="h-10 px-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-white min-w-[170px]"
       >
         <option value="all">All Frequencies</option>
         <option value="Weekly">Weekly</option>
@@ -542,13 +540,13 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
             setProductSearchTerm("");
           }}
           placeholder="All Products"
-          className="w-full h-10 px-3 pl-9 pr-8 bg-slate-800/60 border border-slate-700 rounded-lg text-xs text-white"
+          className="w-full h-10 px-3 pl-9 pr-8 bg-white dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-white"
         />
 
         <ShoppingBag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
 
         {showProductDropdown && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg max-h-56 overflow-y-auto z-50 shadow-xl">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg max-h-56 overflow-y-auto z-50 shadow-xl">
             {filteredProducts.map((product) => (
               <button
                 key={product.id}
@@ -556,7 +554,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                   setProductFilter(product.id);
                   setShowProductDropdown(false);
                 }}
-                className="w-full px-3 py-2 text-white text-left hover:bg-slate-700 text-xs"
+                className="w-full px-3 py-2 text-slate-800 dark:text-white text-left hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
               >
                 {product.name}
                 {product.sku && (
@@ -580,7 +578,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search subscriptions..."
-          className="w-full h-10 px-3 pl-9 bg-slate-800/60 border border-slate-700 rounded-lg text-xs text-white"
+          className="w-full h-10 px-3 pl-9 bg-white dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-white"
         />
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
       </div>
@@ -589,7 +587,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
       {hasActiveFilters && (
         <button
           onClick={clearFilters}
-          className="h-10 px-3 bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg text-xs hover:bg-red-500/20 transition-all"
+          className="h-10 px-3 bg-red-500/10 border border-red-500/40 text-red-650 dark:text-red-400 rounded-lg text-xs hover:bg-red-500/20 transition-all"
         >
           Clear
         </button>
@@ -599,11 +597,11 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
 </div>
 
     {/* ================= TABLE ================= */}
-    <div className="bg-slate-800/30 border border-slate-700/40 rounded-xl overflow-hidden">
+    <div className="bg-white dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/40 rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
 
-          <thead className="bg-slate-800/60 border-b border-slate-700 text-xs uppercase text-slate-400">
+          <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 dark:text-slate-400">
             <tr>
               <th className="py-2.5 px-3 text-left">Product</th>
               <th className="py-2.5 px-3 text-left">Customer</th>
@@ -617,7 +615,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
 
           <tbody className="divide-y divide-slate-800">
             {currentData.map((subscription) => (
-              <tr key={subscription.id} className="hover:bg-slate-800/40">
+              <tr key={subscription.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
 
    <td className="py-2.5 px-3">
   <div className="flex gap-2">
@@ -628,7 +626,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
           subscription.productImageUrl &&
           setPreviewImage(subscription.productImageUrl)
         }
-        className="w-14 h-14 bg-slate-700 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-violet-500/50 transition-all"
+        className="w-14 h-14 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-purple-500/50 transition-all border border-slate-200 dark:border-slate-600"
       >
         {subscription.productImageUrl ? (
           <img
@@ -644,24 +642,24 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
 
     {/* INFO */}
     <div className="min-w-0">
-      <p className="text-white text-xs font-medium truncate">
+      <p className="text-slate-800 dark:text-white text-xs font-medium truncate">
         {subscription.productName}
       </p>
 
       {/* SKU + Qty Inline */}
       <div className="flex items-center gap-2 flex-wrap">
-        <p className="text-[12px] text-sky-400 truncate">
+        <p className="text-[12px] text-sky-750 dark:text-sky-400 truncate">
           SKU: {subscription.productSku}
         </p>
 
-        <span className="px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-semibold leading-none">
+        <span className="px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20 text-[10px] font-semibold leading-none">
           Qty {subscription.quantity}
         </span>
       </div>
 
       {/* Variant */}
       {subscription.variantName && (
-        <p className="text-[10px] text-violet-400 truncate">
+        <p className="text-[10px] text-purple-700 dark:text-violet-400 truncate">
           {subscription.variantName}
         </p>
       )}
@@ -674,12 +672,12 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
   <div className="space-y-0.5 min-w-0">
 
     {/* Customer Name */}
-    <p className="text-sm font-medium text-white truncate">
+    <p className="text-sm font-medium text-slate-800 dark:text-white truncate">
       {subscription.shippingFullName}
     </p>
 
     {/* City / State */}
-    <p className="text-[12px] text-slate-400 truncate">
+    <p className="text-[12px] text-slate-500 dark:text-slate-400 truncate">
       {subscription.shippingCity}, {subscription.shippingState}
     </p>
 
@@ -692,21 +690,21 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   </div>
 </td>
-                <td className="py-2.5 px-3 text-center text-white text-xs">
+                <td className="py-2.5 px-3 text-center text-slate-800 dark:text-white text-xs">
                   {subscription.frequencyDisplay}
                 </td>
 
                 <td className="py-2.5 px-3 text-center text-xs">
-                  <p className="text-white font-semibold">${subscription.discountedPrice.toFixed(2)}</p>
+                  <p className="text-slate-800 dark:text-white font-semibold">${subscription.discountedPrice.toFixed(2)}</p>
                   {subscription.discountPercentage > 0 && (
                     <>
                       <p className="line-through text-slate-500 text-[10px]">${subscription.price.toFixed(2)}</p>
-                      <p className="text-green-400 text-[10px]">-{subscription.discountPercentage}%</p>
+                      <p className="text-green-650 dark:text-green-400 text-[10px]">-{subscription.discountPercentage}%</p>
                     </>
                   )}
                 </td>
 
-                <td className="py-2.5 px-3 text-xs text-slate-400">
+                <td className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-400">
                  {formatDate(subscription.nextDeliveryDate)}
                 </td>
 
@@ -822,12 +820,12 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
         {/* Cancel Subscription Modal - Custom */}
         {cancellingSubscription && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-red-500/20 rounded-3xl max-w-2xl w-full shadow-2xl shadow-red-500/10">
-              <div className="p-6 border-b border-red-500/20 bg-gradient-to-r from-red-500/10 to-rose-500/10">
+            <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-red-500/20 rounded-3xl max-w-2xl w-full shadow-2xl">
+              <div className="p-6 border-b border-slate-200 dark:border-red-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-red-500/10 dark:to-rose-500/10">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-white">Cancel Subscription</h2>
-                    <p className="text-slate-400 text-sm mt-1">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Cancel Subscription</h2>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                       Cancelling {cancellingSubscription.productName}
                     </p>
                   </div>
@@ -836,7 +834,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                       setCancellingSubscription(null);
                       setCancelReason("");
                     }}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                    className="p-2 text-slate-400 hover:text-slate-950 dark:hover:text-white hover:bg-red-500/10 dark:hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -844,20 +842,20 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
               </div>
 
               <div className="p-6 space-y-4">
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700">
+                <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle className="h-5 w-5 text-red-400" />
-                    <p className="text-white font-medium">Are you sure?</p>
+                    <AlertCircle className="h-5 w-5 text-red-500" />
+                    <p className="text-slate-900 dark:text-white font-medium">Are you sure?</p>
                   </div>
-                  <p className="text-slate-300 text-sm">
+                  <p className="text-slate-600 dark:text-slate-300 text-sm">
                     This will cancel the subscription for{" "}
-                    <span className="font-medium text-white">{cancellingSubscription.shippingFullName}</span>.
+                    <span className="font-medium text-slate-900 dark:text-white">{cancellingSubscription.shippingFullName}</span>.
                     This action cannot be undone.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                     Cancellation Reason
                   </label>
                   <textarea
@@ -865,18 +863,18 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                     onChange={(e) => setCancelReason(e.target.value)}
                     placeholder="Please provide a reason for cancellation..."
                     rows={4}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all resize-none"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all resize-none"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 p-6 border-t border-slate-700/50">
+              <div className="flex justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700/50">
                 <button
                   onClick={() => {
                     setCancellingSubscription(null);
                     setCancelReason("");
                   }}
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm"
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-all font-medium text-sm"
                 >
                   Keep Subscription
                 </button>
@@ -904,20 +902,20 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
           {/* View Subscription Modal */}
           {viewingSubscription && (
             <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-                <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+              <div className="bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-purple-500/20 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl dark:shadow-purple-500/10">
+                <div className="p-6 border-b border-slate-200 dark:border-purple-500/20 bg-slate-50 dark:bg-purple-950/20">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+                      <h2 className="text-2xl font-bold text-slate-900 dark:bg-gradient-to-r dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 dark:bg-clip-text dark:text-transparent">
                         Subscription Details
                       </h2>
-                      <p className="text-slate-400 text-sm mt-1">
+                      <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                         View subscription information
                       </p>
                     </div>
                     <button
                       onClick={() => setViewingSubscription(null)}
-                      className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                      className="p-2 text-slate-400 hover:text-slate-955 dark:hover:text-white hover:bg-red-500/10 dark:hover:bg-red-600 rounded-lg transition-all"
                     >
                       <X className="h-5 w-5" />
                     </button>
@@ -927,47 +925,47 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                   <div className="space-y-4">
                     {/* Product Info */}
-                    <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                      <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                    <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                      <h3 className="text-slate-900 dark:text-white font-medium mb-3 flex items-center gap-2">
                         <ShoppingBag className="h-4 w-4 text-violet-400" />
                         Product Information
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-slate-400 text-sm mb-1">Product</p>
-                          <p className="text-white font-medium">
+                          <p className="text-slate-800 dark:text-white font-medium">
                             {viewingSubscription.productName}
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-400 text-sm mb-1">SKU</p>
-                          <p className="text-white">{viewingSubscription.productSku}</p>
+                          <p className="text-slate-800 dark:text-white">{viewingSubscription.productSku}</p>
                         </div>
                         {viewingSubscription.variantName && (
                           <div>
                             <p className="text-slate-400 text-sm mb-1">Variant</p>
-                            <p className="text-white">
+                            <p className="text-slate-800 dark:text-white">
                               {viewingSubscription.variantName}
                             </p>
                           </div>
                         )}
                         <div>
                           <p className="text-slate-400 text-sm mb-1">Quantity</p>
-                          <p className="text-white">{viewingSubscription.quantity}</p>
+                          <p className="text-slate-800 dark:text-white">{viewingSubscription.quantity}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Customer Info */}
-                    <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                      <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                        <User className="h-4 w-4 text-cyan-400" />
+                    <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                      <h3 className="text-slate-900 dark:text-white font-medium mb-3 flex items-center gap-2">
+                        <User className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
                         Customer Information
                       </h3>
                       <div className="space-y-2">
                         <div>
                           <p className="text-slate-400 text-sm mb-1">Name</p>
-                          <p className="text-white">
+                          <p className="text-slate-800 dark:text-white">
                             {viewingSubscription.shippingFullName}
                           </p>
                         </div>
@@ -975,7 +973,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                           <p className="text-slate-400 text-sm mb-1">
                             Shipping Address
                           </p>
-                          <p className="text-white">
+                          <p className="text-slate-800 dark:text-white">
                             {viewingSubscription.shippingFullAddress}
                           </p>
                         </div>
@@ -983,9 +981,9 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                     </div>
 
                     {/* Subscription Details */}
-                    <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                      <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                        <Package className="h-4 w-4 text-green-400" />
+                    <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                      <h3 className="text-slate-900 dark:text-white font-medium mb-3 flex items-center gap-2">
+                        <Package className="h-4 w-4 text-green-600 dark:text-green-400" />
                         Subscription Details
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
@@ -995,14 +993,14 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                         </div>
                         <div>
                           <p className="text-slate-400 text-sm mb-1">Frequency</p>
-                          <p className="text-white">
+                          <p className="text-slate-800 dark:text-white">
                             {viewingSubscription.frequencyDisplay ||
                               getFrequencyBadge(viewingSubscription.frequency)}
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-400 text-sm mb-1">Start Date</p>
-                          <p className="text-white">
+                          <p className="text-slate-800 dark:text-white">
                                {formatDate(viewingSubscription.startDate)}
                           </p>
                         </div>
@@ -1011,7 +1009,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                             <p className="text-slate-400 text-sm mb-1">
                               Next Delivery
                             </p>
-                            <p className="text-white">
+                            <p className="text-slate-800 dark:text-white">
                                 {formatDate(viewingSubscription.nextDeliveryDate)}
                             </p>
                           </div>
@@ -1020,7 +1018,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                           <p className="text-slate-400 text-sm mb-1">
                             Total Deliveries
                           </p>
-                          <p className="text-white">
+                          <p className="text-slate-800 dark:text-white">
                             {viewingSubscription.totalDeliveries}
                           </p>
                         </div>
@@ -1028,7 +1026,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                           <p className="text-slate-400 text-sm mb-1">
                             Skipped Deliveries
                           </p>
-                          <p className="text-white">
+                          <p className="text-slate-800 dark:text-white">
                             {viewingSubscription.skippedDeliveries}
                           </p>
                         </div>
@@ -1036,9 +1034,9 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                     </div>
 
                     {/* Pricing */}
-                    <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                      <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                        <PoundSterling className="h-4 w-4 text-yellow-400" />
+                    <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                      <h3 className="text-slate-900 dark:text-white font-medium mb-3 flex items-center gap-2">
+                        <PoundSterling className="h-4 w-4 text-amber-600 dark:text-yellow-400" />
                         Pricing
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
@@ -1046,7 +1044,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                           <p className="text-slate-400 text-sm mb-1">
                             Original Price
                           </p>
-                          <p className="text-white">
+                          <p className="text-slate-800 dark:text-white">
                             ${viewingSubscription.price.toFixed(2)}
                           </p>
                         </div>
@@ -1054,7 +1052,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                           <p className="text-slate-400 text-sm mb-1">
                             Discounted Price
                           </p>
-                          <p className="text-green-400 font-bold">
+                          <p className="text-green-650 dark:text-green-400 font-bold">
                             ${viewingSubscription.discountedPrice.toFixed(2)}
                           </p>
                         </div>
@@ -1062,7 +1060,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                           <>
                             <div>
                               <p className="text-slate-400 text-sm mb-1">Discount</p>
-                              <p className="text-white">
+                              <p className="text-slate-800 dark:text-white">
                                 {viewingSubscription.discountPercentage}%
                               </p>
                             </div>
@@ -1070,7 +1068,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                               <p className="text-slate-400 text-sm mb-1">
                                 Total Savings
                               </p>
-                              <p className="text-green-400">
+                              <p className="text-green-650 dark:text-green-400 font-semibold">
                                 ${viewingSubscription.totalSavings.toFixed(2)}
                               </p>
                             </div>
@@ -1081,8 +1079,8 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
 
                     {/* Cancellation Info */}
                     {viewingSubscription.status === "Cancelled" && (
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                        <h3 className="text-red-400 font-medium mb-2 flex items-center gap-2">
+                      <div className="bg-red-500/10 border border-red-500/20 dark:border-red-500/30 rounded-xl p-4">
+                        <h3 className="text-red-650 dark:text-red-400 font-medium mb-2 flex items-center gap-2">
                           <Ban className="h-4 w-4" />
                           Cancellation Information
                         </h3>
@@ -1091,14 +1089,14 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                             <p className="text-slate-400 text-sm mb-1">
                               Cancelled At
                             </p>
-                            <p className="text-white text-sm">
+                            <p className="text-slate-800 dark:text-white text-sm">
                                   {formatDate(viewingSubscription.cancelledAt)}
                             </p>
                           </div>
                           {viewingSubscription.cancellationReason && (
                             <div>
                               <p className="text-slate-400 text-sm mb-1">Reason</p>
-                              <p className="text-white text-sm">
+                              <p className="text-slate-800 dark:text-white text-sm">
                                 {viewingSubscription.cancellationReason}
                               </p>
                             </div>
@@ -1109,14 +1107,14 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
 
                     {/* Paused Info */}
                     {viewingSubscription.status === "Paused" && (
-                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-                        <h3 className="text-yellow-400 font-medium mb-2 flex items-center gap-2">
+                      <div className="bg-yellow-500/10 border border-yellow-500/20 dark:border-yellow-500/30 rounded-xl p-4">
+                        <h3 className="text-amber-700 dark:text-yellow-400 font-medium mb-2 flex items-center gap-2">
                           <Pause className="h-4 w-4" />
                           Paused Information
                         </h3>
                         <div>
                           <p className="text-slate-400 text-sm mb-1">Paused At</p>
-                          <p className="text-white text-sm">
+                          <p className="text-slate-800 dark:text-white text-sm">
                             {viewingSubscription.pausedAt &&
                               new Date(
                                 viewingSubscription.pausedAt
@@ -1128,10 +1126,10 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                   </div>
                 </div>
 
-                <div className="p-6 border-t border-slate-700/50">
+                <div className="p-6 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50">
                   <button
                     onClick={() => setViewingSubscription(null)}
-                    className="w-full px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm"
+                    className="w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-all font-medium text-sm"
                   >
                     Close
                   </button>

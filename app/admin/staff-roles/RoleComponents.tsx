@@ -27,7 +27,7 @@ export const RoleFilters = React.memo(function RoleFilters({
   onReset: () => void;
 }) {
   return (
-    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-2">
+    <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 shadow-sm">
       <div className="flex items-end gap-3 flex-wrap">
         <div className="min-w-[260px] flex-1">
          
@@ -38,7 +38,7 @@ export const RoleFilters = React.memo(function RoleFilters({
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="role name..."
-              className="w-full pl-9 pr-10 py-1.5 bg-slate-950/40 border border-slate-800 rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+              className="w-full pl-9 pr-10 py-1.5 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
             />
             {searching && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -75,17 +75,17 @@ export const RoleTable = React.memo(function RoleTable({
   }, [items, selectedIds]);
 
   return (
-    <div className="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
+    <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-950/50 border-b border-slate-800">
-            <tr className="text-slate-300">
+          <thead className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800">
+            <tr className="text-slate-600 dark:text-slate-300">
               <th className="text-left px-4 py-3 font-semibold w-12">
                 <input
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={(e) => onToggleAll(e.target.checked)}
-                  className="w-4 h-4 rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500"
+                  className="w-4 h-4 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-violet-500"
                 />
               </th>
               <th className="text-left px-4 py-3 font-semibold">Name</th>
@@ -94,10 +94,10 @@ export const RoleTable = React.memo(function RoleTable({
               <th className="text-right px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {loading ? (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={5}>
+                <td className="px-4 py-6 text-slate-500 dark:text-slate-400" colSpan={5}>
                   <div className="flex items-center gap-2">
                     <RefreshCw className="h-4 w-4 animate-spin" />
                     Loading roles...
@@ -106,29 +106,29 @@ export const RoleTable = React.memo(function RoleTable({
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-slate-400" colSpan={5}>
+                <td className="px-4 py-6 text-slate-500 dark:text-slate-400" colSpan={5}>
                   No roles found.
                 </td>
               </tr>
             ) : (
               items.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-950/30 transition-colors">
+                <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-950/30 transition-colors">
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(row.id)}
                       onChange={() => onToggleOne(row.id)}
-                      className="w-4 h-4 rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500"
+                      className="w-4 h-4 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-violet-500"
                     />
                   </td>
-                  <td className="px-4 py-3 text-slate-100 font-semibold">{row.name}</td>
-                  <td className="px-4 py-3 text-slate-300">{row.userCount ?? 0}</td>
+                  <td className="px-4 py-3 text-slate-800 dark:text-slate-100 font-semibold">{row.name}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.userCount ?? 0}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-lg text-xs font-semibold ${
                         row.isSystem
-                          ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300'
-                          : 'bg-slate-500/10 border border-slate-500/30 text-slate-300'
+                          ? 'bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
+                          : 'bg-slate-100 dark:bg-slate-500/10 border border-slate-200 dark:border-slate-500/30 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       {row.isSystem ? 'Yes' : 'No'}
@@ -206,8 +206,8 @@ function IconButton({
   const disabledCls = 'opacity-50 cursor-not-allowed hover:shadow-none hover:translate-y-0';
   const cls =
     variant === 'danger'
-      ? `${base} bg-red-500/10 border-red-500/30 text-red-200 hover:bg-red-500/20 hover:shadow-red-500/20 hover:border-red-500/60`
-      : `${base} bg-slate-800/40 border-slate-700 text-slate-200 hover:bg-slate-800 hover:shadow-slate-900/40 hover:border-violet-500/50 hover:text-white`;
+      ? `${base} bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-500/20 hover:shadow-red-500/20 hover:border-red-300 dark:hover:border-red-500/60`
+      : `${base} bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-slate-200/40 dark:hover:shadow-slate-900/40 hover:border-violet-500/50 dark:hover:border-violet-500/50 hover:text-violet-600 dark:hover:text-white`;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -268,42 +268,42 @@ export function RoleFormModal({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 flex items-center justify-between">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-violet-600/10 dark:to-cyan-500/10 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">{mode === 'create' ? 'Create Role' : 'Edit Role'}</h2>
-            <p className="text-xs text-slate-400">Manage staff access roles</p>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{mode === 'create' ? 'Create Role' : 'Edit Role'}</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Manage staff access roles</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="p-4">
-          <label className="text-xs text-slate-400">Role Name <span className="text-red-500">*</span></label>
+          <label className="text-xs text-slate-700 dark:text-slate-400">Role Name <span className="text-red-500">*</span></label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={`w-full mt-1 px-3 py-2 bg-slate-950/40 border rounded-xl text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
-              !name.trim() && name !== '' ? 'border-red-500/50 bg-red-500/5' : 'border-slate-800'
+            className={`w-full mt-1 px-3 py-2 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+              !name.trim() && name !== '' ? 'border-red-500/50 bg-red-500/5' : 'border-slate-200 dark:border-slate-800'
             }`}
             placeholder="e.g. StoreManager"
           />
           {initialValue?.isSystem && mode === 'edit' && (
-            <p className="text-xs text-amber-400 mt-2">System roles cannot be edited.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">System roles cannot be edited.</p>
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-end gap-2">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -314,7 +314,7 @@ export function RoleFormModal({
             className={`flex items-center gap-2 px-6 py-2 rounded-xl font-semibold shadow-lg transition-all active:scale-[0.98] ${
               isFormValid
                 ? 'bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white shadow-violet-500/20'
-                : 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60'
             }`}
           >
             {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : mode === 'create' ? <Plus className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
@@ -338,16 +338,16 @@ export function RoleViewModal({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-cyan-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-violet-500/10 flex items-center justify-between">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-cyan-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-200 dark:border-cyan-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-cyan-500/10 dark:to-violet-600/10 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Role Details</h2>
-            <p className="text-xs text-slate-400">{item?.name || '—'}</p>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Role Details</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{item?.name || '—'}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -365,9 +365,9 @@ export function RoleViewModal({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-slate-950/30 border border-slate-800 rounded-xl p-3">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="text-slate-100 font-semibold mt-0.5 break-words">{value}</div>
+    <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="text-slate-800 dark:text-slate-100 font-semibold mt-0.5 break-words">{value}</div>
     </div>
   );
 }
@@ -426,17 +426,17 @@ export function BulkSelectionBar({
   return (
     <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
       <div className="flex justify-center px-2">
-        <div className="pointer-events-auto mx-auto w-fit max-w-[95%] rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md">
+        <div className="pointer-events-auto mx-auto w-fit max-w-[95%] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm">
                 <span className="h-2 w-2 rounded-full bg-violet-500"></span>
-                <span className="font-semibold text-white">{count}</span>
-                <span className="text-slate-300">roles selected</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{count}</span>
+                <span className="text-slate-700 dark:text-slate-300">roles selected</span>
               </div>
-              <p className="mt-1 text-xs text-slate-400">Bulk actions: export selected roles.</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Bulk actions: export selected roles.</p>
             </div>
-            <div className="h-5 w-px bg-slate-700 hidden md:block" />
+            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
             <button
               onClick={onExport}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700"
@@ -446,7 +446,7 @@ export function BulkSelectionBar({
             </button>
             <button
               onClick={onClear}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-all"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white text-sm rounded-lg transition-all"
               type="button"
             >
               Clear
