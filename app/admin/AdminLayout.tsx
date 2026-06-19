@@ -44,11 +44,10 @@ import {
   User,
   Mail,
   Info,
-
   MapPin,
   Ship,
   Truck,
-  Activity, // ✅ NEW ICON FOR ACTIVITY LOGS
+  Activity,
   Shield,
   Award,
   Coins,
@@ -58,7 +57,7 @@ import {
   Warehouse,
   ShieldCheck,
   FileSpreadsheet,
-  Monitor, // ✅ Added for Import/Export
+  Monitor,
   CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -76,11 +75,9 @@ interface NavigationItem {
   children?: NavigationItem[];
 }
 
-
 // Navigation with clean group organization
 const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-
   {
     name: 'Catalog',
     icon: Layers,
@@ -114,18 +111,14 @@ const navigation: NavigationItem[] = [
       { name: 'Loyalty Config', href: '/admin/loyalty-config', icon: Sliders },
     ],
   },
-
-  // ✅ SHIPPING SECTION - Delivery Strip YAHAN ADD KARO
   {
     name: 'Shipping',
     icon: Truck,
     children: [
       { name: 'Shipping Settings', href: '/admin/shipping', icon: Settings },
-      { name: 'Delivery Strips', href: '/admin/DeliveryStrip', icon: PackageOpen }, // ✅ ADDED
-      // { name: 'Shipping Zones', href: '/admin/shipping-zones', icon: MapPin }, // Optional future
+      { name: 'Delivery Strips', href: '/admin/DeliveryStrip', icon: PackageOpen },
     ],
   },
-
   {
     name: 'Finance',
     icon: Receipt,
@@ -139,10 +132,7 @@ const navigation: NavigationItem[] = [
     icon: FileText,
     children: [
       { name: 'Banners', href: '/admin/banners', icon: ImageIcon },
-
-      // ✅ ADDED
       { name: 'Homepage Preview', href: '/admin/HomepagePreview', icon: Monitor },
-
       { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban },
       { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText },
       { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare },
@@ -157,8 +147,6 @@ const navigation: NavigationItem[] = [
       { name: 'Staff Roles', href: '/admin/staff-roles', icon: ShieldCheck },
     ],
   },
-
-
   {
     name: 'System',
     icon: Shield,
@@ -168,8 +156,6 @@ const navigation: NavigationItem[] = [
     ],
   },
 ];
-
-
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -186,8 +172,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const [changePwdOpen, setChangePwdOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-
-  // ✅ NEW STATE FOR HOVER-BASED EXPANSION
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useAdminLogoutShortcut();
@@ -211,10 +195,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, []);
 
-
   const isActiveRoute = (navHref: string, currentPath: string) => {
     if (navHref === '/admin') return currentPath === '/admin';
-
     return (
       currentPath === navHref ||
       currentPath.startsWith(navHref + '/')
@@ -227,19 +209,59 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   const getGroupColor = (name: string) => {
+    const isLight = theme === "light";
     const map: Record<string, { icon: string; border: string; bg: string; dot: string }> = {
-      Catalog: { icon: 'text-cyan-400', border: 'border-cyan-500/50', bg: 'bg-cyan-500/10', dot: 'bg-cyan-400' },
-      Sales: { icon: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/10', dot: 'bg-emerald-400' },
-      Marketing: { icon: 'text-pink-400', border: 'border-pink-500/50', bg: 'bg-pink-500/10', dot: 'bg-pink-400' },
-      Shipping: { icon: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-500/10', dot: 'bg-blue-400' },
-      Finance: { icon: 'text-yellow-400', border: 'border-yellow-500/50', bg: 'bg-yellow-500/10', dot: 'bg-yellow-400' },
-      Content: { icon: 'text-amber-400', border: 'border-amber-500/50', bg: 'bg-amber-500/10', dot: 'bg-amber-400' },
-      System: { icon: 'text-slate-400', border: 'border-slate-500/50', bg: 'bg-slate-500/10', dot: 'bg-slate-400' },
+      Catalog: {
+        icon: isLight ? 'text-[#445D41]' : 'text-cyan-400',
+        border: isLight ? 'border-[#445D41]/50' : 'border-cyan-500/50',
+        bg: isLight ? 'bg-[#445D41]/10' : 'bg-cyan-500/10',
+        dot: isLight ? 'bg-[#445D41]' : 'bg-cyan-400'
+      },
+      Sales: {
+        icon: isLight ? 'text-[#445D41]' : 'text-emerald-400',
+        border: isLight ? 'border-[#445D41]/50' : 'border-emerald-500/50',
+        bg: isLight ? 'bg-[#445D41]/10' : 'bg-emerald-500/10',
+        dot: isLight ? 'bg-[#445D41]' : 'bg-emerald-400'
+      },
+      Marketing: {
+        icon: isLight ? 'text-[#445D41]' : 'text-pink-400',
+        border: isLight ? 'border-[#445D41]/50' : 'border-pink-500/50',
+        bg: isLight ? 'bg-[#445D41]/10' : 'bg-pink-500/10',
+        dot: isLight ? 'bg-[#445D41]' : 'bg-pink-400'
+      },
+      Shipping: {
+        icon: isLight ? 'text-[#445D41]' : 'text-blue-400',
+        border: isLight ? 'border-[#445D41]/50' : 'border-blue-500/50',
+        bg: isLight ? 'bg-[#445D41]/10' : 'bg-blue-500/10',
+        dot: isLight ? 'bg-[#445D41]' : 'bg-blue-400'
+      },
+      Finance: {
+        icon: isLight ? 'text-[#445D41]' : 'text-yellow-400',
+        border: isLight ? 'border-[#445D41]/50' : 'border-yellow-500/50',
+        bg: isLight ? 'bg-[#445D41]/10' : 'bg-yellow-500/10',
+        dot: isLight ? 'bg-[#445D41]' : 'bg-yellow-400'
+      },
+      Content: {
+        icon: isLight ? 'text-[#445D41]' : 'text-amber-400',
+        border: isLight ? 'border-[#445D41]/50' : 'border-amber-500/50',
+        bg: isLight ? 'bg-[#445D41]/10' : 'bg-amber-500/10',
+        dot: isLight ? 'bg-[#445D41]' : 'bg-amber-400'
+      },
+      System: {
+        icon: isLight ? 'text-[#445D41]' : 'text-slate-400',
+        border: isLight ? 'border-[#445D41]/50' : 'border-slate-500/50',
+        bg: isLight ? 'bg-[#445D41]/10' : 'bg-slate-500/10',
+        dot: isLight ? 'bg-[#445D41]' : 'bg-slate-400'
+      },
     };
-    return map[name] ?? { icon: 'text-violet-400', border: 'border-violet-500/50', bg: 'bg-violet-500/10', dot: 'bg-violet-400' };
+    return map[name] ?? {
+      icon: isLight ? 'text-[#445D41]' : 'text-violet-400',
+      border: isLight ? 'border-[#445D41]/50' : 'border-violet-500/50',
+      bg: isLight ? 'bg-[#445D41]/10' : 'bg-violet-500/10',
+      dot: isLight ? 'bg-[#445D41]' : 'bg-violet-400'
+    };
   };
 
-  // ✅ UPDATED: Handle click to toggle (for mobile and click behavior)
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev => {
       if (prev[menuName]) {
@@ -276,7 +298,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     setTimeout(() => setIsAnimating(false), 600);
   };
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -293,7 +314,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     };
   }, [profileDropdownOpen]);
 
-  // Token refresh check
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -325,9 +345,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [router, toast, isAuthenticated]);
 
-
-
-  // Auto-expand active parent menu
   useEffect(() => {
     navigation.forEach((item) => {
       if (item.children && isParentActive(item.children)) {
@@ -336,7 +353,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     });
   }, [pathname]);
 
-  // Compute user display values from context
   const userEmail = user?.email || 'admin@ecom.com';
   const userName = user?.firstName && user?.lastName
     ? `${user.firstName} ${user.lastName}`.trim()
@@ -364,19 +380,27 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isSidebarExpanded = !sidebarCollapsed || (sidebarCollapsed && isHovering);
   const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-64';
 
-
+  // Light mode styles
+  const isLight = theme === "light";
 
   return (
     <ErrorBoundary>
-      <div data-admin className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-hidden transition-colors duration-500">
-        {/* Background Effects */}
-        <div className="fixed inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
+      <div data-admin className={cn(
+        "min-h-screen relative overflow-hidden transition-colors duration-500",
+        isLight ? "bg-gray-50" : "bg-slate-100 dark:bg-slate-950"
+      )}>
+        {/* Background Effects - Light Mode */}
+        {isLight ? (
+          <div className="fixed inset-0 bg-[linear-gradient(to_right,#e8f0e6_1px,transparent_1px),linear-gradient(to_bottom,#e8f0e6_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
+        ) : (
+          <div className="fixed inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
+        )}
         <div className="fixed top-0 -left-4 w-96 h-96 bg-violet-500 dark:bg-violet-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob transition-all duration-500" />
         <div className="fixed top-0 -right-4 w-96 h-96 bg-cyan-500 dark:bg-cyan-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-2000 transition-all duration-500" />
         <div className="fixed -bottom-8 left-1/2 w-96 h-96 bg-pink-500 dark:bg-pink-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-4000 transition-all duration-500" />
 
         <div className="relative z-990 flex h-screen overflow-hidden">
-          {/* ✅ DESKTOP SIDEBAR WITH HOVER AUTO-EXPAND */}
+          {/* ✅ DESKTOP SIDEBAR WITH LIGHT MODE COLORS */}
           <aside
             onMouseEnter={() => sidebarCollapsed && setIsHovering(true)}
             onMouseLeave={() => {
@@ -386,24 +410,26 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               }
             }}
             className={cn(
-              "hidden lg:flex fixed h-full bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex-col transition-all duration-300 z-50",
+              "hidden lg:flex fixed h-full flex-col transition-all duration-300 z-50",
               sidebarWidth,
-              sidebarCollapsed && isHovering && "!w-64 shadow-2xl"
+              sidebarCollapsed && isHovering && "!w-64 shadow-2xl",
+              isLight
+                ? "bg-white/95 backdrop-blur-xl border-r border-[#445D41]/20"
+                : "bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800"
             )}
           >
             {/* Logo */}
             <div
               className={cn(
-                "border-b border-slate-800/60 flex-shrink-0 transition-all duration-150",
+                "border-b flex-shrink-0 transition-all duration-150",
+                isLight ? "border-[#445D41]/10" : "border-slate-800/60",
                 isSidebarExpanded
                   ? "px-3 py-2 flex flex-col items-start"
                   : "h-[60px] flex items-center justify-center"
               )}
             >
-              {/* Expanded */}
               {isSidebarExpanded ? (
                 <div className="w-full">
-                  {/* Logo */}
                   <div className="px-2 py-1 bg-white rounded-xl shadow-md border border-slate-200 inline-block">
                     <img
                       src="/logo/logo.png"
@@ -411,15 +437,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       className="h-10 w-auto object-contain"
                     />
                   </div>
-
-                  {/* Text Below */}
-                  <p className=" pl-1 text-[11px] font-semibold tracking-[0.28em] uppercase bg-gradient-to-r from-violet-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent drop-shadow-sm">
+                  <p className={cn(
+                    "pl-1 text-[11px] font-semibold tracking-[0.28em] uppercase drop-shadow-sm",
+                    isLight
+                      ? "text-[#445D41]"
+                      : "bg-gradient-to-r from-violet-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                  )}>
                     Admin Dashboard
                   </p>
                 </div>
               ) : (
-                /* Collapsed */
-                <div className="w-8 h-9  rounded-md bg-white  p-0.5 flex items-center justify-center shadow-lg border border-slate-200 overflow-hidden">
+                <div className="w-8 h-9 rounded-md bg-white p-0.5 flex items-center justify-center shadow-lg border border-slate-200 overflow-hidden">
                   <img
                     src="/logo/logo.png"
                     alt="DC"
@@ -429,8 +457,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               )}
             </div>
 
-
-            {/* NAVIGATION WITH HOVER AUTO-EXPAND */}
+            {/* NAVIGATION */}
             <nav className={cn("flex-1 space-y-0.5 overflow-y-auto custom-scrollbar py-2", isSidebarExpanded ? "px-1.5" : "px-1")}>
               {navigation.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
@@ -442,41 +469,46 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
                 if (hasChildren) {
                   return (
-                    <div
-                      key={item.name}
-                      className="space-y-0.5"
-                    >
+                    <div key={item.name} className="space-y-0.5">
                       <button
                         onClick={() => isSidebarExpanded && toggleMenu(item.name)}
                         className={cn(
                           "w-full flex items-center gap-2.5 py-1.5 rounded-lg transition-all duration-150 group relative",
                           isSidebarExpanded ? "px-2" : "px-0 justify-center",
                           isParentItemActive && isSidebarExpanded
-                            ? `${gc.bg} text-white`
-                            : "text-slate-400 hover:text-white",
-                          !isParentItemActive && isSidebarExpanded && "hover:bg-slate-800/50"
+                            ? isLight
+                              ? `${gc.bg} text-[#445D41]`
+                              : `${gc.bg} text-white`
+                            : isLight
+                              ? "text-gray-500 hover:text-[#445D41]"
+                              : "text-slate-400 hover:text-white",
+                          !isParentItemActive && isSidebarExpanded && (isLight ? "hover:bg-[#445D41]/5" : "hover:bg-slate-800/50")
                         )}
                         title={!isSidebarExpanded ? item.name : ""}
                       >
-                        {/* Colored icon box */}
                         <div className={cn(
                           "rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-150",
                           isSidebarExpanded ? "w-7 h-7" : "w-9 h-9",
                           isParentItemActive
                             ? `${gc.bg} ${gc.icon} shadow-sm`
-                            : "bg-slate-800/80 text-slate-400 group-hover:bg-slate-700 group-hover:text-white"
+                            : isLight
+                              ? "bg-gray-100 text-gray-400 group-hover:bg-[#445D41]/10 group-hover:text-[#445D41]"
+                              : "bg-slate-800/80 text-slate-400 group-hover:bg-slate-700 group-hover:text-white"
                         )}>
                           <Icon className="h-4 w-4" />
                         </div>
                         {isSidebarExpanded && (
                           <>
-                            <span className="font-semibold text-xs flex-1 text-left whitespace-nowrap tracking-wide uppercase">
+                            <span className={cn(
+                              "font-semibold text-xs flex-1 text-left whitespace-nowrap tracking-wide uppercase",
+                              isLight ? "text-gray-700" : "text-white"
+                            )}>
                               {item.name}
                             </span>
                             {isParentItemActive && (
                               <div className={cn("w-1.5 h-1.5 rounded-full mr-1", gc.dot)} />
                             )}
-                            <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200 text-slate-500", isExpanded && "rotate-180")} />
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200", isLight ? "text-gray-400" : "text-slate-500", isExpanded && "rotate-180")} />
                           </>
                         )}
                       </button>
@@ -494,13 +526,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                   className={cn(
                                     "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all duration-150 group",
                                     isChildActive
-                                      ? "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md"
-                                      : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                      ? isLight
+                                        ? "bg-[#445D41] text-white shadow-md"
+                                        : "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md"
+                                      : isLight
+                                        ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                                        : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                                   )}
                                 >
                                   <ChildIcon className={cn("h-3.5 w-3.5 flex-shrink-0 transition-colors", isChildActive ? "text-white" : gc.icon)} />
                                   <span className="text-xs font-medium whitespace-nowrap">{child.name}</span>
-                                  {isChildActive && <div className="ml-auto w-1 h-4 rounded-full bg-white/60" />}
+                                  {isChildActive && <div className={cn("ml-auto w-1 h-4 rounded-full", isLight ? "bg-white/60" : "bg-white/60")} />}
                                 </Link>
                               );
                             })}
@@ -511,7 +547,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   );
                 }
 
-                // Dashboard (top-level link)
                 return (
                   <Link
                     key={item.name}
@@ -520,9 +555,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       "flex items-center gap-2.5 py-1.5 rounded-lg transition-all duration-150 group",
                       isSidebarExpanded ? "px-2" : "px-0 justify-center",
                       isActive && isSidebarExpanded
-                        ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/30"
-                        : "text-slate-400 hover:text-white",
-                      !isActive && isSidebarExpanded && "hover:bg-slate-800/50"
+                        ? isLight
+                          ? "bg-[#445D41] text-white shadow-lg shadow-[#445D41]/30"
+                          : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/30"
+                        : isLight
+                          ? "text-gray-500 hover:text-[#445D41]"
+                          : "text-slate-400 hover:text-white",
+                      !isActive && isSidebarExpanded && (isLight ? "hover:bg-[#445D41]/5" : "hover:bg-slate-800/50")
                     )}
                     title={!isSidebarExpanded ? item.name : ""}
                   >
@@ -530,14 +569,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       "rounded-xl flex items-center justify-center flex-shrink-0 transition-all",
                       isSidebarExpanded ? "w-7 h-7" : "w-9 h-9",
                       isActive
-                        ? "bg-gradient-to-br from-violet-500 to-cyan-500 text-white shadow-md"
-                        : "bg-slate-800/80 text-violet-400 group-hover:bg-slate-700 group-hover:text-white"
+                        ? isLight
+                          ? "bg-[#445D41]/20 text-[#445D41]"
+                          : "bg-gradient-to-br from-violet-500 to-cyan-500 text-white shadow-md"
+                        : isLight
+                          ? "bg-gray-100 text-[#445D41] group-hover:bg-[#445D41]/10"
+                          : "bg-slate-800/80 text-violet-400 group-hover:bg-slate-700 group-hover:text-white"
                     )}>
                       <Icon className="h-4 w-4" />
                     </div>
                     {isSidebarExpanded && (
                       <>
-                        <span className="font-semibold text-xs flex-1 whitespace-nowrap tracking-wide uppercase">{item.name}</span>
+                        <span className={cn(
+                          "font-semibold text-xs flex-1 whitespace-nowrap tracking-wide uppercase",
+                          isLight ? "text-gray-700" : "text-white"
+                        )}>
+                          {item.name}
+                        </span>
                         {isActive && <ChevronRight className="h-3.5 w-3.5 animate-pulse" />}
                       </>
                     )}
@@ -547,29 +595,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </nav>
 
             {/* Bottom Links */}
-            <div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
+            <div className={cn("p-2 border-t flex-shrink-0 space-y-0.5", isLight ? "border-[#445D41]/10" : "border-slate-800/60")}>
               <a
                 href="/"
                 onClick={(e) => {
                   e.preventDefault();
-                  e.stopPropagation(); // ✅ IMPORTANT
+                  e.stopPropagation();
                   setSidebarOpen(false);
                   window.open("/", "_blank");
                 }}
                 title="open store in new tab"
-                className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group"
+                className={cn(
+                  "flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
+                  isLight
+                    ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                )}
               >
-                <div
-                  className={cn(
-                    "rounded-xl bg-slate-800/80 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-700 transition-colors",
-                    isSidebarExpanded ? "w-7 h-7" : "w-9 h-9"
-                  )}
-                >
-                  <Store className="h-4 w-4 text-cyan-400" />
+                <div className={cn(
+                  "rounded-xl flex items-center justify-center flex-shrink-0 transition-colors",
+                  isSidebarExpanded ? "w-7 h-7" : "w-9 h-9",
+                  isLight
+                    ? "bg-gray-100 text-[#445D41] group-hover:bg-[#445D41]/10"
+                    : "bg-slate-800/80 text-cyan-400 group-hover:bg-slate-700"
+                )}>
+                  <Store className="h-4 w-4" />
                 </div>
-
                 {isSidebarExpanded && (
-                  <span className="text-xs font-medium whitespace-nowrap">
+                  <span className={cn("text-xs font-medium whitespace-nowrap", isLight ? "text-gray-600" : "text-white")}>
                     View Store
                   </span>
                 )}
@@ -578,18 +631,38 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* User Profile - Expanded */}
             {isSidebarExpanded && (
-              <div className="p-3 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
-                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50 dark:bg-gray-800/70 transition-colors duration-150">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
+              <div className={cn("p-3 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
+                <div className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
+                  isLight
+                    ? "bg-[#445D41]/5"
+                    : "bg-slate-800/50 dark:bg-gray-800/70"
+                )}>
+                  <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm flex-shrink-0 transition-all duration-150 shadow-lg shadow-[#445D41]/30">
                     {userInitial}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-white truncate transition-colors duration-150">{userName}</p>
-                    <p className="text-xs text-slate-500 dark:text-gray-500 truncate transition-colors duration-150">{userEmail}</p>
+                    <p className={cn(
+                      "text-sm font-semibold truncate transition-colors duration-150",
+                      isLight ? "text-gray-800" : "text-slate-800 dark:text-white"
+                    )}>
+                      {userName}
+                    </p>
+                    <p className={cn(
+                      "text-xs truncate transition-colors duration-150",
+                      isLight ? "text-gray-500" : "text-slate-500 dark:text-gray-500"
+                    )}>
+                      {userEmail}
+                    </p>
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 transition-colors duration-150"
+                    className={cn(
+                      "transition-colors duration-150",
+                      isLight
+                        ? "text-gray-400 hover:text-red-500"
+                        : "text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500"
+                    )}
                     title="Logout"
                   >
                     <LogOut className="h-4 w-4" />
@@ -600,14 +673,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* User Profile - Collapsed */}
             {!isSidebarExpanded && (
-              <div className="p-2 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
+              <div className={cn("p-2 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
+                  <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg shadow-[#445D41]/30">
                     {userInitial}
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
+                    className={cn(
+                      "w-full flex items-center justify-center p-2 rounded-lg transition-all duration-150",
+                      isLight
+                        ? "text-gray-400 hover:text-red-500 hover:bg-[#445D41]/5"
+                        : "text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
+                    )}
                     title="Logout"
                   >
                     <LogOut className="h-4 w-4" />
@@ -617,19 +695,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             )}
           </aside>
 
-
           {/* Mobile Sidebar */}
           <aside
             className={cn(
-              "fixed lg:hidden h-full w-64 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex flex-col transition-all duration-300 z-50",
-              sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              "fixed lg:hidden h-full w-64 flex flex-col transition-all duration-300 z-50",
+              sidebarOpen ? "translate-x-0" : "-translate-x-full",
+              isLight
+                ? "bg-white/95 backdrop-blur-xl border-r border-[#445D41]/20"
+                : "bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800"
             )}
           >
-            {/* Mobile Sidebar Header */}
-            <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
+            <div className={cn("p-3 border-b flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
               <div className="flex flex-col items-start">
-
-                {/* Logo */}
                 <div className="px-2 py-1 bg-white rounded-xl shadow-md border border-slate-200">
                   <img
                     src="/logo/logo.png"
@@ -637,12 +714,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     className="h-10 w-auto object-contain"
                   />
                 </div>
-
-                {/* Text */}
-                <p className="mt-2 pl-1 text-[11px] font-semibold tracking-[0.28em] uppercase bg-gradient-to-r from-violet-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent drop-shadow-sm">
+                <p className={cn(
+                  "mt-2 pl-1 text-[11px] font-semibold tracking-[0.28em] uppercase drop-shadow-sm",
+                  isLight
+                    ? "text-[#445D41]"
+                    : "bg-gradient-to-r from-violet-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                )}>
                   Admin Dashboard
                 </p>
-
               </div>
             </div>
 
@@ -662,15 +741,35 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         onClick={() => toggleMenu(item.name)}
                         className={cn(
                           "w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
-                          isParentItemActive ? `${gc.bg} text-white` : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                          isParentItemActive
+                            ? isLight
+                              ? `${gc.bg} text-[#445D41]`
+                              : `${gc.bg} text-white`
+                            : isLight
+                              ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                              : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                         )}
                       >
-                        <div className={cn("w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0", isParentItemActive ? `${gc.bg} ${gc.icon}` : "bg-slate-800/70 text-slate-400")}>
+                        <div className={cn(
+                          "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
+                          isParentItemActive
+                            ? isLight
+                              ? `${gc.bg} ${gc.icon}`
+                              : `${gc.bg} ${gc.icon}`
+                            : isLight
+                              ? "bg-gray-100 text-[#445D41]"
+                              : "bg-slate-800/70 text-slate-400"
+                        )}>
                           <Icon className="h-4 w-4" />
                         </div>
-                        <span className="font-semibold text-xs flex-1 text-left tracking-wide uppercase">{item.name}</span>
+                        <span className={cn(
+                          "font-semibold text-xs flex-1 text-left tracking-wide uppercase",
+                          isLight ? "text-gray-700" : "text-white"
+                        )}>
+                          {item.name}
+                        </span>
                         {isParentItemActive && <div className={cn("w-1.5 h-1.5 rounded-full", gc.dot)} />}
-                        <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200 text-slate-500", isExpanded && "rotate-180")} />
+                        <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200", isLight ? "text-gray-400" : "text-slate-500", isExpanded && "rotate-180")} />
                       </button>
 
                       <div className={cn("overflow-hidden transition-all duration-200 ease-in-out", isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0")}>
@@ -685,7 +784,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                 onClick={() => setSidebarOpen(false)}
                                 className={cn(
                                   "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all duration-150 group",
-                                  isChildActive ? "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                  isChildActive
+                                    ? isLight
+                                      ? "bg-[#445D41] text-white shadow-md"
+                                      : "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md"
+                                    : isLight
+                                      ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                                      : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                                 )}
                               >
                                 <ChildIcon className={cn("h-3.5 w-3.5 flex-shrink-0", isChildActive ? "text-white" : gc.icon)} />
@@ -707,49 +812,101 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     onClick={() => setSidebarOpen(false)}
                     className={cn(
                       "flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
-                      isActive ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                      isActive
+                        ? isLight
+                          ? "bg-[#445D41] text-white shadow-lg"
+                          : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg"
+                        : isLight
+                          ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                          : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                     )}
                   >
-                    <div className={cn("w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0", isActive ? "bg-white/20" : "bg-slate-800/70 text-violet-400")}>
+                    <div className={cn(
+                      "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
+                      isActive
+                        ? isLight
+                          ? "bg-white/20 text-white"
+                          : "bg-white/20 text-white"
+                        : isLight
+                          ? "bg-gray-100 text-[#445D41]"
+                          : "bg-slate-800/70 text-violet-400"
+                    )}>
                       <Icon className="h-4 w-4" />
                     </div>
-                    <span className="font-semibold text-xs flex-1 tracking-wide uppercase">{item.name}</span>
+                    <span className={cn(
+                      "font-semibold text-xs flex-1 tracking-wide uppercase",
+                      isLight ? "text-gray-700" : "text-white"
+                    )}>
+                      {item.name}
+                    </span>
                     {isActive && <ChevronRight className="h-3.5 w-3.5 animate-pulse" />}
                   </Link>
                 );
               })}
             </nav>
 
-            <div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
+            <div className={cn("p-2 border-t flex-shrink-0 space-y-0.5", isLight ? "border-[#445D41]/10" : "border-slate-800/60")}>
               <a
                 href="/"
                 onClick={(e) => {
-                  e.preventDefault(); // default navigation roko
-                  setSidebarOpen(false); // sidebar close karo
-                  window.open("/", "_blank"); // new tab me open karo
+                  e.preventDefault();
+                  setSidebarOpen(false);
+                  window.open("/", "_blank");
                 }}
                 title="open store in new tab"
-                className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group"
+                className={cn(
+                  "flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
+                  isLight
+                    ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                )}
               >
-                <div className="w-7 h-7 rounded-md bg-slate-800/70 flex items-center justify-center flex-shrink-0">
-                  <Store className="h-4 w-4 text-cyan-400" />
+                <div className={cn(
+                  "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
+                  isLight
+                    ? "bg-gray-100 text-[#445D41]"
+                    : "bg-slate-800/70 text-cyan-400"
+                )}>
+                  <Store className="h-4 w-4" />
                 </div>
-                <span className="text-xs font-medium">View Store</span>
+                <span className={cn("text-xs font-medium", isLight ? "text-gray-600" : "text-white")}>
+                  View Store
+                </span>
               </a>
             </div>
 
-            <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50 dark:bg-gray-800/70 transition-colors duration-150">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
+            <div className={cn("p-4 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
+              <div className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
+                isLight
+                  ? "bg-[#445D41]/5"
+                  : "bg-slate-800/50 dark:bg-gray-800/70"
+              )}>
+                <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg shadow-[#445D41]/30">
                   {userInitial}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate transition-colors duration-150">{userName}</p>
-                  <p className="text-xs text-slate-400 dark:text-gray-500 truncate transition-colors duration-150">{userEmail}</p>
+                  <p className={cn(
+                    "text-sm font-semibold truncate transition-colors duration-150",
+                    isLight ? "text-gray-800" : "text-white"
+                  )}>
+                    {userName}
+                  </p>
+                  <p className={cn(
+                    "text-xs truncate transition-colors duration-150",
+                    isLight ? "text-gray-500" : "text-slate-400 dark:text-gray-500"
+                  )}>
+                    {userEmail}
+                  </p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 transition-colors duration-150"
+                  className={cn(
+                    "transition-colors duration-150",
+                    isLight
+                      ? "text-gray-400 hover:text-red-500"
+                      : "text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500"
+                  )}
                   title="Logout"
                 >
                   <LogOut className="h-4 w-4" />
@@ -761,11 +918,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Mobile Overlay */}
           {sidebarOpen && (
             <div
-              className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm lg:hidden z-40 transition-all duration-150"
+              className={cn(
+                "fixed inset-0 backdrop-blur-sm lg:hidden z-40 transition-all duration-150",
+                isLight ? "bg-black/30" : "bg-black/50 dark:bg-black/70"
+              )}
               onClick={() => setSidebarOpen(false)}
             />
           )}
-
 
           {/* Main Content */}
           <div
@@ -774,20 +933,35 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
             )}
           >
-            <header className="flex-shrink-0 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-b border-slate-800 dark:border-gray-800 z-30 transition-colors duration-150">
+            <header className={cn(
+              "flex-shrink-0 backdrop-blur-xl border-b z-30 transition-colors duration-150",
+              isLight
+                ? "bg-white/80 border-[#445D41]/10"
+                : "bg-slate-900/80 dark:bg-gray-900/90 border-slate-800 dark:border-gray-800"
+            )}>
               <div className="px-6 py-4">
                 <div className="relative flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 flex-1">
                     <button
                       onClick={() => setSidebarOpen(!sidebarOpen)}
-                      className="lg:hidden p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-150"
+                      className={cn(
+                        "lg:hidden p-2 rounded-lg transition-all duration-150",
+                        isLight
+                          ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                          : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70"
+                      )}
                     >
                       {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                     </button>
 
                     <button
                       onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                      className="hidden lg:block p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-150"
+                      className={cn(
+                        "hidden lg:block p-2 rounded-lg transition-all duration-150",
+                        isLight
+                          ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                          : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70"
+                      )}
                       title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                     >
                       <Menu className="h-5 w-5" />
@@ -798,26 +972,30 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 dark:bg-red-500 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                       </span>
-                      <span className="sm:whitespace-nowrap whitespace-normal   text-center leading-normal">Your changes have been saved. Website updates may take up to 1 minute to reflect.</span>
+                      <span className="sm:whitespace-nowrap whitespace-normal text-center leading-normal">Your changes have been saved. Website updates may take up to 1 minute to reflect.</span>
                     </div>
-
                   </div>
 
                   <div className="flex items-center gap-3">
-
                     {ukTime && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/50 hover:bg-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-700/80 border border-slate-700 dark:border-slate-700 text-slate-300 dark:text-slate-200 rounded-lg text-xs font-semibold shadow-sm transition-all duration-150 select-none"
-                      title="Current UK Time">
-                        <Clock className="h-3.5 w-3.5 text-slate-400 dark:text-slate-400" />
-                        <span className="font-mono">{ukTime}</span> 
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all duration-150 select-none",
+                        isLight
+                          ? "bg-[#445D41]/5 hover:bg-[#445D41]/10 border border-[#445D41]/10 text-gray-600"
+                          : "bg-slate-800/50 hover:bg-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-700/80 border border-slate-700 dark:border-slate-700 text-slate-300 dark:text-slate-200"
+                      )}
+                        title="Current UK Time">
+                        <Clock className={cn("h-3.5 w-3.5", isLight ? "text-[#445D41]" : "text-slate-400 dark:text-slate-400")} />
+                        <span className="font-mono">{ukTime}</span>
                       </div>
                     )}
                     <button
                       onClick={handleThemeToggle}
                       className={cn(
                         "relative p-2 rounded-lg transition-all duration-150 group",
-                        "bg-slate-800/50 dark:bg-gray-800/70 hover:bg-slate-800 dark:hover:bg-gray-800",
-                        "text-slate-400 dark:text-gray-400 hover:text-white",
+                        isLight
+                          ? "bg-[#445D41]/5 hover:bg-[#445D41]/10 text-gray-500 hover:text-[#445D41]"
+                          : "bg-slate-800/50 dark:bg-gray-800/70 hover:bg-slate-800 dark:hover:bg-gray-800 text-slate-400 dark:text-gray-400 hover:text-white",
                         isAnimating && "scale-110 rotate-180"
                       )}
                       title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -825,24 +1003,26 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       <div className="relative w-5 h-5">
                         <Sun
                           className={cn(
-                            "absolute inset-0 h-5 w-5 transition-all duration-500 text-yellow-500",
+                            "absolute inset-0 h-5 w-5 transition-all duration-500",
                             theme === "dark"
                               ? "rotate-90 scale-0 opacity-0"
-                              : "rotate-0 scale-100 opacity-100"
+                              : "rotate-0 scale-100 opacity-100 text-yellow-500"
                           )}
                         />
                         <Moon
                           className={cn(
-                            "absolute inset-0 h-5 w-5 transition-all duration-500 text-blue-400",
+                            "absolute inset-0 h-5 w-5 transition-all duration-500",
                             theme === "dark"
-                              ? "rotate-0 scale-100 opacity-100"
+                              ? "rotate-0 scale-100 opacity-100 text-blue-400"
                               : "-rotate-90 scale-0 opacity-0"
                           )}
                         />
                       </div>
-
                       {isAnimating && (
-                        <span className="absolute inset-0 rounded-lg bg-violet-500/30 dark:bg-violet-600/40 animate-ping" />
+                        <span className={cn(
+                          "absolute inset-0 rounded-lg animate-ping",
+                          isLight ? "bg-[#445D41]/30" : "bg-violet-500/30 dark:bg-violet-600/40"
+                        )} />
                       )}
                     </button>
 
@@ -850,21 +1030,35 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     <div className="hidden lg:block relative" ref={dropdownRef}>
                       <button
                         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                        className="flex items-center gap-2.5 pl-3 ml-3 border-l border-slate-800 dark:border-gray-800 transition-colors duration-150 hover:opacity-80"
+                        className={cn(
+                          "flex items-center gap-2.5 pl-3 ml-3 transition-colors duration-150 hover:opacity-80",
+                          isLight ? "border-l border-[#445D41]/10" : "border-l border-slate-800 dark:border-gray-800"
+                        )}
                       >
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
+                        <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg shadow-[#445D41]/30">
                           {userInitial}
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-semibold text-slate-800 dark:text-white leading-tight transition-colors duration-150">{userName}</p>
+                          <p className={cn(
+                            "text-sm font-semibold leading-tight transition-colors duration-150",
+                            isLight ? "text-gray-800" : "text-slate-800 dark:text-white"
+                          )}>
+                            {userName}
+                          </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-150"></div>
-                            <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Online</p>
+                            <p className={cn(
+                              "text-xs transition-colors duration-150",
+                              isLight ? "text-gray-400" : "text-slate-400 dark:text-gray-500"
+                            )}>
+                              Online
+                            </p>
                           </div>
                         </div>
                         <ChevronDown
                           className={cn(
-                            "h-4 w-4 text-slate-400 transition-transform duration-200",
+                            "h-4 w-4 transition-transform duration-200",
+                            isLight ? "text-gray-400" : "text-slate-400",
                             profileDropdownOpen && "rotate-180"
                           )}
                         />
@@ -872,10 +1066,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
                       {/* Dropdown Menu */}
                       {profileDropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-56 bg-slate-900 dark:bg-gray-900 border border-slate-800 dark:border-gray-800 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50">
-                          <div className="p-3 border-b border-slate-800 dark:border-gray-800">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-white">{userName}</p>
-                            <p className="text-xs text-slate-500 dark:text-gray-500 mt-0.5">{userEmail}</p>
+                        <div className={cn(
+                          "absolute right-0 mt-2 w-56 border rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50",
+                          isLight
+                            ? "bg-white border-[#445D41]/20"
+                            : "bg-slate-900 dark:bg-gray-900 border-slate-800 dark:border-gray-800"
+                        )}>
+                          <div className={cn("p-3 border-b", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
+                            <p className={cn("text-sm font-semibold", isLight ? "text-gray-800" : "text-slate-800 dark:text-white")}>
+                              {userName}
+                            </p>
+                            <p className={cn("text-xs mt-0.5", isLight ? "text-gray-500" : "text-slate-500 dark:text-gray-500")}>
+                              {userEmail}
+                            </p>
                           </div>
 
                           <div className="p-2">
@@ -884,9 +1087,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                 setProfileDropdownOpen(false);
                                 setChangePwdOpen(true);
                               }}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/70 dark:hover:bg-gray-800/70 transition-all duration-150 group"
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group",
+                                isLight
+                                  ? "text-gray-600 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                                  : "text-slate-300 hover:text-white hover:bg-slate-800/70 dark:hover:bg-gray-800/70"
+                              )}
                             >
-                              <LockKeyhole className="h-4 w-4 text-violet-400 group-hover:scale-110 transition-transform" />
+                              <LockKeyhole className={cn("h-4 w-4 group-hover:scale-110 transition-transform", isLight ? "text-[#445D41]" : "text-violet-400")} />
                               <span className="text-sm font-medium">Change Password</span>
                             </button>
 
@@ -897,8 +1105,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                               }}
                               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-red-400 dark:hover:text-red-500 hover:bg-red-500/10 transition-all duration-150 group mt-1"
                             >
-                              <LogOut className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                              <span className="text-sm font-medium">Logout</span>
+                              <LogOut className="h-4 w-4 group-hover:scale-110 transition-transform text-red-400" />
+                              <span className="text-sm font-medium text-red-400">Logout</span>
                             </button>
                           </div>
                         </div>
@@ -909,7 +1117,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto p-6 custom-scrollbar transition-colors duration-500">
+            <main className={cn(
+              "flex-1 overflow-y-auto p-6 custom-scrollbar transition-colors duration-500",
+              isLight ? "bg-gray-50" : "bg-slate-100 dark:bg-slate-950"
+            )}>
               <div className="transition-all duration-150">
                 {children}
                 <ScrollToTopButton />

@@ -41,7 +41,11 @@ type BannerStatus =
   | 'SCHEDULED';
 const handleRestore = async (id: string) => {
   try {
-    await bannersService.restore(id);
+    const res = await bannersService.restore(id);
+    if (res.error) {
+      toast.error(res.error);
+      return;
+    }
     toast.success("Banner restored successfully!");
     fetchBanners();
   } catch (error: any) {
@@ -150,14 +154,18 @@ const fetchBanners = async () => {
 
     const response = await bannersService.getAll({ params });
 
+    if (response.error) {
+      toast.error(response.error);
+      return;
+    }
+
     const rawData = response.data?.data;
 
-const bannersData: Banner[] = Array.isArray(rawData)
-  ? rawData
-  : rawData
-  ? [rawData]
-  : [];
-
+    const bannersData: Banner[] = Array.isArray(rawData)
+      ? rawData
+      : rawData
+      ? [rawData]
+      : [];
 
     setBanners(bannersData);
     calculateStats(bannersData);
@@ -192,15 +200,15 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 
   // ✅ NEW: START DATE & END DATE REQUIRED VALIDATION
-  if (!formData.startDate || !formData.startDate.trim()) {
-    toast.error("Start date & time is required");
-    return;
-  }
+  // if (!formData.startDate || !formData.startDate.trim()) {
+  //   toast.error("Start date & time is required");
+  //   return;
+  // }
 
-  if (!formData.endDate || !formData.endDate.trim()) {
-    toast.error("End date & time is required");
-    return;
-  }
+  // if (!formData.endDate || !formData.endDate.trim()) {
+  //   toast.error("End date & time is required");
+  //   return;
+  // }
 
   // 2. DISPLAY ORDER VALIDATION
   if (Number(formData.displayOrder) < 0) {
@@ -223,16 +231,16 @@ const handleSubmit = async (e: React.FormEvent) => {
   const end = new Date(formData.endDate);
   const now = new Date();
 
-  // Check if dates are valid
-  if (isNaN(start.getTime())) {
-    toast.error("Invalid start date format");
-    return;
-  }
+  // // Check if dates are valid
+  // if (isNaN(start.getTime())) {
+  //   toast.error("Invalid start date format");
+  //   return;
+  // }
 
-  if (isNaN(end.getTime())) {
-    toast.error("Invalid end date format");
-    return;
-  }
+  // if (isNaN(end.getTime())) {
+  //   toast.error("Invalid end date format");
+  //   return;
+  // }
 
   // End date must be after start date
   if (end <= start) {
@@ -337,6 +345,10 @@ const handleSubmit = async (e: React.FormEvent) => {
           title: formData.title,
         });
 
+        if (uploadResponse.error) {
+          throw new Error(uploadResponse.error);
+        }
+
         if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
           throw new Error(uploadResponse.data?.message || "Image upload failed");
         }
@@ -344,21 +356,21 @@ const handleSubmit = async (e: React.FormEvent) => {
         finalImageUrl = uploadResponse.data.data;
 
         // Delete old desktop image if editing
-      if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
-     const filename = extractFilename(editingBanner.imageUrl);
-  if (filename) {
-    try {
-      await bannersService.deleteImage(filename);
-    } catch (err: any) {
-      const msg = err?.message || "";
-      if (msg.includes("Image file not found")) {
-        console.log("⚠️ Image already deleted:", filename);
-      } else {
-        console.error("❌ Delete image error:", err);
-      }
-    }
-  }
-}
+        if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
+          const filename = extractFilename(editingBanner.imageUrl);
+          if (filename) {
+            try {
+              await bannersService.deleteImage(filename);
+            } catch (err: any) {
+              const msg = err?.message || "";
+              if (msg.includes("Image file not found")) {
+                console.log("⚠️ Image already deleted:", filename);
+              } else {
+                console.error("❌ Delete image error:", err);
+              }
+            }
+          }
+        }
       } catch (uploadErr: any) {
         console.error("Error uploading image:", uploadErr);
         toast.error(getBackendMessage(uploadErr));
@@ -373,6 +385,10 @@ const handleSubmit = async (e: React.FormEvent) => {
           title: `${formData.title}-mobile`,
         });
 
+        if (uploadResponse.error) {
+          throw new Error(uploadResponse.error);
+        }
+
         if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
           throw new Error(uploadResponse.data?.message || "Mobile image upload failed");
         }
@@ -380,22 +396,22 @@ const handleSubmit = async (e: React.FormEvent) => {
         finalMobileImageUrl = uploadResponse.data.data;
 
         // Delete old mobile image if editing
-   if (editingBanner?.mobileImageUrl && editingBanner.mobileImageUrl !== finalMobileImageUrl) {
-  const filename = extractFilename(editingBanner.mobileImageUrl);
-  if (filename) {
-    try {
-      await bannersService.deleteImage(filename);
-    } catch (err: any) {
-      const msg = err?.message || "";
+        if (editingBanner?.mobileImageUrl && editingBanner.mobileImageUrl !== finalMobileImageUrl) {
+          const filename = extractFilename(editingBanner.mobileImageUrl);
+          if (filename) {
+            try {
+              await bannersService.deleteImage(filename);
+            } catch (err: any) {
+              const msg = err?.message || "";
 
-      if (msg.includes("Image file not found")) {
-        console.log("⚠️ Mobile image already deleted:", filename);
-      } else {
-        console.error("❌ Delete mobile image error:", err);
-      }
-    }
-  }
-}
+              if (msg.includes("Image file not found")) {
+                console.log("⚠️ Mobile image already deleted:", filename);
+              } else {
+                console.error("❌ Delete mobile image error:", err);
+              }
+            }
+          }
+        }
       } catch (uploadErr: any) {
         console.error("Error uploading mobile image:", uploadErr);
         toast.error(getBackendMessage(uploadErr));
@@ -451,10 +467,18 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     // ✅ SINGLE CREATE/UPDATE CALL
     if (editingBanner) {
-      await bannersService.update(editingBanner.id, payload);
+      const res = await bannersService.update(editingBanner.id, payload);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
       toast.success("Banner updated successfully!");
     } else {
-      await bannersService.create(payload);
+      const res = await bannersService.create(payload);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
       toast.success("Banner created successfully!");
     }
 
@@ -511,12 +535,12 @@ const handleSubmit = async (e: React.FormEvent) => {
     setIsDeleting(true);
     try {
       const response = await bannersService.delete(id);
-      if (!response.error && (response.status === 200 || response.status === 204)) {
-        toast.success("Banner deleted successfully! 🗑️");
-        await fetchBanners();
-      } else {
-        toast.error(getBackendMessage(response));
+      if (response.error) {
+        toast.error(response.error);
+        return;
       }
+      toast.success("Banner deleted successfully! 🗑️");
+      await fetchBanners();
     } catch (error: any) {
       console.error("Error deleting banner:", error);
       toast.error(getBackendMessage(error));
@@ -1931,32 +1955,36 @@ const handleSubmit = async (e: React.FormEvent) => {
       />
 
       <ConfirmDialog
-  isOpen={!!statusConfirm}
-  onClose={() => setStatusConfirm(null)}
-onConfirm={async () => {
-  if (!statusConfirm) return;
+        isOpen={!!statusConfirm}
+        onClose={() => setStatusConfirm(null)}
+        onConfirm={async () => {
+          if (!statusConfirm) return;
 
-  try {
-    const payload = {
-      ...statusConfirm, // 🔥 FULL OBJECT
-      id: statusConfirm.id, // 🔥 MUST
-      isActive: !statusConfirm.isActive // 🔥 only change
-    };
+          try {
+            const payload = {
+              ...statusConfirm, // 🔥 FULL OBJECT
+              id: statusConfirm.id, // 🔥 MUST
+              isActive: !statusConfirm.isActive // 🔥 only change
+            };
 
-    await bannersService.update(statusConfirm.id, payload);
+            const res = await bannersService.update(statusConfirm.id, payload);
+            if (res.error) {
+              toast.error(res.error);
+              return;
+            }
 
-    toast.success("Status updated!");
-    setStatusConfirm(null);
-    await fetchBanners();
+            toast.success("Status updated!");
+            setStatusConfirm(null);
+            await fetchBanners();
 
-  } catch (error: any) {
-    toast.error(error.message || "Update failed");
-  }
-}}
-  title="Change Status"
-  message="Are you sure you want to change banner status?"
-  confirmText="Yes, Change"
-/>
+          } catch (error: any) {
+            toast.error(error.message || "Update failed");
+          }
+        }}
+        title="Change Status"
+        message="Are you sure you want to change banner status?"
+        confirmText="Yes, Change"
+      />
 
 
       {/* Image Preview Modal */}

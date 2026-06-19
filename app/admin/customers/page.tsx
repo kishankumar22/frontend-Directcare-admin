@@ -48,6 +48,7 @@ import { Customer, CustomerQueryParams, customersService, CustomerStats } from "
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getImageUrl  } from "../_utils/formatUtils";
+import { getBackendMessage } from "../_utils/errorUtils";
 
 type CustomerTier = "all" | "gold" | "silver" | "bronze";
 
@@ -101,12 +102,19 @@ export default function CustomersPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [assigningRole, setAssigningRole] = useState(false);
 
   // ✅ Only 3 Filters (Backend)
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [tierFilter, setTierFilter] = useState<CustomerTier>("all");
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const isFirstLoad = useRef(true);
+
+  // ✅ Reset page on search term change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm]);
 
   // ✅ Close dropdowns on outside click
   useEffect(() => {
@@ -128,7 +136,9 @@ export default function CustomersPage() {
   // ✅ Fetch Customers - ONLY BACKEND FILTERING
   const fetchCustomers = useCallback(async () => {
     try {
-      setLoading(true);
+      if (isFirstLoad.current) {
+        setLoading(true);
+      }
       setFilterLoading(true);
 
       const params: CustomerQueryParams = {
@@ -149,6 +159,7 @@ export default function CustomersPage() {
       }
 
       const response = await customersService.getAll(params);
+       console.log(response)
 
       if (response?.data?.success) {
         const resData = response.data.data;
@@ -162,6 +173,7 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
       setFilterLoading(false);
+      isFirstLoad.current = false;
     }
   }, [currentPage, pageSize, debouncedSearchTerm, statusFilter, tierFilter]);
 
@@ -366,15 +378,43 @@ const modalTier = selectedCustomer
   const handleToggleStatus = async (customer: Customer) => {
     try {
       setIsToggling(true);
-      await customersService.toggleStatus(customer.id);
+      const res = await customersService.toggleStatus(customer.id);
+      if (res.error) {
+        toast.error(res.error || "Failed to toggle status");
+        return;
+      }
       setCustomers(prev =>
         prev.map(c => c.id === customer.id ? { ...c, isActive: !c.isActive } : c)
       );
       setToggleConfirm(null);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Error toggling status:", err);
+      const errorMsg = getBackendMessage(err);
+      toast.error(errorMsg || "Failed to toggle status");
     } finally {
       setIsToggling(false);
+    }
+  };
+
+  const handleAssignRole = async (customerId: string, role: string) => {
+    try {
+      setAssigningRole(true);
+      const res = await customersService.assignRole(customerId, role);
+      if (res.error) {
+        toast.error(res.error || "Failed to change role");
+        return;
+      }
+      toast.success(`Role changed to ${role}`);
+      fetchCustomers();
+      if (selectedCustomer) {
+        setSelectedCustomer({ ...selectedCustomer, role });
+      }
+    } catch (error: any) {
+      console.error("Error assigning role:", error);
+      const errorMsg = getBackendMessage(error);
+      toast.error(errorMsg || "Failed to change role");
+    } finally {
+      setAssigningRole(false);
     }
   };
 
@@ -520,15 +560,14 @@ const modalTier = selectedCustomer
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[280px]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
             <input
               type="search"
               placeholder="Search by name,email or phone..."
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-9 pr-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            {filterLoading && <Loader2 className="h-3 w-3 animate-spin text-slate-400 absolute right-2 top-1/2 -translate-y-1/2" />}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />        
           </div>
 
           <select
@@ -583,6 +622,7 @@ const modalTier = selectedCustomer
                   <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">Spent</th>
                   <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">Avg</th>
                   <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">Tier</th>
+                  <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">Role</th>
                   <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">Status</th>
                   <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-medium">Last</th>
                   <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">Actions</th>
@@ -627,6 +667,17 @@ const modalTier = selectedCustomer
                       </td>
                       <td className="py-2 px-2 text-center text-sm text-white">£{avgOrderValue}</td>
                       <td className="py-2 px-2 text-center">{getTierBadge(getTier(customer))}</td>
+                      <td className="py-2 px-2 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold ${
+                          customer.role?.toLowerCase() === 'admin'
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : customer.role?.toLowerCase() === 'staff'
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                        }`}>
+                          {customer.role || "Customer"}
+                        </span>
+                      </td>
                       <td className="py-2 px-2 text-center">
                         <button onClick={() => setToggleConfirm(customer)}>{getStatusBadge(customer.isActive)}</button>
                       </td>
@@ -949,7 +1000,7 @@ const modalTier = selectedCustomer
       </div>
 
       {/* Modal Content */}
-      <div className="overflow-y-auto p-4 space-y-4">
+      <div className="overflow-y-auto p-4 space-y-4 flex-1">
         
         {/* ✅ Customer Metrics Summary */}
         <div className="grid grid-cols-4 gap-3">
@@ -1155,25 +1206,7 @@ const modalTier = selectedCustomer
             </div>
           </div>
 
-          {/* Warning Banner - Dormant Customer */}
-          {selectedCustomer.orders.length > 0 && (() => {
-            const daysSinceLastOrder = Math.floor(
-              (new Date().getTime() - new Date(selectedCustomer.orders[0].orderDate).getTime()) / (1000 * 60 * 60 * 24)
-            );
-            return daysSinceLastOrder > 90 ? (
-              <div className="mt-4 p-3 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-lg flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center animate-pulse">
-                  <AlertCircle className="h-5 w-5 text-orange-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-orange-400 font-semibold">⚠️ Dormant Customer Alert</p>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5 font-medium">
-                    No orders in <span className="font-semibold text-slate-900 dark:text-white">{daysSinceLastOrder} days</span> • Consider sending a re-engagement campaign
-                  </p>
-                </div>
-              </div>
-            ) : null;
-          })()}
+
         </div>
 
         {/* ✅ Personal Information */}
@@ -1264,7 +1297,35 @@ const modalTier = selectedCustomer
           </div>
         )}
 
-       
+      </div>
+
+      {/* ✅ Role Assignment */}
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+          <UserCheck className="h-4 w-4 text-violet-500 dark:text-violet-400" />
+          Role Assignment
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          {["Customer",  "Admin"].map((roleOption) => {
+            const currentRole = selectedCustomer.role || "Customer";
+            const isActive = currentRole.toLowerCase() === roleOption.toLowerCase();
+            return (
+              <button
+                key={roleOption}
+                disabled={assigningRole || isActive}
+                onClick={() => handleAssignRole(selectedCustomer.id, roleOption)}
+                className={`flex-1 min-w-[100px] py-2 px-4 rounded-xl font-semibold text-sm transition-all border flex items-center justify-center gap-2 ${
+                  isActive
+                    ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-600/20 cursor-default"
+                    : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                } ${assigningRole ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {assigningRole && isActive && <Loader2 className="h-4 w-4 animate-spin text-white" />}
+                {roleOption}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   </div>

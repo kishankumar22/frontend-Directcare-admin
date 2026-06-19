@@ -1,5 +1,5 @@
-// lib/api.ts
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { getBackendMessage } from '../app/admin/_utils/errorUtils';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://test.direct-care.co.uk';
 
@@ -193,99 +193,55 @@ class ApiClient {
 
       console.error('❌ Request failed:', JSON.stringify(errorDetails, null, 2));
 
-      let errorMessage = 'An unexpected error occurred';
       let status = error?.response?.status;
+      let errorMessage = getBackendMessage(error);
 
-      // ✅ Error Response Scenarios
-      if (error?.response) {
-        // Server responded with error status
-        const errorData = error.response.data;
-
-        errorMessage =
-          errorData?.message ||
-          errorData?.error ||
-          errorData?.errors?.[0] ||
-          `HTTP ${error.response.status}: ${error.response.statusText}`;
-
-        switch (error.response.status) {
-          case 400:
-            errorMessage = errorData?.message || 'Bad request. Please check your input.';
-            break;
-          case 401:
-            errorMessage = 'Unauthorized. Please login again.';
-            break;
-          case 403:
-            errorMessage = 'Access forbidden. You do not have permission.';
-            break;
-          case 404:
-            errorMessage = `Endpoint not found: ${endpoint}`;
-            break;
-          case 413:
-            errorMessage = 'Request too large. Server limit exceeded.';
-            break;
-          case 500:
-            errorMessage = errorData?.message || 'Internal server error. Please try again later.';
-            break;
-          case 502:
-            errorMessage = 'Bad Gateway. Server is temporarily unavailable.';
-            break;
-          case 503:
-            errorMessage = 'Service unavailable. Please try again later.';
-            break;
-        }
-
-      } else if (error?.request) {
-
-        // ✅ backend plain text response
-        if (typeof error?.response?.data === 'string') {
-          errorMessage = error.response.data;
-        }
-
-        // ✅ backend structured response
-        else if (error?.response?.data?.message) {
-          errorMessage = error.response.data.message;
-        }
-
-        else {
-          switch (error.code) {
-
-            case 'ERR_NETWORK':
-
-              // 🔥 If backend status exists
-              if (error?.request?.status === 503) {
-                errorMessage = 'The service is unavailable.';
-              }
-
-              else {
-                errorMessage = 'Unable to connect to server.';
-              }
-
+      // Keep specific friendly overrides if backend didn't provide a custom message
+      if (errorMessage === 'Something went wrong' || errorMessage.includes('Request failed with status code')) {
+        if (error?.response) {
+          switch (status) {
+            case 401:
+              errorMessage = 'Unauthorized. Please login again.';
               break;
-
+            case 403:
+              errorMessage = 'Access forbidden. You do not have permission.';
+              break;
+            case 404:
+              errorMessage = `Endpoint not found: ${endpoint}`;
+              break;
+            case 413:
+              errorMessage = 'Request too large. Server limit exceeded.';
+              break;
+            case 500:
+              errorMessage = 'Internal server error. Please try again later.';
+              break;
+            case 502:
+              errorMessage = 'Bad Gateway. Server is temporarily unavailable.';
+              break;
+            case 503:
+              errorMessage = 'Service unavailable. Please try again later.';
+              break;
+          }
+        } else if (error?.request) {
+          switch (error.code) {
             case 'ERR_FR_MAX_BODY_LENGTH_EXCEEDED':
               errorMessage = 'Request data too large.';
               break;
-
             case 'ECONNABORTED':
               errorMessage = 'Request timeout.';
               break;
-
             case 'ECONNREFUSED':
               errorMessage = 'Connection refused.';
               break;
-
             case 'ENOTFOUND':
               errorMessage = 'Server not found.';
               break;
-
             default:
               errorMessage = 'No response from server.';
           }
+        } else {
+          errorMessage = error?.message || 'Failed to setup request';
         }
-
-      } else {
-        // ✅ Request setup error
-        errorMessage = error?.message || 'Failed to setup request';
       }
 
       return {

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useTheme } from '@/app/admin/_context/theme-provider';
+import { cn } from '@/lib/utils';
 
 export default function ScrollToTopButton() {
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -9,6 +11,8 @@ export default function ScrollToTopButton() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
 
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -117,7 +121,12 @@ export default function ScrollToTopButton() {
       {(showScrollTop || showScrollBottom) && (
         <div className="fixed top-0 left-0 right-0 h-1 bg-slate-800/30 z-[9999]">
           <div
-            className="h-full bg-gradient-to-r from-violet-500 via-cyan-500 to-emerald-500 transition-all duration-200"
+            className={cn(
+              "h-full transition-all duration-200",
+              isDark
+                ? "bg-gradient-to-r from-violet-500 via-cyan-500 to-emerald-500"
+                : "bg-[#445D41]"
+            )}
             style={{
               width: `${scrollProgress}%`,
             }}
@@ -131,20 +140,12 @@ export default function ScrollToTopButton() {
           onClick={scrollToTop}
           disabled={isScrolling}
           aria-label="Scroll to top"
-          className="
-            fixed bottom-24 right-8 z-[9999]
-            w-10 h-10
-            flex items-center justify-center
-            rounded-full
-            bg-gradient-to-r from-violet-500 to-cyan-500
-            hover:from-violet-600 hover:to-cyan-600
-            text-white
-            shadow-[0_8px_30px_rgba(139,92,246,0.35)]
-            transition-all duration-300
-            hover:scale-110
-            active:scale-95
-            disabled:opacity-50
-          "
+          className={cn(
+            "fixed bottom-24 right-8 z-[9999] w-10 h-10 flex items-center justify-center rounded-full text-white transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50",
+            isDark
+              ? "bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 shadow-[0_8px_30px_rgba(139,92,246,0.35)]"
+              : "bg-[#445D41] hover:bg-[#354732] shadow-md"
+          )}
         >
           <ArrowUp size={22} strokeWidth={2.5} />
         </button>
@@ -156,20 +157,12 @@ export default function ScrollToTopButton() {
           onClick={scrollToBottom}
           disabled={isScrolling}
           aria-label="Scroll to bottom"
-          className="
-            fixed bottom-12 right-8 z-[9999]
-             w-10 h-10
-            flex items-center justify-center
-            rounded-full
-            bg-gradient-to-r from-emerald-500 to-teal-500
-            hover:from-emerald-600 hover:to-teal-600
-            text-white
-            shadow-[0_8px_30px_rgba(16,185,129,0.35)]
-            transition-all duration-300
-            hover:scale-110
-            active:scale-95
-            disabled:opacity-50
-          "
+          className={cn(
+            "fixed bottom-12 right-8 z-[9999] w-10 h-10 flex items-center justify-center rounded-full text-white transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50",
+            isDark
+              ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-[0_8px_30px_rgba(16,185,129,0.35)]"
+              : "bg-slate-800 hover:bg-slate-900 shadow-md"
+          )}
         >
           <ArrowDown size={22} strokeWidth={2.5} />
         </button>
