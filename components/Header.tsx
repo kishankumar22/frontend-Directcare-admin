@@ -1173,16 +1173,34 @@ export default function Header({
                                     className={`overflow-hidden transition-all duration-300 ${openChildren[sub.id] ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
                                       }`}
                                   >
-                                    <div className="pl-3 border-l-2 border-green-200 ml-1 mb-1">
+                                    <div className="pl-3 border-l-2 border-green-200 ml-1 mb-1 space-y-2">
                                       {sub.subCategories.map((c) => (
-                                        <Link
-                                          key={c.id}
-                                          href={`/category/${c.slug ?? "#"}`}
-                                          onClick={() => setMenuOpen(false)}
-                                          className="block py-1.5 text-xs text-gray-600 hover:text-[#445D41] transition"
-                                        >
-                                          {c.name}
-                                        </Link>
+                                        <div key={c.id} className="space-y-1.5">
+                                          {/* L3 Category */}
+                                          <Link
+                                            href={`/category/${c.slug ?? "#"}`}
+                                            onClick={() => setMenuOpen(false)}
+                                            className="block py-1 text-xs font-semibold text-gray-800 hover:text-[#445D41] transition"
+                                          >
+                                            {c.name}
+                                          </Link>
+
+                                          {/* L4 Categories */}
+                                          {c.subCategories && c.subCategories.length > 0 && (
+                                            <div className="pl-3 space-y-1 border-l border-green-100/50 mb-2">
+                                              {c.subCategories.map((l4) => (
+                                                <Link
+                                                  key={l4.id}
+                                                  href={`/category/${l4.slug ?? "#"}`}
+                                                  onClick={() => setMenuOpen(false)}
+                                                  className="block py-0.5 text-[11px] text-gray-500 hover:text-[#445D41] transition"
+                                                >
+                                                  {l4.name}
+                                                </Link>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
                                       ))}
                                     </div>
                                   </div>

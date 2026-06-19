@@ -2472,7 +2472,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               </>
             )}
 
-              {(product.isPharmaProduct || activeSaleCount) && (
+              {!!(product.isPharmaProduct || (activeSaleCount ?? 0) > 0) && (
               <div className="flex items-center gap-1.5 md:gap-2 mb-2.5 md:mb-3 flex-wrap">
                 {product.isPharmaProduct && (
                   <div className="inline-flex items-center gap-1.5 bg-[#445D41]/20 border-2 border-[#445D41]/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-sm hover:shadow-md hover:bg-[#445D41]/30 transition-all duration-200">

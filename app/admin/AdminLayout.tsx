@@ -145,7 +145,7 @@ const navigation: NavigationItem[] = [
 
       { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban },
       { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText },
-      { name: 'Comments', href: '/admin/comments', icon: MessageSquare },
+      { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare },
       { name: 'Contacts', href: '/admin/contact', icon: Mail },
     ],
   },
@@ -191,6 +191,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useAdminLogoutShortcut();
+
+  const [ukTime, setUkTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const timeStr = new Date().toLocaleTimeString('en-GB', {
+        timeZone: 'Europe/London',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      setUkTime(timeStr);
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
 
   const isActiveRoute = (navHref: string, currentPath: string) => {
@@ -774,24 +793,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       <Menu className="h-5 w-5" />
                     </button>
 
-                    <div className="flex absolute left-1/2 -translate-x-1/2 z-10 items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-400 rounded-lg text-[10px] md:text-xs font-semibold animate-pulse shadow-sm shadow-red-500/5 max-w-[70%] sm:max-w-none justify-center">
-                      <Info className="h-3.5 w-3.5 md:h-4 md:w-4 text-red-500 dark:text-red-400 flex-shrink-0" />
-                      <span className="sm:whitespace-nowrap whitespace-normal text-center leading-normal">Your changes have been saved. Website updates may take up to 1 minute to reflect.</span>
+                    <div className="flex absolute left-1/2 -translate-x-1/2 z-10 items-center gap-2 px-3 py-1.5 bg-red-100 hover:bg-red-200/80 dark:bg-red-950/30 dark:hover:bg-red-900/40 border border-red-300 dark:border-red-900/50 hover:border-red-400 dark:hover:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-[10px] md:text-xs font-semibold shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 cursor-help max-w-[70%] sm:max-w-none justify-center sm:pl-4">
+                      <span className="relative flex h-2 w-2 flex-shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 dark:bg-red-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                      </span>
+                      <span className="sm:whitespace-nowrap whitespace-normal   text-center leading-normal">Your changes have been saved. Website updates may take up to 1 minute to reflect.</span>
                     </div>
 
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => {
-                        toast.success("No Notifications Right Now");;
-                      }}
-                      className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all duration-150"
-                    >
-                      <Bell className="h-5 w-5" />
-                    </button>
 
-
+                    {ukTime && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/50 hover:bg-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-700/80 border border-slate-700 dark:border-slate-700 text-slate-300 dark:text-slate-200 rounded-lg text-xs font-semibold shadow-sm transition-all duration-150 select-none"
+                      title="Current UK Time">
+                        <Clock className="h-3.5 w-3.5 text-slate-400 dark:text-slate-400" />
+                        <span className="font-mono">{ukTime}</span> 
+                      </div>
+                    )}
                     <button
                       onClick={handleThemeToggle}
                       className={cn(

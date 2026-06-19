@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Edit, Eye, Plus, RefreshCw, Search, Trash2, X, AlertCircle } from 'lucide-react';
+import { Edit, Eye, Plus, RefreshCw, Search, Trash2, X, AlertCircle, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/app/admin/_components/CustomToast';
 import ConfirmDialog from '@/app/admin/_components/ConfirmDialog';
@@ -18,27 +18,39 @@ export const RoleFilters = React.memo(function RoleFilters({
   searching,
   loading,
   onSearchChange,
+  systemFilter,
+  onSystemFilterChange,
   onReset,
 }: {
   search: string;
   searching: boolean;
   loading: boolean;
   onSearchChange: (value: string) => void;
+  systemFilter: string;
+  onSystemFilterChange: (value: string) => void;
   onReset: () => void;
 }) {
+  const isFilterActive = search.trim() !== '' || systemFilter !== '';
+
   return (
     <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 shadow-sm">
-      <div className="flex items-end gap-3 flex-wrap">
-        <div className="min-w-[260px] flex-1">
-         
-          <div className="relative mt-1">
-            <Search className="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+      <div className="flex items-center gap-3 w-full">
+        {/* Search Input Container */}
+        <div className="flex-1 min-w-[200px]">
+          <div className="relative">
+            <Search className={`h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+              search.trim() !== '' ? 'text-violet-500 dark:text-violet-400' : 'text-slate-500'
+            }`} />
             <input
-            type='search'
+              type="search"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="role name..."
-              className="w-full pl-9 pr-10 py-1.5 bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+              className={`w-full pl-9 pr-10 py-1.5 bg-white dark:bg-slate-950/40 border rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all ${
+                search.trim() !== ''
+                  ? 'border-violet-500 dark:border-violet-500/60 bg-violet-500/5 dark:bg-violet-950/60 shadow-sm shadow-violet-500/10'
+                  : 'border-slate-200 dark:border-slate-800'
+              }`}
             />
             {searching && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -47,10 +59,57 @@ export const RoleFilters = React.memo(function RoleFilters({
             )}
           </div>
         </div>
+
+        {/* System Filter Select */}
+        <div className="w-44 flex-shrink-0">
+          <select
+            value={systemFilter}
+            onChange={(e) => onSystemFilterChange(e.target.value)}
+            className={`w-full px-3 py-1.5 bg-white dark:bg-slate-950/40 border rounded-xl text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/60 transition-all cursor-pointer ${
+              systemFilter !== ''
+                ? 'border-violet-500 dark:border-violet-500/60 bg-violet-500/5 dark:bg-violet-950/60 shadow-sm shadow-violet-500/10 font-semibold'
+                : 'border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            <option value="" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200">Role Type: All</option>
+            <option value="yes" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200">Role Type: System</option>
+            <option value="no" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200">Role Type: Custom</option>
+          </select>
+        </div>
+
+        {/* Clear Filters Button (Dynamic) */}
+        {isFilterActive && (
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 rounded-xl hover:bg-violet-100 dark:hover:bg-violet-950/80 transition-all shadow-sm active:scale-95"
+          >
+            Clear Filters
+          </button>
+        )}
       </div>
     </div>
   );
 });
+
+function SortIcon({
+  field,
+  currentField,
+  order,
+}: {
+  field: 'name' | 'users' | 'system';
+  currentField: 'name' | 'users' | 'system' | null;
+  order: 'asc' | 'desc';
+}) {
+  if (currentField !== field) {
+    return <ArrowUpDown className="h-3.5 w-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />;
+  }
+  return order === 'asc' ? (
+    <ChevronUp className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
+  ) : (
+    <ChevronDown className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
+  );
+}
 
 export const RoleTable = React.memo(function RoleTable({
   items,
@@ -60,6 +119,9 @@ export const RoleTable = React.memo(function RoleTable({
   onToggleAll,
   onAction,
   onDisabled,
+  sortField,
+  sortOrder,
+  onSort,
 }: {
   items: StaffRole[];
   loading: boolean;
@@ -68,6 +130,9 @@ export const RoleTable = React.memo(function RoleTable({
   onToggleAll: (checked: boolean) => void;
   onAction: (action: RoleAction) => void;
   onDisabled: (message: string) => void;
+  sortField: 'name' | 'users' | 'system' | null;
+  sortOrder: 'asc' | 'desc';
+  onSort: (field: 'name' | 'users' | 'system') => void;
 }) {
   const allVisibleSelected = useMemo(() => {
     if (items.length === 0) return false;
@@ -88,9 +153,36 @@ export const RoleTable = React.memo(function RoleTable({
                   className="w-4 h-4 rounded bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-violet-500 focus:ring-violet-500"
                 />
               </th>
-              <th className="text-left px-4 py-3 font-semibold">Name</th>
-              <th className="text-left px-4 py-3 font-semibold">Users</th>
-              <th className="text-left px-4 py-3 font-semibold">System</th>
+              <th className="text-left px-4 py-3 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => onSort('name')}
+                  className="flex items-center gap-1 hover:text-slate-800 dark:hover:text-white transition-colors focus:outline-none group font-semibold"
+                >
+                  <span>Name</span>
+                  <SortIcon field="name" currentField={sortField} order={sortOrder} />
+                </button>
+              </th>
+              <th className="text-left px-4 py-3 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => onSort('users')}
+                  className="flex items-center gap-1 hover:text-slate-800 dark:hover:text-white transition-colors focus:outline-none group font-semibold"
+                >
+                  <span>Users</span>
+                  <SortIcon field="users" currentField={sortField} order={sortOrder} />
+                </button>
+              </th>
+              <th className="text-left px-4 py-3 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => onSort('system')}
+                  className="flex items-center gap-1 hover:text-slate-800 dark:hover:text-white transition-colors focus:outline-none group font-semibold"
+                >
+                  <span>System</span>
+                  <SortIcon field="system" currentField={sortField} order={sortOrder} />
+                </button>
+              </th>
               <th className="text-right px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
@@ -269,7 +361,7 @@ export function RoleFormModal({
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-violet-600/10 dark:to-cyan-500/10 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-slate-50 dark:bg-slate-900/50 dark:bg-gradient-to-r dark:from-violet-600/10 dark:to-cyan-500/10 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{mode === 'create' ? 'Create Role' : 'Edit Role'}</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">Manage staff access roles</p>
@@ -339,7 +431,7 @@ export function RoleViewModal({
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-cyan-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-slate-200 dark:border-cyan-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-cyan-500/10 dark:to-violet-600/10 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 dark:border-cyan-500/20 bg-slate-50 dark:bg-slate-900/50 dark:bg-gradient-to-r dark:from-cyan-500/10 dark:to-violet-600/10 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Role Details</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">{item?.name || '—'}</p>

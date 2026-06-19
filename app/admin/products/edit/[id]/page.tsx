@@ -4818,16 +4818,6 @@ if (name === "recurringCyclePeriod") {
       );
       return;
     }
-
-    // ✅ MIN 5 images validation (CORRECT PLACE)
-    const totalAfterUpload =
-      formData.productImages.length + files.length;
-
-    if (totalAfterUpload < MIN_IMAGES) {
-      toast.error(`❌ Minimum ${MIN_IMAGES} images are required for a product`);
-      return;
-    }
-
     const validatedFiles: File[] = [];
 
     for (const file of Array.from(files)) {

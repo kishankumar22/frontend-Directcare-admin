@@ -378,7 +378,7 @@ onMouseEnter={() => {
   setActiveSubCategory(sub);
   setActiveChildCategory(null);
 }}
-  className={`flex items-center justify-between p-2 transition cursor-pointer hover:bg-white hover:font-semibold ${
+  className={`flex items-center justify-between p-1 transition cursor-pointer hover:bg-white hover:font-semibold ${
     activeSubCategory?.id === sub.id
       ? "bg-white font-semibold text-[#445D41]"
       : "text-gray-800"
@@ -408,27 +408,52 @@ onMouseEnter={() => {
           {/* MIDDLE COLUMN */}
           <div className="w-1/3 bg-white border-r border-gray-200 p-4 overflow-hidden">
             {activeSubCategory?.subCategories?.length ? (
-              <div className="h-full overflow-y-auto pr-2 space-y-2 scrollbar-hide"
+              <div className="h-full overflow-y-auto pr-2 space-y-1.5 scrollbar-hide"
               onMouseLeave={() =>
     setActiveChildCategory(null)
   }>
-                {activeSubCategory.subCategories.map((child) => (
-<Link
-  key={child.id}
-  href={`/category/${child.slug}`}
-  onMouseEnter={() =>
-    setActiveChildCategory(child)
-  }
-  className={`block text-base transition ${
-    activeChildCategory?.id === child.id
-      ? "text-[#445D41] font-semibold"
-      : "text-gray-700 hover:text-[#445D41] hover:font-medium"
-  }`}
->
+                {activeSubCategory.subCategories.map((child) => {
+                  const hasL4 = child.subCategories && child.subCategories.length > 0;
 
-                    {child.name ?? "Unnamed"}
-                  </Link>
-                ))}
+                  return (
+                    <div key={child.id} className="space-y-0.5">
+                      <Link
+                        href={`/category/${child.slug}`}
+                        onMouseEnter={() => setActiveChildCategory(child)}
+                        className={
+                          hasL4
+                            ? `block text-[13px] font-bold tracking-wider uppercase transition ${
+                                activeChildCategory?.id === child.id
+                                  ? "text-[#445D41]"
+                                  : "text-[#445D41] hover:text-[#445D41]/80"
+                              }`
+                            : `block text-sm transition ${
+                                activeChildCategory?.id === child.id
+                                  ? "text-[#445D41] font-semibold"
+                                  : "text-gray-700 hover:text-[#445D41] hover:font-semibold"
+                              }`
+                        }
+                      >
+                        {child.name ?? "Unnamed"}
+                      </Link>
+
+                      {/* L4 Categories */}
+                      {hasL4 && (
+                        <div className="pl-2 border-l border-gray-150 space-y-0.5 mb-2">
+                          {child.subCategories?.map((l4) => (
+                            <Link
+                              key={l4.id}
+                              href={`/category/${l4.slug}`}
+                              className="block text-[13px] font-medium text-gray-500 hover:text-[#445D41] transition"
+                            >
+                              {l4.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
            ) : (
   <div className="flex flex-col items-center justify-center h-full text-center px-6">

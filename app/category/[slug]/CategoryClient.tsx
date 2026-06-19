@@ -9,7 +9,7 @@ import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
 import Link from "next/link";
 import { ShoppingCart, Star, SlidersHorizontal, X, Search, Grid3x3, LayoutGrid, ChevronRight, ExternalLink, BadgePercent, Grid2x2, AwardIcon, Loader2, } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/toast/CustomToast";

@@ -2651,8 +2651,9 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
           return null;
         }
 
-        if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} is not a valid image file.`);
+        const ALLOWED_TYPES = ['image/webp', 'image/avif'];
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          toast.error(`❌ ${file.name}: Only WebP or Avif images are allowed`);
           return null;
         }
 
@@ -2678,7 +2679,7 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         productImages: [...prev.productImages, ...validImages]
       }));
       
-      toast.success(`${validImages.length} image(s) added for upload! ·`);
+      toast.success(`${validImages.length} image added for upload! ·`);
     }
 
     // Clear file input

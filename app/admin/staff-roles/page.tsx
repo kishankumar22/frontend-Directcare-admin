@@ -27,11 +27,64 @@ export default function StaffRolesPage() {
   const [searching, setSearching] = useState(false);
   const debouncedSearch = useDebounce(search, 400);
 
+  const [systemFilter, setSystemFilter] = useState('');
+  const [sortField, setSortField] = useState<'name' | 'users' | 'system' | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
   const filtered = useMemo(() => {
     const term = (debouncedSearch || '').trim().toLowerCase();
-    if (!term) return roles;
-    return roles.filter((r) => (r.name || '').toLowerCase().includes(term));
-  }, [roles, debouncedSearch]);
+    let result = [...roles];
+    if (term) {
+      result = result.filter((r) => (r.name || '').toLowerCase().includes(term));
+    }
+
+    if (systemFilter === 'yes') {
+      result = result.filter((r) => r.isSystem === true);
+    } else if (systemFilter === 'no') {
+      result = result.filter((r) => r.isSystem === false);
+    }
+
+    if (sortField) {
+      result.sort((a, b) => {
+        let valA: any;
+        let valB: any;
+
+        if (sortField === 'name') {
+          valA = (a.name || '').toLowerCase();
+          valB = (b.name || '').toLowerCase();
+        } else if (sortField === 'users') {
+          valA = a.userCount ?? 0;
+          valB = b.userCount ?? 0;
+        } else if (sortField === 'system') {
+          valA = a.isSystem ? 1 : 0;
+          valB = b.isSystem ? 1 : 0;
+        }
+
+        if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [roles, debouncedSearch, systemFilter, sortField, sortOrder]);
+
+  const handleSort = useCallback((field: 'name' | 'users' | 'system') => {
+    setSortField((prevField) => {
+      if (prevField === field) {
+        setSortOrder((prevOrder) => (prevOrder === 'asc' ? 'desc' : 'asc'));
+        return field;
+      } else {
+        setSortOrder('asc');
+        return field;
+      }
+    });
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearch('');
+    setSystemFilter('');
+  }, []);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
@@ -241,7 +294,9 @@ export default function StaffRolesPage() {
         searching={searching}
         loading={loading}
         onSearchChange={setSearch}
-        onReset={() => setSearch('')}
+        systemFilter={systemFilter}
+        onSystemFilterChange={setSystemFilter}
+        onReset={handleResetFilters}
       />
 
       <RoleTable
@@ -252,6 +307,9 @@ export default function StaffRolesPage() {
         onToggleAll={toggleAllVisible}
         onAction={handleAction}
         onDisabled={(message) => toastRef.current.warning(message)}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
       />
 
       <RoleFormModal
