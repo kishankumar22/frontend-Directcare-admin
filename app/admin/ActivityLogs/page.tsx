@@ -243,6 +243,7 @@ export default function ActivityLogsPage() {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [allActivityLogs, setAllActivityLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -370,6 +371,7 @@ const fetchActivityLogs = useCallback(async () => {
     setAllActivityLogs([]);
   } finally {
     setLoading(false);
+    setIsInitialLoad(false);
   }
 }, [currentPage, pageSize, debouncedSearchTerm, filters, sortField, sortDirection]);
 
@@ -853,7 +855,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
     );
   };
 
-  if (loading) {
+  if (isInitialLoad && loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -1323,8 +1325,14 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
 
 
       {/* ✅ Activity Logs Table */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
-        {activityLogs.length === 0 ? (
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden relative">
+        {loading && !isInitialLoad ? (
+          <div className="text-center py-16">
+            <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-400 text-lg">Updating activity logs...</p>
+            <p className="text-slate-500 text-sm">Please wait while we refresh the list</p>
+          </div>
+        ) : activityLogs.length === 0 ? (
           <div className="text-center py-10">
             <AlertCircle className="h-14 w-14 text-slate-600 mx-auto mb-3" />
             <p className="text-slate-400 text-lg">No activity logs found</p>

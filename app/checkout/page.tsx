@@ -366,10 +366,10 @@ const [orderSummary, setOrderSummary] = useState<{
   const [isPlacing, setIsPlacing] = useState(false);
 // ✅ Terms & Newsletter states
 const [acceptTerms, setAcceptTerms] = useState(true);
-const [subscribeNewsletter, setSubscribeNewsletter] = useState(false);
+const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
 const [pointsDiscount, setPointsDiscount] = useState(0);
 const [pointsToRedeem, setPointsToRedeem] = useState(0);
-  // 🔹 BUY NOW ITEM (frontend-only)
+
 // ✅ BUY NOW SAFE STATE
 const [buyNowItem, setBuyNowItem] = useState<any>(null);
 
@@ -557,10 +557,13 @@ useEffect(() => {
     return;
   }
 
-  const cartValue = checkoutItems.reduce(
-    (s, i) =>
-      s + (i.finalPrice ?? i.price) * i.quantity,
-    0
+  const cartValue = Math.max(
+    0,
+    checkoutItems.reduce(
+      (s, i) =>
+        s + (i.finalPrice ?? i.price) * i.quantity,
+      0
+    ) - cartBundleDiscount
   );
 
   const timer = setTimeout(async () => {
@@ -1107,8 +1110,8 @@ const validateAndBuildPayload = async (): Promise<any | null> => {
   if (!billingCity.trim())
     errors.billingCity = "City is required";
 
-  if (!billingState.trim())
-    errors.billingState = "County / State is required";
+  if (!billingCountry.trim())
+    errors.billingCountry = "Country is required";
   // ✅ SHIPPING VALIDATION (same as billing)
 if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
  // ✅ ADD THIS
@@ -1125,8 +1128,8 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
   if (!shippingCity.trim())
     errors.shippingCity = "Shipping city is required";
 
-  if (!shippingState.trim())
-    errors.shippingState = "Shipping county / state is required";
+  if (!shippingCountry.trim())
+    errors.shippingCountry = "Shipping country is required";
 }
 
   }
@@ -1354,13 +1357,14 @@ if (!checkoutItems || checkoutItems.length === 0) {
   <ErrorText error={fieldErrors.billingCity} />
 </div>
 <div className="flex flex-col space-y-0.5 col-span-2">
-  <label className="text-xs font-medium text-gray-700">County / State *</label>
+  <label className="text-xs font-medium text-gray-700">Country *</label>
   <input
-    value={billingState}
-    onChange={(e) => { setBillingState(e.target.value); clearFieldError("billingState"); }}
-    className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+    value={billingCountry}
+    onChange={(e) => { setBillingCountry(e.target.value); clearFieldError("billingCountry"); }}
+    className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all bg-gray-100 cursor-not-allowed"
+    disabled
   />
-  <ErrorText error={fieldErrors.billingState} />
+  <ErrorText error={fieldErrors.billingCountry} />
 </div>
           </div>
         </div>
@@ -1522,11 +1526,15 @@ setShippingAddressQuery("");
           <input value={shippingCity} onChange={(e) => { setShippingCity(e.target.value); clearFieldError("shippingCity"); }} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />
           <ErrorText error={fieldErrors.shippingCity} />
         </div>
-    
         <div className="flex flex-col space-y-0.5 col-span-2">
-          <label className="text-xs font-medium text-gray-700">County / State *</label>
-          <input value={shippingState} onChange={(e) => { setShippingState(e.target.value); clearFieldError("shippingState"); }} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />
-          <ErrorText error={fieldErrors.shippingState} />
+          <label className="text-xs font-medium text-gray-700">Country *</label>
+          <input
+            value={shippingCountry}
+            onChange={(e) => { setShippingCountry(e.target.value); clearFieldError("shippingCountry"); }}
+            className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all bg-gray-100 cursor-not-allowed"
+            disabled
+          />
+          <ErrorText error={fieldErrors.shippingCountry} />
         </div>
 
       </div>

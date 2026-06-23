@@ -60,7 +60,7 @@ useEffect(() => {
   setIsSearching(true);
 
   const timer = setTimeout(() => {
-    setDebouncedSearch(searchTerm);
+    setDebouncedSearch(searchTerm.trim());
     setIsSearching(false);
   }, 400);
 

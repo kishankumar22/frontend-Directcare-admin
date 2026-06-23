@@ -61,6 +61,7 @@ import {
   orderCancellationRequestsService,
 } from '../../../lib/services/orderCancellationRequests';
 import { useToast } from '@/app/admin/_components/CustomToast';
+import { API_BASE_URL, API_ENDPOINTS } from '@/lib/api-config';
 import React from 'react';
 import OrderActionsModal from './OrderActionsModal';
 import BulkStatusModal from './BulkStatusModal';
@@ -126,6 +127,7 @@ export default function OrdersListPage() {
   const toast = useToast();
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [deliveryOptions, setDeliveryOptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -272,6 +274,31 @@ export default function OrdersListPage() {
     init();
   }, []);
 
+  useEffect(() => {
+    const fetchDeliveryOptions = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+        const url = `${API_BASE_URL}${API_ENDPOINTS.deliveryOptions}?includeInactive=true`;
+        const res = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const data = json.data ?? json;
+          if (Array.isArray(data)) {
+            setDeliveryOptions(data);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch delivery options for order filter', err);
+      }
+    };
+    fetchDeliveryOptions();
+  }, []);
+
 
 
 
@@ -294,7 +321,7 @@ export default function OrdersListPage() {
       if (filters.status) apiParams.status = filters.status;
       if (filters.fromDate) apiParams.fromDate = filters.fromDate;
       if (filters.toDate) apiParams.toDate = filters.toDate;
-      if (debouncedSearch.trim() !== "") apiParams.searchTerm = debouncedSearch;
+      if (debouncedSearch.trim() !== "") apiParams.searchTerm = debouncedSearch.trim();
 
       if (filters.pharmacyVerificationStatus) {
         apiParams.pharmacyVerificationStatus = filters.pharmacyVerificationStatus;
@@ -1212,9 +1239,20 @@ export default function OrdersListPage() {
         ${(filters.shippingMethodName || filters.isClickAndCollect === "true") ? "border-fuchsia-500 bg-slate-500/10" : "border-slate-700"}`}
           >
             <option value="">Shipping Method: All</option>
-            <option value="Standard Delivery">Standard Delivery</option>
-            <option value="Next Day Delivery">Next Day Delivery</option>
-            <option value="ClickAndCollect">Click & Collect</option>
+            {(() => {
+              const sortedOptions = [...deliveryOptions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+              return sortedOptions.map((opt) => {
+                const name = (opt.name || "").toLowerCase();
+                const displayName = (opt.displayName || "").toLowerCase();
+                const isCollect = name.includes("collect") || (displayName.includes("click") && displayName.includes("collect"));
+                const val = isCollect ? "ClickAndCollect" : opt.displayName;
+                return (
+                  <option key={opt.id || opt.deliveryOptionId || opt.name} value={val}>
+                    {opt.displayName}
+                  </option>
+                );
+              });
+            })()}
           </select>
 
           {/* IS PHARMA PRODUCT */}

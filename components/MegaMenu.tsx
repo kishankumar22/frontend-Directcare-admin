@@ -378,7 +378,7 @@ onMouseEnter={() => {
   setActiveSubCategory(sub);
   setActiveChildCategory(null);
 }}
-  className={`flex items-center justify-between p-1 transition cursor-pointer hover:bg-white hover:font-semibold ${
+  className={`flex items-center justify-between px-2 py-1 transition cursor-pointer hover:bg-white hover:font-semibold ${
     activeSubCategory?.id === sub.id
       ? "bg-white font-semibold text-[#445D41]"
       : "text-gray-800"

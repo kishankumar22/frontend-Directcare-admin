@@ -421,3 +421,18 @@ html:not(.dark) [data-admin] .placeholder-slate-400::placeholder { color: #94a3b
     box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
   }
 }
+
+@keyframes heartbeatGlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 6px rgba(244, 63, 94, 0.15);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(244, 63, 94, 0.35);
+  }
+}
+
+.animate-heartbeat-glow {
+  animation: heartbeatGlow 2s infinite ease-in-out;
+}

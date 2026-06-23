@@ -76,6 +76,7 @@ interface Category {
   metaKeywords?: string | null;
   productCount: number;
   subCategories: Category[];
+  schemaDescription?: string | null;
 }
 type BreadcrumbItem = {
   label: string;
@@ -791,6 +792,13 @@ const handleSortChange = useCallback((value: string) => {
     },
     [toast, addToCart, cart]
   );
+
+  const anyFilterApplied =
+    selectedBrands.length > 0 ||
+    selectedSubCategories.length > 0 ||
+    minRating > 0 ||
+    !!urlPriceParam;
+
   // ---------- JSX ----------
   return (
     <div className="min-h-screen bg-gray-50">
@@ -826,17 +834,24 @@ const handleSortChange = useCallback((value: string) => {
           </nav>
 
           {/* RIGHT: Sort */}
-          <select
-            value={`${sortBy}-${sortDirection}`}
-            onChange={(e) => handleSortChange(e.target.value)}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-          >
-            <option value="name-asc">A-Z</option>
-            <option value="name-desc">Z-A</option>
-            <option value="price-asc">Low-High</option>
-            <option value="price-desc">High-Low</option>
-          <option value="rating-desc">Popularity</option>
-          </select>
+          <div className="flex items-center gap-3">
+            {anyFilterApplied && (
+              <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap animate-in fade-in duration-300">
+                {flattenedProducts.length} product{flattenedProducts.length !== 1 ? "s" : ""} found
+              </span>
+            )}
+            <select
+              value={`${sortBy}-${sortDirection}`}
+              onChange={(e) => handleSortChange(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+            >
+              <option value="name-asc">A-Z</option>
+              <option value="name-desc">Z-A</option>
+              <option value="price-asc">Low-High</option>
+              <option value="price-desc">High-Low</option>
+              <option value="rating-desc">Popularity</option>
+            </select>
+          </div>
 
         </div>
 
@@ -845,7 +860,7 @@ const handleSortChange = useCallback((value: string) => {
           {/* Mobile filter button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 active:bg-gray-50"
+            className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 active:bg-gray-50 flex-shrink-0"
           >
             <SlidersHorizontal className="h-4 w-4" />
             <span>Filters</span>
@@ -855,18 +870,24 @@ const handleSortChange = useCallback((value: string) => {
               </span>
             )}
           </button>
-          {/* Desktop spacer */}
-          <div className="hidden lg:block" />
-          <select
-            value={`${sortBy}-${sortDirection}`}
-            onChange={(e) => handleSortChange(e.target.value)}
-            className="px-2 md:px-4 py-2 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-          >
-            <option value="name-asc">A-Z</option>
-            <option value="name-desc">Z-A</option>
-            <option value="price-asc">Low-High</option>
-            <option value="price-desc">High-Low</option>
-          </select>
+          
+          <div className="flex items-center gap-2 min-w-0">
+            {anyFilterApplied && (
+              <span className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap truncate animate-in fade-in duration-300">
+                {flattenedProducts.length} item{flattenedProducts.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            <select
+              value={`${sortBy}-${sortDirection}`}
+              onChange={(e) => handleSortChange(e.target.value)}
+              className="px-2 py-2 border border-gray-300 rounded-lg bg-white text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41] flex-shrink-0"
+            >
+              <option value="name-asc">A-Z</option>
+              <option value="name-desc">Z-A</option>
+              <option value="price-asc">Low-High</option>
+              <option value="price-desc">High-Low</option>
+            </select>
+          </div>
         </div>
 {/* Category header */}
 <div className="flex gap-8">

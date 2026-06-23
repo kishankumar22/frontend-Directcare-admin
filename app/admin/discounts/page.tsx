@@ -909,7 +909,7 @@ const getDiscountStatus = (discount: Discount) => {
 
   // Filter data
 const filteredDiscounts = discounts.filter((discount) => {
-  const search = debouncedSearch.toLowerCase();
+  const search = debouncedSearch.toLowerCase().trim();
 
   const matchesSearch =
     (discount.name ?? "").toLowerCase().includes(search) ||

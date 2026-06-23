@@ -1738,7 +1738,7 @@ const allActions = getAllAvailableActions(
                 </span>
               </div>
             )}
-{(order.productSavingsAmount ?? 0) > 0 && (
+{/* {(order.productSavingsAmount ?? 0) > 0 && (
   <div
     className="flex justify-between"
     title="Savings from product offers and price reductions"
@@ -1749,7 +1749,7 @@ const allActions = getAllAvailableActions(
       {formatCurrency(order.productSavingsAmount ?? 0, order.currency)}
     </span>
   </div>
-)}
+)} */}
 
 {/* Pending Payment */}
 {order.pendingPaymentAmount > 0 && (

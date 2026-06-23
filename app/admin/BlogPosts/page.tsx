@@ -84,7 +84,7 @@ export default function BlogPostsPage() {
   // ── Filter ────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return posts.filter((p) => {
-      const q = search.toLowerCase();
+      const q = search.toLowerCase().trim();
       const matchSearch = !q || p.title?.toLowerCase().includes(q) || p.slug?.toLowerCase().includes(q) || p.bodyOverview?.toLowerCase().includes(q);
       const matchStatus = statusFilter === "all" || (statusFilter === "published" && p.isPublished) || (statusFilter === "draft" && !p.isPublished);
       const matchCat = catFilter === "all" || p.blogCategoryId === catFilter;

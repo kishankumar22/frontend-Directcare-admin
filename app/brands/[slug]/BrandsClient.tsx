@@ -272,6 +272,12 @@ useEffect(() => {
     setPriceRange([minPrice, maxPrice]);
   };
 
+  const anyFilterApplied =
+    selectedCategories.length > 0 ||
+    minRating > 0 ||
+    priceRange[0] > minPrice ||
+    priceRange[1] < maxPrice;
+
   return (
     <div className="min-h-screen bg-gray-50">
         <main className="max-w-7xl mx-auto px-4 py-4">
@@ -394,16 +400,23 @@ useEffect(() => {
   </nav>
 
   {/* Sort */}
-  <select
-   value={sortBy === "default" ? "default" : `${sortBy}-${sortDirection}`} 
-    onChange={(e) => handleSortChange(e.target.value)}
-   className="w-auto max-w-[160px] px-2 py-2 border border-gray-300 rounded-lg bg-white text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-  >
-   <option value="default">Default Sorting</option>
-<option value="price-asc">Price: Low-High</option>
-<option value="price-desc">Price: High-Low</option>
-<option value="rating-desc">Sort by: Popularity⭐</option>
-  </select>
+  <div className="flex items-center gap-2 min-w-0">
+    {anyFilterApplied && (
+      <span className="text-[10px] sm:text-xs md:text-sm text-gray-500 whitespace-nowrap truncate animate-in fade-in duration-300">
+        {flattenedProducts.length} <span className="hidden sm:inline">products</span><span className="sm:hidden">items</span>
+      </span>
+    )}
+    <select
+     value={sortBy === "default" ? "default" : `${sortBy}-${sortDirection}`} 
+       onChange={(e) => handleSortChange(e.target.value)}
+     className="w-auto max-w-[160px] px-2 py-2 border border-gray-300 rounded-lg bg-white text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41] flex-shrink-0"
+    >
+     <option value="default">Default Sorting</option>
+  <option value="price-asc">Price: Low-High</option>
+  <option value="price-desc">Price: High-Low</option>
+  <option value="rating-desc">Sort by: Popularity⭐</option>
+    </select>
+  </div>
 
 </div>
 <div className="flex gap-8">

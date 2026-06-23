@@ -74,7 +74,8 @@ const [openFaqCategory, setOpenFaqCategory] = useState<Category | null>(null);
     metaTitle: "",
     metaDescription: "",
     metaKeywords: "",
-    parentCategoryId: ""
+    parentCategoryId: "",
+    schemaDescription: ""
   });
 
 const toggleCategoryExpansion = (categoryId: string) => {
@@ -387,7 +388,8 @@ const fetchCategories = async () => {
       metaTitle: "",
       metaDescription: "",
       metaKeywords: "",
-      parentCategoryId: parentId
+      parentCategoryId: parentId,
+      schemaDescription: ""
     });
     setShowModal(true);
   };
@@ -568,6 +570,7 @@ sortOrder: formData.sortOrder === "" ? 0 : formData.sortOrder,
   metaTitle: formData.metaTitle || "",
   metaDescription: formData.metaDescription || "",
   metaKeywords: formData.metaKeywords || "",
+  schemaDescription: formData.schemaDescription || "",
 };
 
     console.log("📤 Payload:", payload);
@@ -715,6 +718,7 @@ const handleEdit = (category: Category) => {
     metaDescription: category.metaDescription || "",
     metaKeywords: category.metaKeywords || "",
     parentCategoryId: category.parentCategoryId || "",
+    schemaDescription: category.schemaDescription || "",
   })
   
   setImageFile(null);
@@ -741,6 +745,7 @@ const handleEdit = (category: Category) => {
       metaDescription: "",
       metaKeywords: "",
       parentCategoryId: "",
+      schemaDescription: "",
     });
     setEditingCategory(null);
     setImageFile(null);
@@ -1242,7 +1247,7 @@ useEffect(() => {
   setIsSearching(true);
 
   const timer = setTimeout(() => {
-    setDebouncedSearch(searchTerm);
+    setDebouncedSearch(searchTerm.trim());
     setCurrentPage(1);
     setIsSearching(false);
   }, 300);
@@ -1812,9 +1817,13 @@ useEffect(() => {
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meta Description</p>
                         <p className="text-slate-900 dark:text-white text-sm">{viewingCategory.metaDescription || <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}</p>
                       </div>
-                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                       <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Meta Keywords</p>
                         <p className="text-slate-900 dark:text-white text-sm">{viewingCategory.metaKeywords || <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-transparent">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Schema Description</p>
+                        <p className="text-slate-900 dark:text-white text-sm">{viewingCategory.schemaDescription || <span className="text-slate-400 dark:text-slate-500 italic">Not set</span>}</p>
                       </div>
                     </div>
                   </div>

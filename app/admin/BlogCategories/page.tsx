@@ -128,17 +128,17 @@ export default function BlogCategoriesPage() {
   };
 
   /* ─── filtering & pagination ──────────────────────────────────── */
-  const filteredBlogCategories = useMemo(() =>
-    blogCategories
-      .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredBlogCategories = useMemo(() => {
+    const search = searchTerm.toLowerCase().trim();
+    return blogCategories
+      .filter(c => c.name.toLowerCase().includes(search))
       .map(c => ({
         ...c,
         subCategories: c.subCategories?.filter(s =>
-          s.name.toLowerCase().includes(searchTerm.toLowerCase())
+          s.name.toLowerCase().includes(search)
         ) || [],
-      })),
-    [blogCategories, searchTerm]
-  );
+      }));
+  }, [blogCategories, searchTerm]);
 
   const getFlattenedCategories = () => {
     const flat: Array<BlogCategory & { level: number; parentId?: string }> = [];

@@ -585,11 +585,11 @@ const handleSubmit = async (e: React.FormEvent) => {
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = statusFilter !== "all" || bannerTypeFilter !== "all" || searchTerm.trim() !== "" || deletedFilter!==("notDeleted");
+  const hasActiveFilters = statusFilter !== "all" || bannerTypeFilter !== "all" || searchTerm.trim() !== "" || deletedFilter !== "notDeleted";
 
   const filteredBanners = banners.filter(banner => {
-    const matchesSearch = banner.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         banner.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = banner.title?.toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
+                         banner.description?.toLowerCase().includes(searchTerm.toLowerCase().trim());
     
     const matchesStatus = statusFilter === "all" || 
                          (statusFilter === "active" && banner.isActive) ||

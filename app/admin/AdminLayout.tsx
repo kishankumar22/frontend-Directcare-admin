@@ -212,53 +212,53 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     const isLight = theme === "light";
     const map: Record<string, { icon: string; border: string; bg: string; dot: string }> = {
       Catalog: {
-        icon: isLight ? 'text-[#445D41]' : 'text-cyan-400',
-        border: isLight ? 'border-[#445D41]/50' : 'border-cyan-500/50',
-        bg: isLight ? 'bg-[#445D41]/10' : 'bg-cyan-500/10',
-        dot: isLight ? 'bg-[#445D41]' : 'bg-cyan-400'
+        icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-cyan-400',
+        border: isLight ? 'border-white/20' : 'border-cyan-500/50',
+        bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-cyan-500/10',
+        dot: isLight ? 'bg-white' : 'bg-cyan-400'
       },
       Sales: {
-        icon: isLight ? 'text-[#445D41]' : 'text-emerald-400',
-        border: isLight ? 'border-[#445D41]/50' : 'border-emerald-500/50',
-        bg: isLight ? 'bg-[#445D41]/10' : 'bg-emerald-500/10',
-        dot: isLight ? 'bg-[#445D41]' : 'bg-emerald-400'
+        icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-emerald-400',
+        border: isLight ? 'border-white/20' : 'border-emerald-500/50',
+        bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-emerald-500/10',
+        dot: isLight ? 'bg-white' : 'bg-emerald-400'
       },
       Marketing: {
-        icon: isLight ? 'text-[#445D41]' : 'text-pink-400',
-        border: isLight ? 'border-[#445D41]/50' : 'border-pink-500/50',
-        bg: isLight ? 'bg-[#445D41]/10' : 'bg-pink-500/10',
-        dot: isLight ? 'bg-[#445D41]' : 'bg-pink-400'
+        icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-pink-400',
+        border: isLight ? 'border-white/20' : 'border-pink-500/50',
+        bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-pink-500/10',
+        dot: isLight ? 'bg-white' : 'bg-pink-400'
       },
       Shipping: {
-        icon: isLight ? 'text-[#445D41]' : 'text-blue-400',
-        border: isLight ? 'border-[#445D41]/50' : 'border-blue-500/50',
-        bg: isLight ? 'bg-[#445D41]/10' : 'bg-blue-500/10',
-        dot: isLight ? 'bg-[#445D41]' : 'bg-blue-400'
+        icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-blue-400',
+        border: isLight ? 'border-white/20' : 'border-blue-500/50',
+        bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-blue-500/10',
+        dot: isLight ? 'bg-white' : 'bg-blue-400'
       },
       Finance: {
-        icon: isLight ? 'text-[#445D41]' : 'text-yellow-400',
-        border: isLight ? 'border-[#445D41]/50' : 'border-yellow-500/50',
-        bg: isLight ? 'bg-[#445D41]/10' : 'bg-yellow-500/10',
-        dot: isLight ? 'bg-[#445D41]' : 'bg-yellow-400'
+        icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-yellow-400',
+        border: isLight ? 'border-white/20' : 'border-yellow-500/50',
+        bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-yellow-500/10',
+        dot: isLight ? 'bg-white' : 'bg-yellow-400'
       },
       Content: {
-        icon: isLight ? 'text-[#445D41]' : 'text-amber-400',
-        border: isLight ? 'border-[#445D41]/50' : 'border-amber-500/50',
-        bg: isLight ? 'bg-[#445D41]/10' : 'bg-amber-500/10',
-        dot: isLight ? 'bg-[#445D41]' : 'bg-amber-400'
+        icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-amber-400',
+        border: isLight ? 'border-white/20' : 'border-amber-500/50',
+        bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-amber-500/10',
+        dot: isLight ? 'bg-white' : 'bg-amber-400'
       },
       System: {
-        icon: isLight ? 'text-[#445D41]' : 'text-slate-400',
-        border: isLight ? 'border-[#445D41]/50' : 'border-slate-500/50',
-        bg: isLight ? 'bg-[#445D41]/10' : 'bg-slate-500/10',
-        dot: isLight ? 'bg-[#445D41]' : 'bg-slate-400'
+        icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-slate-400',
+        border: isLight ? 'border-white/20' : 'border-slate-500/50',
+        bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-slate-500/10',
+        dot: isLight ? 'bg-white' : 'bg-slate-400'
       },
     };
     return map[name] ?? {
-      icon: isLight ? 'text-[#445D41]' : 'text-violet-400',
-      border: isLight ? 'border-[#445D41]/50' : 'border-violet-500/50',
-      bg: isLight ? 'bg-[#445D41]/10' : 'bg-violet-500/10',
-      dot: isLight ? 'bg-[#445D41]' : 'bg-violet-400'
+      icon: isLight ? 'text-gray-200 group-hover:text-white' : 'text-violet-400',
+      border: isLight ? 'border-white/20' : 'border-violet-500/50',
+      bg: isLight ? 'bg-white/10 group-hover:bg-white/20' : 'bg-violet-500/10',
+      dot: isLight ? 'bg-white' : 'bg-violet-400'
     };
   };
 
@@ -387,7 +387,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <ErrorBoundary>
       <div data-admin className={cn(
         "min-h-screen relative overflow-hidden transition-colors duration-500",
-        isLight ? "bg-gray-50" : "bg-slate-100 dark:bg-slate-950"
+        isLight ? "bg-[#D3E2D5]" : "bg-slate-100 dark:bg-slate-950"
       )}>
         {/* Background Effects - Light Mode */}
         {isLight ? (
@@ -395,9 +395,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         ) : (
           <div className="fixed inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
         )}
-        <div className="fixed top-0 -left-4 w-96 h-96 bg-violet-500 dark:bg-violet-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob transition-all duration-500" />
-        <div className="fixed top-0 -right-4 w-96 h-96 bg-cyan-500 dark:bg-cyan-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-2000 transition-all duration-500" />
-        <div className="fixed -bottom-8 left-1/2 w-96 h-96 bg-pink-500 dark:bg-pink-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-4000 transition-all duration-500" />
+        <div className={cn(
+          "fixed top-0 -left-4 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob transition-all duration-500",
+          isLight ? "bg-[#445D41]" : "bg-violet-500 dark:bg-violet-700"
+        )} />
+        <div className={cn(
+          "fixed top-0 -right-4 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-2000 transition-all duration-500",
+          isLight ? "bg-[#5E7B5A]" : "bg-cyan-500 dark:bg-cyan-700"
+        )} />
+        <div className={cn(
+          "fixed -bottom-8 left-1/2 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-4000 transition-all duration-500",
+          isLight ? "bg-[#7A9A75]" : "bg-pink-500 dark:bg-pink-700"
+        )} />
 
         <div className="relative z-990 flex h-screen overflow-hidden">
           {/* ✅ DESKTOP SIDEBAR WITH LIGHT MODE COLORS */}
@@ -414,7 +423,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               sidebarWidth,
               sidebarCollapsed && isHovering && "!w-64 shadow-2xl",
               isLight
-                ? "bg-white/95 backdrop-blur-xl border-r border-[#445D41]/20"
+                ? "bg-[#445D41] text-white border-r border-white/10"
                 : "bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800"
             )}
           >
@@ -422,7 +431,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <div
               className={cn(
                 "border-b flex-shrink-0 transition-all duration-150",
-                isLight ? "border-[#445D41]/10" : "border-slate-800/60",
+                isLight ? "border-white/10" : "border-slate-800/60",
                 isSidebarExpanded
                   ? "px-3 py-2 flex flex-col items-start"
                   : "h-[60px] flex items-center justify-center"
@@ -440,7 +449,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   <p className={cn(
                     "pl-1 text-[11px] font-semibold tracking-[0.28em] uppercase drop-shadow-sm",
                     isLight
-                      ? "text-[#445D41]"
+                      ? "text-gray-200"
                       : "bg-gradient-to-r from-violet-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent"
                   )}>
                     Admin Dashboard
@@ -477,12 +486,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                           isSidebarExpanded ? "px-2" : "px-0 justify-center",
                           isParentItemActive && isSidebarExpanded
                             ? isLight
-                              ? `${gc.bg} text-[#445D41]`
+                              ? `${gc.bg} text-white`
                               : `${gc.bg} text-white`
                             : isLight
-                              ? "text-gray-500 hover:text-[#445D41]"
+                              ? "text-gray-200 hover:text-white"
                               : "text-slate-400 hover:text-white",
-                          !isParentItemActive && isSidebarExpanded && (isLight ? "hover:bg-[#445D41]/5" : "hover:bg-slate-800/50")
+                          !isParentItemActive && isSidebarExpanded && (isLight ? "hover:bg-white/10" : "hover:bg-slate-800/50")
                         )}
                         title={!isSidebarExpanded ? item.name : ""}
                       >
@@ -492,7 +501,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                           isParentItemActive
                             ? `${gc.bg} ${gc.icon} shadow-sm`
                             : isLight
-                              ? "bg-gray-100 text-gray-400 group-hover:bg-[#445D41]/10 group-hover:text-[#445D41]"
+                              ? "bg-white/10 text-gray-200 group-hover:bg-white/20 group-hover:text-white"
                               : "bg-slate-800/80 text-slate-400 group-hover:bg-slate-700 group-hover:text-white"
                         )}>
                           <Icon className="h-4 w-4" />
@@ -501,14 +510,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                           <>
                             <span className={cn(
                               "font-semibold text-xs flex-1 text-left whitespace-nowrap tracking-wide uppercase",
-                              isLight ? "text-gray-700" : "text-white"
+                              isLight ? "text-gray-100 group-hover:text-white" : "text-white"
                             )}>
                               {item.name}
                             </span>
                             {isParentItemActive && (
                               <div className={cn("w-1.5 h-1.5 rounded-full mr-1", gc.dot)} />
                             )}
-                            <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200", isLight ? "text-gray-400" : "text-slate-500", isExpanded && "rotate-180")} />
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200", isLight ? "text-gray-200 group-hover:text-white" : "text-slate-500", isExpanded && "rotate-180")} />
                           </>
                         )}
                       </button>
@@ -527,10 +536,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                     "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all duration-150 group",
                                     isChildActive
                                       ? isLight
-                                        ? "bg-[#445D41] text-white shadow-md"
+                                        ? "bg-[#5E7B5A] text-white shadow-md"
                                         : "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md"
                                       : isLight
-                                        ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                                        ? "text-gray-200 hover:text-white hover:bg-white/10"
                                         : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                                   )}
                                 >
@@ -556,12 +565,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       isSidebarExpanded ? "px-2" : "px-0 justify-center",
                       isActive && isSidebarExpanded
                         ? isLight
-                          ? "bg-[#445D41] text-white shadow-lg shadow-[#445D41]/30"
+                          ? "bg-[#5E7B5A] text-white shadow-lg shadow-[#5E7B5A]/30"
                           : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/30"
                         : isLight
-                          ? "text-gray-500 hover:text-[#445D41]"
+                          ? "text-gray-200 hover:text-white"
                           : "text-slate-400 hover:text-white",
-                      !isActive && isSidebarExpanded && (isLight ? "hover:bg-[#445D41]/5" : "hover:bg-slate-800/50")
+                      !isActive && isSidebarExpanded && (isLight ? "hover:bg-white/10" : "hover:bg-slate-800/50")
                     )}
                     title={!isSidebarExpanded ? item.name : ""}
                   >
@@ -570,10 +579,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       isSidebarExpanded ? "w-7 h-7" : "w-9 h-9",
                       isActive
                         ? isLight
-                          ? "bg-[#445D41]/20 text-[#445D41]"
+                          ? "bg-white/20 text-white shadow-md"
                           : "bg-gradient-to-br from-violet-500 to-cyan-500 text-white shadow-md"
                         : isLight
-                          ? "bg-gray-100 text-[#445D41] group-hover:bg-[#445D41]/10"
+                          ? "bg-white/10 text-gray-200 group-hover:bg-white/20 group-hover:text-white"
                           : "bg-slate-800/80 text-violet-400 group-hover:bg-slate-700 group-hover:text-white"
                     )}>
                       <Icon className="h-4 w-4" />
@@ -582,7 +591,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       <>
                         <span className={cn(
                           "font-semibold text-xs flex-1 whitespace-nowrap tracking-wide uppercase",
-                          isLight ? "text-gray-700" : "text-white"
+                          isLight ? "text-gray-100 group-hover:text-white" : "text-white"
                         )}>
                           {item.name}
                         </span>
@@ -595,7 +604,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </nav>
 
             {/* Bottom Links */}
-            <div className={cn("p-2 border-t flex-shrink-0 space-y-0.5", isLight ? "border-[#445D41]/10" : "border-slate-800/60")}>
+            <div className={cn("p-2 border-t flex-shrink-0 space-y-0.5", isLight ? "border-white/10" : "border-slate-800/60")}>
               <a
                 href="/"
                 onClick={(e) => {
@@ -608,7 +617,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 className={cn(
                   "flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
                   isLight
-                    ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                    ? "text-gray-200 hover:text-white hover:bg-white/10"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 )}
               >
@@ -616,13 +625,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   "rounded-xl flex items-center justify-center flex-shrink-0 transition-colors",
                   isSidebarExpanded ? "w-7 h-7" : "w-9 h-9",
                   isLight
-                    ? "bg-gray-100 text-[#445D41] group-hover:bg-[#445D41]/10"
+                    ? "bg-white/10 text-white group-hover:bg-white/20"
                     : "bg-slate-800/80 text-cyan-400 group-hover:bg-slate-700"
                 )}>
                   <Store className="h-4 w-4" />
                 </div>
                 {isSidebarExpanded && (
-                  <span className={cn("text-xs font-medium whitespace-nowrap", isLight ? "text-gray-600" : "text-white")}>
+                  <span className={cn("text-xs font-medium whitespace-nowrap", isLight ? "text-gray-200 group-hover:text-white" : "text-white")}>
                     View Store
                   </span>
                 )}
@@ -631,26 +640,26 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* User Profile - Expanded */}
             {isSidebarExpanded && (
-              <div className={cn("p-3 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
+              <div className={cn("p-3 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-white/10" : "border-slate-800 dark:border-gray-800")}>
                 <div className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
                   isLight
-                    ? "bg-[#445D41]/5"
+                    ? "bg-white/10"
                     : "bg-slate-800/50 dark:bg-gray-800/70"
                 )}>
-                  <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm flex-shrink-0 transition-all duration-150 shadow-lg shadow-[#445D41]/30">
+                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 transition-all duration-150 shadow-lg", isLight ? "bg-[#5E7B5A] shadow-[#5E7B5A]/30 border border-white/10" : "bg-[#445D41] shadow-[#445D41]/30")}>
                     {userInitial}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={cn(
                       "text-sm font-semibold truncate transition-colors duration-150",
-                      isLight ? "text-gray-800" : "text-slate-800 dark:text-white"
+                      isLight ? "text-white" : "text-slate-800 dark:text-white"
                     )}>
                       {userName}
                     </p>
                     <p className={cn(
                       "text-xs truncate transition-colors duration-150",
-                      isLight ? "text-gray-500" : "text-slate-500 dark:text-gray-500"
+                      isLight ? "text-gray-300" : "text-slate-500 dark:text-gray-500"
                     )}>
                       {userEmail}
                     </p>
@@ -660,7 +669,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     className={cn(
                       "transition-colors duration-150",
                       isLight
-                        ? "text-gray-400 hover:text-red-500"
+                        ? "text-gray-300 hover:text-red-300"
                         : "text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500"
                     )}
                     title="Logout"
@@ -673,9 +682,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* User Profile - Collapsed */}
             {!isSidebarExpanded && (
-              <div className={cn("p-2 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
+              <div className={cn("p-2 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-white/10" : "border-slate-800 dark:border-gray-800")}>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg shadow-[#445D41]/30">
+                  <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg", isLight ? "bg-[#5E7B5A] shadow-[#5E7B5A]/30 border border-white/10" : "bg-[#445D41] shadow-[#445D41]/30")}>
                     {userInitial}
                   </div>
                   <button
@@ -683,7 +692,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     className={cn(
                       "w-full flex items-center justify-center p-2 rounded-lg transition-all duration-150",
                       isLight
-                        ? "text-gray-400 hover:text-red-500 hover:bg-[#445D41]/5"
+                        ? "text-gray-300 hover:text-red-300 hover:bg-white/10"
                         : "text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                     )}
                     title="Logout"
@@ -701,11 +710,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               "fixed lg:hidden h-full w-64 flex flex-col transition-all duration-300 z-50",
               sidebarOpen ? "translate-x-0" : "-translate-x-full",
               isLight
-                ? "bg-white/95 backdrop-blur-xl border-r border-[#445D41]/20"
+                ? "bg-[#445D41] text-white border-r border-white/10"
                 : "bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800"
             )}
           >
-            <div className={cn("p-3 border-b flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
+            <div className={cn("p-3 border-b flex-shrink-0 transition-colors duration-150", isLight ? "border-white/10" : "border-slate-800 dark:border-gray-800")}>
               <div className="flex flex-col items-start">
                 <div className="px-2 py-1 bg-white rounded-xl shadow-md border border-slate-200">
                   <img
@@ -717,7 +726,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <p className={cn(
                   "mt-2 pl-1 text-[11px] font-semibold tracking-[0.28em] uppercase drop-shadow-sm",
                   isLight
-                    ? "text-[#445D41]"
+                    ? "text-gray-200"
                     : "bg-gradient-to-r from-violet-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent"
                 )}>
                   Admin Dashboard
@@ -743,10 +752,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                           "w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
                           isParentItemActive
                             ? isLight
-                              ? `${gc.bg} text-[#445D41]`
+                              ? `${gc.bg} text-white`
                               : `${gc.bg} text-white`
                             : isLight
-                              ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                              ? "text-gray-200 hover:text-white hover:bg-white/10"
                               : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                         )}
                       >
@@ -757,19 +766,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                               ? `${gc.bg} ${gc.icon}`
                               : `${gc.bg} ${gc.icon}`
                             : isLight
-                              ? "bg-gray-100 text-[#445D41]"
+                              ? "bg-white/10 text-gray-200 group-hover:bg-white/20 group-hover:text-white"
                               : "bg-slate-800/70 text-slate-400"
                         )}>
                           <Icon className="h-4 w-4" />
                         </div>
                         <span className={cn(
                           "font-semibold text-xs flex-1 text-left tracking-wide uppercase",
-                          isLight ? "text-gray-700" : "text-white"
+                          isLight ? "text-gray-100 group-hover:text-white" : "text-white"
                         )}>
                           {item.name}
                         </span>
                         {isParentItemActive && <div className={cn("w-1.5 h-1.5 rounded-full", gc.dot)} />}
-                        <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200", isLight ? "text-gray-400" : "text-slate-500", isExpanded && "rotate-180")} />
+                        <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200", isLight ? "text-gray-200 group-hover:text-white" : "text-slate-500", isExpanded && "rotate-180")} />
                       </button>
 
                       <div className={cn("overflow-hidden transition-all duration-200 ease-in-out", isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0")}>
@@ -786,10 +795,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                   "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all duration-150 group",
                                   isChildActive
                                     ? isLight
-                                      ? "bg-[#445D41] text-white shadow-md"
+                                      ? "bg-[#5E7B5A] text-white shadow-md"
                                       : "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md"
                                     : isLight
-                                      ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                                      ? "text-gray-200 hover:text-white hover:bg-white/10"
                                       : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                                 )}
                               >
@@ -814,10 +823,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       "flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
                       isActive
                         ? isLight
-                          ? "bg-[#445D41] text-white shadow-lg"
+                          ? "bg-[#5E7B5A] text-white shadow-lg"
                           : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg"
                         : isLight
-                          ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                          ? "text-gray-200 hover:text-white hover:bg-white/10"
                           : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                     )}
                   >
@@ -828,14 +837,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                           ? "bg-white/20 text-white"
                           : "bg-white/20 text-white"
                         : isLight
-                          ? "bg-gray-100 text-[#445D41]"
+                          ? "bg-white/10 text-gray-200 group-hover:bg-white/20 group-hover:text-white"
                           : "bg-slate-800/70 text-violet-400"
                     )}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <span className={cn(
                       "font-semibold text-xs flex-1 tracking-wide uppercase",
-                      isLight ? "text-gray-700" : "text-white"
+                      isLight ? "text-gray-100 group-hover:text-white" : "text-white"
                     )}>
                       {item.name}
                     </span>
@@ -845,7 +854,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               })}
             </nav>
 
-            <div className={cn("p-2 border-t flex-shrink-0 space-y-0.5", isLight ? "border-[#445D41]/10" : "border-slate-800/60")}>
+            <div className={cn("p-2 border-t flex-shrink-0 space-y-0.5", isLight ? "border-white/10" : "border-slate-800/60")}>
               <a
                 href="/"
                 onClick={(e) => {
@@ -857,44 +866,44 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 className={cn(
                   "flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
                   isLight
-                    ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                    ? "text-gray-200 hover:text-white hover:bg-white/10"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 )}
               >
                 <div className={cn(
                   "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
                   isLight
-                    ? "bg-gray-100 text-[#445D41]"
+                    ? "bg-white/10 text-white"
                     : "bg-slate-800/70 text-cyan-400"
                 )}>
                   <Store className="h-4 w-4" />
                 </div>
-                <span className={cn("text-xs font-medium", isLight ? "text-gray-600" : "text-white")}>
+                <span className={cn("text-xs font-medium", isLight ? "text-gray-200 group-hover:text-white" : "text-white")}>
                   View Store
                 </span>
               </a>
             </div>
 
-            <div className={cn("p-4 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-[#445D41]/10" : "border-slate-800 dark:border-gray-800")}>
+            <div className={cn("p-4 border-t flex-shrink-0 transition-colors duration-150", isLight ? "border-white/10" : "border-slate-800 dark:border-gray-800")}>
               <div className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
                 isLight
-                  ? "bg-[#445D41]/5"
+                  ? "bg-white/10"
                   : "bg-slate-800/50 dark:bg-gray-800/70"
               )}>
-                <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg shadow-[#445D41]/30">
+                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg", isLight ? "bg-[#5E7B5A] shadow-[#5E7B5A]/30 border border-white/10" : "bg-[#445D41] shadow-[#445D41]/30")}>
                   {userInitial}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={cn(
                     "text-sm font-semibold truncate transition-colors duration-150",
-                    isLight ? "text-gray-800" : "text-white"
+                    isLight ? "text-white" : "text-white"
                   )}>
                     {userName}
                   </p>
                   <p className={cn(
                     "text-xs truncate transition-colors duration-150",
-                    isLight ? "text-gray-500" : "text-slate-400 dark:text-gray-500"
+                    isLight ? "text-gray-300" : "text-slate-400 dark:text-gray-500"
                   )}>
                     {userEmail}
                   </p>
@@ -904,7 +913,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   className={cn(
                     "transition-colors duration-150",
                     isLight
-                      ? "text-gray-400 hover:text-red-500"
+                      ? "text-gray-300 hover:text-red-300"
                       : "text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500"
                   )}
                   title="Logout"
@@ -936,7 +945,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <header className={cn(
               "flex-shrink-0 backdrop-blur-xl border-b z-30 transition-colors duration-150",
               isLight
-                ? "bg-white/80 border-[#445D41]/10"
+                ? "bg-[#445D41] border-white/10 text-white"
                 : "bg-slate-900/80 dark:bg-gray-900/90 border-slate-800 dark:border-gray-800"
             )}>
               <div className="px-6 py-4">
@@ -947,7 +956,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       className={cn(
                         "lg:hidden p-2 rounded-lg transition-all duration-150",
                         isLight
-                          ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                          ? "text-gray-200 hover:text-white hover:bg-white/10"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70"
                       )}
                     >
@@ -959,7 +968,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       className={cn(
                         "hidden lg:block p-2 rounded-lg transition-all duration-150",
                         isLight
-                          ? "text-gray-500 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                          ? "text-gray-200 hover:text-white hover:bg-white/10"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70"
                       )}
                       title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
@@ -981,11 +990,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       <div className={cn(
                         "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all duration-150 select-none",
                         isLight
-                          ? "bg-[#445D41]/5 hover:bg-[#445D41]/10 border border-[#445D41]/10 text-gray-600"
+                          ? "bg-white/10 hover:bg-white/20 border border-white/10 text-white"
                           : "bg-slate-800/50 hover:bg-slate-800 dark:bg-slate-800/60 dark:hover:bg-slate-700/80 border border-slate-700 dark:border-slate-700 text-slate-300 dark:text-slate-200"
                       )}
                         title="Current UK Time">
-                        <Clock className={cn("h-3.5 w-3.5", isLight ? "text-[#445D41]" : "text-slate-400 dark:text-slate-400")} />
+                        <Clock className={cn("h-3.5 w-3.5", isLight ? "text-white" : "text-slate-400 dark:text-slate-400")} />
                         <span className="font-mono">{ukTime}</span>
                       </div>
                     )}
@@ -994,7 +1003,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       className={cn(
                         "relative p-2 rounded-lg transition-all duration-150 group",
                         isLight
-                          ? "bg-[#445D41]/5 hover:bg-[#445D41]/10 text-gray-500 hover:text-[#445D41]"
+                          ? "bg-white/10 hover:bg-white/20 text-gray-200 hover:text-white"
                           : "bg-slate-800/50 dark:bg-gray-800/70 hover:bg-slate-800 dark:hover:bg-gray-800 text-slate-400 dark:text-gray-400 hover:text-white",
                         isAnimating && "scale-110 rotate-180"
                       )}
@@ -1021,7 +1030,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       {isAnimating && (
                         <span className={cn(
                           "absolute inset-0 rounded-lg animate-ping",
-                          isLight ? "bg-[#445D41]/30" : "bg-violet-500/30 dark:bg-violet-600/40"
+                          isLight ? "bg-white/30" : "bg-violet-500/30 dark:bg-violet-600/40"
                         )} />
                       )}
                     </button>
@@ -1032,16 +1041,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                         className={cn(
                           "flex items-center gap-2.5 pl-3 ml-3 transition-colors duration-150 hover:opacity-80",
-                          isLight ? "border-l border-[#445D41]/10" : "border-l border-slate-800 dark:border-gray-800"
+                          isLight ? "border-l border-white/20" : "border-l border-slate-800 dark:border-gray-800"
                         )}
                       >
-                        <div className="w-9 h-9 rounded-full bg-[#445D41] flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg shadow-[#445D41]/30">
+                        <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg", isLight ? "bg-[#5E7B5A] shadow-[#5E7B5A]/30 border border-white/10" : "bg-[#445D41] shadow-[#445D41]/30")}>
                           {userInitial}
                         </div>
                         <div className="text-left">
                           <p className={cn(
                             "text-sm font-semibold leading-tight transition-colors duration-150",
-                            isLight ? "text-gray-800" : "text-slate-800 dark:text-white"
+                            isLight ? "text-white" : "text-slate-800 dark:text-white"
                           )}>
                             {userName}
                           </p>
@@ -1049,7 +1058,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                             <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-150"></div>
                             <p className={cn(
                               "text-xs transition-colors duration-150",
-                              isLight ? "text-gray-400" : "text-slate-400 dark:text-gray-500"
+                              isLight ? "text-gray-300" : "text-slate-400 dark:text-gray-500"
                             )}>
                               Online
                             </p>
@@ -1058,7 +1067,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         <ChevronDown
                           className={cn(
                             "h-4 w-4 transition-transform duration-200",
-                            isLight ? "text-gray-400" : "text-slate-400",
+                            isLight ? "text-gray-300" : "text-slate-400",
                             profileDropdownOpen && "rotate-180"
                           )}
                         />
@@ -1067,7 +1076,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       {/* Dropdown Menu */}
                       {profileDropdownOpen && (
                         <div className={cn(
-                          "absolute right-0 mt-2 w-56 border rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50",
+                          "absolute right-0 mt-2 w-56 border rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 profile-dropdown-menu",
                           isLight
                             ? "bg-white border-[#445D41]/20"
                             : "bg-slate-900 dark:bg-gray-900 border-slate-800 dark:border-gray-800"
@@ -1103,10 +1112,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                 setProfileDropdownOpen(false);
                                 handleLogout();
                               }}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-red-400 dark:hover:text-red-500 hover:bg-red-500/10 transition-all duration-150 group mt-1"
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group mt-1",
+                                isLight
+                                  ? "text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  : "text-slate-300 hover:text-red-400 hover:bg-red-500/10"
+                              )}
                             >
-                              <LogOut className="h-4 w-4 group-hover:scale-110 transition-transform text-red-400" />
-                              <span className="text-sm font-medium text-red-400">Logout</span>
+                              <LogOut className={cn("h-4 w-4 group-hover:scale-110 transition-transform", isLight ? "text-red-600" : "text-red-400")} />
+                              <span className={cn("text-sm font-medium", isLight ? "text-red-600" : "text-red-400")}>Logout</span>
                             </button>
                           </div>
                         </div>
@@ -1119,7 +1133,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             <main className={cn(
               "flex-1 overflow-y-auto p-6 custom-scrollbar transition-colors duration-500",
-              isLight ? "bg-gray-50" : "bg-slate-100 dark:bg-slate-950"
+              isLight ? "bg-[#D3E2D5]" : "bg-slate-100 dark:bg-slate-950"
             )}>
               <div className="transition-all duration-150">
                 {children}
@@ -1161,6 +1175,41 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           }
           html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(107, 114, 128, 0.6);
+          }
+          
+          /* Override globals.css light-mode overrides to keep text white inside sidebar & header */
+          html:not(.dark) [data-admin] aside .text-white,
+          html:not(.dark) [data-admin] aside .text-gray-100,
+          html:not(.dark) [data-admin] header .text-white,
+          html:not(.dark) [data-admin] header .text-gray-100 {
+            color: #ffffff !important;
+          }
+          html:not(.dark) [data-admin] aside .text-gray-200,
+          html:not(.dark) [data-admin] aside .text-gray-300,
+          html:not(.dark) [data-admin] aside .text-gray-500,
+          html:not(.dark) [data-admin] aside .text-slate-400,
+          html:not(.dark) [data-admin] header .text-gray-200,
+          html:not(.dark) [data-admin] header .text-gray-300,
+          html:not(.dark) [data-admin] header .text-gray-500,
+          html:not(.dark) [data-admin] header .text-slate-400 {
+            color: rgba(255, 255, 255, 0.8) !important;
+          }
+          html:not(.dark) [data-admin] aside .hover\:text-white:hover,
+          html:not(.dark) [data-admin] header .hover\:text-white:hover,
+          html:not(.dark) [data-admin] aside .group:hover .group-hover\:text-white,
+          html:not(.dark) [data-admin] header .group:hover .group-hover\:text-white {
+            color: #ffffff !important;
+          }
+          
+          /* Restore normal colors inside the header profile dropdown in light mode */
+          html:not(.dark) [data-admin] header .profile-dropdown-menu .text-gray-800 {
+            color: #1e293b !important;
+          }
+          html:not(.dark) [data-admin] header .profile-dropdown-menu .text-gray-500 {
+            color: #6b7280 !important;
+          }
+          html:not(.dark) [data-admin] header .profile-dropdown-menu .text-gray-600 {
+            color: #4b5563 !important;
           }
         `}</style>
       </div>

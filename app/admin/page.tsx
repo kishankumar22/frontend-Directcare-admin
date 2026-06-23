@@ -539,12 +539,7 @@ const d = data ?? ({} as DashboardStats);
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-white">Top Selling Products</h3>
-            <button
-              onClick={() => router.push("/admin/products")}
-              className="text-[11px] text-violet-400 hover:text-violet-300 flex items-center gap-1 font-medium transition-colors"
-            >
-              View All <ArrowRight className="h-3 w-3" />
-            </button>
+
           </div>
 
           <div className={`space-y-2 max-h-[400px] overflow-y-auto pr-1   ${scrollCls}`}>

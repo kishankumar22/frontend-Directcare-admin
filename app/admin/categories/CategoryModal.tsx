@@ -219,6 +219,7 @@ export default function CategoryModal({
         metaTitle: editingCategory.metaTitle || "",
         metaDescription: editingCategory.metaDescription || "",
         metaKeywords: editingCategory.metaKeywords || "",
+        schemaDescription: editingCategory.schemaDescription || "",
       });
     }
   }, [editingCategory, showModal]);
@@ -314,7 +315,7 @@ export default function CategoryModal({
 
         {/* TABS */}
         <div className="flex gap-1 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-          {["basic", "image", "seo", "settings", "faqs"].map((tab) => (
+          {["basic", "image", "seo", "schema description", "settings", "faqs"].map((tab) => (
             <button
               key={tab}
               type="button"
@@ -663,6 +664,27 @@ export default function CategoryModal({
                     onChange={(e) => setFormData({ ...formData, metaKeywords: e.target.value })}
                     placeholder="Enter keywords separated by commas"
                     className="w-full px-3 py-2 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= SCHEMA DESCRIPTION ================= */}
+          {activeTab === "schema description" && (
+            <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 space-y-3">
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Schema Description
+                    <span className="ml-1 text-slate-500 font-normal">(for SEO structured data)</span>
+                  </label>
+                  <textarea
+                    value={formData.schemaDescription ?? ""}
+                    onChange={(e) => setFormData({ ...formData, schemaDescription: e.target.value })}
+                    placeholder="Shop fitness products including gym accessories, gym equipment..."
+                    rows={8}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-colors resize-none"
                   />
                 </div>
               </div>

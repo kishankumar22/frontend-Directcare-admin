@@ -2484,8 +2484,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 )}
 
 {(activeSaleCount ?? 0) > 0 && (
-  <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500/20 to-orange-500/20 border-2 border-rose-400/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-md shadow-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20 transition-all duration-200">
-    <span className="text-[10px] md:text-xs leading-none text-rose-600">🔥</span>
+  <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500/20 to-orange-500/20 border-2 border-rose-400/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-md shadow-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20 transition-all duration-200 animate-heartbeat-glow">
+    <span className="text-[10px] md:text-xs leading-none text-rose-600 animate-bounce">🔥</span>
     <span className="text-[9px] md:text-[11px] lg:text-xs font-extrabold text-rose-700 whitespace-nowrap leading-tight tracking-wide">
       {(activeSaleCount ?? 0) >= 1000 
         ? ((activeSaleCount ?? 0) / 1000).toFixed((activeSaleCount ?? 0) >= 10000 ? 0 : 1) + 'K' 

@@ -146,8 +146,8 @@ export default function CustomersPage() {
         pageSize,
       };
 
-      if (debouncedSearchTerm) {
-        params.searchTerm = debouncedSearchTerm;
+      if (debouncedSearchTerm.trim()) {
+        params.searchTerm = debouncedSearchTerm.trim();
       }
 
       if (statusFilter !== "all") {

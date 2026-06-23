@@ -267,9 +267,9 @@ const filteredRates = useMemo(() => {
   return vatRates.filter((rate) => {
 
     const matchesSearch =
-      rate.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rate.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rate.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      rate.name?.toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
+      rate.country?.toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
+      rate.description?.toLowerCase().includes(searchTerm.toLowerCase().trim());
 
     const matchesCountry =
       countryFilter === "All Countries" ||

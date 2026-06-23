@@ -149,7 +149,7 @@ const category = findCategoryBySlug(categoriesArray, slug);
   openGraph: {
     title: category.metaTitle || category.name,
     description: category.metaDescription,
-    url: `https://direct-care.co.uk/category/${slug}`,
+    url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://direct-care.co.uk"}/category/${slug}`,
     siteName: "Direct Care",
     images: [
       {
@@ -169,7 +169,7 @@ const category = findCategoryBySlug(categoriesArray, slug);
   },
 
   alternates: {
-    canonical: `https://direct-care.co.uk/category/${slug}`,
+    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || "https://direct-care.co.uk"}/category/${slug}`,
   },
 };
 }
@@ -292,7 +292,7 @@ const breadcrumbs: BreadcrumbItem[] = [
       "@type": "CollectionPage",
       name: category.name,
       description: category.metaDescription || category.description,
-      url: `https://direct-care.co.uk/category/${category.slug}`,
+      url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://direct-care.co.uk"}/category/${category.slug}`,
 mainEntity: {
   "@type": "ItemList",
 }
@@ -308,11 +308,65 @@ mainEntity: {
       itemListElement: breadcrumbs.map((item, index) => ({
         "@type": "ListItem",
         position: index + 1,
-      item: `https://direct-care.co.uk${item.href}`,
+      item: `${process.env.NEXT_PUBLIC_SITE_URL || "https://direct-care.co.uk"}${item.href}`,
       })),
     }),
   }}
 />
+    {/* JSON-LD Structured Data */}
+    {category && (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "@id": `${process.env.NEXT_PUBLIC_SITE_URL}/category/${slug}/#breadcrumb`,
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Home",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL}/`
+                },
+                ...breadcrumbs.slice(1).map((crumb: any, index: number) => ({
+                  "@type": "ListItem",
+                  "position": index + 2,
+                  "name": crumb.label ?? crumb.name,
+                  "item": crumb.href
+                    ? `${process.env.NEXT_PUBLIC_SITE_URL}${crumb.href}/`
+                    : `${process.env.NEXT_PUBLIC_SITE_URL}/category/${slug}/`
+                }))
+              ]
+            })
+          }}
+        />
+        {category.schemaDescription && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "@id": `${process.env.NEXT_PUBLIC_SITE_URL}/category/${slug}/#collectionpage`,
+                "url": `${process.env.NEXT_PUBLIC_SITE_URL}/category/${slug}/`,
+                "name": category.name,
+                "description": category.schemaDescription,
+                "isPartOf": {
+                  "@id": `${process.env.NEXT_PUBLIC_SITE_URL}/#website`
+                },
+                "about": {
+                  "@type": "Thing",
+                  "name": category.name
+                },
+                "inLanguage": "en-GB"
+              })
+            }}
+          />
+        )}
+      </>
+    )}
     {/* 🔥 EXISTING CODE (UNCHANGED) */}
     <CategoryClient
       category={category}

@@ -217,18 +217,17 @@ const availableCoupons = useMemo(() => {
 
       // 🟠 OLD PRICE
       const oldPrice = item.oldPrice ?? item.productData?.oldPrice;
-      if (
-        item.displayDiscountType === "OldPrice" &&
-        oldPrice &&
-        oldPrice > item.price
-      ) {
+      const basePrice = item.price;
+      if (item.displayDiscountType === "OldPrice" && oldPrice > basePrice) {
         return sum + oldPrice * qty;
       }
 
-      // ⚪ NORMAL
-      return sum + item.price * qty;
+      return sum + basePrice * qty;
     }, 0);
   }, [cart]);
+
+  const finalTotalAmount = correctSubtotal - totalCombinedDiscount;
+
   const applyCouponFromBackend = (item: any, couponData: any) => {
 
     const assigns = item.productData?.assignedDiscounts ?? [];
@@ -641,7 +640,7 @@ const availableCoupons = useMemo(() => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col leading-tight">
             <span className="text-[10px] text-gray-500">Total</span>
-            <span className="text-base font-bold text-gray-900">£{cartTotal.toFixed(2)}</span>
+            <span className="text-base font-bold text-gray-900">£{finalTotalAmount.toFixed(2)}</span>
           </div>
           <button
             onClick={handleCheckout}
@@ -1084,7 +1083,7 @@ const availableCoupons = useMemo(() => {
               {/* Free Shipping Progress */} 
               {freeShippingThreshold > 0 && (
                 <div className="mb-2 bg-[#f8fafc] border border-gray-200 rounded-lg p-2.5">
-                  {cartTotal >= freeShippingThreshold ? (
+                  {finalTotalAmount >= freeShippingThreshold ? (
                     <div className="flex items-center gap-2 text-[#445D41] text-xs font-semibold">
                       <Truck size={14} className="flex-shrink-0" />
                       <span>Yay! You get <strong className="text-green-600">FREE Delivery!</strong></span>
@@ -1094,13 +1093,13 @@ const availableCoupons = useMemo(() => {
                       <div className="flex items-start gap-2 text-gray-700 text-xs mb-1.5 leading-tight">
                         <Truck size={14} className="text-[#445D41] mt-0.5 flex-shrink-0" />
                         <span>
-                          Add <strong className="text-[#445D41]">£{(freeShippingThreshold - cartTotal).toFixed(2)}</strong> more for <strong className="text-green-600">FREE Delivery!</strong>
+                          Add <strong className="text-[#445D41]">£{(freeShippingThreshold - finalTotalAmount).toFixed(2)}</strong> more for <strong className="text-green-600">FREE Delivery!</strong>
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                         <div
                           className="bg-[#445D41] h-full rounded-full transition-all duration-500 ease-out"
-                          style={{ width: `${Math.min((cartTotal / freeShippingThreshold) * 100, 100)}%` }}
+                          style={{ width: `${Math.min((finalTotalAmount / freeShippingThreshold) * 100, 100)}%` }}
                         ></div>
                       </div>
                     </>
