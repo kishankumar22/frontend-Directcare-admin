@@ -234,7 +234,7 @@ const pharmaApprovalOptions: SelectOption[] = [
   ];
 
   const deliveryOptions: SelectOption[] = [
-    { value: "all", label: "All Shipping Method" },
+    { value: "all", label: "Shipping Method:All" },
     { value: "nextDay", label: "Next Day Delivery" },
     { value: "standard", label: "Standard Delivery" },
   ];

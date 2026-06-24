@@ -1,8 +1,6 @@
 //app/page.tsx
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
@@ -10,7 +8,6 @@ import Image from "next/image";
 import TopBrandsSlider from "@/components/TopBrandsSlider";
 import CategorySlider from "@/components/CategorySlider";
 import NewsletterWrapper from "@/components/NewsletterWrapper";
-import CookieConsent from "@/components/CookieConsentModal";
 import CategoryOffersSlider from "@/components/CategoryOffersSlider";
 import { getActiveBanners } from "@/lib/bannerUtils";
 import Script from "next/script";
@@ -246,7 +243,6 @@ export default async function Home() {
       {/* 🔥 Newsletter Popup (client side) */}
       <NewsletterWrapper />
       {/* Cookie Consent Modal */}
-      <CookieConsent />
       {/* Organization Schema (already hai) */}
       <Script
         id="org-schema"

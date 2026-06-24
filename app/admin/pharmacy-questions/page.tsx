@@ -113,11 +113,12 @@ else if (viewMode === "inactive") {
 }
 
       // ✅ SEARCH FILTER
-      if (debouncedSearchTerm) {
+      const trimmedSearch = debouncedSearchTerm.trim();
+      if (trimmedSearch) {
         fetchedQuestions = fetchedQuestions.filter((q: PharmacyQuestion) =>
           q.questionText
             .toLowerCase()
-            .includes(debouncedSearchTerm.toLowerCase())
+            .includes(trimmedSearch.toLowerCase())
         );
       }
 
@@ -552,6 +553,9 @@ onConfirm: async () => {
         onChange={(e) => {
           setSearchTerm(e.target.value);
           setCurrentPage(1);
+        }}
+        onBlur={(e) => {
+          setSearchTerm(e.target.value.trim());
         }}
         className="w-full pl-9 pr-10 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
       />

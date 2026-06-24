@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import CookieConsent from "@/components/CookieConsentModal";
 
 export default function ConditionalLayout({
   children,
@@ -54,6 +55,7 @@ export default function ConditionalLayout({
 
     <Footer />
     <ScrollToTop />
+    <CookieConsent />
   </div>
 );
 

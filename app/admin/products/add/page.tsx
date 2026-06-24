@@ -995,19 +995,16 @@ if (hasVariantSkuErrors) {
       return;
     }
 
-    // For variable products, auto-generate SKU from name if not provided
-    if (!formData.sku?.trim()) {
-      if (formData.productType === 'variable') {
-        const autoSku = formData.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').replace(/-+/g, '-').slice(0, 20);
-        setFormData(prev => ({ ...prev, sku: autoSku }));
-        formData.sku = autoSku;
-      } else {
-        toast.warning("Please fill in required field: SKU");
-        target.removeAttribute("data-submitting");
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
+    // For variable products, SKU is empty/blank
+    if (formData.productType === 'variable') {
+      setFormData(prev => ({ ...prev, sku: '' }));
+      formData.sku = '';
+    } else if (!formData.sku?.trim()) {
+      toast.warning("Please fill in required field: SKU");
+      target.removeAttribute("data-submitting");
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
     }
 
 
@@ -2165,6 +2162,11 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
       ...prev,
       productType: value,
 
+      // Clear SKU when switching to variable (unless in edit mode with an existing SKU)
+      ...(value === 'variable' && (!isEditMode || !prev.sku) && {
+        sku: '',
+      }),
+
       // Clear grouped fields when switching to simple
       ...(value === 'simple' && {
         requireOtherProducts: false,
@@ -2183,7 +2185,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
       ...(value === 'grouped' && {
         requireOtherProducts: true,
         
-        //   Œ Clear all subscription/recurring fields
+        //    Œ Clear all subscription/recurring fields
         isRecurring: false,
         recurringCycleLength: '',
         recurringCyclePeriod: 'days',
@@ -2357,7 +2359,7 @@ setFormData(prev => ({
     setFormData(prev => ({
       ...prev,
       allowBackorder: checked,
-      backorderMode: checked ? 'allow-qty-below-zero' : 'no-backorders',
+      backorderMode: checked ? 'allow-qty-below-zero-and-notify' : 'no-backorders',
     }));
     return;
   }
@@ -3378,9 +3380,6 @@ useEffect(() => {
   onCheckingChange={setCheckingSku}
   isVariableProduct={formData.productType === 'variable'}
 />
-  {formData.productType === 'variable' && !formData.sku && (
-    <p className="mt-1 text-xs text-slate-500 italic">Leave blank to auto-generate from product name</p>
-  )}
 </div>
 
 
@@ -3464,7 +3463,7 @@ useEffect(() => {
   )}
 </div>
 
-      </div>
+</div>
 
 {/* Variable product guidance banner */}
 {formData.productType === 'variable' && (
@@ -4484,7 +4483,7 @@ useEffect(() => {
                 setFormData(prev => ({
                   ...prev,
                   notifyAdminForQuantityBelow: isChecked,
-                  notifyQuantityBelow: isChecked ? prev.notifyQuantityBelow : '1' // Reset to default
+                  notifyQuantityBelow: isChecked ? prev.notifyQuantityBelow : '10' // Reset to default
                 }));
               }}
               className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
@@ -4533,7 +4532,7 @@ useEffect(() => {
                 setFormData(prev => ({
                   ...prev,
                   allowBackorder: isChecked,
-                  backorderMode: isChecked ? "allow-qty-below-zero" : "no-backorders"
+                  backorderMode: isChecked ? "allow-qty-below-zero-and-notify" : "no-backorders"
                 }));
               }}
               className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"

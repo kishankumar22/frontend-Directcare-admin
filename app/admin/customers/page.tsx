@@ -1321,7 +1321,7 @@ const modalTier = selectedCustomer
                 } ${assigningRole ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 {assigningRole && isActive && <Loader2 className="h-4 w-4 animate-spin text-white" />}
-                {roleOption}
+                {isActive ? roleOption : `Mark as ${roleOption}`}
               </button>
             );
           })}
@@ -1331,9 +1331,7 @@ const modalTier = selectedCustomer
   </div>
 )}
 
-      {/* Modals - Keep as is (Order Modal, Customer Modal, Confirm Dialog) */}
-      {/* ... (Order Modal, Customer Modal, Confirm Dialog code remains same as before) ... */}
-
+    
       <ConfirmDialog
         isOpen={!!toggleConfirm}
         onClose={() => setToggleConfirm(null)}

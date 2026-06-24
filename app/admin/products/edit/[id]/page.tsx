@@ -3628,7 +3628,7 @@ if (
         name: formData.name.trim(),
         description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
         shortDescription: formData.shortDescription?.trim() || '',
-        sku: formData.sku.trim(),
+        sku: formData.productType === 'variable' ? '' : formData.sku.trim(),
         gtin: formData.gtin?.trim() || null,
         manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
         status: isDraft ? 'Draft' : 'Active',
@@ -4247,6 +4247,11 @@ setHasUnsavedChanges(false);
         ...prev,
         productType: value,
 
+        // Clear SKU when switching to variable only if it's empty (don't clear existing SKU)
+        ...(value === 'variable' && !prev.sku && {
+          sku: '',
+        }),
+
         // ✅ CLEAR GROUPED FIELDS when switching to simple
         ...(value === 'simple' && {
           requireOtherProducts: false,
@@ -4465,7 +4470,7 @@ if (name === "isRecurring") {
       setFormData(prev => ({
         ...prev,
         allowBackorder: checked,
-        backorderMode: checked ? "allow-qty-below-zero" : "no-backorders"
+        backorderMode: checked ? "allow-qty-below-zero-and-notify" : "no-backorders"
       }));
       return;
     }

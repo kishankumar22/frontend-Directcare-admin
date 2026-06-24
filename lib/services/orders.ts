@@ -21,7 +21,7 @@ export type OrderStatus =
   | 'Refunded'
   | 'Collected'; // ✅ ADD THIS
 
-  
+
 // ================= BULK REQUEST DTOs ====================
 
 export interface BulkUpdateStatusRequest {
@@ -115,7 +115,7 @@ export interface OrderItem {
   totalPrice: number;
   productName: string;
   productSku: string;
-  productSlug?:string;
+  productSlug?: string;
   productImageUrl?: string;
   variantName?: string;
   productId: string;
@@ -254,6 +254,14 @@ export interface Order {
     answerText: string;
     productName: string;
     answeredAt: string;
+    selectedOption?: {
+      id: string;
+      optionText: string;
+      requiresFollowUpText: boolean;
+      followUpPrompt?: string;
+    } | null;
+    selectedOptionText?: string | null;
+    followUpText?: string | null;
   }[];
 
   // ================= PAYMENT =================
@@ -374,19 +382,19 @@ export interface CancelOrderRequest {
 // ==================== SERVICE CLASS ====================
 
 class OrderService {
-async getAllOrders(params?: {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-  fromDate?: string;
-  toDate?: string;
-  searchTerm?: string;
-  pharmacyVerificationStatus?: PharmacyVerificationStatus;
-  includeGuestOrders?: boolean;
-  shippingMethodName?: string;
-  isClickAndCollect?: boolean;
-  isPharmaProduct?: boolean;
-}) {
+  async getAllOrders(params?: {
+    page?: number;
+    pageSize?: number;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+    searchTerm?: string;
+    pharmacyVerificationStatus?: PharmacyVerificationStatus;
+    includeGuestOrders?: boolean;
+    shippingMethodName?: string;
+    isClickAndCollect?: boolean;
+    isPharmaProduct?: boolean;
+  }) {
 
     try {
       const response = await apiClient.get<ApiResponse<OrdersListResponse>>(
@@ -398,45 +406,45 @@ async getAllOrders(params?: {
       throw new Error(error.response?.data?.message || 'Failed to fetch orders');
     }
   }
-// ================= PAYMENT =================
+  // ================= PAYMENT =================
 
-// 🔥 Mark FULL payment as paid
-async markPaymentPaid(orderId: string, data?: {
-  transactionId?: string;
-  paymentMethod?: string;
-  notes?: string;
-}) {
-  try {
-    const response = await apiClient.post(
-      `${API_ENDPOINTS.orders}/${orderId}/mark-payment-paid`,
-      data || {}
-    );
-    return response.data;
-  } catch (error: any) {
-    throw new Error(
-      error.response?.data?.message || "Failed to mark payment as paid"
-    );
+  // 🔥 Mark FULL payment as paid
+  async markPaymentPaid(orderId: string, data?: {
+    transactionId?: string;
+    paymentMethod?: string;
+    notes?: string;
+  }) {
+    try {
+      const response = await apiClient.post(
+        `${API_ENDPOINTS.orders}/${orderId}/mark-payment-paid`,
+        data || {}
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || "Failed to mark payment as paid"
+      );
+    }
   }
-}
 
-// 🔥 Mark PENDING AMOUNT as paid (partial)
-async markPendingAmountPaid(orderId: string, data?: {
-  transactionId?: string;
-  paymentMethod?: string;
-  notes?: string;
-}) {
-  try {
-    const response = await apiClient.post(
-      `${API_ENDPOINTS.orders}/${orderId}/mark-pending-amount-paid`,
-      data || {}
-    );
-    return response.data;
-  } catch (error: any) {
-    throw new Error(
-      error.response?.data?.message || "Failed to mark pending amount as paid"
-    );
+  // 🔥 Mark PENDING AMOUNT as paid (partial)
+  async markPendingAmountPaid(orderId: string, data?: {
+    transactionId?: string;
+    paymentMethod?: string;
+    notes?: string;
+  }) {
+    try {
+      const response = await apiClient.post(
+        `${API_ENDPOINTS.orders}/${orderId}/mark-pending-amount-paid`,
+        data || {}
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || "Failed to mark pending amount as paid"
+      );
+    }
   }
-}
   async getOrderById(orderId: string) {
     try {
       const response = await apiClient.get<ApiResponse<Order>>(
@@ -460,58 +468,58 @@ async markPendingAmountPaid(orderId: string, data?: {
     }
   }
 
-// ================= PHARMACY =================
-async pharmacyApprove(orderId: string, data: { note?: string }) {
-  const res = await apiClient.post(
-    `${API_ENDPOINTS.orders}/${orderId}/pharmacy-approve`,
-    {
-      orderId: orderId,   // 🔥 VERY IMPORTANT
-      note: data.note,
-    }
-  );
-  return res.data;
-}
-
-async pharmacyReject(orderId: string, data: { reason: string }) {
-  const res = await apiClient.post(
-    `${API_ENDPOINTS.orders}/${orderId}/pharmacy-reject`,
-    {
-      orderId: orderId,   // 🔥 VERY IMPORTANT
-      reason: data.reason,
-    }
-  );
-  return res.data;
-}
-
-// ================= BULK OPERATIONS ====================
-
-async bulkUpdateStatus(data: BulkUpdateStatusRequest) {
-  try {
-    const response = await apiClient.post<ApiResponse<BulkOperationResponse>>(
-      `${API_ENDPOINTS.orders}/bulk-update-status`,
-      data
+  // ================= PHARMACY =================
+  async pharmacyApprove(orderId: string, data: { note?: string }) {
+    const res = await apiClient.post(
+      `${API_ENDPOINTS.orders}/${orderId}/pharmacy-approve`,
+      {
+        orderId: orderId,   // 🔥 VERY IMPORTANT
+        note: data.note,
+      }
     );
-    return response.data;
-  } catch (error: any) {
-    throw new Error(
-      error.response?.data?.message || 'Failed to bulk update status'
-    );
+    return res.data;
   }
-}
 
-async bulkCreateShipment(data: BulkCreateShipmentRequest) {
-  try {
-    const response = await apiClient.post<ApiResponse<BulkOperationResponse>>(
-      `${API_ENDPOINTS.orders}/bulk-create-shipment`,
-      data
+  async pharmacyReject(orderId: string, data: { reason: string }) {
+    const res = await apiClient.post(
+      `${API_ENDPOINTS.orders}/${orderId}/pharmacy-reject`,
+      {
+        orderId: orderId,   // 🔥 VERY IMPORTANT
+        reason: data.reason,
+      }
     );
-    return response.data;
-  } catch (error: any) {
-    throw new Error(
-      error.response?.data?.message || 'Failed to create bulk shipments'
-    );
+    return res.data;
   }
-}
+
+  // ================= BULK OPERATIONS ====================
+
+  async bulkUpdateStatus(data: BulkUpdateStatusRequest) {
+    try {
+      const response = await apiClient.post<ApiResponse<BulkOperationResponse>>(
+        `${API_ENDPOINTS.orders}/bulk-update-status`,
+        data
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to bulk update status'
+      );
+    }
+  }
+
+  async bulkCreateShipment(data: BulkCreateShipmentRequest) {
+    try {
+      const response = await apiClient.post<ApiResponse<BulkOperationResponse>>(
+        `${API_ENDPOINTS.orders}/bulk-create-shipment`,
+        data
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to create bulk shipments'
+      );
+    }
+  }
 
 
   async getClickAndCollectOrders(params?: {
@@ -555,107 +563,107 @@ async bulkCreateShipment(data: BulkCreateShipmentRequest) {
     }
   }
 
-async updateStatus(data: UpdateStatusRequest) {
-  try {
-    const response = await apiClient.put<ApiResponse<Order>>(
-      `${API_ENDPOINTS.orders}/${data.orderId}/status`,
-      data
-    );
+  async updateStatus(data: UpdateStatusRequest) {
+    try {
+      const response = await apiClient.put<ApiResponse<Order>>(
+        `${API_ENDPOINTS.orders}/${data.orderId}/status`,
+        data
+      );
 
-    return {
-      data: response.data?.data,
-      message: response.data?.message
-    };
+      return {
+        data: response.data?.data,
+        message: response.data?.message
+      };
 
-  } catch (error: any) {
-    throw new Error(
-      error?.response?.data?.message || 'Failed to update order status'
-    );
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message || 'Failed to update order status'
+      );
+    }
   }
-}
 
-async createShipment(data: CreateShipmentRequest) {
-  try {
-    const response = await apiClient.post<ApiResponse<Shipment>>(
-      `${API_ENDPOINTS.orders}/${data.orderId}/shipment`,
-      data
-    );
+  async createShipment(data: CreateShipmentRequest) {
+    try {
+      const response = await apiClient.post<ApiResponse<Shipment>>(
+        `${API_ENDPOINTS.orders}/${data.orderId}/shipment`,
+        data
+      );
 
-    return {
-      data: response.data?.data,
-      message: response.data?.message
-    };
+      return {
+        data: response.data?.data,
+        message: response.data?.message
+      };
 
-  } catch (error: any) {
-    throw new Error(
-      error?.response?.data?.message || 'Failed to create shipment'
-    );
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message || 'Failed to create shipment'
+      );
+    }
   }
-}
 
-async markDelivered(data: MarkDeliveredRequest) {
-  try {
-    const response = await apiClient.post<ApiResponse<Order>>(
-      `${API_ENDPOINTS.orders}/${data.orderId}/delivered`,
-      data
-    );
+  async markDelivered(data: MarkDeliveredRequest) {
+    try {
+      const response = await apiClient.post<ApiResponse<Order>>(
+        `${API_ENDPOINTS.orders}/${data.orderId}/delivered`,
+        data
+      );
 
-    return {
-      data: response.data?.data,
-      message: response.data?.message
-    };
+      return {
+        data: response.data?.data,
+        message: response.data?.message
+      };
 
-  } catch (error: any) {
-    throw new Error(
-      error?.response?.data?.message || 'Failed to mark order as delivered'
-    );
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message || 'Failed to mark order as delivered'
+      );
+    }
   }
-}
 
-async cancelOrder(data: CancelOrderRequest) {
-  try {
-    const response = await apiClient.post<ApiResponse<Order>>(
-      `${API_ENDPOINTS.orders}/${data.orderId}/cancel`,
-      data
-    );
+  async cancelOrder(data: CancelOrderRequest) {
+    try {
+      const response = await apiClient.post<ApiResponse<Order>>(
+        `${API_ENDPOINTS.orders}/${data.orderId}/cancel`,
+        data
+      );
 
-    return {
-      data: response.data?.data,
-      message: response.data?.message
-    };
+      return {
+        data: response.data?.data,
+        message: response.data?.message
+      };
 
-  } catch (error: any) {
-    throw new Error(
-      error?.response?.data?.message || 'Failed to cancel order'
-    );
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message || 'Failed to cancel order'
+      );
+    }
   }
-}
-async importWooCommerce(file: File) {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
+  async importWooCommerce(file: File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    const response = await apiClient.post<ApiResponse<WooCommerceOrderImportResult>>(
-      `${API_ENDPOINTS.orders}/import-woocommerce`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
+      const response = await apiClient.post<ApiResponse<WooCommerceOrderImportResult>>(
+        `${API_ENDPOINTS.orders}/import-woocommerce`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
 
-    return {
-      data: response.data?.data,
-      message: response.data?.message
-    };
+      return {
+        data: response.data?.data,
+        message: response.data?.message
+      };
 
-  } catch (error: any) {
-    throw new Error(
-      error?.response?.data?.message || 'Failed to import WooCommerce orders'
-    );
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message || 'Failed to import WooCommerce orders'
+      );
+    }
   }
-}
 
   async bulkUpdateExcel(file: File) {
     try {
@@ -681,132 +689,130 @@ async importWooCommerce(file: File) {
   }
 
 
-async downloadInvoice(orderId: string): Promise<void> {
-  try {
-    const response = await apiClient.get<Blob>(
-      `${API_ENDPOINTS.orders}/${orderId}/invoice/download`,
-      { responseType: 'blob' }
-    );
+  async downloadInvoice(orderId: string): Promise<void> {
+    try {
+      const response = await apiClient.get<Blob>(
+        `${API_ENDPOINTS.orders}/${orderId}/invoice/download`,
+        { responseType: 'blob' }
+      );
 
-    const blob = response.data as Blob;
+      const blob = response.data as Blob;
 
-    // ❗ handle backend JSON error inside blob
-    if (blob.type === "application/json") {
-      const text = await blob.text();
-      const json = JSON.parse(text);
-      throw new Error(json?.message || "Failed to download invoice");
+      // ❗ handle backend JSON error inside blob
+      if (blob.type === "application/json") {
+        const text = await blob.text();
+        const json = JSON.parse(text);
+        throw new Error(json?.message || "Failed to download invoice");
+      }
+
+      const url = window.URL.createObjectURL(
+        new Blob([blob], { type: "application/pdf" })
+      );
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${orderId}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to download invoice"
+      );
+    }
+  }
+
+  /**
+   * Export Orders to Excel
+   */
+  async exportOrders(params: {
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+    searchTerm?: string;
+    deliveryMethod?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+
+    if (params.status && params.status !== 'all') {
+      queryParams.append('status', params.status);
+    }
+    if (params.fromDate) {
+      queryParams.append('fromDate', params.fromDate);
+    }
+    if (params.toDate) {
+      queryParams.append('toDate', params.toDate);
+    }
+    if (params.searchTerm) {
+      queryParams.append('searchTerm', params.searchTerm);
+    }
+    if (params.deliveryMethod && params.deliveryMethod !== 'all') {
+      queryParams.append('deliveryMethod', params.deliveryMethod);
     }
 
-    const url = window.URL.createObjectURL(
-      new Blob([blob], { type: "application/pdf" })
-    );
+    const url = `${API_ENDPOINTS.exportOrders}${queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`;
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `invoice-${orderId}.pdf`;
-
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-    window.URL.revokeObjectURL(url);
-
-  } catch (error: any) {
-    throw new Error(
-      error?.response?.data?.message ||
-      error?.message ||
-      "Failed to download invoice"
-    );
-  }
-}
-
-/**
- * Export Orders to Excel
- */
-async exportOrders(params: {
-  status?: string;
-  fromDate?: string;
-  toDate?: string;
-  searchTerm?: string;
-  deliveryMethod?: string;
-}) {
-  const queryParams = new URLSearchParams();
-  
-  if (params.status && params.status !== 'all') {
-    queryParams.append('status', params.status);
-  }
-  if (params.fromDate) {
-    queryParams.append('fromDate', params.fromDate);
-  }
-  if (params.toDate) {
-    queryParams.append('toDate', params.toDate);
-  }
-  if (params.searchTerm) {
-    queryParams.append('searchTerm', params.searchTerm);
-  }
-  if (params.deliveryMethod && params.deliveryMethod !== 'all') {
-    queryParams.append('deliveryMethod', params.deliveryMethod);
+    return apiClient.get(url, {
+      responseType: 'blob',
+    });
   }
 
-  const url = `${API_ENDPOINTS.exportOrders}${
-    queryParams.toString() ? `?${queryParams.toString()}` : ''
-  }`;
-
-  return apiClient.get(url, {
-    responseType: 'blob',
-  });
-}
-
-/**
- * Hard-delete (permanent) an order. Only allowed for orders with no successful payment
- * and no generated invoice. Caller must pass the order number as a typo-guard.
- */
-async hardDeleteOrder(orderId: string, confirmOrderNumber: string) {
-  try {
-    const response = await apiClient.delete<ApiResponse<any>>(
-      `${API_ENDPOINTS.orders}/${orderId}/hard`,
-      { data: { confirmOrderNumber } }
-    );
-    return response.data;
-  } catch (error: any) {
-    throw new Error(
-      error?.response?.data?.message || 'Failed to hard-delete order'
-    );
+  /**
+   * Hard-delete (permanent) an order. Only allowed for orders with no successful payment
+   * and no generated invoice. Caller must pass the order number as a typo-guard.
+   */
+  async hardDeleteOrder(orderId: string, confirmOrderNumber: string) {
+    try {
+      const response = await apiClient.delete<ApiResponse<any>>(
+        `${API_ENDPOINTS.orders}/${orderId}/hard`,
+        { data: { confirmOrderNumber } }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error?.response?.data?.message || 'Failed to hard-delete order'
+      );
+    }
   }
-}
 
-async exportOrdersTravelbook(params: {
-  status?: string;
-  fromDate?: string;
-  toDate?: string;
-  searchTerm?: string;
-  deliveryMethod?: string;
-}) {
-  const queryParams = new URLSearchParams();
-  if (params.status && params.status !== 'all') queryParams.append('status', params.status);
-  if (params.fromDate) queryParams.append('fromDate', params.fromDate);
-  if (params.toDate) queryParams.append('toDate', params.toDate);
-  if (params.searchTerm) queryParams.append('searchTerm', params.searchTerm);
-  if (params.deliveryMethod && params.deliveryMethod !== 'all') queryParams.append('deliveryMethod', params.deliveryMethod);
+  async exportOrdersTravelbook(params: {
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+    searchTerm?: string;
+    deliveryMethod?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params.status && params.status !== 'all') queryParams.append('status', params.status);
+    if (params.fromDate) queryParams.append('fromDate', params.fromDate);
+    if (params.toDate) queryParams.append('toDate', params.toDate);
+    if (params.searchTerm) queryParams.append('searchTerm', params.searchTerm);
+    if (params.deliveryMethod && params.deliveryMethod !== 'all') queryParams.append('deliveryMethod', params.deliveryMethod);
 
-  const url = `${API_ENDPOINTS.exportOrdersTravelbook}${
-    queryParams.toString() ? `?${queryParams.toString()}` : ''
-  }`;
+    const url = `${API_ENDPOINTS.exportOrdersTravelbook}${queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`;
 
-  return apiClient.get(url, { responseType: 'blob' });
-}
+    return apiClient.get(url, { responseType: 'blob' });
+  }
 
-async exportProcessingForShipment() {
-  return apiClient.get(API_ENDPOINTS.exportProcessingForShipment, { responseType: 'blob' });
-}
+  async exportProcessingForShipment() {
+    return apiClient.get(API_ENDPOINTS.exportProcessingForShipment, { responseType: 'blob' });
+  }
 
-async bulkShipFromExcel(file: File) {
-  const fd = new FormData();
-  fd.append('file', file);
-  return apiClient.post<any>(API_ENDPOINTS.bulkShipFromExcel, fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-}
+  async bulkShipFromExcel(file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return apiClient.post<any>(API_ENDPOINTS.bulkShipFromExcel, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  }
 
 }
 
@@ -861,38 +867,38 @@ export const getCollectionStatusInfo = (status: CollectionStatus) => {
  */
 export const getPaymentStatusInfo = (status: PaymentStatus) => {
   const statusMap: Record<
-  PaymentStatus,
-  { label: string; color: string; bgColor: string }
-> = {
-  Pending: { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+    PaymentStatus,
+    { label: string; color: string; bgColor: string }
+  > = {
+    Pending: { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
 
-  Authorized: { label: 'Authorized', color: 'text-blue-300', bgColor: 'bg-blue-400/10' },
+    Authorized: { label: 'Authorized', color: 'text-blue-300', bgColor: 'bg-blue-400/10' },
 
-  Processing: { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+    Processing: { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
 
-  Successful: { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    Successful: { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },
 
-  Completed: { label: 'Completed', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    Completed: { label: 'Completed', color: 'text-green-400', bgColor: 'bg-green-500/10' },
 
-  Failed: { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+    Failed: { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
 
-  Cancelled: { label: 'Cancelled', color: 'text-red-300', bgColor: 'bg-red-400/10' },
+    Cancelled: { label: 'Cancelled', color: 'text-red-300', bgColor: 'bg-red-400/10' },
 
-  Refunded: { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+    Refunded: { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
 
-  PartiallyRefunded: {
-    label: 'Partially Refunded',
-    color: 'text-purple-300',
-    bgColor: 'bg-purple-400/10'
-  },
+    PartiallyRefunded: {
+      label: 'Partially Refunded',
+      color: 'text-purple-300',
+      bgColor: 'bg-purple-400/10'
+    },
 
-  // 🔥 ADD THIS (missing tha)
-  PartiallyPaid: {
-    label: 'Partially Paid',
-    color: 'text-amber-400',
-    bgColor: 'bg-amber-500/10'
-  },
-};
+    // 🔥 ADD THIS (missing tha)
+    PartiallyPaid: {
+      label: 'Partially Paid',
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/10'
+    },
+  };
   return statusMap[status] || statusMap['Pending'];
 };
 

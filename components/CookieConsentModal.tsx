@@ -31,9 +31,13 @@ export default function CookieConsent() {
   if (!showConsent) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-[9999] animate-in fade-in slide-in-from-bottom-5 duration-500">
-      <div className="bg-white/95 backdrop-blur-md border border-gray-200/80 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] p-5 md:p-6 relative overflow-hidden">
-        {/* Accent line */}
+    <>
+      {/* Full-screen backdrop to prevent interaction with the background page */}
+      <div className="fixed inset-0 bg-black/40 z-[9998]" />
+
+      <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-[9999] animate-in fade-in slide-in-from-bottom-5 duration-500">
+        <div className="bg-white/95 backdrop-blur-md border border-gray-200/80 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] p-5 md:p-6 relative overflow-hidden">
+          {/* Accent line */}
         <div className="absolute top-0 left-0 h-[4px] w-full bg-gradient-to-r from-[#445D41] via-[#5E7B5A] to-[#445D41]" />
         
         {/* Header */}
@@ -49,13 +53,7 @@ export default function CookieConsent() {
               We value your privacy
             </p>
           </div>
-          <button 
-            onClick={handleAcceptEssential} 
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1 -mt-1 -mr-1 rounded-lg hover:bg-gray-100"
-            title="Accept essential only and close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
         </div>
 
         {/* Description */}
@@ -94,5 +92,6 @@ export default function CookieConsent() {
         </div>
       </div>
     </div>
+  </>
   );
 }
