@@ -37,9 +37,7 @@ export const AuthProvider = ({
   useEffect(() => {
     const loadUserData = () => {
       try {
-        const token =
-          localStorage.getItem("accessToken") ||
-          localStorage.getItem("authToken");
+        const token = localStorage.getItem("authToken");
 
         const storedUserData =
           localStorage.getItem("userData");

@@ -30,17 +30,13 @@ export default function LoginPage() {
 
       const token = result.accessToken ?? result.token!;
 
-      // ✅ COMPLETE LOCALSTORAGE SYNC (for AuthContext compatibility)
-      localStorage.setItem("accessToken", token);
+      // Save admin authentication tokens
       localStorage.setItem("authToken", token);
-      localStorage.setItem("refreshToken", result.refreshToken || "");
       
       if (result.user) {
-        localStorage.setItem("user", JSON.stringify(result.user));
         localStorage.setItem("userData", JSON.stringify(result.user)); // Backward compatibility
         localStorage.setItem("userId", result.user.id);
         localStorage.setItem("userEmail", result.user.email);
-        localStorage.setItem("userName", `${result.user.firstName || ''} ${result.user.lastName || ''}`);
         localStorage.setItem("userFirstName", result.user.firstName || "");
         localStorage.setItem("userLastName", result.user.lastName || "");
       } else {

@@ -1354,7 +1354,7 @@ const frequencyPresets: Record<string, string> = {
     const userEmail = localStorage.getItem('userEmail');
 
     if (!userId) {
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem('userData');
       if (userStr) {
         try {
           const user = JSON.parse(userStr);

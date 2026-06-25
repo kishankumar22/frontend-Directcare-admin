@@ -88,6 +88,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
@@ -158,7 +159,8 @@ const fetchProfile = async () => {
     );
 
     if (res.status === 401) {
-      // Unauthorized: keep current auth state, maybe token expired.
+      logout();
+      router.push("/account");
       return;
     }
 
@@ -203,7 +205,7 @@ useEffect(() => {
     } catch {}
   };
 
-  const router = useRouter();
+
  const login = async (email: string, password: string) => {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`,

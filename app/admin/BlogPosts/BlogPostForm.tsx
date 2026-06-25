@@ -475,7 +475,7 @@ async function handleSave(publish?: boolean) {
   try {
     const currentUser =
       typeof window !== "undefined"
-        ? JSON.parse(localStorage.getItem("user") || "{}")
+        ? JSON.parse(localStorage.getItem("userData") || "{}")
         : {};
 
     const finalPayload: any = {
