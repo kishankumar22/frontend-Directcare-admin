@@ -1,33 +1,83 @@
 // app/lib/discountHelpers.ts
 
 /**
- * Returns active AUTO discount (non-coupon)
+ * Computes the effective discount amount for a single discount against a base price.
+ * Mirrors backend PriceDisplayHelper.CalculateSystemDiscountAmount:
+ *  - percentage => basePrice * (pct / 100)
+ *  - flat       => discountAmount
+ *  - then capped by MaximumDiscountAmount (if set)
+ * Returns 0 when the discount is not applicable.
  */
-export function getActiveDiscount(product: any) {
+function computeDiscountAmount(d: any, basePrice: number): number {
+  if (!d || basePrice <= 0) return 0;
+
+  let amount = 0;
+
+  if (d.usePercentage === true) {
+    if (typeof d.discountPercentage === "number" && d.discountPercentage > 0) {
+      amount = (basePrice * d.discountPercentage) / 100;
+    }
+  } else if (d.usePercentage === false) {
+    if (typeof d.discountAmount === "number" && d.discountAmount > 0) {
+      amount = d.discountAmount;
+    }
+  }
+
+  if (amount <= 0) return 0;
+
+  // MaximumDiscountAmount cap — matches backend
+  if (
+    typeof d.maximumDiscountAmount === "number" &&
+    d.maximumDiscountAmount > 0 &&
+    amount > d.maximumDiscountAmount
+  ) {
+    amount = d.maximumDiscountAmount;
+  }
+
+  // Never discount more than the price itself
+  if (amount > basePrice) amount = basePrice;
+
+  return amount;
+}
+
+/**
+ * Returns the BEST active AUTO discount (non-coupon) for a base price.
+ * Mirrors backend: picks the discount producing the HIGHEST effective amount
+ * (NOT the first match). basePrice defaults to product.price for badge usage.
+ */
+export function getActiveDiscount(product: any, basePrice?: number) {
   if (!product?.assignedDiscounts?.length) return null;
+
+  const price =
+    typeof basePrice === "number" && basePrice > 0
+      ? basePrice
+      : typeof product.price === "number"
+      ? product.price
+      : 0;
+
+  if (price <= 0) return null;
 
   const now = new Date();
 
-  return (
-    product.assignedDiscounts.find((d: any) => {
-      if (!d.isActive) return false;
-      if (d.requiresCouponCode) return false;
+  let best: any = null;
+  let bestAmount = 0;
 
-      if (d.startDate && now < new Date(d.startDate)) return false;
-      if (d.endDate && now > new Date(d.endDate)) return false;
+  for (const d of product.assignedDiscounts) {
+    if (!d.isActive) continue;
+    if (d.requiresCouponCode) continue;
+    if (d.startDate && now < new Date(d.startDate)) continue;
+    if (d.endDate && now > new Date(d.endDate)) continue;
 
-      // Valid discount
-      if (d.usePercentage === true) {
-        return typeof d.discountPercentage === "number" && d.discountPercentage > 0;
-      }
+    const amount = computeDiscountAmount(d, price);
+    if (amount <= 0) continue;
 
-      if (d.usePercentage === false) {
-        return typeof d.discountAmount === "number" && d.discountAmount > 0;
-      }
+    if (amount > bestAmount) {
+      bestAmount = amount;
+      best = d;
+    }
+  }
 
-      return false;
-    }) || null
-  );
+  return best;
 }
 
 /**
@@ -53,22 +103,22 @@ export function getDiscountBadge(product: any) {
 }
 
 /**
- * Returns final price after discount
+ * Returns final price after discount.
+ * Picks the BEST discount for this base price and applies the
+ * MaximumDiscountAmount cap, matching the backend order price exactly.
  */
 export function getDiscountedPrice(
   product: any,
   basePrice: number
 ): number {
-  const discount = getActiveDiscount(product);
-  if (!discount || basePrice <= 0) return basePrice;
+  if (basePrice <= 0) return basePrice;
 
-  let final = basePrice;
+  const discount = getActiveDiscount(product, basePrice);
+  if (!discount) return basePrice;
 
-  if (discount.usePercentage) {
-    final = basePrice - (basePrice * discount.discountPercentage) / 100;
-  } else {
-    final = basePrice - discount.discountAmount;
-  }
+  const amount = computeDiscountAmount(discount, basePrice);
+  if (amount <= 0) return basePrice;
 
+  const final = basePrice - amount;
   return +(final < 0 ? 0 : final).toFixed(2);
 }

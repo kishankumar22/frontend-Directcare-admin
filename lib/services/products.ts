@@ -372,7 +372,7 @@ export interface SimpleProduct {
 export interface CreateProductDto {
   name: string;
   slug?: string;
-  sku: string;
+  sku?: string;
   shortDescription: string;
   description: string;
   categoryId: string;

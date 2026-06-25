@@ -120,11 +120,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
   // ✅ ADD THESE FUNCTIONS (around line 300-400, after other helper functions)
 
-const frequencyPresets: Record<string, string> = {
-  days: "7 days , 15 days , 30 days , 60 days, 90 days",
-  weeks: "1 weeks , 2 weeks , 3 weeks , 4 weeks",
-  months: "1 months , 2 months , 3 months , 4 months",
-};
+  const frequencyPresets: Record<string, string> = {
+    days: "7 days , 15 days , 30 days , 60 days, 90 days",
+    weeks: "1 weeks , 2 weeks , 3 weeks , 4 weeks",
+    months: "1 months , 2 months , 3 months , 4 months",
+  };
 
 
   const handleVariantImageUpload = async (variantId: string, file: File) => {
@@ -158,7 +158,7 @@ const frequencyPresets: Record<string, string> = {
 
     // ✅ File validations
     const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
-  const ALLOWED_TYPES = ['image/webp','image/avif'];
+    const ALLOWED_TYPES = ['image/webp', 'image/avif'];
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       toast.warning('⚠️ Unsupported image format (`WebP , Avif only)');
@@ -1710,18 +1710,44 @@ const frequencyPresets: Record<string, string> = {
         }
 
         const status = statusResponse.data;
-        const currentUserId = localStorage.getItem('userId');
-        const currentUserEmail = localStorage.getItem('userEmail');
+        let currentUserId = localStorage.getItem('userId');
+        let currentUserEmail = localStorage.getItem('userEmail');
+
+        // Fallback to parsing userData if not directly set
+        if (!currentUserId || !currentUserEmail) {
+          const userStr = localStorage.getItem('userData');
+          if (userStr) {
+            try {
+              const user = JSON.parse(userStr);
+              if (!currentUserId && user.id) {
+                currentUserId = user.id;
+                localStorage.setItem('userId', user.id);
+              }
+              if (!currentUserEmail && user.email) {
+                currentUserEmail = user.email;
+                localStorage.setItem('userEmail', user.email);
+              }
+            } catch (e) {
+              console.error('Error parsing user data:', e);
+            }
+          }
+        }
+
+        const isLockedByMe = !!(
+          (status.lockedBy && currentUserId && status.lockedBy.toLowerCase() === currentUserId.toLowerCase()) ||
+          (status.lockedByEmail && currentUserEmail && status.lockedByEmail.toLowerCase() === currentUserEmail.toLowerCase())
+        );
 
         console.log('📊 Lock Status:', {
           isLocked: status.isLocked,
           lockedBy: status.lockedBy,
           lockedByEmail: status.lockedByEmail,
+          isLockedByMe,
           canRequestTakeover: status.canRequestTakeover
         });
 
         // ✅ CASE 1: Product locked by SOMEONE ELSE
-        if (status.isLocked && status.lockedBy && status.lockedBy !== currentUserId) {
+        if (status.isLocked && !isLockedByMe) {
           console.log('🔒 Product is locked by another user');
 
           const expiryIST = status.expiresAt
@@ -1733,15 +1759,15 @@ const frequencyPresets: Record<string, string> = {
             : 'Unknown';
 
           const displayMessage = `Product is currently being edited by ${status.lockedByEmail || 'another user'}.\nLock expires at ${expiryIST} IST.${status.canRequestTakeover
-              ? '\nYou can request takeover from the current editor.'
-              : status.cannotRequestReason ? `\n${status.cannotRequestReason}` : ''
+            ? '\nYou can request takeover from the current editor.'
+            : status.cannotRequestReason ? `\n${status.cannotRequestReason}` : ''
             }`;
 
           // Store lock info for "Request Takeover" modal
           setLockedByEmail(status.lockedByEmail || 'Unknown User');
           setProductLock({
             isLocked: true,
-            lockedBy: status.lockedBy,
+            lockedBy: status.lockedBy || '',
             expiresAt: status.expiresAt || null
           });
           setLockModalMessage(displayMessage);
@@ -1752,11 +1778,11 @@ const frequencyPresets: Record<string, string> = {
         }
 
         // ✅ CASE 2: Product locked by ME (same user, different tab)
-        if (status.isLocked && status.lockedBy === currentUserId) {
+        if (status.isLocked && isLockedByMe) {
           console.log('✅ Product already locked by you (same user — another tab)');
           setProductLock({
             isLocked: true,
-            lockedBy: status.lockedBy,
+            lockedBy: status.lockedBy || currentUserId || '',
             expiresAt: status.expiresAt || null
           });
           lockAcquiredRef.current = true;
@@ -1808,46 +1834,46 @@ const frequencyPresets: Record<string, string> = {
   // ADD THIS useEffect - Track unsaved changes
   // ============================================================
 
-useEffect(() => {
-  if (!initialFormData || !formData) return;
+  useEffect(() => {
+    if (!initialFormData || !formData) return;
 
- const normalize = (data: any) => {
-  const clone = structuredClone(data);
+    const normalize = (data: any) => {
+      const clone = structuredClone(data);
 
-  delete clone.productImages;
+      delete clone.productImages;
 
-  return clone;
-};
+      return clone;
+    };
 
-  const hasChanges =
-    JSON.stringify(normalize(formData)) !==
-    JSON.stringify(normalize(initialFormData));
+    const hasChanges =
+      JSON.stringify(normalize(formData)) !==
+      JSON.stringify(normalize(initialFormData));
 
-  setHasUnsavedChanges(hasChanges);
+    setHasUnsavedChanges(hasChanges);
 
-}, [formData, initialFormData]);
+  }, [formData, initialFormData]);
   // ============================================================
   // BROWSER CLOSE WARNING
   // ============================================================
   // Fix #2: Move initialFormData to useEffect (Add after line 850)
-useEffect(() => {
-  if (!loading && formData && !initialFormData) {
-    
-    setInitialFormData(JSON.parse(JSON.stringify(formData)));
-    console.log('✅ Initial form state captured');
-  }
-}, [loading, formData, initialFormData]);
-const hasFormChanged = useCallback(() => {
-  if (!initialFormData) return false;
+  useEffect(() => {
+    if (!loading && formData && !initialFormData) {
 
-  return JSON.stringify({
-    ...formData,
-    productImages: undefined,
-  }) !== JSON.stringify({
-    ...initialFormData,
-    productImages: undefined,
-  });
-}, [formData, initialFormData]);
+      setInitialFormData(JSON.parse(JSON.stringify(formData)));
+      console.log('✅ Initial form state captured');
+    }
+  }, [loading, formData, initialFormData]);
+  const hasFormChanged = useCallback(() => {
+    if (!initialFormData) return false;
+
+    return JSON.stringify({
+      ...formData,
+      productImages: undefined,
+    }) !== JSON.stringify({
+      ...initialFormData,
+      productImages: undefined,
+    });
+  }, [formData, initialFormData]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -2190,7 +2216,10 @@ const hasFormChanged = useCallback(() => {
         console.warn('⚠️ Lock conflict (409):', error.message);
 
         const currentUserEmail = localStorage.getItem('userEmail');
-        const isLockedByMe = lockedByEmail === currentUserEmail;
+        const isLockedByMe = !!(
+          lockedByEmail && currentUserEmail &&
+          lockedByEmail.toLowerCase() === currentUserEmail.toLowerCase()
+        );
 
         if (isLockedByMe) {
           console.log('✅ Already locked by you');
@@ -2475,7 +2504,7 @@ const hasFormChanged = useCallback(() => {
         return;
       }
 
-      
+
       // ═══════════════════════════════════════════════════════════════════════
       // SECTION 3: STRING FORMAT VALIDATIONS
       // ═══════════════════════════════════════════════════════════════════════
@@ -2598,110 +2627,110 @@ const hasFormChanged = useCallback(() => {
       // ═══════════════════════════════════════
       // SECTION 7: PRICE VALIDATIONS (FIXED)
       // ═══════════════════════════════════════
-const parsedPrice = parseNumber(formData.price, 'price');
+      const parsedPrice = parseNumber(formData.price, 'price');
 
-const isVariableProduct =
-  formData.productType === 'variable';
+      const isVariableProduct =
+        formData.productType === 'variable';
 
-// ✅ Only validate in FINAL SAVE (NOT draft)
-if (!isDraft) {
+      // ✅ Only validate in FINAL SAVE (NOT draft)
+      if (!isDraft) {
 
-  // ✅ Skip ALL price validations for variable products
-  if (!isVariableProduct) {
+        // ✅ Skip ALL price validations for variable products
+        if (!isVariableProduct) {
 
-    if (parsedPrice === null) {
-      toast.error('⚠️ Please enter a valid price');
+          if (parsedPrice === null) {
+            toast.error('⚠️ Please enter a valid price');
 
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
+            target.removeAttribute('data-submitting');
+            setIsSubmitting(false);
+            setSubmitProgress(null);
 
-      return;
-    }
+            return;
+          }
 
-    // 🚨 PRICE MUST BE GREATER THAN 0
-    if (parsedPrice <= 0) {
-      toast.error('❌ Price must be greater than 0');
+          // 🚨 PRICE MUST BE GREATER THAN 0
+          if (parsedPrice <= 0) {
+            toast.error('❌ Price must be greater than 0');
 
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
+            target.removeAttribute('data-submitting');
+            setIsSubmitting(false);
+            setSubmitProgress(null);
 
-      return;
-    }
+            return;
+          }
 
-    if (parsedPrice > 10000000) {
-      toast.error('⚠️ Price seems unusually high. Please verify.');
+          if (parsedPrice > 10000000) {
+            toast.error('⚠️ Price seems unusually high. Please verify.');
 
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
+            target.removeAttribute('data-submitting');
+            setIsSubmitting(false);
+            setSubmitProgress(null);
 
-      return;
-    }
-  }
-}
+            return;
+          }
+        }
+      }
 
-// ✅ These can run for BOTH draft + publish
-const parsedOldPrice = parseNumber(
-  formData.oldPrice,
-  'oldPrice'
-);
+      // ✅ These can run for BOTH draft + publish
+      const parsedOldPrice = parseNumber(
+        formData.oldPrice,
+        'oldPrice'
+      );
 
-const parsedCost = parseNumber(
-  formData.cost,
-  'cost'
-);
+      const parsedCost = parseNumber(
+        formData.cost,
+        'cost'
+      );
 
-// ✅ Skip old/cost validations for variable products
-if (!isVariableProduct) {
+      // ✅ Skip old/cost validations for variable products
+      if (!isVariableProduct) {
 
-  if (
-    parsedOldPrice !== null &&
-    parsedOldPrice < 0
-  ) {
-    toast.error('❌ Old price cannot be negative');
+        if (
+          parsedOldPrice !== null &&
+          parsedOldPrice < 0
+        ) {
+          toast.error('❌ Old price cannot be negative');
 
-    target.removeAttribute('data-submitting');
-    setIsSubmitting(false);
-    setSubmitProgress(null);
+          target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
 
-    return;
-  }
+          return;
+        }
 
-  if (
-    parsedOldPrice !== null &&
-    parsedPrice !== null &&
-    parsedOldPrice < parsedPrice
-  ) {
-    toast.warning(
-      '⚠️ Old price is less than current price. Strikethrough won\'t show.'
-    );
-  }
+        if (
+          parsedOldPrice !== null &&
+          parsedPrice !== null &&
+          parsedOldPrice < parsedPrice
+        ) {
+          toast.warning(
+            '⚠️ Old price is less than current price. Strikethrough won\'t show.'
+          );
+        }
 
-  if (
-    parsedCost !== null &&
-    parsedCost < 0
-  ) {
-    toast.error('❌ Cost price cannot be negative');
+        if (
+          parsedCost !== null &&
+          parsedCost < 0
+        ) {
+          toast.error('❌ Cost price cannot be negative');
 
-    target.removeAttribute('data-submitting');
-    setIsSubmitting(false);
-    setSubmitProgress(null);
+          target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
 
-    return;
-  }
+          return;
+        }
 
-  if (
-    parsedCost !== null &&
-    parsedPrice !== null &&
-    parsedCost > parsedPrice
-  ) {
-    toast.warning(
-      '⚠️ Cost is higher than selling price. Profit will be negative.'
-    );
-  }
-}
+        if (
+          parsedCost !== null &&
+          parsedPrice !== null &&
+          parsedCost > parsedPrice
+        ) {
+          toast.warning(
+            '⚠️ Cost is higher than selling price. Profit will be negative.'
+          );
+        }
+      }
       // ✅ PROGRESS: 35% - Category/Brand Validation
       setSubmitProgress({
         step: 'Validating categories and brands...',
@@ -3341,29 +3370,29 @@ if (!isVariableProduct) {
       // ═══════════════════════════════════════════════════════════════════════
 
       const firstVariant = productVariants[0]; // Get master variant
-      if( formData.productType === "variable"){
-const defaultVariants = productVariants.filter(
-  (v) => v.isDefault === true
-);
+      if (formData.productType === "variable") {
+        const defaultVariants = productVariants.filter(
+          (v) => v.isDefault === true
+        );
 
-if (defaultVariants.length === 0) {
-  toast.error('❌ Please select one default variant');
+        if (defaultVariants.length === 0) {
+          toast.error('❌ Please select one default variant');
 
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
+          target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
 
-  return;
-}
+          return;
+        }
 
-if (defaultVariants.length > 1) {
-  toast.error('❌ Only one default variant is allowed');
+        if (defaultVariants.length > 1) {
+          toast.error('❌ Only one default variant is allowed');
 
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
-  return;
-}
+          target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
 
 
       }
@@ -3539,20 +3568,20 @@ if (defaultVariants.length > 1) {
       // ═══════════════════════════════════════════════════════════════════════
       // SECTION 21: IMAGE VALIDATIONS
       // ═══════════════════════════════════════════════════════════════════════
-if (
-  formData.isPharmaProduct &&
-  (!pharmacyQuestions || pharmacyQuestions.length === 0)
-) {
-  toast.error(
-    '❌ At least one pharmacy question is required for pharmacy products'
-  );
+      if (
+        formData.isPharmaProduct &&
+        (!pharmacyQuestions || pharmacyQuestions.length === 0)
+      ) {
+        toast.error(
+          '❌ At least one pharmacy question is required for pharmacy products'
+        );
 
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
+        target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
 
-  return;
-}
+        return;
+      }
       // if (formData.productImages.length < 5) {
       //   toast.error('❌ Please upload at least 5 product images before saving');
       //   target.removeAttribute('data-submitting');
@@ -3628,7 +3657,7 @@ if (
         name: formData.name.trim(),
         description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
         shortDescription: formData.shortDescription?.trim() || '',
-        sku: formData.productType === 'variable' ? '' : formData.sku.trim(),
+        ...(formData.productType?.toLowerCase() !== "variable" ? { sku: formData.sku.trim() } : {}),
         gtin: formData.gtin?.trim() || null,
         manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
         status: isDraft ? 'Draft' : 'Active',
@@ -3900,6 +3929,9 @@ if (
       console.log("🚀 FINAL PAYLOAD:", productData);
       console.log('🚀 API: Updating product...');
       const response = await productsService.update(productId, productData);
+      if (response.error) {
+        throw new Error(getBackendMessage(response));
+      }
       if (response.data) {
         const apiResponse = response.data;
         if (apiResponse.success === true || apiResponse.success === undefined) {
@@ -3915,9 +3947,9 @@ if (
             await productsService.updateIncompatibilities(productId, {
               incompatibilities: formData.isPharmaProduct
                 ? incompatibleProducts.map(item => ({
-                    incompatibleProductId: item.incompatibleProductId,
-                    reason: item.reason || ''
-                  }))
+                  incompatibleProductId: item.incompatibleProductId,
+                  reason: item.reason || ''
+                }))
                 : []
             });
             console.log('✅ Incompatibilities saved');
@@ -3929,22 +3961,22 @@ if (
           toast.success(
             isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
             { autoClose: 3000 }
-          ); 
-            
+          );
+
           toast.info('Product updated successfully. Changes will appear on the website within 1 minute.', {
-           autoClose: 5000,
-           position:'top-center'
-           })
+            autoClose: 5000,
+            position: 'top-center'
+          })
           const updatedSnapshot = JSON.parse(
-  JSON.stringify({
-    ...formData,
-    productImages: undefined,
-  })
-);
+            JSON.stringify({
+              ...formData,
+              productImages: undefined,
+            })
+          );
 
-setInitialFormData(updatedSnapshot);
+          setInitialFormData(updatedSnapshot);
 
-setHasUnsavedChanges(false);
+          setHasUnsavedChanges(false);
           // await productLockService.releaseLock(productId);
           // if (releaseLockAfter) {
           //   try {
@@ -4158,7 +4190,7 @@ setHasUnsavedChanges(false);
       return;
     }
 
-    
+
 
     // ================================
     // ✅ SECTION 6: SEO SLUG
@@ -4372,41 +4404,41 @@ setHasUnsavedChanges(false);
     // ================================
     // ✅ SECTION 15: IS RECURRING (WITH GROUPED VALIDATION)
     // ================================
-if (name === "isRecurring") {
-  // ❌ BLOCK: Cannot enable subscription for grouped products
-  if (checked && formData.productType === 'grouped') {
-    toast.error('❌ Subscription is not available for grouped products', {
-      autoClose: 5000,
-      position: 'top-center'
-    });
-    return;
-  }
+    if (name === "isRecurring") {
+      // ❌ BLOCK: Cannot enable subscription for grouped products
+      if (checked && formData.productType === 'grouped') {
+        toast.error('❌ Subscription is not available for grouped products', {
+          autoClose: 5000,
+          position: 'top-center'
+        });
+        return;
+      }
 
-  setFormData(prev => ({
-    ...prev,
-    isRecurring: checked,
+      setFormData(prev => ({
+        ...prev,
+        isRecurring: checked,
 
-    // ✅ DEFAULT VALUES WHEN ENABLED
-    ...(checked && {
-      recurringCyclePeriod: prev.recurringCyclePeriod || "days",
-      allowedSubscriptionFrequencies:
-        prev.allowedSubscriptionFrequencies ||
-        frequencyPresets[prev.recurringCyclePeriod || "days"]
-    }),
+        // ✅ DEFAULT VALUES WHEN ENABLED
+        ...(checked && {
+          recurringCyclePeriod: prev.recurringCyclePeriod || "days",
+          allowedSubscriptionFrequencies:
+            prev.allowedSubscriptionFrequencies ||
+            frequencyPresets[prev.recurringCyclePeriod || "days"]
+        }),
 
-    // ❌ CLEAR WHEN DISABLED
-    ...(!checked && {
-      recurringCycleLength: "",
-      recurringCyclePeriod: "days",
-      recurringTotalCycles: "",
-      subscriptionDiscountPercentage: "",
-      allowedSubscriptionFrequencies: "",
-      subscriptionDescription: ""
-    })
-  }));
+        // ❌ CLEAR WHEN DISABLED
+        ...(!checked && {
+          recurringCycleLength: "",
+          recurringCyclePeriod: "days",
+          recurringTotalCycles: "",
+          subscriptionDiscountPercentage: "",
+          allowedSubscriptionFrequencies: "",
+          subscriptionDescription: ""
+        })
+      }));
 
-  return;
-}
+      return;
+    }
 
 
     // ================================
@@ -4615,18 +4647,18 @@ if (name === "isRecurring") {
     }
 
     // ================================
-// ✅ SECTION 29: RECURRING PERIOD AUTO PREFILL
-// ================================
-if (name === "recurringCyclePeriod") {
-  setFormData(prev => ({
-    ...prev,
-    recurringCyclePeriod: value,
-    allowedSubscriptionFrequencies:
-      frequencyPresets[value] || ""
-  }));
+    // ✅ SECTION 29: RECURRING PERIOD AUTO PREFILL
+    // ================================
+    if (name === "recurringCyclePeriod") {
+      setFormData(prev => ({
+        ...prev,
+        recurringCyclePeriod: value,
+        allowedSubscriptionFrequencies:
+          frequencyPresets[value] || ""
+      }));
 
-  return;
-}
+      return;
+    }
     // ================================
     // ✅ SECTION 29: DEFAULT
     // ================================
@@ -4763,7 +4795,7 @@ if (name === "recurringCyclePeriod") {
   };
 
   // ✅ REPLACE existing handleImageUpload function:
-  const ALLOWED_TYPES = ['image/webp','image/avif'];
+  const ALLOWED_TYPES = ['image/webp', 'image/avif'];
 
   const MAX_SIZE = 500 * 1024;     // 500 KB hard limit
   const WARN_SIZE = 300 * 1024;    // 300 KB recommended
@@ -4982,7 +5014,7 @@ if (name === "recurringCyclePeriod") {
 
     const MAX_FILE_SIZE = 2 * 1024 * 1024;
     const MAX_IMAGES = 10;
-  const ALLOWED_TYPES = ['image/webp','image/avif'];
+    const ALLOWED_TYPES = ['image/webp', 'image/avif'];
 
     const baseLength = formData.productImages.length;
 
@@ -5185,7 +5217,7 @@ if (name === "recurringCyclePeriod") {
                 {/* CANCEL */}
                 <button
                   type="button"
-                      onClick={(e) => {
+                  onClick={(e) => {
                     e.preventDefault();
 
                     if (hasUnsavedChanges) {
@@ -5334,7 +5366,7 @@ if (name === "recurringCyclePeriod") {
                         maxLength={350}
                         required       // ✅ Maximum 350 characters
                         showCharCount={true}     // ✅ Show built-in character counter
-                        showHelpText="Brief description visible in product listings (10-350 characters)"
+                        showHelpText="Brief description visible in product listings (max 350 characters)"
                       />
                     </div>
 
@@ -5354,7 +5386,7 @@ if (name === "recurringCyclePeriod") {
                         required={true}          // ✅ Shows red asterisk
                         maxLength={5000}         // ✅ Maximum 5000 characters
                         showCharCount={true}     // ✅ Show built-in character counter
-                        showHelpText="Detailed product information with formatting (50-2000 characters)"
+                        showHelpText="Detailed product information with formatting (Max 5000 characters)"
                       />
                     </div>
 
@@ -5840,8 +5872,8 @@ if (name === "recurringCyclePeriod") {
 
                   {/* ✅ DISABLED FOR GROUPED PRODUCTS */}
                   <label className={`flex items-center gap-3 ${formData.productType === 'grouped'
-                      ? 'cursor-not-allowed opacity-50'
-                      : 'cursor-pointer'
+                    ? 'cursor-not-allowed opacity-50'
+                    : 'cursor-pointer'
                     }`}>
                     <input
                       type="checkbox"
@@ -5898,9 +5930,9 @@ if (name === "recurringCyclePeriod") {
                             onChange={handleChange}
                             className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                           >
-                          <option value="days">Days</option>
-                          <option value="weeks">Weeks</option>
-                          <option value="months">Months</option>
+                            <option value="days">Days</option>
+                            <option value="weeks">Weeks</option>
+                            <option value="months">Months</option>
                           </select>
                         </div>
                         <div>
@@ -6038,8 +6070,8 @@ if (name === "recurringCyclePeriod") {
 
                         <span
                           className={`text-sm transition-colors ${isChecked
-                              ? "text-white font-medium"
-                              : "text-slate-300 group-hover:text-white"
+                            ? "text-white font-medium"
+                            : "text-slate-300 group-hover:text-white"
                             }`}
                         >
                           {option}
@@ -6365,7 +6397,7 @@ if (name === "recurringCyclePeriod") {
 
               </div>
 
-        
+
 
             </TabsContent>
 
@@ -6376,65 +6408,65 @@ if (name === "recurringCyclePeriod") {
 
                 <div className="grid md:grid-cols-3 gap-4">
                   <div>
-                <label className="block text-sm mb-2 font-semibold text-slate-700 dark:text-slate-200">
-  Price (£)
-  {formData.productType !== 'variable' && (
-    <span className="text-red-500 ml-1">*</span>
-  )}
-</label>
+                    <label className="block text-sm mb-2 font-semibold text-slate-700 dark:text-slate-200">
+                      Price (£)
+                      {formData.productType !== 'variable' && (
+                        <span className="text-red-500 ml-1">*</span>
+                      )}
+                    </label>
                     <input
                       type="number"
                       name="price"
                       disabled={formData.productType === 'variable'}
                       title={
-  formData.productType === 'variable'
-    ? "Variable   product  requirs price in variable tab  "
-    : ''
-}
+                        formData.productType === 'variable'
+                          ? "Variable   product  requirs price in variable tab  "
+                          : ''
+                      }
                       value={
-  formData.productType === 'variable'
-    ? ""
-    : formData.price
-}
+                        formData.productType === 'variable'
+                          ? ""
+                          : formData.price
+                      }
                       onChange={handleChange}
                       placeholder="0.00"
                       step="0.01"
                       className={`w-full px-3 py-2 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 
   focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all
   ${formData.productType === 'variable'
-    ? 'opacity-50 cursor-not-allowed'
-    : ''
-}`}
+                          ? 'opacity-50 cursor-not-allowed'
+                          : ''
+                        }`}
                       required
                     />
                   </div>
 
-                        <div>
-  <label className="block text-sm mb-2 font-semibold text-slate-700 dark:text-slate-200">
-    Old Price (£)
-    {formData.productType !== "variable" && (
-      <span className="text-red-500 ml-1">*</span>
-    )}
-  </label>
+                  <div>
+                    <label className="block text-sm mb-2 font-semibold text-slate-700 dark:text-slate-200">
+                      Old Price (£)
+                      {formData.productType !== "variable" && (
+                        <span className="text-red-500 ml-1">*</span>
+                      )}
+                    </label>
 
-  <input
-    type="number"
-    name="oldPrice"
-    disabled={formData.productType === "variable"}
-    title={
-      formData.productType === "variable"
-        ? "Variable product requires old price in variant tab"
-        : ""
-    }
-    value={
-      formData.productType === "variable"
-        ? ""
-        : formData.oldPrice
-    }
-    onChange={handleChange}
-    placeholder="0.00"
-    step="0.01"
-    className={`
+                    <input
+                      type="number"
+                      name="oldPrice"
+                      disabled={formData.productType === "variable"}
+                      title={
+                        formData.productType === "variable"
+                          ? "Variable product requires old price in variant tab"
+                          : ""
+                      }
+                      value={
+                        formData.productType === "variable"
+                          ? ""
+                          : formData.oldPrice
+                      }
+                      onChange={handleChange}
+                      placeholder="0.00"
+                      step="0.01"
+                      className={`
       w-full px-3 py-2
       bg-slate-800/50
       border border-slate-700
@@ -6447,18 +6479,17 @@ if (name === "recurringCyclePeriod") {
       focus:border-transparent
       transition-all
 
-      ${
-        formData.productType === "variable"
-          ? "opacity-50 cursor-not-allowed"
-          : ""
-      }
+      ${formData.productType === "variable"
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                        }
     `}
-  />
+                    />
 
-  <p className="text-xs text-slate-400 mt-1">
-    Shows as strikethrough
-  </p>
-</div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Shows as strikethrough
+                    </p>
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost (£)</label>
@@ -7160,24 +7191,24 @@ if (name === "recurringCyclePeriod") {
                   )}
 
                 </div>
-      {/* Sales */}
-              <div className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Sales Settings</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Fake Sale Count</label>
-                    <input
-                      type="number"
-                      name="fakeSaleCount"
-                      value={formData.fakeSaleCount}
-                      onChange={handleChange}
-                      placeholder="0"
-                      className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">Leave empty to use real sales only.</p>
+                {/* Sales */}
+                <div className="space-y-4 mt-6">
+                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Sales Settings</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Fake Sale Count</label>
+                      <input
+                        type="number"
+                        name="fakeSaleCount"
+                        value={formData.fakeSaleCount}
+                        onChange={handleChange}
+                        placeholder="0"
+                        className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Leave empty to use real sales only.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
                 {/* NOT RETURNABLE */}
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -7566,8 +7597,8 @@ if (name === "recurringCyclePeriod") {
                           <div className="flex items-center justify-between pt-1 border-t border-slate-700/50">
                             <button type="button" onClick={() => toggleAttributeVariation(attr.id)}
                               className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg transition-all ${attr.isVariation
-                                  ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30'
-                                  : 'bg-slate-800 text-slate-400 border border-slate-600 hover:bg-slate-700'
+                                ? 'bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30'
+                                : 'bg-slate-800 text-slate-400 border border-slate-600 hover:bg-slate-700'
                                 }`}>
                               <span className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${attr.isVariation ? 'bg-violet-400 border-violet-400' : 'border-slate-500'}`} />
                               {attr.isVariation ? '✓ Used for variations' : 'Used for variations'}
@@ -7707,10 +7738,10 @@ if (name === "recurringCyclePeriod") {
                     </label>
                     <span
                       className={`text-xs font-medium ${formData.metaTitle.length > 60
-                          ? "text-red-400"
-                          : formData.metaTitle.length > 50
-                            ? "text-yellow-400"
-                            : "text-slate-500"
+                        ? "text-red-400"
+                        : formData.metaTitle.length > 50
+                          ? "text-yellow-400"
+                          : "text-slate-500"
                         }`}
                     >
                       {formData.metaTitle.length}/60
@@ -7725,10 +7756,10 @@ if (name === "recurringCyclePeriod") {
                     maxLength={60}
                     placeholder="SEO-optimized title for search engines"
                     className={`w-full px-4 py-2.5 bg-slate-900/70 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all ${formData.metaTitle.length > 60
-                        ? "border-red-500/50"
-                        : formData.metaTitle.length > 50
-                          ? "border-yellow-500/50"
-                          : "border-slate-700"
+                      ? "border-red-500/50"
+                      : formData.metaTitle.length > 50
+                        ? "border-yellow-500/50"
+                        : "border-slate-700"
                       }`}
                   />
 
@@ -7748,10 +7779,10 @@ if (name === "recurringCyclePeriod") {
                     </label>
                     <span
                       className={`text-xs font-medium ${formData.metaDescription.length > 160
-                          ? "text-red-400"
-                          : formData.metaDescription.length > 150
-                            ? "text-yellow-400"
-                            : "text-slate-500"
+                        ? "text-red-400"
+                        : formData.metaDescription.length > 150
+                          ? "text-yellow-400"
+                          : "text-slate-500"
                         }`}
                     >
                       {formData.metaDescription.length}/160
@@ -7766,10 +7797,10 @@ if (name === "recurringCyclePeriod") {
                     rows={3}
                     placeholder="Brief description for search engine results"
                     className={`w-full px-4 py-2.5 bg-slate-900/70 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${formData.metaDescription.length > 160
-                        ? "border-red-500/50"
-                        : formData.metaDescription.length > 150
-                          ? "border-yellow-500/50"
-                          : "border-slate-700"
+                      ? "border-red-500/50"
+                      : formData.metaDescription.length > 150
+                        ? "border-yellow-500/50"
+                        : "border-slate-700"
                       }`}
                   />
 
@@ -7896,8 +7927,8 @@ if (name === "recurringCyclePeriod") {
                     }}
                     disabled={uploadingImages}
                     className={`w-full py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 ${!formData.name.trim() || uploadingImages
-                        ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed border-2 border-dashed border-slate-600'
-                        : 'bg-slate-900/70 border-2 border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-violet-500/50'
+                      ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed border-2 border-dashed border-slate-600'
+                      : 'bg-slate-900/70 border-2 border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-violet-500/50'
                       }`}
                   >
                     <Upload className="h-4 w-4" />
@@ -7942,8 +7973,8 @@ if (name === "recurringCyclePeriod") {
                               onClick={() => removeImage(image.id)}
                               disabled={isDeletingImage}
                               className={`absolute top-0 right-0 p-1 rounded-bl transition-all opacity-0 group-hover:opacity-100 ${isDeletingImage
-                                  ? 'bg-slate-500/90 cursor-not-allowed'
-                                  : 'bg-red-500/90 hover:bg-red-600'
+                                ? 'bg-slate-500/90 cursor-not-allowed'
+                                : 'bg-red-500/90 hover:bg-red-600'
                                 }`}
                               title="Delete"
                             >
@@ -7971,59 +8002,59 @@ if (name === "recurringCyclePeriod") {
                               className="w-full px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                             />
                             <div className="flex items-center gap-1">
-      <input
-  type="number"
-  placeholder="#"
-  value={image.sortOrder ?? ''}
-  onChange={(e) => {
-    const value = e.target.value;
+                              <input
+                                type="number"
+                                placeholder="#"
+                                value={image.sortOrder ?? ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
 
-    setFormData({
-      ...formData,
-      productImages: formData.productImages.map((img) =>
-        img.id === image.id
-          ? {
-              ...img,
-              sortOrder:
-                value.trim() === ''
-                  ? undefined
-                  : parseInt(value),
-            }
-          : img,
-      ),
-    });
-  }}
-  className="w-12 px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
-/>
+                                  setFormData({
+                                    ...formData,
+                                    productImages: formData.productImages.map((img) =>
+                                      img.id === image.id
+                                        ? {
+                                          ...img,
+                                          sortOrder:
+                                            value.trim() === ''
+                                              ? undefined
+                                              : parseInt(value),
+                                        }
+                                        : img,
+                                    ),
+                                  });
+                                }}
+                                className="w-12 px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+                              />
                               <label className="flex items-center gap-1 cursor-pointer">
                                 <input
                                   type="checkbox"
                                   checked={image.isMain}
-onChange={(e) => {
-  setFormData({
-    ...formData,
-    productImages: formData.productImages.map((img) => {
-      // clicked image
-      if (img.id === image.id) {
-        return {
-          ...img,
-          isMain: e.target.checked,
-          sortOrder: e.target.checked ? 1 : img.sortOrder,
-        };
-      }
+                                  onChange={(e) => {
+                                    setFormData({
+                                      ...formData,
+                                      productImages: formData.productImages.map((img) => {
+                                        // clicked image
+                                        if (img.id === image.id) {
+                                          return {
+                                            ...img,
+                                            isMain: e.target.checked,
+                                            sortOrder: e.target.checked ? 1 : img.sortOrder,
+                                          };
+                                        }
 
-      // old main image only remove main flag
-      if (e.target.checked && img.isMain) {
-        return {
-          ...img,
-          isMain: false,
-        };
-      }
+                                        // old main image only remove main flag
+                                        if (e.target.checked && img.isMain) {
+                                          return {
+                                            ...img,
+                                            isMain: false,
+                                          };
+                                        }
 
-      return img;
-    }),
-  });
-}}
+                                        return img;
+                                      }),
+                                    });
+                                  }}
                                   className="w-3 h-3 text-violet-500 rounded border-slate-700 bg-slate-900 focus:ring-1 focus:ring-violet-500"
                                 />
                                 <span className="text-[10px] text-slate-400">Main</span>
@@ -8236,22 +8267,22 @@ onChange={(e) => {
       />
 
       {/* UNSAVED CHANGES MODAL */}
-<UnsavedChangesModal
-  isOpen={showUnsavedModal}
-  missingFields={missingFields}
-  changedFieldsList={getChangedFieldsList()}
-  changedFieldsCount={getChangedFieldsList().length}
-  isSubmitting={isSubmitting}
+      <UnsavedChangesModal
+        isOpen={showUnsavedModal}
+        missingFields={missingFields}
+        changedFieldsList={getChangedFieldsList()}
+        changedFieldsCount={getChangedFieldsList().length}
+        isSubmitting={isSubmitting}
 
-  isEditMode={true}
+        isEditMode={true}
 
-  onSaveDraft={handleModalSaveDraft}
-  onUpdate={handleModalUpdateProduct}
-  onDiscard={handleModalDiscard}
-  onCancel={handleModalCancel}
-  canSaveDraft={checkDraftRequirements().isValid}
-  canUpdate={missingFields.length === 0}
-/>
+        onSaveDraft={handleModalSaveDraft}
+        onUpdate={handleModalUpdateProduct}
+        onDiscard={handleModalDiscard}
+        onCancel={handleModalCancel}
+        canSaveDraft={checkDraftRequirements().isValid}
+        canUpdate={missingFields.length === 0}
+      />
     </div>
   );
 }

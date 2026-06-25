@@ -88,7 +88,7 @@ const navigation: NavigationItem[] = [
       { name: 'Brands', href: '/admin/brands', icon: Tag },
       { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
       { name: 'Pharmacy Q&A', href: '/admin/pharmacy-questions', icon: ClipboardList },
-      { name: 'Pharma Review', href: '/admin/pharma-review', icon: ShieldCheck },
+      { name: 'Pharma Products', href: '/admin/pharma-products', icon: ShieldCheck },
     ],
   },
   {

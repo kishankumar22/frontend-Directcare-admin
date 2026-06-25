@@ -230,7 +230,7 @@ const pharmaApprovalOptions: SelectOption[] = [
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
     { value: "published", label: "Published" },
-    { value: "unpublished", label: "Unpublished" },
+    { value: "unpublished", label: "Unpublished / Draft" },
   ];
 
   const deliveryOptions: SelectOption[] = [
@@ -1235,7 +1235,10 @@ const mapProductToFullExportRow = (product: any) => {
   const row: Record<string, string | number | boolean> = {};
 
   Object.entries(product || {}).forEach(([key, value]) => {
-    row[key] = normalizeExcelValue(value);
+    const lowerKey = key.toLowerCase();
+    if (lowerKey !== "isactive" && lowerKey !== "is active") {
+      row[key] = normalizeExcelValue(value);
+    }
   });
 
   return row;
@@ -1845,27 +1848,27 @@ const handleExportSelected = async () => {
               menuPosition="fixed"
             />
           </div>
+          <div>
 
-          {/* HOMEPAGE */}
-          <div className="flex-1 min-w-[120px] max-w-[150px] w-full">
-            <select
-              value={selectedHomepage.value}
-              onChange={(e) => {
-                const option = homepageOptions.find(opt => opt.value === e.target.value);
-                if (option) setSelectedHomepage(option);
-              }}
-              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                selectedHomepage.value !== "all"
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                  : "border-slate-600"
-              }`}
-            >
-              {homepageOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+<select
+  value={pharmaFilter.value}
+  onChange={(e) => {
+    const option = pharmaOptions.find(opt => opt.value === e.target.value);
+    if (option) setPharmaFilter(option);
+  }}
+  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+    pharmaFilter.value !== "all"
+      ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+      : "border-slate-600"
+  }`}
+>
+  {pharmaOptions.map((opt) => (
+    <option key={opt.value} value={opt.value}>
+      {opt.label}
+    </option>
+  ))}
+</select>
+
           </div>
 
           {/* TYPE */}
@@ -2107,24 +2110,28 @@ const handleExportSelected = async () => {
     </option>
   ))}
 </select>
-<select
-  value={pharmaFilter.value}
-  onChange={(e) => {
-    const option = pharmaOptions.find(opt => opt.value === e.target.value);
-    if (option) setPharmaFilter(option);
-  }}
-  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-    pharmaFilter.value !== "all"
-      ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-      : "border-slate-600"
-  }`}
->
-  {pharmaOptions.map((opt) => (
-    <option key={opt.value} value={opt.value}>
-      {opt.label}
-    </option>
-  ))}
-</select>
+          {/* HOMEPAGE */}
+          <div className="flex-1 min-w-[120px] max-w-[150px] w-full">
+            <select
+              value={selectedHomepage.value}
+              onChange={(e) => {
+                const option = homepageOptions.find(opt => opt.value === e.target.value);
+                if (option) setSelectedHomepage(option);
+              }}
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                selectedHomepage.value !== "all"
+                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                  : "border-slate-600"
+              }`}
+            >
+              {homepageOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
 
 <select
   value={pharmaApprovalFilter.value}
@@ -2195,7 +2202,7 @@ const handleExportSelected = async () => {
         <th className="text-center py-2 px-2 text-red-400 w-[80px] cursor-pointer hover:text-red-300 select-none" onClick={() => handleSort('price')} title="Sort by price">
           Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
         </th>
-        <th className="text-center py-2 px-2 w-[70px]">Status</th>
+        {/* <th className="text-center py-2 px-2 w-[70px]">Status</th> */}
         <th className="text-center py-2 px-2 w-[160px]">Stock Status</th>
         <th className="text-center py-2 px-2 w-[90px]">Visibility</th>
         <th
@@ -2383,7 +2390,7 @@ onClick={async (e) => {
                       </td>
 
                       {/* Clickable Status Cell */}
-                      <td
+                      {/* <td
                         className={`py-1.5 px-2 text-center ${
                           product.isDeleted ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                         }`}
@@ -2410,7 +2417,7 @@ onClick={async (e) => {
                           />
                           {product.isActive ? "Active" : "Inactive"}
                         </span>
-                      </td>
+                      </td> */}
 
                       {/* STOCK */}
                        <td className="py-1.5 px-2 text-center">
@@ -3083,7 +3090,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
 
             <div className="mb-5">
               <label className="block text-slate-300 text-xs font-medium mb-1.5">
-                {pharmaApprovalModal.mode === "approve" ? "Approval comment (optional)" : "Rejection reason (optional)"}
+                {pharmaApprovalModal.mode === "approve" ? "Approval comment (required)" : "Rejection reason (required)"}
               </label>
               <textarea
                 value={pharmaComment}
@@ -3104,7 +3111,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
               </button>
               <button
                 onClick={handlePharmaReview}
-                disabled={pharmaProcessing}
+                disabled={pharmaProcessing || !pharmaComment.trim()}
                 className={`flex-1 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
                   pharmaApprovalModal.mode === "approve"
                     ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500"

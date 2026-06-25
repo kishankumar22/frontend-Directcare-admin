@@ -25,6 +25,7 @@ import {
 import { orderService } from '@/lib/services/orders';
 import productsService from '@/lib/services/products';
 import { categoriesService } from '@/lib/services/categories';
+import * as XLSX from 'xlsx';
 import { scrollCls } from '../_utils/styles';
 import { useDebounce } from '../_hooks/useDebounce';
 
@@ -204,7 +205,6 @@ const EDITABLE_FIELDS: { key: string; label: string }[] = [
   { key: 'reviewCount', label: 'Review Count' },
   { key: 'allowCustomerReviews', label: 'Allow Customer Reviews' },
   { key: 'excludeFromLoyaltyPoints', label: 'Exclude From Loyalty Points' },
-  { key: 'isActive', label: 'Is Active' },
   { key: 'isPharmaProduct', label: 'Is Pharma Product' },
   { key: 'videoUrls', label: 'Video URLs' },
 
@@ -457,7 +457,6 @@ function ProductsBulkUpdateTab() {
   'name',
   'stock',
   'status',
-  'isActive',
   'isPublished',
   'price',
   'oldPrice',
@@ -585,7 +584,45 @@ const [selectedFields, setSelectedFields] = useState<string[]>(
           categoryId: templateFilters.categoryIds.join(','),
           fields: selectedFields,
         });
-        const blob = response.data as Blob;
+        let blob = response.data as Blob;
+
+        // Strip "Is Active" column on the client-side
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          let modified = false;
+
+          workbook.SheetNames.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            if (data.length > 0) {
+              const headers = data[0];
+              const targetCols = ['is active', 'isactive', 'active'];
+              const colIndices: number[] = [];
+              headers.forEach((h: any, idx: number) => {
+                if (h && typeof h === 'string' && targetCols.includes(h.toLowerCase().trim())) {
+                  colIndices.push(idx);
+                }
+              });
+
+              if (colIndices.length > 0) {
+                const filteredData = data.map(row => {
+                  return row.filter((_, idx) => !colIndices.includes(idx));
+                });
+                const newWorksheet = XLSX.utils.aoa_to_sheet(filteredData);
+                workbook.Sheets[sheetName] = newWorksheet;
+                modified = true;
+              }
+            }
+          });
+
+          if (modified) {
+            const newArrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            blob = new Blob([newArrayBuffer], { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          }
+        } catch (excelErr) {
+          console.error("Failed to post-process downloaded excel template:", excelErr);
+        }
 
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);

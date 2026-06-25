@@ -577,7 +577,13 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       } else {
         // Monday to Thursday
         if (now >= targetCutoff) {
-          showBanner = false;
+          // After cutoff: roll forward to tomorrow's cutoff (ship tomorrow, deliver day after)
+          targetCutoff.setDate(targetCutoff.getDate() + 1);
+          shipPrefixStr = "Tomorrow";
+          deliveryPrefixStr = "Day After";
+          ship.setDate(ship.getDate() + 1);
+          deliver.setDate(deliver.getDate() + 2);
+          if (deliver.getDay() === 0) deliver.setDate(deliver.getDate() + 1); // Skip Sunday
         } else {
           shipPrefixStr = "Today";
           deliveryPrefixStr = "Tomorrow";
@@ -860,7 +866,10 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     // ⛔ No variants → do nothing
     if (!product.variants || product.variants.length === 0) return;
     // ✅ Safe load default on first page only
-    const def = product.variants.find(v => v.isDefault) ?? product.variants[0];
+    let def = product.variants.find(v => v.isDefault);
+    if (!def) {
+      def = [...product.variants].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+    }
     setSelectedVariant(def);
     setSelectedOptions({
       option1: def.option1Value ?? null,
