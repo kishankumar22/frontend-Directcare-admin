@@ -95,9 +95,27 @@ export const authService = {
     );
 
     // ✅ Safe access with optional chaining
+    let role = "admin";
     if (response.data?.accessToken) {
-      setCookie("authToken", response.data.accessToken);
-      localStorage.setItem("authToken", response.data.accessToken);
+      const token = response.data.accessToken;
+      setCookie("authToken", token);
+      localStorage.setItem("authToken", token);
+      
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = typeof window !== "undefined" ? window.atob(base64) : Buffer.from(base64, 'base64').toString('binary');
+        const jsonPayload = decodeURIComponent(
+          decoded
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+        role = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role || "admin";
+      } catch (e) {
+        console.error("Failed to parse JWT role in auth service:", e);
+      }
     }
 
     if (response.data?.refreshToken) {
@@ -106,7 +124,8 @@ export const authService = {
 
     if (response.data?.user?.email) {
       localStorage.setItem("userEmail", response.data.user.email);
-      localStorage.setItem("userData", JSON.stringify(response.data.user));
+      const userWithRole = { ...response.data.user, role };
+      localStorage.setItem("userData", JSON.stringify(userWithRole));
     }
 
     return response;

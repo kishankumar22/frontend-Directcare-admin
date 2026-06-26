@@ -109,7 +109,11 @@ export const getProductImage = (images: any[]): string => {
   }
 
   // ✅ FULL URL
-  if (imageUrl.startsWith("http")) {
+  if (
+    imageUrl.startsWith("http") ||
+    imageUrl.startsWith("blob:") ||
+    imageUrl.startsWith("data:")
+  ) {
     return imageUrl;
   }
 
@@ -146,7 +150,13 @@ export const generateSlug = (title: string) =>
     .replace(/^-|-$/g, "");
   export const getImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
+    if (
+      imageUrl.startsWith("http") ||
+      imageUrl.startsWith("blob:") ||
+      imageUrl.startsWith("data:")
+    ) {
+      return imageUrl;
+    }
     
     const baseUrl = API_BASE_URL.replace(/\/api\/?$/, "");
     const cleanPath = imageUrl.split('?')[0].replace(/^\//, "");

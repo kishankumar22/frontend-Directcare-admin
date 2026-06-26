@@ -369,6 +369,19 @@ export interface SimpleProduct {
   isPharmaProduct?: boolean;
 }
 
+export interface DeliveryOption {
+  id: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  price?: number;
+  freeShippingThreshold?: number | null;
+  deliveryMinDays?: number;
+  deliveryMaxDays?: number;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
 export interface CreateProductDto {
   name: string;
   slug?: string;
@@ -706,6 +719,11 @@ inventorySampleExcel: async () => {
 getSimpleProducts: async () => {
   return apiClient.get<ApiResponse<Product[]>>(
     `${API_ENDPOINTS.products}/simple`
+  );
+},
+getDeliveryOptions: async (includeInactive: boolean = false) => {
+  return apiClient.get<ApiResponse<DeliveryOption[]>>(
+    `${API_ENDPOINTS.deliveryOptions}?includeInactive=${includeInactive}`
   );
 },
 

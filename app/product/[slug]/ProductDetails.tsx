@@ -868,7 +868,12 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     // ✅ Safe load default on first page only
     let def = product.variants.find(v => v.isDefault);
     if (!def) {
-      def = [...product.variants].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+      const inStockVariants = product.variants.filter(v => v.stockQuantity > 0);
+      if (inStockVariants.length > 0) {
+        def = [...inStockVariants].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+      } else {
+        def = [...product.variants].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+      }
     }
     setSelectedVariant(def);
     setSelectedOptions({
@@ -2481,30 +2486,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               </>
             )}
 
-              {!!(product.isPharmaProduct || (activeSaleCount ?? 0) > 0) && (
-              <div className="flex items-center gap-1.5 md:gap-2 mb-2.5 md:mb-3 flex-wrap">
-                {product.isPharmaProduct && (
-                  <div className="inline-flex items-center gap-1.5 bg-[#445D41]/20 border-2 border-[#445D41]/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-sm hover:shadow-md hover:bg-[#445D41]/30 transition-all duration-200">
-                    <PlusCircle className="h-3 w-3 md:h-3.5 md:w-3.5 text-[#445D41] font-bold " />
-                    <span className="text-[9px] md:text-[11px] lg:text-xs font-bold text-[#445D41] whitespace-nowrap leading-tight tracking-wide">
-             P Medicines are sold under pharmacist Supervision 
-                    </span>
-                  </div>
-                )}
-
-{(activeSaleCount ?? 0) > 0 && (
-  <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500/20 to-orange-500/20 border-2 border-rose-400/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-md shadow-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20 transition-all duration-200 animate-heartbeat-glow">
-    <span className="text-[10px] md:text-xs leading-none text-rose-600 animate-bounce">🔥</span>
-    <span className="text-[9px] md:text-[11px] lg:text-xs font-extrabold text-rose-700 whitespace-nowrap leading-tight tracking-wide">
-      {(activeSaleCount ?? 0) >= 1000 
-        ? ((activeSaleCount ?? 0) / 1000).toFixed((activeSaleCount ?? 0) >= 10000 ? 0 : 1) + 'K' 
-        : activeSaleCount
-      } Sold This Week
-    </span>
-  </div>
-)}
-              </div>
-              )}
 
             {/* Price Card */}
             <Card className="mb-4">
@@ -2900,6 +2881,31 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     </Card>
                   </>
                 )}
+
+                       {!!(product.isPharmaProduct || (activeSaleCount ?? 0) > 0) && (
+              <div className="flex items-center gap-1.5 md:gap-2 mb-2.5 md:mb-3 flex-wrap">
+                  {product.isPharmaProduct && (
+                  <div className="inline-flex items-center gap-2 bg-green-50 border border-green-200 px-2.5 md:px-3 py-1 rounded-full shrink-0 shadow-sm hover:bg-green-100 hover:border-green-300 hover:shadow-md transition-all duration-200">
+                  <PlusCircle className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600 flex-shrink-0" />
+                  <span className="text-[9px] md:text-[11px] lg:text-xs font-semibold text-black whitespace-nowrap leading-tight">
+                  P Medicines are sold under pharmacist supervision
+                  </span>
+                  </div>
+                  )}
+                  {(activeSaleCount ?? 0) > 0 && (
+                  <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500/20 to-orange-500/20 border-2 border-rose-400/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-md shadow-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20 transition-all duration-200 animate-heartbeat-glow">
+                    
+                    <span className="text-[9px] md:text-[11px] lg:text-xs font-extrabold text-rose-700 whitespace-nowrap leading-tight tracking-wide">
+                      {(activeSaleCount ?? 0) >= 1000 
+                        ? ((activeSaleCount ?? 0) / 1000).toFixed((activeSaleCount ?? 0) >= 10000 ? 0 : 1) + 'K' 
+                        : activeSaleCount
+                      } Sold This Week
+                    </span>
+                  </div>
+                  )}
+              </div>
+              )}
+
                 {/* Trust Badges — below buy buttons, inside right column card */}
                 <div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-gray-100">
                   <div className="flex flex-col items-center text-center gap-0.5">

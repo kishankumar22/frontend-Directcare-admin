@@ -35,14 +35,67 @@ export default function CartPage() {
   }, [cart]);
   // ================= PHARMA SYNC =================
   const [maxToastMap, setMaxToastMap] = useState<{ [key: string]: boolean }>({});
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
 
   const handleCheckout = async () => {
-
     const inStockItems = cart.filter(item => getItemStock(item) > 0);
 
     if (inStockItems.length === 0) {
       toast.error("All selected items are out of stock. Please remove them to continue.");
       return;
+    }
+
+    setIsCheckingStock(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.direct-care.co.uk";
+
+      const stockChecks = await Promise.all(
+        inStockItems.map(async (item) => {
+          const sku = item.sku || (item.variantId ? item.productData?.variants?.find((v: any) => v.id === item.variantId)?.sku : null) || item.productData?.sku;
+
+          if (!sku) {
+            // Allow checkout if SKU is not found
+            return { item, ok: true };
+          }
+
+          try {
+            const res = await fetch(`${apiUrl}/api/Products/stock-by-sku/${encodeURIComponent(sku)}`);
+            if (!res.ok) {
+              return { item, ok: true };
+            }
+
+            const result = await res.json();
+            if (result && result.success && result.data) {
+              const stockData = result.data;
+              if (stockData.trackInventory && typeof stockData.stockQuantity === "number") {
+                if (item.quantity > stockData.stockQuantity) {
+                  return {
+                    item,
+                    ok: false,
+                    error: `"${item.name}" only has ${stockData.stockQuantity} in stock. You can buy up to ${stockData.stockQuantity}.`
+                  };
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Error checking stock for SKU ${sku}:`, err);
+          }
+
+          return { item, ok: true };
+        })
+      );
+
+      const failedCheck = stockChecks.find(check => !check.ok);
+      if (failedCheck && failedCheck.error) {
+        toast.error(failedCheck.error);
+        setIsCheckingStock(false);
+        return;
+      }
+
+    } catch (err) {
+      console.error("Failed during live stock check:", err);
+    } finally {
+      setIsCheckingStock(false);
     }
 
     // Send only valid items to checkout
@@ -51,7 +104,6 @@ export default function CartPage() {
     if (isAuthenticated) {
       sessionStorage.removeItem("buyNowItem");
       router.push("/checkout");
-
     } else {
       router.push("/account?from=checkout");
     }
@@ -105,43 +157,43 @@ export default function CartPage() {
   // -------------------------
   // BUILD list of available coupon-able discounts from cart (for UI hint)
   // -------------------------
-const availableCoupons = useMemo(() => {
-  const map = new Map<
-    string,
-    {
-      code: string;
-      productIds: string[];
-      discount: any;
-    }
-  >();
-
-  cart.forEach((item) => {
-    const pd = item.productData;
-    const assigns: any[] = pd?.assignedDiscounts ?? [];
-
-    for (const d of assigns) {
-      if (!isDiscountActive(d)) continue;
-      if (!d.requiresCouponCode) continue;
-      if (!d.couponCode) continue;
-
-      const code = d.couponCode.trim().toLowerCase();
-
-      const stableId = item.productId ?? item.id;
-
-      if (!map.has(code)) {
-        map.set(code, {
-          code,
-          productIds: [stableId],
-          discount: d,
-        });
-      } else {
-        map.get(code)!.productIds.push(stableId);
+  const availableCoupons = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        code: string;
+        productIds: string[];
+        discount: any;
       }
-    }
-  });
+    >();
 
-  return Array.from(map.values());
-}, [cart]);
+    cart.forEach((item) => {
+      const pd = item.productData;
+      const assigns: any[] = pd?.assignedDiscounts ?? [];
+
+      for (const d of assigns) {
+        if (!isDiscountActive(d)) continue;
+        if (!d.requiresCouponCode) continue;
+        if (!d.couponCode) continue;
+
+        const code = d.couponCode.trim().toLowerCase();
+
+        const stableId = item.productId ?? item.id;
+
+        if (!map.has(code)) {
+          map.set(code, {
+            code,
+            productIds: [stableId],
+            discount: d,
+          });
+        } else {
+          map.get(code)!.productIds.push(stableId);
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  }, [cart]);
 
   const subtotalBeforeDiscount = useMemo(() => {
     return cart.reduce((sum, item) => {
@@ -509,7 +561,7 @@ const availableCoupons = useMemo(() => {
     });
     return Array.from(map.values());
   }, [cart]);
-  
+
   const getItemStock = (item: any) => {
     // Variant stock check
     if (item.variantId) {
@@ -644,9 +696,14 @@ const availableCoupons = useMemo(() => {
           </div>
           <button
             onClick={handleCheckout}
-            className="flex-1 bg-black hover:bg-gray-800 text-white py-2.5 rounded-xl font-semibold text-sm shadow-md transition"
+            disabled={isCheckingStock}
+            className={`flex-1 bg-black hover:bg-gray-800 text-white py-2.5 rounded-xl font-semibold text-sm shadow-md transition flex items-center justify-center gap-2 ${isCheckingStock ? "opacity-60 cursor-not-allowed" : ""
+              }`}
           >
-            Proceed to Checkout
+            {isCheckingStock && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            )}
+            {isCheckingStock ? "Checking stock..." : "Proceed to Checkout"}
           </button>
         </div>
       </div>
@@ -952,9 +1009,9 @@ const availableCoupons = useMemo(() => {
                           <span>Coupon: {item.couponCode}</span>
                           <button onClick={() => removeCouponFromItem(item.id, item.type)} className="text-red-600 underline">Remove</button>
                         </div>
-  ) : availableCoupons.some((c) =>
-  c.productIds.includes(item.productId ?? item.id)
- ) && (
+                      ) : availableCoupons.some((c) =>
+                        c.productIds.includes(item.productId ?? item.id)
+                      ) && (
                         <button
                           onClick={() => { setSelectedItem(item); setShowOffers(true); }}
                           className="flex items-center gap-1 text-[10px] text-green-600 font-medium hover:underline mt-1 w-fit"
@@ -979,15 +1036,14 @@ const availableCoupons = useMemo(() => {
                         )}
                         {stockError[item.id] && <p className="text-red-600 text-[10px]">{stockError[item.id]}</p>}
                       </div>
-                 {item.productData?.isPharmaProduct && (
-  <div className="inline-flex items-center gap-1.5 bg-[#445D41]/10 border border-[#445D41]/30 px-2.5 py-1 rounded-md my-1 shadow-sm">
-    <PlusCircle className="h-3.5 w-3.5 text-[#445D41] font-bold shrink-0" />
-    <p className="text-[10px] sm:text-[11px] font-bold text-[#445D41] leading-tight tracking-wide m-0">
-      P Medicines are sold under pharmacist Supervision
-    </p>
-  </div>
-)}
-
+                      {item.productData?.isPharmaProduct && (
+                        <div className="inline-flex items-center gap-2 bg-green-50 border border-green-200 px-2.5 py-1 rounded-md my-1 shadow-sm hover:bg-green-100 hover:border-green-300 transition-all duration-200">
+                          <PlusCircle className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                          <p className="text-[10px] sm:text-[11px] font-semibold text-black leading-tight tracking-wide m-0">
+                            P Medicines are sold under pharmacist supervision
+                          </p>
+                        </div>
+                      )}
 
 
                     </div>
@@ -1080,7 +1136,7 @@ const availableCoupons = useMemo(() => {
           {/* RIGHT: order summary + coupon input */}
           <div className="lg:col-span-1">
             <div className="bg-white border border-gray-200 rounded-xl shadow-md p-2 sticky top-24">
-              {/* Free Shipping Progress */} 
+              {/* Free Shipping Progress */}
               {freeShippingThreshold > 0 && (
                 <div className="mb-2 bg-[#f8fafc] border border-gray-200 rounded-lg p-2.5">
                   {finalTotalAmount >= freeShippingThreshold ? (
@@ -1170,8 +1226,16 @@ const availableCoupons = useMemo(() => {
                 </div>
               </div>
 
-              <button onClick={handleCheckout} className="hidden lg:block w-full mt-3 bg-[#445D41] hover:bg-black text-white py-2.5 rounded-xl font-semibold text-sm shadow-md">
-                Proceed to Checkout
+              <button
+                onClick={handleCheckout}
+                disabled={isCheckingStock}
+                className={`hidden lg:flex w-full mt-3 bg-[#445D41] hover:bg-black text-white py-2.5 rounded-xl font-semibold text-sm shadow-md items-center justify-center gap-2 transition ${isCheckingStock ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+              >
+                {isCheckingStock && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+                {isCheckingStock ? "Checking stock..." : "Proceed to Checkout"}
               </button>
               {showOffers && selectedItem && (
                 <ProductOffersModal

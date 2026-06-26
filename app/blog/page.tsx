@@ -36,13 +36,19 @@ export const metadata: Metadata = {
 const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "";
 
 async function fetchJSON(url: string) {
-  const res = await fetch(url, { next: { revalidate: 60 } });
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } });
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${url}: ${res.status}`);
+    if (!res.ok) {
+      console.warn(`Failed to fetch ${url}: ${res.status}`);
+      return { success: false, data: [] };
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+    return { success: false, data: [] };
   }
-
-  return res.json();
 }
 
 function absoluteUrl(path?: string | null) {

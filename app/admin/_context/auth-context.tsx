@@ -44,6 +44,25 @@ export const AuthProvider = ({
 
         setAccessToken(token);
 
+        let roleFromToken = "";
+        if (token) {
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decoded = typeof window !== "undefined" ? window.atob(base64) : Buffer.from(base64, 'base64').toString('binary');
+            const jsonPayload = decodeURIComponent(
+              decoded
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            const payload = JSON.parse(jsonPayload);
+            roleFromToken = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role || "";
+          } catch (e) {
+            console.error("Failed to parse JWT role in context:", e);
+          }
+        }
+
         if (storedUserData) {
           const userData = JSON.parse(storedUserData);
 
@@ -64,7 +83,7 @@ export const AuthProvider = ({
               "",
 
             role:
-              userData.role || "admin",
+              roleFromToken || userData.role || "admin",
 
             permissions:
               userData.permissions || [],
@@ -89,7 +108,7 @@ export const AuthProvider = ({
                   "userLastName"
                 ) || "",
 
-              role: "admin",
+              role: roleFromToken || "admin",
             });
           }
         }

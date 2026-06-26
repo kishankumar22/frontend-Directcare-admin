@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2, HelpCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2, HelpCircle, ExternalLink } from "lucide-react";
 import { useMemo, useCallback } from "react";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -735,10 +735,21 @@ const goToPage = useCallback((page: number) => {
                         </div>
                       </td>
 
-                      <td className="py-2 px-3 text-center">
-                        <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded-md text-xs font-medium">
-                          {brand.productCount}
-                        </span>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded-md text-xs font-medium">
+                            {brand.productCount}
+                          </span>
+                          <a
+                            href={`http://localhost:3000/brands/${brand.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-slate-500 hover:text-cyan-400 transition-colors p-0.5 rounded"
+                            title="View on website"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
                       </td>
 
                       <td className="py-2 px-3 text-center">

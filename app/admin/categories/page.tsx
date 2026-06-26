@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle, ExternalLink } from "lucide-react";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -909,8 +909,19 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       </td>
 
       {/* PRODUCTS */}
-      <td className="py-2 px-3 text-center text-[12px] text-cyan-400 font-medium">
-        {category.productCount}
+      <td className="py-2 px-3">
+        <div className="flex items-center justify-center gap-1.5 text-[12px] text-cyan-400 font-medium">
+          <span>{category.productCount}</span>
+          <a
+            href={`http://localhost:3000/category/${category.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-500 hover:text-cyan-400 transition-colors p-0.5 rounded"
+            title="View on website"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </td>
 
       {/* STATUS */}

@@ -45,6 +45,7 @@ import {
 import * as XLSX from "xlsx";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { Customer, CustomerQueryParams, customersService, CustomerStats } from "@/lib/services/customers";
+import { staffService, StaffRole } from "@/lib/services/staff";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getImageUrl  } from "../_utils/formatUtils";
@@ -103,6 +104,22 @@ export default function CustomersPage() {
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [filterLoading, setFilterLoading] = useState(false);
   const [assigningRole, setAssigningRole] = useState(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [roles, setRoles] = useState<StaffRole[]>([]);
+  const [selectedNewRole, setSelectedNewRole] = useState<string>("");
+  const [isDark, setIsDark] = useState(false);
+
+  // ✅ Track theme mode (dark/light)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsDark(document.documentElement.classList.contains("dark"));
+      const observer = new MutationObserver(() => {
+        setIsDark(document.documentElement.classList.contains("dark"));
+      });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+      return () => observer.disconnect();
+    }
+  }, []);
 
   // ✅ Only 3 Filters (Backend)
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -125,6 +142,21 @@ export default function CustomersPage() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ✅ Fetch staff roles on page mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const res = await staffService.getRoles();
+        if (res.data?.success) {
+          setRoles(res.data.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching roles:", error);
+      }
+    };
+    fetchRoles();
   }, []);
 
   const getTier = (customer: Customer): CustomerTier => {
@@ -409,6 +441,7 @@ const modalTier = selectedCustomer
       if (selectedCustomer) {
         setSelectedCustomer({ ...selectedCustomer, role });
       }
+      setIsRoleModalOpen(false);
     } catch (error: any) {
       console.error("Error assigning role:", error);
       const errorMsg = getBackendMessage(error);
@@ -694,6 +727,17 @@ const modalTier = selectedCustomer
                           </button>
                           <button onClick={() => { setSelectedOrderCustomer(customer); setIsOrderModalOpen(true); }} className="p-1 text-green-400 hover:bg-green-500/10 rounded-md">
                             <ShoppingBag className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedCustomer(customer);
+                              setSelectedNewRole(customer.role || "Customer");
+                              setIsRoleModalOpen(true);
+                            }}
+                            className="p-1 text-blue-400 hover:bg-blue-500/10 rounded-md"
+                            title="Assign Role"
+                          >
+                            <UserCheck className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -1299,39 +1343,118 @@ const modalTier = selectedCustomer
 
       </div>
 
-      {/* ✅ Role Assignment */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-          <UserCheck className="h-4 w-4 text-violet-500 dark:text-violet-400" />
-          Role Assignment
-        </h3>
-        <div className="flex flex-wrap gap-3">
-          {["Customer",  "Admin"].map((roleOption) => {
-            const currentRole = selectedCustomer.role || "Customer";
-            const isActive = currentRole.toLowerCase() === roleOption.toLowerCase();
-            return (
-              <button
-                key={roleOption}
-                disabled={assigningRole || isActive}
-                onClick={() => handleAssignRole(selectedCustomer.id, roleOption)}
-                className={`flex-1 min-w-[100px] py-2 px-4 rounded-xl font-semibold text-sm transition-all border flex items-center justify-center gap-2 ${
-                  isActive
-                    ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-600/20 cursor-default"
-                    : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700/60 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-                } ${assigningRole ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                {assigningRole && isActive && <Loader2 className="h-4 w-4 animate-spin text-white" />}
-                {isActive ? roleOption : `Mark as ${roleOption}`}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+
     </div>
   </div>
 )}
 
     
+      {/* ✅ Role Assignment Modal */}
+      {isRoleModalOpen && selectedCustomer && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl">
+            
+            {/* HEADER */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5" style={{ color: isDark ? '#ffffff' : '#000000' }} />
+                <h2 className="text-lg font-bold" style={{ color: isDark ? '#ffffff' : '#000000' }}>Role Assignment</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setIsRoleModalOpen(false);
+                  setSelectedCustomer(null);
+                }}
+                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all"
+                style={{ color: isDark ? '#ffffff' : '#000000' }}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* BODY */}
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center text-white font-semibold">
+                  {getInitials(selectedCustomer.firstName, selectedCustomer.lastName)}
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{selectedCustomer.fullName}</h3>
+                  <p className="text-xs text-slate-700 dark:text-slate-400">{selectedCustomer.email}</p>
+                </div>
+              </div>
+
+              {/* Current Role */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-slate-900 dark:text-slate-400">Current Role:</span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
+                  selectedCustomer.role?.toLowerCase() === 'admin'
+                    ? 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
+                    : selectedCustomer.role?.toLowerCase() === 'staff'
+                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
+                      : 'bg-slate-100 dark:bg-slate-500/10 text-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-500/20'
+                }`}>
+                  {selectedCustomer.role || "Customer"}
+                </span>
+              </div>
+
+              {/* Select Role */}
+              <div className="space-y-1.5">
+                <label htmlFor="role-select" className="text-xs font-semibold text-slate-900 dark:text-slate-400">
+                  Select role as
+                </label>
+                <div className="relative">
+                  <select
+                    id="role-select"
+                    value={selectedNewRole}
+                    onChange={(e) => setSelectedNewRole(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  >
+                    {Array.from(new Set(["Customer", ...roles.map((r) => r.name)])).map((roleName) => (
+                      <option key={roleName} value={roleName} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                        {roleName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setIsRoleModalOpen(false);
+                  setSelectedCustomer(null);
+                }}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-semibold transition-all"
+                style={{ color: isDark ? '#ffffff' : '#000000' }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={assigningRole || selectedNewRole.toLowerCase() === (selectedCustomer.role || "Customer").toLowerCase()}
+                onClick={() => handleAssignRole(selectedCustomer.id, selectedNewRole)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
+                  (assigningRole || selectedNewRole.toLowerCase() === (selectedCustomer.role || "Customer").toLowerCase())
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-700"
+                    : "bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 rounded-xl shadow-lg hover:shadow-violet-500/40"
+                }`}
+                style={
+                  !(assigningRole || selectedNewRole.toLowerCase() === (selectedCustomer.role || "Customer").toLowerCase())
+                    ? { color: '#ffffff' }
+                    : {}
+                }
+              >
+                {assigningRole && <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#ffffff' }} />}
+                Assign Role
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         isOpen={!!toggleConfirm}
         onClose={() => setToggleConfirm(null)}

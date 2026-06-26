@@ -17,54 +17,68 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
 
-  const apiURL = `${API_BASE}/api/BlogPosts/slug/${encodeURIComponent(slug)}?includeComments=false`;
+  try {
+    const apiURL = `${API_BASE}/api/BlogPosts/slug/${encodeURIComponent(slug)}?includeComments=false`;
 
-  const res = await fetch(apiURL, { next: { revalidate: 60 } });
-  const resp = await res.json();
-  const post = resp?.data;
+    const res = await fetch(apiURL, { next: { revalidate: 60 } });
+    if (!res.ok) {
+      return {
+        title: "Blog",
+        description: "Blog article page",
+      };
+    }
+    const resp = await res.json();
+    const post = resp?.data;
 
-  if (!post) {
+    if (!post) {
+      return {
+        title: "Blog not found",
+        description: "This article may be removed or unpublished.",
+      };
+    }
+
     return {
-      title: "Blog not found",
-      description: "This article may be removed or unpublished.",
-    };
-  }
-
-  return {
-    title: post.metaTitle || post.title,
-    description:
-      post.metaDescription ||
-      post.bodyOverview ||
-      "Read the full article for more details.",
-
-    alternates: {
-      canonical: `https://www.direct-care.co.uk/blog/${post.slug}`,
-    },
-
-    openGraph: {
       title: post.metaTitle || post.title,
       description:
-        post.metaDescription || post.bodyOverview,
-      url: `https://www.direct-care.co.uk/blog/${post.slug}`,
-      type: "article",
+        post.metaDescription ||
+        post.bodyOverview ||
+        "Read the full article for more details.",
 
-      images: post.featuredImageUrl
-        ? [
-          {
-            url: absoluteUrl(post.featuredImageUrl),
-            width: 1200,
-            height: 630,
-            alt: post.title,
-          },
-        ]
-        : [],
-    },
+      alternates: {
+        canonical: `https://www.direct-care.co.uk/blog/${post.slug}`,
+      },
 
-    robots: {
-      index: true,
-      follow: true,
-    },
-  };
+      openGraph: {
+        title: post.metaTitle || post.title,
+        description:
+          post.metaDescription || post.bodyOverview,
+        url: `https://www.direct-care.co.uk/blog/${post.slug}`,
+        type: "article",
+
+        images: post.featuredImageUrl
+          ? [
+            {
+              url: absoluteUrl(post.featuredImageUrl),
+              width: 1200,
+              height: 630,
+              alt: post.title,
+            },
+          ]
+          : [],
+      },
+
+      robots: {
+        index: true,
+        follow: true,
+      },
+    };
+  } catch (error) {
+    console.error("Error generating metadata for blog post:", error);
+    return {
+      title: "Blog",
+      description: "Blog article page",
+    };
+  }
 }
 
 function absoluteUrl(path: string | null | undefined): string | null {

@@ -12,9 +12,17 @@ function absoluteUrl(path?: string | null) {
 }
 
 async function fetchJSON(url: string) {
-  const res = await fetch(url, { next: { revalidate: 60 } }); 
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } }); 
+    if (!res.ok) {
+      console.warn(`Failed to fetch ${url}: ${res.status}`);
+      return { success: false, data: [] };
+    }
+    return await res.json();
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+    return { success: false, data: [] };
+  }
 }
 
 // ⭐ MUST USE Promise<{ slug }>

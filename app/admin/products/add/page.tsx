@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, JSX, useCallback } from "react";
+import { useState, useRef, useEffect, JSX, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag, Globe, Truck, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, Plus, Settings, ChevronDown } from "lucide-react";
@@ -18,10 +18,12 @@ import ProductNameInput from "../ProductNameInput";
 import SKUInput from "../SKUInput";
 import { categoriesService } from "@/lib/services/categories";
 import UnsavedChangesModal from "../_components/UnsavedChangesModal";
+import AllowedDeliveryOptions from "../_components/AllowedDeliveryOptions";
 import VatRateSelector from "../VatRateSelector";
 import { scrollCls } from "../../_utils/styles";
 import { cn } from "@/lib/utils";
 import { getBackendMessage } from "../../_utils/errorUtils";
+import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -475,6 +477,8 @@ export default function AddProductPage() {
         //   }
         // }
 
+
+
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load data');
@@ -517,6 +521,7 @@ export default function AddProductPage() {
     nextDayDeliveryFree: false,   //   ADD THIS
     standardDeliveryEnabled: true,
     nextDayDeliveryCutoffTime: '',
+    allowedDeliveryOptionIds: [] as string[], // Allowed delivery options
 
     // ===== RELATED PRODUCTS =====
     relatedProducts: [] as string[],
@@ -769,6 +774,8 @@ export default function AddProductPage() {
       setIsEditMode(true);
     }
   }, []);
+
+
 
 
   // ============================================================
@@ -1249,7 +1256,7 @@ export default function AddProductPage() {
         formData.nextDayDeliveryEnabled &&
         !formData.nextDayDeliveryCutoffTime
       ) {
-        toast.error('  Œ Next-Day Delivery cutoff time required');
+        toast.error('   Œ Next-Day Delivery cutoff time required');
 
         target.removeAttribute("data-submitting");
         setIsSubmitting(false);
@@ -1282,7 +1289,7 @@ export default function AddProductPage() {
           formData.allowedSubscriptionFrequencies ||
           formData.subscriptionDescription
         ) {
-          console.warn("  š ï¸ Grouped product has subscription data. Clearing...");
+          console.warn("  š ï¸  Grouped product has subscription data. Clearing...");
           // Force clear subscription fields
           formData.isRecurring = false;
           formData.recurringCycleLength = "";
@@ -1783,7 +1790,9 @@ export default function AddProductPage() {
       productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled ?? false;
       productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime || null;
       productData.nextDayDeliveryFree = formData.nextDayDeliveryFree ?? false;
-      productData.standardDeliveryEnabled = formData.standardDeliveryEnabled ?? true;
+      productData.standardDeliveryEnabled = true;
+      // Allowed delivery options — empty array = no restriction (all options shown at checkout)
+      productData.allowedDeliveryOptionIds = formData.allowedDeliveryOptionIds || [];
 
       // Pack Product
       if (formData.isPack) {
@@ -4998,91 +5007,17 @@ export default function AddProductPage() {
             )}
           </div> */}
 
-                        {/* Next Day Delivery */}
-                        <div className="space-y-3">
-                          <label className="flex items-center gap-2 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              name="nextDayDeliveryEnabled"
-                              checked={formData.nextDayDeliveryEnabled}
-                              onChange={(e) => {
-                                handleChange(e);
-                                if (!e.target.checked) {
-                                  setTimeout(() => {
-                                    setFormData((prev: any) => ({
-                                      ...prev,
-                                      nextDayDeliveryFree: false,
-                                      nextDayDeliveryCutoffTime: null
-                                    }));
-                                  }, 0);
-                                }
-                              }}
-                              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                            />
-                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                              Enable Next-Day Delivery
-                            </span>
-                          </label>
-                        </div>
+          {/* ===== ALLOWED DELIVERY OPTIONS (restrict which methods show at checkout) ===== */}
+          <AllowedDeliveryOptions
+            formData={formData}
+            setFormData={setFormData}
+            handleChange={handleChange}
+          />
 
-                        {/* Next Day Delivery Free */}
-                        {formData.nextDayDeliveryEnabled && (
-                          <>
-                            {/* FREE OPTION */}
-                            <label className="flex items-center gap-2 cursor-pointer group ml-6">
-                              <input
-                                type="checkbox"
-                                name="nextDayDeliveryFree"
-                                checked={formData.nextDayDeliveryFree}
-                                onChange={handleChange}
-                                className="rounded bg-slate-800/50 border-slate-700 text-violet-500"
-                              />
-                              <span className="text-sm text-slate-300">
-                                Next-Day Delivery Free
-                              </span>
-                            </label>
-
-                            {/* CUTOFF TIME */}
-                            <div className="ml-6 mt-2">
-                              <label className="block text-md text-slate-400 mb-1">
-                                Cutoff Time <span className="text-red-400">*</span>
-                              </label>
-
-                              <input
-                                type="time"
-                                name="nextDayDeliveryCutoffTime"
-                                value={formData.nextDayDeliveryCutoffTime || ''}
-                                onChange={handleChange}
-                                className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
-                              />
-
-                              <p className="text-xs text-slate-500 mt-1">
-                                Order before this time for next-day delivery
-                              </p>
-                            </div>
-                          </>
-                        )}
-
-                        {/* Standard Delivery */}
-                        <div className="space-y-3">
-                          <label className="flex items-center gap-2 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              name="standardDeliveryEnabled"
-                              checked={formData.standardDeliveryEnabled || false}
-                              onChange={handleChange}
-                              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                            />
-                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                              Enable Standard Delivery
-                            </span>
-                          </label>
-                        </div>
-
-                        <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">
-                          <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                          <p>Delivery charges are managed via <strong>Shipping Methods</strong> in the admin panel.</p>
-                        </div>
+          <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>Delivery charges are managed via <strong>Shipping Methods</strong> in the admin panel.</p>
+          </div>
                       </div>
                     </div>
                   )}

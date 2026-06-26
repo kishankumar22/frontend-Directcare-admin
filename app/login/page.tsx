@@ -33,8 +33,26 @@ export default function LoginPage() {
       // Save admin authentication tokens
       localStorage.setItem("authToken", token);
       
+      let role = "admin";
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = typeof window !== "undefined" ? window.atob(base64) : Buffer.from(base64, 'base64').toString('binary');
+        const jsonPayload = decodeURIComponent(
+          decoded
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+        role = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role || "admin";
+      } catch (e) {
+        console.error("Failed to parse JWT role in login page:", e);
+      }
+      
       if (result.user) {
-        localStorage.setItem("userData", JSON.stringify(result.user)); // Backward compatibility
+        const userWithRole = { ...result.user, role };
+        localStorage.setItem("userData", JSON.stringify(userWithRole)); // Backward compatibility
         localStorage.setItem("userId", result.user.id);
         localStorage.setItem("userEmail", result.user.email);
         localStorage.setItem("userFirstName", result.user.firstName || "");

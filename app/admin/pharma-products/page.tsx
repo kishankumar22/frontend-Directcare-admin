@@ -32,6 +32,7 @@ import { formatDate, getProductImage } from "../_utils/formatUtils";
 import { useDebounce } from "../_hooks/useDebounce";
 import { scrollCls, getSelectStyles } from "../_utils/styles";
 import { useTheme } from "@/app/admin/_context/theme-provider";
+import { useAuth } from "../_context/auth-context";
 
 type ApprovalStatus = "Pending" | "Approved" | "Rejected";
 
@@ -72,6 +73,7 @@ interface PharmaProduct {
 
 export default function PharmaProductPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const { theme } = useTheme();
   const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
 
@@ -520,8 +522,21 @@ export default function PharmaProductPage() {
     fetchProducts();
   }, [fetchProducts]);
 
+  const handleActionClick = (mode: "approve" | "reject", productId: string, productName: string) => {
+    if (user?.role?.toLowerCase() !== "pharmacist") {
+      toast.error("Access Denied: Only users with the 'Pharmacist' role can approve or reject pharmacy products.");
+      return;
+    }
+    setComment("");
+    setModal({ mode, productId, productName });
+  };
+
   const handleReview = async () => {
     if (!modal) return;
+    if (user?.role?.toLowerCase() !== "pharmacist") {
+      toast.error("Access Denied: Only users with the 'Pharmacist' role can approve or reject pharmacy products.");
+      return;
+    }
     setProcessing(true);
     try {
       const response =
@@ -1073,18 +1088,17 @@ export default function PharmaProductPage() {
                             <Eye className="h-3.5 w-3.5" />
                           </button>
                         </Link>
-
                         {(product.pharmaApprovalStatus === "Pending" || (product.isPublished && product.pharmaApprovalStatus === "NotRequired")) && (
                           <>
                             <button
-                              onClick={() => { setComment(""); setModal({ mode: "approve", productId: product.id, productName: product.name }); }}
+                              onClick={() => handleActionClick("approve", product.id, product.name)}
                               className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
                               title="Approve"
                             >
                               <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              onClick={() => { setComment(""); setModal({ mode: "reject", productId: product.id, productName: product.name }); }}
+                              onClick={() => handleActionClick("reject", product.id, product.name)}
                               className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                               title="Reject"
                             >
@@ -1095,7 +1109,7 @@ export default function PharmaProductPage() {
 
                         {product.pharmaApprovalStatus === "Rejected" && (
                           <button
-                            onClick={() => { setComment(""); setModal({ mode: "approve", productId: product.id, productName: product.name }); }}
+                            onClick={() => handleActionClick("approve", product.id, product.name)}
                             className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"
                             title="Re-approve"
                           >

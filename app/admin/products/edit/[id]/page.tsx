@@ -1,13 +1,13 @@
 // Edit Product  work Fine
 "use client";
-import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
+import { useState, use, useEffect, useRef, JSX, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Upload, X, History, Info, Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, Video, Play, Clock, Send, Bell, Plus, AlertCircle } from "lucide-react";
 
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
-import { API_BASE_URL } from "@/lib/api-config";
+import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
 import { ProductAttribute, ProductVariant, ProductOption, DropdownsData, SimpleProduct, ProductImage, BrandApiResponse, productsService, brandsService, } from '@/lib/services';
 import { GroupedProductModal } from '../../GroupedProductModal';
@@ -28,6 +28,7 @@ import SKUInput from "../../SKUInput";
 import { categoriesService } from "@/lib/services/categories";
 import AdminCommentHistory from "../../_components/AdminCommentHistory";
 import UnsavedChangesModal from "../../_components/UnsavedChangesModal";
+import AllowedDeliveryOptions from "../../_components/AllowedDeliveryOptions";
 import ProductLockModal from "../../_components/ProductLockModal";
 import VatRateSelector from "../../VatRateSelector";
 import { scrollCls } from "../../../_utils/styles";
@@ -506,6 +507,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     nextDayDeliveryEnabled: false,
     nextDayDeliveryFree: false,
     standardDeliveryEnabled: true,
+    allowedDeliveryOptionIds: [] as string[],
 
     // ===== GIFT CARDS =====
     isGiftCard: false,
@@ -753,6 +755,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+
+
   useEffect(() => {
     const fetchAllData = async () => {
       if (!productId) {
@@ -1087,7 +1092,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           sameDayDeliveryEnabled: productData.sameDayDeliveryEnabled ?? false,
           nextDayDeliveryEnabled: productData.nextDayDeliveryEnabled ?? false,
           nextDayDeliveryFree: productData.nextDayDeliveryFree ?? false,
-          standardDeliveryEnabled: productData.standardDeliveryEnabled ?? true,
+          standardDeliveryEnabled: true,
+          allowedDeliveryOptionIds: productData.allowedDeliveryOptionIds || [],
 
           // ===== PACK PRODUCT =====
           isPack: productData.isPack ?? false,
@@ -1569,7 +1575,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       setHasPendingTakeover(false);
       setTakeoverRequest(null);
 
-      console.log('✅ Modal closed after expiry (object data)');
+      console.log('✅ Modal closed after expiry (data object)');
     };
 
 
@@ -1830,9 +1836,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
 
 
-  // ============================================================
+  // ============================================
   // ADD THIS useEffect - Track unsaved changes
-  // ============================================================
+  // ============================================
 
   useEffect(() => {
     if (!initialFormData || !formData) return;
@@ -1852,9 +1858,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     setHasUnsavedChanges(hasChanges);
 
   }, [formData, initialFormData]);
-  // ============================================================
+  // ============================================
   // BROWSER CLOSE WARNING
-  // ============================================================
+  // ============================================
   // Fix #2: Move initialFormData to useEffect (Add after line 850)
   useEffect(() => {
     if (!loading && formData && !initialFormData) {
@@ -1886,9 +1892,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
-  // ============================================================
+  // ============================================
   // NAVIGATION GUARD HANDLER
-  // ============================================================
+  // ============================================
 
   const handleNavigateAway = useCallback((targetPath?: string) => {
     if (hasUnsavedChanges) {
@@ -1898,9 +1904,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       router.push(targetPath || '/admin/products');
     }
   }, [hasUnsavedChanges, router]);
-  // ============================================================
+  // ============================================
   // MODAL ACTION HANDLERS
-  // ============================================================
+  // ============================================
 
   const handleModalSaveDraft = async () => {
     setShowUnsavedModal(false);
@@ -1947,9 +1953,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     setShowUnsavedModal(false);
     setPendingNavigation(null);
   };
-  // ============================================================
+  // ============================================
   // ESC KEY HANDLER
-  // ============================================================
+  // ============================================
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -1966,9 +1972,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       window.removeEventListener('keydown', handleEscape);
     };
   }, [showUnsavedModal]);
-  // ============================================================
+  // ============================================
   // SIDEBAR CLICK PROTECTION
-  // ============================================================
+  // ============================================
 
   useEffect(() => {
     const handleLinkClick = (e: MouseEvent) => {
@@ -3772,6 +3778,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         // 🔥 ADD THIS
         nextDayDeliveryCutoffTime: formData.nextDayDeliveryCutoffTime || null,
         standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
+        allowedDeliveryOptionIds: formData.allowedDeliveryOptionIds || [],
         isRecurring:
           formData.productType !== 'grouped' && formData.isRecurring,
 
@@ -7317,141 +7324,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         <Truck className="w-4 h-4 text-violet-400" />
                         Delivery Options
                       </h4>
+   
 
-                      {/* Same Day Delivery */}
-                      {/* <div className="space-y-3 hidden">
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                name="sameDayDeliveryEnabled"
-                checked={formData.sameDayDeliveryEnabled}
-                onChange={handleChange}
-                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-              />
-              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                ⚡ Enable Same-Day Delivery
-              </span>
-            </label>
-            
-            {formData.sameDayDeliveryEnabled && (
-              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Cutoff Time <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    name="sameDayDeliveryCutoffTime"
-                    value={formData.sameDayDeliveryCutoffTime}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Order before this time</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (£)
-                  </label>
-                  <input
-                    type="number"
-                    name="sameDayDeliveryCharge"
-                    value={formData.sameDayDeliveryCharge}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Extra charge for same-day</p>
-                </div>
-              </div>
-            )}
-          </div> */}
-
-                      {/* Next Day Delivery */}
-                      <div className="space-y-3">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            name="nextDayDeliveryEnabled"
-                            checked={formData.nextDayDeliveryEnabled}
-                            onChange={(e) => {
-                              handleChange(e);
-                              if (!e.target.checked) {
-                                setTimeout(() => {
-                                  setFormData((prev: any) => ({
-                                    ...prev,
-                                    nextDayDeliveryFree: false,
-                                    nextDayDeliveryCutoffTime: null
-                                  }));
-                                }, 0);
-                              }
-                            }}
-                            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                          />
-                          <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                            🚀 Enable Next-Day Delivery
-                          </span>
-                        </label>
-                      </div>
-
-                      {/* Next Day Delivery Free */}
-                      {formData.nextDayDeliveryEnabled && (
-                        <>
-                          {/* FREE OPTION */}
-                          <label className="flex items-center gap-2 cursor-pointer group ml-6">
-                            <input
-                              type="checkbox"
-                              name="nextDayDeliveryFree"
-                              checked={formData.nextDayDeliveryFree}
-                              onChange={handleChange}
-                              className="rounded bg-slate-800/50 border-slate-700 text-violet-500"
-                            />
-                            <span className="text-sm text-slate-300">
-                              🎁 Next-Day Delivery Free
-                            </span>
-                          </label>
-
-                          {/* 🔥 CUTOFF TIME (ADD THIS) */}
-                          <div className="ml-6 mt-2">
-                            <label className="block text-md text-slate-400 mb-1">
-                              Cutoff Time (UK Time)
-                              <span className="text-red-400">*</span>
-                            </label>
-
-                            <input
-                              type="time"
-                              name="nextDayDeliveryCutoffTime"
-                              value={formData.nextDayDeliveryCutoffTime || ""}
-                              onChange={handleChange}
-                              className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
-                            />
-
-                            <p className="text-xs text-slate-500 mt-1">
-                              Enter UK local cutoff time for next-day delivery
-                            </p>
-
-                          </div>
-                        </>
-                      )}
-
-                      {/* Standard Delivery */}
-                      <div className="space-y-3">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            name="standardDeliveryEnabled"
-                            checked={formData.standardDeliveryEnabled}
-                            onChange={handleChange}
-                            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                          />
-                          <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                            📦 Enable Standard Delivery
-                          </span>
-                        </label>
-
-
-                      </div>
+                      {/* ===== ALLOWED DELIVERY OPTIONS (restrict which methods show at checkout) ===== */}
+                      <AllowedDeliveryOptions
+                        formData={formData}
+                        setFormData={setFormData}
+                        handleChange={handleChange}
+                      />
 
                       <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">
                         <Info className="w-4 h-4 shrink-0 mt-0.5" />
