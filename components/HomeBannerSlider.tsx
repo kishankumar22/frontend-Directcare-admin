@@ -60,6 +60,7 @@ export default function HomeBannerSlider({
                 src={desktopSrc}
                 alt={banner.title || "Banner"}
                 className="w-full h-auto object-contain"
+                
               />
             </picture>
           );
