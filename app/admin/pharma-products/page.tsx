@@ -537,8 +537,31 @@ export default function PharmaProductPage() {
       toast.error("Access Denied: Only users with the 'Pharmacist' role can approve or reject pharmacy products.");
       return;
     }
+
+    const currentProduct = products.find((p) => p.id === modal.productId);
+    const isPreviouslyRejected = currentProduct?.pharmaApprovalStatus === "Rejected";
+
+    if (modal.mode === "approve" && isPreviouslyRejected) {
+      const confirmApprove = window.confirm(
+        "Warning: You are approving a previously rejected product. Since rejecting it unpublished the product, this action will automatically publish it again. Do you want to proceed?"
+      );
+      if (!confirmApprove) {
+        return;
+      }
+    }
+
     setProcessing(true);
     try {
+      if (modal.mode === "approve" && isPreviouslyRejected) {
+        // Toggle publish to publish it first, as rejected products are unpublished
+        const publishResponse = await productsService.togglePublish(modal.productId);
+        if (!publishResponse.data?.success) {
+          toast.error("Failed to publish/re-publish the product before approval.");
+          setProcessing(false);
+          return;
+        }
+      }
+
       const response =
         modal.mode === "approve"
           ? await productsService.pharmaApprove(modal.productId, comment)
@@ -579,9 +602,9 @@ export default function PharmaProductPage() {
 
   const statusBadge = (status: string) => {
     const map: Record<string, { label: string; cls: string }> = {
-      Pending: { label: "Pending", cls: "bg-amber-500/15 text-amber-400 border border-amber-500/30" },
-      Approved: { label: "Approved", cls: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" },
-      Rejected: { label: "Rejected", cls: "bg-red-500/15 text-red-400 border border-red-500/30" },
+      Pending: { label: "Pending", cls: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30" },
+      Approved: { label: "Approved", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" },
+      Rejected: { label: "Rejected", cls: "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30" },
       NotRequired: { label: "N/A", cls: "bg-slate-600/20 text-slate-500 border border-slate-700" },
     };
     const s = map[status] || map.NotRequired;
@@ -598,34 +621,46 @@ export default function PharmaProductPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-            <ShieldCheck className="h-5 w-5 text-cyan-400" />
+            <ShieldCheck className="h-5 w-5 text-cyan-500" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">Pharma Product Review</h1>
-            <p className="text-slate-400 text-xs">Review and approve pharmacy products before they go live</p>
+            <h1 className={`text-lg font-bold ${theme === "dark" ? "text-white" : "text-slate-800"}`}>Pharma Product Review</h1>
+            <p className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Review and approve pharmacy products before they go live</p>
           </div>
         </div>
         <button
           onClick={fetchProducts}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm hover:bg-slate-800 transition-all"
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
+            theme === "dark" 
+              ? "border-slate-700 text-slate-300 hover:bg-slate-800" 
+              : "border-slate-300 text-slate-700 hover:bg-slate-100"
+          }`}
         >
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
       </div>
 
       {/* ✅ FILTERS SECTION - ROW 1 */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1.5">
+      <div className={`border rounded-xl p-1.5 backdrop-blur-xl ${
+        theme === "dark" 
+          ? "bg-slate-900/50 border-slate-800" 
+          : "bg-white/80 border-slate-200 shadow-sm"
+      }`}>
         <div className="flex flex-wrap items-center gap-2">
           {/* SEARCH */}
           <div className="relative flex-[2] min-w-[200px] w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
 
             <input
               type="text"
               placeholder="Search products by name or Sku..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-8 pr-9 py-1.5 bg-slate-800/50 border border-slate-700 rounded-xl placeholder:text-xs text-white text-[13px] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              className={`w-full pl-8 pr-9 py-1.5 border rounded-xl placeholder:text-xs text-[13px] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                theme === "dark"
+                  ? "bg-slate-800/50 border-slate-700 text-white"
+                  : "bg-slate-50 border-slate-300 text-slate-800"
+              }`}
             />
 
             {/* RIGHT ICON */}
@@ -974,23 +1009,27 @@ export default function PharmaProductPage() {
             className={`px-4 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               statusFilter === s
                 ? s === "Pending"
-                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                  ? "bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-500/40"
                   : s === "Approved"
-                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/40"
                   : s === "Rejected"
-                  ? "bg-red-500/20 text-red-300 border-red-500/40"
-                  : "bg-violet-500/20 text-violet-300 border-violet-500/40"
-                : "bg-slate-800/50 text-slate-400 border-slate-700 hover:border-slate-500"
+                  ? "bg-red-500/20 text-red-600 dark:text-red-300 border-red-500/40"
+                  : "bg-violet-500/20 text-violet-600 dark:text-violet-300 border-violet-500/40"
+                : theme === "dark"
+                ? "bg-slate-800/50 text-slate-400 border-slate-700 hover:border-slate-500"
+                : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"
             }`}
           >
             {s === "all" ? "All Pharma" : s}
           </button>
         ))}
-        <span className="ml-auto text-xs text-slate-500 self-center">{totalCount} product{totalCount !== 1 ? "s" : ""}</span>
+        <span className={`ml-auto text-xs self-center ${theme === "dark" ? "text-slate-500" : "text-slate-600"}`}>{totalCount} product{totalCount !== 1 ? "s" : ""}</span>
       </div>
 
       {/* TABLE */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
+      <div className={`border rounded-2xl overflow-hidden ${
+        theme === "dark" ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+      }`}>
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="h-8 w-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
@@ -998,31 +1037,37 @@ export default function PharmaProductPage() {
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <ShieldCheck className="h-10 w-10 text-slate-600" />
-            <p className="text-slate-400 text-sm">No pharma products found</p>
+            <p className={`text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>No pharma products found</p>
             {statusFilter === "Pending" && (
-              <p className="text-slate-500 text-xs">All pending products have been reviewed</p>
+              <p className={`text-xs ${theme === "dark" ? "text-slate-500" : "text-slate-600"}`}>All pending products have been reviewed</p>
             )}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-800 bg-slate-800/30">
-                  <th className="py-3 px-3 text-left text-xs text-slate-400 font-medium">Product</th>
-                  <th className="py-3 px-3 text-center text-xs text-slate-400 font-medium">Status</th>
-                  <th className="py-3 px-3 text-center text-xs text-slate-400 font-medium">Published</th>
-                  <th className="py-3 px-3 text-left text-xs text-slate-400 font-medium">Review Info</th>
-                  <th className="py-3 px-3 text-center text-xs text-slate-400 font-medium">Added</th>
-                  <th className="py-3 px-3 text-center text-xs text-slate-400 font-medium">Actions</th>
+                <tr className={`border-b ${
+                  theme === "dark" ? "border-slate-800 bg-slate-800/30" : "border-slate-200 bg-slate-50"
+                }`}>
+                  <th className={`py-3 px-3 text-left text-xs font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Product</th>
+                  <th className={`py-3 px-3 text-center text-xs font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Status</th>
+                  <th className={`py-3 px-3 text-center text-xs font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Published</th>
+                  <th className={`py-3 px-3 text-left text-xs font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Review Info</th>
+                  <th className={`py-3 px-3 text-center text-xs font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Added</th>
+                  <th className={`py-3 px-3 text-center text-xs font-medium ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/50">
+              <tbody className={`divide-y ${theme === "dark" ? "divide-slate-800/50" : "divide-slate-200"}`}>
                 {products.map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-800/20 transition-all">
+                  <tr key={product.id} className={`transition-all ${
+                    theme === "dark" ? "hover:bg-slate-800/20" : "hover:bg-slate-50/50"
+                  }`}>
                     {/* PRODUCT */}
                     <td className="py-2.5 px-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-lg bg-slate-800 flex-shrink-0 overflow-hidden">
+                        <div className={`h-9 w-9 rounded-lg flex-shrink-0 overflow-hidden ${
+                          theme === "dark" ? "bg-slate-800" : "bg-slate-100"
+                        }`}>
                           {product.image ? (
                             <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
                           ) : (
@@ -1032,10 +1077,12 @@ export default function PharmaProductPage() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-white text-xs font-medium truncate max-w-[200px]" title={product.name}>
+                          <p className={`text-xs font-medium truncate max-w-[200px] ${
+                            theme === "dark" ? "text-white" : "text-slate-800"
+                          }`} title={product.name}>
                             {product.name}
                           </p>
-                          <p className="text-slate-500 text-[10px]">{product.sku} · {product.brandName}</p>
+                          <p className={`text-[10px] ${theme === "dark" ? "text-slate-500" : "text-slate-600"}`}>{product.sku} · {product.brandName}</p>
                         </div>
                       </div>
                     </td>
@@ -1049,8 +1096,10 @@ export default function PharmaProductPage() {
                     <td className="py-2.5 px-3 text-center">
                       <span className={`px-2 py-0.5 rounded-md text-[11px] font-medium ${
                         product.isPublished
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-slate-600/20 text-slate-500"
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          : theme === "dark" 
+                          ? "bg-slate-600/20 text-slate-500"
+                          : "bg-slate-100 text-slate-500 border border-slate-200"
                       }`}>
                         {product.isPublished ? "Published" : "Unpublished"}
                       </span>
@@ -1059,65 +1108,101 @@ export default function PharmaProductPage() {
                     {/* REVIEW INFO */}
                     <td className="py-2.5 px-3">
                       {product.pharmaApprovedBy ? (
-                        <div className="text-xs text-slate-400">
-                          <p className="text-slate-300 truncate max-w-[160px]">{product.pharmaApprovedBy}</p>
+                        <div className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+                          <p className={`truncate max-w-[160px] ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>{product.pharmaApprovedBy}</p>
                           {product.pharmaApprovedAt && (
-                            <p className="text-slate-500 text-[10px]">{formatDate(product.pharmaApprovedAt)}</p>
+                            <p className="text-[10px] opacity-80">{formatDate(product.pharmaApprovedAt)}</p>
                           )}
                           {product.pharmaApprovalComment && (
-                            <p className="text-slate-500 text-[10px] italic truncate max-w-[160px]" title={product.pharmaApprovalComment}>
+                            <p className="text-[10px] italic truncate max-w-[160px] opacity-70" title={product.pharmaApprovalComment}>
                               "{product.pharmaApprovalComment}"
                             </p>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-600 text-xs italic">—</span>
+                        <span className={`text-xs italic ${theme === "dark" ? "text-slate-600" : "text-slate-400"}`}>—</span>
                       )}
                     </td>
 
                     {/* ADDED */}
                     <td className="py-2.5 px-3 text-center">
-                      <span className="text-slate-400 text-xs">{product.createdAt}</span>
+                      <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{product.createdAt}</span>
                     </td>
 
                     {/* ACTIONS */}
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <Link href={`/product/${product.slug}`} target="_blank">
-                          <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all" title="View product">
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                        </Link>
-                        {(product.pharmaApprovalStatus === "Pending" || (product.isPublished && product.pharmaApprovalStatus === "NotRequired")) && (
-                          <>
-                            <button
-                              onClick={() => handleActionClick("approve", product.id, product.name)}
-                              className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
-                              title="Approve"
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleActionClick("reject", product.id, product.name)}
-                              className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                              title="Reject"
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </button>
-                          </>
-                        )}
+<td className="py-2.5 px-3">
+  <div className="flex items-center justify-center gap-2 flex-wrap">
 
-                        {product.pharmaApprovalStatus === "Rejected" && (
-                          <button
-                            onClick={() => handleActionClick("approve", product.id, product.name)}
-                            className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"
-                            title="Re-approve"
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+    {/* View Product */}
+    <Link
+      href={`/product/${product.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-xs font-medium"
+      title="View Product Details"
+    >
+      <Eye className="h-3.5 w-3.5" />
+      <span>View Product</span>
+    </Link>
+
+    {/* Approve / Reject */}
+    {(product.pharmaApprovalStatus === "Pending" ||
+      (product.isPublished &&
+        product.pharmaApprovalStatus === "NotRequired")) && (
+      <>
+        <button
+          onClick={() =>
+            handleActionClick("approve", product.id, product.name)
+          }
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all text-xs font-medium"
+          title="Approve Product"
+        >
+          <CheckCircle className="h-3.5 w-3.5" />
+          <span>Approve</span>
+        </button>
+
+        <button
+          onClick={() =>
+            handleActionClick("reject", product.id, product.name)
+          }
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-all text-xs font-medium"
+          title="Reject Product"
+        >
+          <XCircle className="h-3.5 w-3.5" />
+          <span>Reject </span>
+        </button>
+      </>
+    )}
+
+    {/* Re-approve */}
+    {product.pharmaApprovalStatus === "Rejected" && (
+      <button
+        onClick={() =>
+          handleActionClick("approve", product.id, product.name)
+        }
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-all text-xs font-medium"
+        title="Approve Product Again"
+      >
+        <CheckCircle className="h-3.5 w-3.5" />
+        <span>Approve Again</span>
+      </button>
+    )}
+
+    {/* Reject / Unapprove Approved Product */}
+    {product.pharmaApprovalStatus === "Approved" && (
+      <button
+        onClick={() =>
+          handleActionClick("reject", product.id, product.name)
+        }
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-all text-xs font-medium"
+        title="Reject /  Product"
+      >
+        <XCircle className="h-3.5 w-3.5" />
+        <span>Reject </span>
+      </button>
+    )}
+  </div>
+</td>
                   </tr>
                 ))}
               </tbody>
@@ -1128,20 +1213,46 @@ export default function PharmaProductPage() {
 
       {/* PAGINATION */}
       {totalPages > 1 && (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-2">
+        <div className={`border rounded-2xl p-2 ${
+          theme === "dark" ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+        }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Page {currentPage} of {totalPages}</span>
+            <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>Page {currentPage} of {totalPages}</span>
             <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-40">
+              <button 
+                onClick={() => setCurrentPage(1)} 
+                disabled={currentPage === 1} 
+                className={`p-1.5 rounded-lg disabled:opacity-40 transition-all ${
+                  theme === "dark" ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                }`}
+              >
                 <ChevronsLeft className="h-4 w-4" />
               </button>
-              <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-40">
+              <button 
+                onClick={() => setCurrentPage(p => p - 1)} 
+                disabled={currentPage === 1} 
+                className={`p-1.5 rounded-lg disabled:opacity-40 transition-all ${
+                  theme === "dark" ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                }`}
+              >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === totalPages} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-40">
+              <button 
+                onClick={() => setCurrentPage(p => p + 1)} 
+                disabled={currentPage === totalPages} 
+                className={`p-1.5 rounded-lg disabled:opacity-40 transition-all ${
+                  theme === "dark" ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                }`}
+              >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg disabled:opacity-40">
+              <button 
+                onClick={() => setCurrentPage(totalPages)} 
+                disabled={currentPage === totalPages} 
+                className={`p-1.5 rounded-lg disabled:opacity-40 transition-all ${
+                  theme === "dark" ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                }`}
+              >
                 <ChevronsRight className="h-4 w-4" />
               </button>
             </div>
@@ -1152,7 +1263,9 @@ export default function PharmaProductPage() {
       {/* REVIEW MODAL */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+          <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl ${
+            theme === "dark" ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"
+          }`}>
             <div className="flex items-center gap-3 mb-4">
               <div className={`p-2 rounded-xl ${modal.mode === "approve" ? "bg-emerald-500/15" : "bg-red-500/15"}`}>
                 {modal.mode === "approve"
@@ -1160,21 +1273,21 @@ export default function PharmaProductPage() {
                   : <XCircle className="h-5 w-5 text-red-400" />}
               </div>
               <div>
-                <h3 className="text-white font-semibold text-base">
+                <h3 className={`font-semibold text-base ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
                   {modal.mode === "approve" ? "Approve Product" : "Reject Product"}
                 </h3>
-                <p className="text-slate-400 text-xs mt-0.5 truncate max-w-[280px]">{modal.productName}</p>
+                <p className={`text-xs mt-0.5 truncate max-w-[280px] ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>{modal.productName}</p>
               </div>
             </div>
 
             {modal.mode === "reject" && (
               <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-red-300 text-xs">This product will be unpublished and hidden from customers.</p>
+                <p className="text-red-600 dark:text-red-300 text-xs">This product will be unpublished and hidden from customers.</p>
               </div>
             )}
 
             <div className="mb-5">
-              <label className="block text-slate-300 text-xs font-medium mb-1.5">
+              <label className={`block text-xs font-medium mb-1.5 ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
                 {modal.mode === "approve" ? "Approval comment (required)" : "Rejection reason (required)"}
               </label>
               <textarea
@@ -1186,7 +1299,9 @@ export default function PharmaProductPage() {
                     : "e.g. Missing active ingredients documentation"
                 }
                 rows={3}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                className={`w-full px-3 py-2 border rounded-xl text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none ${
+                  theme === "dark" ? "bg-slate-800 border-slate-600 text-white" : "bg-slate-50 border-slate-300 text-slate-800"
+                }`}
               />
             </div>
 
@@ -1194,7 +1309,11 @@ export default function PharmaProductPage() {
               <button
                 onClick={() => { setModal(null); setComment(""); }}
                 disabled={processing}
-                className="flex-1 px-4 py-2 rounded-xl border border-slate-600 text-slate-300 text-sm hover:bg-slate-800 transition-all disabled:opacity-50"
+                className={`flex-1 px-4 py-2 rounded-xl text-sm transition-all disabled:opacity-50 border ${
+                  theme === "dark" 
+                    ? "border-slate-600 text-slate-300 hover:bg-slate-800" 
+                    : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                }`}
               >
                 Cancel
               </button>

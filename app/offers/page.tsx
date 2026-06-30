@@ -1,6 +1,6 @@
 // app/offers/page.tsx
 import Link from "next/link";
-import { Tag, Clock, Gift, ChevronRight, ShoppingBag, Percent, BadgePercent, Sparkles, Calendar, Star, TrendingUp, Award, Zap } from "lucide-react";
+import { Tag, Clock, Gift, ShoppingBag, Percent, BadgePercent, TrendingUp } from "lucide-react";
 
 interface Discount {
   id: string;
@@ -26,16 +26,15 @@ function formatDiscount(d: Discount): string {
   return "Special Offer";
 }
 
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
 function getDaysLeft(endDate?: string): number | null {
   if (!endDate) return null;
   const diff = new Date(endDate).getTime() - Date.now();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+function stripHtml(html?: string): string {
+  if (!html) return "";
+  return html.replace(/<[^>]*>?/gm, "").trim();
 }
 
 export default async function OffersPage() {
@@ -58,116 +57,56 @@ export default async function OffersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      {/* HERO BANNER - Exact Match Design */}
-      <div className="relative w-full overflow-hidden border-b border-gray-200 min-h-[200px] bg-[#445D41]">
+      {/* HERO BANNER */}
+      <div className="relative w-full overflow-hidden border-b border-[#33492f] bg-[#445D41]">
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[size:42px_42px]" />
+        <div className="absolute inset-y-0 right-0 hidden w-[42%] bg-[#111] md:block [clip-path:polygon(12%_0,100%_0,100%_100%,0_100%)]" />
+        <BadgePercent className="absolute -left-4 top-2 h-24 w-24 rotate-12 text-white/5" />
+        <ShoppingBag className="absolute right-[34%] top-5 hidden h-16 w-16 -rotate-12 text-white/5 md:block" />
 
-        {/* Geometric Square Grid Background using Tailwind Square Brackets */}
-        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
-
-        {/* Floating Background Icons - Left Side */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-          <BadgePercent className="absolute top-10 left-[5%] text-white opacity-10 h-12 w-12 transform -rotate-12" />
-
-          <Tag className="absolute bottom-10 left-[5%] text-white opacity-10 h-16 w-16 transform rotate-45" />
-          <Gift className="absolute top-1/3 left-[40%] text-white opacity-[0.06] h-32 w-32 transform -rotate-12" />
-          <ShoppingBag className="absolute bottom-5 left-[35%] text-white opacity-10 h-10 w-10 transform rotate-12" />
-        </div>
-
-        {/* Smooth fade-out gradient */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#445D41]/30 to-[#445D41] pointer-events-none z-0"></div>
-
-        {/* Diagonal Black Section on the Right (Using Tailwind Square Brackets) */}
-        <div
-          className="hidden md:block absolute top-0 bottom-0 right-0 w-[55%] bg-[#0a0a0a] z-0 [clip-path:polygon(15%_0,100%_0,100%_100%,0%_100%)] overflow-hidden"
-        >
-          {/* Square Grid Pattern for Black Side */}
-          <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
-
-          {/* Floating Background Icons - Right Side */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            <TrendingUp className="absolute top-1/4 left-[30%] text-white opacity-[0.04] h-20 w-20 transform rotate-12" />
-            <Gift className="absolute bottom-1/4 left-[45%] text-white opacity-[0.04] h-24 w-24 transform -rotate-12" />
-            <ShoppingBag className="absolute top-[10%] left-[60%] text-white opacity-[0.02] h-40 w-40 transform rotate-12" />
-            <BadgePercent className="absolute bottom-[15%] left-[80%] text-white opacity-[0.03] h-32 w-32 transform -rotate-12" />
-          </div>
-
-          {/* Subtle glow inside the black area */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#445D41]/10 rounded-full blur-[100px] pointer-events-none"></div>
-
-          {/* Floating dots */}
-          <div className="absolute top-12 left-1/3 w-1.5 h-1.5 bg-white rounded-full opacity-50"></div>
-          <div className="absolute top-1/4 right-1/4 w-1 h-1 bg-white rounded-full opacity-30"></div>
-          <div className="absolute bottom-1/3 right-1/3 w-2 h-2 bg-white rounded-full opacity-50"></div>
-          <div className="absolute bottom-12 left-1/4 w-2.5 h-2.5 bg-white rounded-full opacity-60"></div>
-        </div>
-
-        {/* Mobile Black Background */}
-        <div className="md:hidden absolute inset-0 top-[45%] bg-black"></div>
-
-        {/* Content Container */}
-        <div className="relative max-w-7xl mx-auto px-4 flex flex-col md:flex-row h-full min-h-[200px] z-10">
-
-          {/* Left Content (Green Side) */}
-          <div className="w-full md:w-[50%] flex flex-col justify-center py-6 md:py-6">
-            <div className="relative">
-              {/* Breadcrumb */}
-              <nav className="flex items-center gap-1.5 text-xs font-medium text-white/70 mb-8 hidden md:flex">
-                <Link href="/" className="hover:text-white transition-colors">Home</Link>
-                <ChevronRight className="h-3 w-3 text-white/50" />
-                <span className="text-white font-semibold">Offers</span>
-              </nav>
-
-              {/* Pill Badge */}
-              <div className="inline-flex items-center gap-1.5 px-4 py-1 bg-white/10 rounded-full mb-3 w-max border border-white/20">
-                <Gift className="h-3.5 w-3.5 text-white" />
-                <span className="text-white font-bold text-[10px] uppercase tracking-widest">Exclusive Deals</span>
-              </div>
-
-              {/* Compact Typography */}
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-2 tracking-tight leading-tight flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span>Today's</span>
-                <span className="text-[#445D41] bg-white px-2 py-0.5 rounded-md transform -rotate-2 shadow-sm">Offers</span>
-                <span>&amp; Deals</span>
-              </h1>
-
-              <p className="text-white/90 text-sm max-w-sm font-medium leading-snug">
-                Save big on thousands of health &amp; beauty products. New deals added regularly.
-              </p>
+        <div className="relative z-10 mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:min-h-[118px] md:flex-row md:items-center md:justify-between md:py-3">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/90">
+              <Gift className="h-3.5 w-3.5" />
+              Exclusive Deals
             </div>
+
+            <h1 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl font-black leading-tight text-white md:text-3xl">
+              <span>Today's</span>
+              <span className="rounded bg-white px-2 py-0.5 text-[#445D41] shadow-sm">Offers</span>
+              <span>&amp; Deals</span>
+            </h1>
+
+            <p className="mt-1 max-w-xl text-xs font-medium leading-snug text-white/80 md:text-sm">
+              Save on active health and beauty deals, all in one place.
+            </p>
           </div>
 
-          {/* Right Content (Black Side) */}
-          <div className="w-full md:w-[50%] flex items-center md:justify-end py-6 md:py-8 z-10">
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full max-w-md lg:mr-8">
-
-              {/* Dark Card 1 */}
-              <div className="flex items-center gap-3 bg-[#111111] border border-white/5 rounded-xl p-4 shadow-xl flex-1 hover:-translate-y-1 transition-transform">
-                <div className="flex items-center justify-center w-10 h-10 bg-[#222] rounded-full flex-shrink-0">
-                  <BadgePercent className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <div className="text-2xl font-black text-white leading-none">{discounts.length}</div>
-                  <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Active Deals</div>
-                </div>
+          <div className="grid grid-cols-2 gap-2 md:w-[360px] md:flex-shrink-0">
+            <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#111]/90 px-3 py-2.5 shadow-lg">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-white/10">
+                <BadgePercent className="h-4 w-4 text-white" />
               </div>
-
-              {/* Dark Card 2 */}
-              <div className="flex items-center gap-3 bg-[#111111] border border-white/5 rounded-xl p-4 shadow-xl flex-1 hover:-translate-y-1 transition-transform">
-                <div className="flex items-center justify-center w-10 h-10 bg-[#222] rounded-full flex-shrink-0">
-                  <ShoppingBag className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <div className="text-2xl font-black text-white leading-none">{discounts.reduce((acc, d) => acc + (d.productCount ?? 0), 0)}+</div>
-                  <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Products</div>
-                </div>
+              <div className="min-w-0">
+                <div className="text-xl font-black leading-none text-white">{discounts.length}</div>
+                <div className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-wider text-white/55">Active Deals</div>
               </div>
+            </div>
 
+            <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#111]/90 px-3 py-2.5 shadow-lg">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-white/10">
+                <TrendingUp className="h-4 w-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xl font-black leading-none text-white">{discounts.reduce((acc, d) => acc + (d.productCount ?? 0), 0)}+</div>
+                <div className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-wider text-white/55">Products</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-2 mt-2">
+      <main className="max-w-7xl mx-auto px-4 pt-1 pb-2">
 
         {discounts.length === 0 ? (
           <div className="text-center py-24 bg-white rounded-2xl shadow-sm border border-gray-100">
@@ -180,8 +119,8 @@ export default async function OffersPage() {
           </div>
         ) : (
           <>
-            <section className="mt-1">
-              <div className="flex items-center justify-between mb-6 mt-2 border-b border-gray-200 pb-4">
+            <section>
+              <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-2">
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-6 bg-[#445D41] rounded-full"></div>
                   <h2 className="text-xl md:text-2xl font-black text-gray-900">All Offers</h2>
@@ -209,8 +148,9 @@ function DiscountCard({ discount: d }: { discount: Discount }) {
   const isExpiringSoon = daysLeft !== null && daysLeft <= 3;
   const bannerUrl = d.desktopBannerImageUrl || d.mobileBannerImageUrl;
   const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const adminComment = stripHtml(d.adminComment);
 
-  const isProductLevel = d.discountType === "AssignedToProducts" || d.discountType === "AssignedToCategories";
+  const isProductLevel = d.discountType === "AssignedToProducts" || d.discountType === "AssignedToCategories" || d.discountType === "UpToPercentage";
   const href = isProductLevel && d.slug ? `/offers/${d.slug}` : "#";
 
   return (
@@ -238,13 +178,19 @@ function DiscountCard({ discount: d }: { discount: Discount }) {
       </div>
 
       {/* Card Body */}
-      <div className="p-5 flex flex-col flex-1">
+      <div className="px-5 pt-5 pb-3 flex flex-col flex-1">
         <h3 className="font-bold text-gray-900 text-base leading-snug group-hover:text-[#445D41] transition-colors line-clamp-2 mb-3">
           {d.name}
         </h3>
 
+        {adminComment && (
+          <p className="text-xs font-medium text-gray-600 line-clamp-2 mb-3">
+            {adminComment}
+          </p>
+        )}
+
         {/* Tags */}
-        <div className="flex flex-wrap items-center gap-2 mb-4 mt-auto">
+        <div className="flex flex-wrap items-center gap-2 mb-2 mt-auto">
           {/* New RED Offer Badge */}
           <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-red-500 text-white px-2 py-1 rounded shadow-sm">
             <Tag className="h-3 w-3" />
@@ -254,7 +200,7 @@ function DiscountCard({ discount: d }: { discount: Discount }) {
           {d.productCount != null && d.productCount > 0 && (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded border border-gray-200/60">
               <ShoppingBag className="h-3 w-3" />
-              {d.productCount} Items
+              {d.productCount} Products
             </span>
           )}
           {daysLeft !== null && (
@@ -271,23 +217,22 @@ function DiscountCard({ discount: d }: { discount: Discount }) {
           )}
         </div>
 
-        <div className="mt-1">
-          {/* Dates */}
-          {(d.startDate || d.endDate) && (
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 mb-3 pt-3 border-t border-gray-100">
-              <Calendar className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">
-                {d.startDate && `${formatDate(d.startDate)}`}
-                {d.startDate && d.endDate && " - "}
-                {d.endDate && `${formatDate(d.endDate)}`}
-              </span>
-            </div>
-          )}
-
+        <div>
           {/* CTA */}
           {isProductLevel && (
-            <div className="text-xs font-bold text-gray-900 group-hover:text-[#445D41] transition-colors pt-2">
-              View Deals &rarr;
+            <div className="pt-1">
+              <span className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#445D41] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all group-hover:bg-[#33492f] group-hover:shadow-md">
+                Shop Now
+                <svg
+                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </span>
             </div>
           )}
         </div>

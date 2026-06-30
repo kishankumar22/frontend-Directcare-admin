@@ -229,9 +229,14 @@ const getValidDiscounts = (cat: Category | null) => {
   ===================== */
 
   useEffect(() => {
-    
+  // When the main category changes (i.e., on hover), show its first sub‑category in the middle column by default.
+  if (activeMainCategory?.subCategories?.length) {
+    setActiveSubCategory(activeMainCategory.subCategories[0]);
+  } else {
     setActiveSubCategory(null);
-  }, [activeMainCategory]);
+  }
+  setActiveChildCategory(null);
+}, [activeMainCategory]);
 const hoveredCategory =
   activeChildCategory ||
   activeSubCategory ||

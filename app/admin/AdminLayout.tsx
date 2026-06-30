@@ -98,6 +98,7 @@ const navigation: NavigationItem[] = [
       { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
       { name: 'Payments', href: '/admin/payments', icon: CreditCard },
       { name: 'Customers', href: '/admin/customers', icon: Users },
+      { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
     ],
   },
   {
@@ -105,7 +106,6 @@ const navigation: NavigationItem[] = [
     icon: Gift,
     children: [
       { name: 'Discounts', href: '/admin/discounts', icon: Percent },
-      { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
       { name: 'Newsletter', href: '/admin/newsletter', icon: Mail },
       { name: 'Loyalty Points', href: '/admin/loyalty-points', icon: Coins },
       { name: 'Loyalty Config', href: '/admin/loyalty-config', icon: Sliders },

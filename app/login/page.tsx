@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, Sparkles, TrendingUp, Users2, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/lib/services/auth";
-import { getBackendMessage } from "@/app/admin/_utils/errorUtils";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,19 +21,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await authService.login(formData);
-
-      if (response?.error) {
-        setError(getBackendMessage(response));
-        setLoading(false);
-        return;
-      }
-
-      const result = response?.data;
+      const { data: result } = await authService.login(formData);
 
       if (!result?.accessToken && !result?.token) {
         setError("Token not received from server");
-        setLoading(false);
         return;
       }
 
@@ -83,7 +73,7 @@ export default function LoginPage() {
 
     } catch (err: any) {
       console.error("❌ Login error:", err);
-      setError(getBackendMessage(err));
+      setError(err.response?.data?.message || "Invalid email or password");
       setLoading(false);
     }
   };

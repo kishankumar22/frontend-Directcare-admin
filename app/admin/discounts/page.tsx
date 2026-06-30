@@ -464,9 +464,15 @@ const handleRestore = async () => {
         discountType: newType,
         assignedProductIds: [],
         assignedCategoryIds: [],
+        // "Up to X%" is always percentage-based (the % is the ceiling)
+        usePercentage: newType === "UpToPercentage" ? true : formData.usePercentage,
       });
     } else {
-      setFormData({ ...formData, discountType: newType });
+      setFormData({
+        ...formData,
+        discountType: newType,
+        usePercentage: newType === "UpToPercentage" ? true : formData.usePercentage,
+      });
     }
 
     setProductCategoryFilter("");
@@ -857,6 +863,7 @@ const hasActiveFilters =
       AssignedToShipping: "Shipping",
       AssignedToManufacturers: "",
       AssignedToOrderSubTotal: "",
+      UpToPercentage: "Up to %",
     };
     return labels[type];
   };
@@ -869,6 +876,7 @@ const hasActiveFilters =
       AssignedToShipping: "🚚",
       AssignedToManufacturers: "🏭",
       AssignedToOrderSubTotal: "💵",
+      UpToPercentage: "🏷️",
     };
     return icons[type];
   };

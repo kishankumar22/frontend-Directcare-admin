@@ -480,6 +480,7 @@ export interface ProductQueryParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   sortDirection?: 'asc' | 'desc';
+  outOfStockLast?: boolean;
 }
 export interface PaginatedResponse<T> {
   success: boolean;
@@ -624,6 +625,12 @@ getAll: async (params?: ProductQueryParams) => {
     queryParams.append(
       "sortDirection",
       params.sortDirection
+    );
+
+  if (params?.outOfStockLast !== undefined)
+    queryParams.append(
+      "outOfStockLast",
+      params.outOfStockLast.toString()
     );
 
   const url = `${API_ENDPOINTS.products}${

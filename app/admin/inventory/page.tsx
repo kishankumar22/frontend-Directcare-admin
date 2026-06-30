@@ -718,7 +718,18 @@ export default function InventoryPage() {
                       </td>
                       <td className="py-2 px-2.">
                         <div className="flex items-center gap-3">
-                          <img src={getImageUrl(p.image || "")} alt={p.name} onClick={() => openMediaViewer(p.images || [], 0)} className="w-9 h-9 rounded-lg border border-slate-700 cursor-pointer bg-slate-800 flex-shrink-0 object-cover" />
+                       {p.image ? (
+  <img
+    src={getImageUrl(p.image)}
+    alt={p.name}
+    onClick={() => openMediaViewer(p.images || [], 0)}
+    className="w-9 h-9 rounded-lg border border-slate-700 cursor-pointer bg-slate-800 flex-shrink-0 object-cover"
+  />
+) : (
+  <div className="w-9 h-9 rounded-lg border border-slate-700 bg-slate-800 flex items-center justify-center text-slate-500">
+    No Image
+  </div>
+)}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <a href={`/product/${p.variants?.[0]?.slug || p.slug}`} target="_blank" rel="noopener noreferrer" className="group block" title={p.name}>
@@ -848,7 +859,13 @@ export default function InventoryPage() {
                           </td>
                           <td className="py-2 px-2.5 pl-10">
                             <div className="flex items-center gap-3">
-                              <img src={getImageUrl(v.image || p.image || "")} alt={v.name} className="w-8 h-8 rounded-lg border border-slate-700 bg-slate-800 object-cover" />
+                              {(v.image || p.image) ? (
+                                <img src={getImageUrl(v.image || p.image)} alt={v.name} className="w-8 h-8 rounded-lg border border-slate-700 bg-slate-800 object-cover" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg border border-slate-700 bg-slate-800 flex items-center justify-center text-[10px] text-slate-500 flex-shrink-0">
+                                  No Image
+                                </div>
+                              )}
                               <a href={`/product/${v.slug || p.slug}`} target="_blank" rel="noopener noreferrer" className="group truncate" title={v.name}>
                                 <span className="text-sm text-slate-300 transition-colors group-hover:text-cyan-400 max-w-[250px] lg:max-w-[500px] inline-block truncate align-middle font-medium">{v.name}</span>
                               </a>

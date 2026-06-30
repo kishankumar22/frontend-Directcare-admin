@@ -11,7 +11,9 @@ import { useRouter } from "next/navigation";
 import CategoryModal from "./CategoryModal";
 import { categoryFaqsService, Faq } from "@/lib/services/categoryFaqs";
 import { extractFilename, formatDate, getImageUrl } from "../_utils/formatUtils";
+import { getBackendMessage } from "../_utils/errorUtils";
 import React from "react";
+import Link from "next/link";
 
 export default function CategoriesPage() {
   const toast = useToast();
@@ -117,12 +119,10 @@ const handleRestore = async (category: Category) => {
       toast.success("Category restored successfully! 🎉");
       await fetchCategories();
     } else {
-      toast.error(response.error || "Failed to restore category");
+      toast.error(getBackendMessage(response));
     }
   } catch (error: any) {
-    toast.error(
-      error?.response?.data?.message || "Restore failed"
-    );
+    toast.error(getBackendMessage(error));
   } finally {
     setIsRestoring(false);
     setRestoreConfirm(null);
@@ -466,7 +466,7 @@ useEffect(() => {
     if (error.response?.status === 401) {
       toast.error("Please login again");
     } else {
-      toast.error(error.response?.data?.message || "Failed to delete image");
+      toast.error(getBackendMessage(error));
     }
   } finally {
     setIsDeletingImage(false);
@@ -668,7 +668,7 @@ sortOrder: formData.sortOrder === "" ? 0 : formData.sortOrder,
 
   } catch (err: any) {
     console.error("❌ ERROR:", err);
-    toast.error(err?.message || "Failed");
+    toast.error(getBackendMessage(err));
   } finally {
     setIsSubmitting(false);
   }
@@ -687,14 +687,14 @@ sortOrder: formData.sortOrder === "" ? 0 : formData.sortOrder,
         toast.success("Category deleted successfully! 🗑️");
         await fetchCategories();
       } else {
-        toast.error(response.error || "Failed to delete category");
+        toast.error(getBackendMessage(response));
       }
     } catch (error: any) {
       console.error("Error deleting category:", error);
       if (error?.response?.status === 401) {
         toast.error("Please login again");
       } else {
-        toast.error("Failed to delete category");
+        toast.error(getBackendMessage(error));
       }
     } finally {
       setIsDeleting(false);
@@ -909,21 +909,23 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       </td>
 
       {/* PRODUCTS */}
-      <td className="py-2 px-3">
-        <div className="flex items-center justify-center gap-1.5 text-[12px] text-cyan-400 font-medium">
-          <span>{category.productCount}</span>
-          <a
-            href={`http://localhost:3000/category/${category.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-slate-500 hover:text-cyan-400 transition-colors p-0.5 rounded"
-            title="View on website"
-          >
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
-      </td>
+<td className="py-2 px-3">
+  <div className="flex items-center justify-center gap-1.5 text-[12px] font-medium">
+    <span className="text-cyan-400">
+      {category.productCount}
+    </span>
 
+    <Link
+      href={`/category/${category.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-slate-500 hover:text-cyan-400 transition-colors p-0.5 rounded inline-flex"
+      title="View on website"
+    >
+      <ExternalLink className="h-3 w-3" />
+    </Link>
+  </div>
+</td>
       {/* STATUS */}
       <td className="py-2 px-3 text-center">
         <button
@@ -1220,9 +1222,7 @@ const handleStatusUpdate = async (category: Category) => {
 
     fetchCategories(); // refresh list
   } catch (error: any) {
-    toast.error(
-      error?.response?.data?.message || "Failed to update status"
-    );
+    toast.error(getBackendMessage(error));
   }
 };
 
@@ -2074,9 +2074,7 @@ useEffect(() => {
 
       await fetchCategories();
     } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Failed to update status"
-      );
+      toast.error(getBackendMessage(error));
     } finally {
       setIsUpdatingStatus(false);
       setStatusConfirm(null);

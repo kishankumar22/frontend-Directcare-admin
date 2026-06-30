@@ -54,10 +54,20 @@ interface Product {
   images?: { imageUrl: string }[];
 }
 interface Discount {
+  id: string;
+  name: string;
+  slug: string;
+  discountType: string;
   usePercentage: boolean;
+  discountAmount?: number;
   discountPercentage: number;
   requiresCouponCode: boolean;
-  couponCode: string;
+  couponCode?: string;
+  desktopBannerImageUrl?: string;
+  mobileBannerImageUrl?: string;
+  productCount?: number;
+  assignedProductIds?: string;
+  adminComment?: string;
 }
 interface Category {
   id: string;
@@ -144,6 +154,21 @@ async function getCategories(baseUrl: string) {
   }
 }
 
+async function getDiscounts(baseUrl: string): Promise<Discount[]> {
+  try {
+    const res = await fetch(`${baseUrl}/api/Discounts/public`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) return [];
+
+    const result = await res.json();
+    return Array.isArray(result?.data) ? result.data : [];
+  } catch {
+    return [];
+  }
+}
+
 async function getBrands(baseUrl: string) {
   try {
     const res = await fetch(
@@ -209,11 +234,12 @@ export const metadata: Metadata = {
 export default async function Home() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL!;
 
-  const [products, categories, brands, banners] = await Promise.all([
+  const [products, categories, brands, banners, discounts] = await Promise.all([
     getProducts(baseUrl),
     getCategories(baseUrl),
     getBrands(baseUrl),
     getBanners(baseUrl),
+    getDiscounts(baseUrl),
   ]);
   const activeBanners = getActiveBanners(banners);
 
@@ -292,7 +318,7 @@ export default async function Home() {
         </section>
 
         {/* ===== CATEGORY OFFERS (NEW) ===== */}
-        <CategoryOffersSlider categories={categories} baseUrl={baseUrl} />
+        <CategoryOffersSlider discounts={discounts} baseUrl={baseUrl} />
 
 
         {/* ===== FEATURED PRODUCTS ===== */}

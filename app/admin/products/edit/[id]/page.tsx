@@ -685,12 +685,24 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   // ✅ ADD THESE 2 NEW LINES BELOW:
   const initRef = useRef(false);  // ✅ NEW: Prevent duplicate initialization
   const isAcquiringLockRef = useRef(false);  // ✅ NEW: Prevent duplicate acquire calls
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   // ==================== TAKEOVER REQUEST STATE (ADD THIS) ====================
   const [isTakeoverModalOpen, setIsTakeoverModalOpen] = useState(false);
   const [takeoverRequestMessage, setTakeoverRequestMessage] = useState('');
   const [takeoverExpiryMinutes, setTakeoverExpiryMinutes] = useState(10);
   const [isSubmittingTakeover, setIsSubmittingTakeover] = useState(false);
   const [lockedByEmail, setLockedByEmail] = useState('');
+
+  const takeoverModalOpenRef = useRef(false);
+  takeoverModalOpenRef.current = isTakeoverModalOpen;
+  const hasPendingTakeoverRef = useRef(false);
+  hasPendingTakeoverRef.current = hasPendingTakeover;
 
   useEffect(() => {
     if (formData.allowedQuantities) {
@@ -1377,13 +1389,33 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       return;
     }
 
-    let mounted = true;
     let handlerRegistered = false;
     let connectionRetryTimer: NodeJS.Timeout | null = null;
 
     // Around line 830-860 in page.tsx
     const handleTakeover = (data: any) => {
-      if (!mounted || data.productId !== productId || data.currentEditorEmail !== userEmail) return;
+      console.log('🔔 [SignalR Event] takeoverRequest received:', data);
+      const activeUserEmail = localStorage.getItem('userEmail');
+      console.log('🔍 [SignalR Check] Evaluating conditions:', {
+        mounted: isMountedRef.current,
+        dataProductId: data.productId,
+        productId,
+        currentEditorEmail: data.currentEditorEmail,
+        activeUserEmail
+      });
+
+      if (!isMountedRef.current) {
+        console.warn('⚠️ [SignalR Check] Ignored: Component is not mounted');
+        return;
+      }
+      if (data.productId !== productId) {
+        console.warn(`⚠️ [SignalR Check] Ignored: Product ID mismatch (Event: ${data.productId}, Page: ${productId})`);
+        return;
+      }
+      if (!data.currentEditorEmail || !activeUserEmail || data.currentEditorEmail.toLowerCase() !== activeUserEmail.toLowerCase()) {
+        console.warn(`⚠️ [SignalR Check] Ignored: Editor email mismatch (Event editor: ${data.currentEditorEmail}, Local user: ${activeUserEmail})`);
+        return;
+      }
 
       console.log('');
       console.log('🔔 ==================== TAKEOVER REQUEST RECEIVED ====================');
@@ -1630,7 +1662,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
     // ✅ Connection init
     const init = async (retryCount = 0) => {
-      if (!mounted) return;
+      if (!isMountedRef.current) return;
 
       const connected = await signalRService.startConnection(userId!);
 
@@ -1654,16 +1686,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
     // Cleanup
     return () => {
-      mounted = false;
       if (connectionRetryTimer) clearTimeout(connectionRetryTimer);
 
-      if (handlerRegistered) {
-        signalRService.off('takeoverRequest', handleTakeover);
-        signalRService.off('takeoverApproved', handleTakeoverApproved);
-        signalRService.off('takeoverRejected', handleTakeoverRejected);
-        signalRService.off('takeoverExpired', handleTakeoverExpired);
-        signalRService.off('lockReleased', handleLockReleased);
-      }
+      console.log('🧹 SignalR Cleanup: Unregistering listeners');
+      signalRService.off('takeoverRequest', handleTakeover);
+      signalRService.off('takeoverApproved', handleTakeoverApproved);
+      signalRService.off('takeoverRejected', handleTakeoverRejected);
+      signalRService.off('takeoverExpired', handleTakeoverExpired);
+      signalRService.off('lockReleased', handleLockReleased);
     };
   }, [productId]);
   const getHomepageCount = async () => {
@@ -1777,9 +1807,25 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             expiresAt: status.expiresAt || null
           });
           setLockModalMessage(displayMessage);
-          setIsLockModalOpen(true);
           setIsAcquiringLock(false);
           lockAcquiredRef.current = false;
+
+          // ✅ Check if there is an active takeover request sent by the current user
+          if (status.hasPendingTakeoverRequest && (status as any).pendingTakeoverRequest) {
+            const req = (status as any).pendingTakeoverRequest;
+            const activeUserEmail = localStorage.getItem('userEmail') || currentUserEmail;
+            if (req.requestedByEmail && activeUserEmail && req.requestedByEmail.toLowerCase() === activeUserEmail.toLowerCase()) {
+              console.log('📤 Active takeover request found (sent by you). Opening countdown modal...');
+              setHasPendingTakeover(true);
+              setTakeoverRequestStatus('pending');
+              setPendingRequestTimeLeft(req.timeLeftSeconds || 300);
+              setIsTakeoverModalOpen(true);
+              setIsLockModalOpen(false);
+              return;
+            }
+          }
+
+          setIsLockModalOpen(true);
           return;
         }
 
@@ -1793,11 +1839,29 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           });
           lockAcquiredRef.current = true;
           setIsAcquiringLock(false);
-          // Inform user they already have this open elsewhere — do not show "Lock expired"
-          toast.info('This product is already open in another tab. Both tabs share the same edit session.', {
-            autoClose: 5000,
-            position: 'top-center'
-          });
+
+          // ✅ Check if there is an active takeover request received from someone else
+          if (status.hasPendingTakeoverRequest && (status as any).pendingTakeoverRequest) {
+            const req = (status as any).pendingTakeoverRequest;
+            const activeUserEmail = localStorage.getItem('userEmail') || currentUserEmail;
+            if (req.currentEditorEmail && activeUserEmail && req.currentEditorEmail.toLowerCase() === activeUserEmail.toLowerCase()) {
+              console.log('📥 Active takeover request found (received by you). Opening review modal...');
+              const requestObject = {
+                id: req.id || req.requestId,
+                requestId: req.id || req.requestId,
+                productId: req.productId,
+                productName: req.productName,
+                requestedByUserId: req.requestedByUserId || '',
+                requestedByEmail: req.requestedByEmail,
+                requestMessage: req.requestMessage || '',
+                timeLeftSeconds: req.timeLeftSeconds || 300,
+                expiresAt: req.expiresAt
+              };
+              setTakeoverRequest(requestObject);
+              setIsTakeoverModalOpen(true);
+              setHasPendingTakeover(true);
+            }
+          }
           return;
         }
 
@@ -1825,11 +1889,50 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       }
     }, 10 * 60 * 1000);
 
+    // ✅ Polling fallback for real-time takeover requests (runs every 5 seconds)
+    const takeoverPollTimer = setInterval(async () => {
+      if (!lockAcquiredRef.current || takeoverModalOpenRef.current || hasPendingTakeoverRef.current) {
+        return;
+      }
+
+      try {
+        console.log('🔍 [Takeover Polling] Checking lock status for request...');
+        const statusResponse = await productLockService.getLockStatus(productId);
+        if (statusResponse.success && statusResponse.data) {
+          const status = statusResponse.data;
+          if (status.hasPendingTakeoverRequest && (status as any).pendingTakeoverRequest) {
+            const req = (status as any).pendingTakeoverRequest;
+            const currentUserEmail = localStorage.getItem('userEmail');
+            if (req.currentEditorEmail && currentUserEmail && req.currentEditorEmail.toLowerCase() === currentUserEmail.toLowerCase()) {
+              console.log('📥 [Polling] Active takeover request found! Opening review modal...');
+              const requestObject = {
+                id: req.id || req.requestId,
+                requestId: req.id || req.requestId,
+                productId: req.productId,
+                productName: req.productName,
+                requestedByUserId: req.requestedByUserId || '',
+                requestedByEmail: req.requestedByEmail,
+                requestMessage: req.requestMessage || '',
+                timeLeftSeconds: req.timeLeftSeconds || 300,
+                expiresAt: req.expiresAt
+              };
+              setTakeoverRequest(requestObject);
+              setIsTakeoverModalOpen(true);
+              setHasPendingTakeover(true);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ [Polling] Failed to poll takeover request status:', error);
+      }
+    }, 5000);
+
     // ✅ Cleanup on unmount
     return () => {
       console.log('🧹 Cleanup: Releasing lock...');
       initRef.current = false; // ✅ Reset flag
       if (lockRefreshTimer) clearInterval(lockRefreshTimer);
+      if (takeoverPollTimer) clearInterval(takeoverPollTimer);
       releaseProductLock(productId);
     };
   }, [productId]); // ✅ ONLY productId dependency
@@ -2180,7 +2283,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         console.log('🔄 Refreshing lock...');
       }
 
-      const response = await productLockService.acquireLock(productId, 30);
+      const response = await productLockService.acquireLock(productId, 5);
       console.log('🔒 LOCK: Response received:', response);
 
       if (response.success && response.data) {
@@ -2208,7 +2311,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         return true;
       }
 
-      throw new Error(response.message || 'Failed to acquire lock');
+      throw new Error(getBackendMessage(response));
 
     } catch (error: any) {
       setIsAcquiringLock(false);
@@ -2250,7 +2353,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       }
 
       // ❌ Other errors
-      const errorMessage = error.message || 'Failed to acquire lock';
+      const errorMessage = getBackendMessage(error);
       console.error('❌ LOCK ERROR DETAILS:', {
         message: error.message,
         status: error.status,
@@ -2296,7 +2399,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     } catch (error: any) {
       console.error('❌ Failed to release lock:', error);
 
-      const errorMessage = error.message || 'Failed to release lock';
+      const errorMessage = getBackendMessage(error);
 
       // Only show toast if not during unmount/cleanup
       if (!document.hidden) {
@@ -2356,15 +2459,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         }, 1000);
       } else {
         // ✅ Handle unsuccessful response
-        throw new Error(response?.message || 'Failed to send request');
+        throw new Error(getBackendMessage(response));
       }
     } catch (error: any) {
       console.error('❌ Takeover request error:', error);
 
       // ✅ Better error handling
-      const errorMessage = error?.response?.data?.message
-        || error?.message
-        || '❌ Failed to send request';
+      const errorMessage = getBackendMessage(error);
 
       toast.error(errorMessage);
       throw error;
@@ -4286,13 +4387,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         ...prev,
         productType: value,
 
-        // Clear SKU when switching to variable only if it's empty (don't clear existing SKU)
-        ...(value === 'variable' && !prev.sku && {
-          sku: '',
+        // Clear SKU and default inventory to "dont-track" when switching to variable only if it's empty (don't clear existing SKU)
+        ...(value === 'variable' && {
+          manageInventory: 'dont-track',
+          ...(!prev.sku && { sku: '' }),
         }),
 
-        // ✅ CLEAR GROUPED FIELDS when switching to simple
+        // ✅ CLEAR GROUPED FIELDS and default inventory to "track" when switching to simple
         ...(value === 'simple' && {
+          manageInventory: 'track',
           requireOtherProducts: false,
           requiredProductIds: '',
           automaticallyAddProducts: false,
@@ -5091,7 +5194,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       const result = response?.data;
 
       if (!result?.success || !Array.isArray(result.data)) {
-        throw new Error(result?.message || 'Invalid server response');
+        throw new Error(getBackendMessage(response));
       }
 
       toast.success('Images uploaded successfully 📸');
@@ -5100,7 +5203,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
     } catch (error: any) {
       console.error('❌ Upload error:', error);
-      toast.error(error?.message || 'Failed to upload images');
+      toast.error(getBackendMessage(error));
       return [];
     }
   };
@@ -8122,7 +8225,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       {/* ==================== IMPROVED TAKEOVER MODAL (BETTER COLORS) ==================== */}
       {/* ✅ Takeover Request Modal */}
       <RequestTakeoverModal
-        isOpen={isTakeoverModalOpen}
+        isOpen={isTakeoverModalOpen && !takeoverRequest}
         onClose={closeTakeoverModal}
         onSubmit={handleTakeoverRequest}
         productName={formData.name || 'Product'}
@@ -8136,7 +8239,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       {/* Takeover Request Modal */}
       <TakeoverRequestModal
         productId={productId}
-        isOpen={isTakeoverModalOpen}
+        isOpen={isTakeoverModalOpen && !!takeoverRequest}
         onClose={handleTakeoverModalClose}
         request={takeoverRequest}
         onActionComplete={handleTakeoverActionComplete}

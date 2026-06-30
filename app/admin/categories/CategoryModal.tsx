@@ -9,6 +9,7 @@ import { CheckCircle, Edit, Eye, Plus, Trash2, Upload, X } from "lucide-react";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { categoriesService, Category } from "@/lib/services/categories";
 import { getImageUrl } from "../_utils/formatUtils";
+import { getBackendMessage } from "../_utils/errorUtils";
 interface Props {
   showModal: boolean;
   setShowModal: (v: boolean) => void;
@@ -173,7 +174,7 @@ export default function CategoryModal({
       }));
 
     } catch (error: any) {
-      toast.error("Delete failed");
+      toast.error(getBackendMessage(error));
     } finally {
       setIsDeletingImage(false);
       setImageDeleteConfirm(null);

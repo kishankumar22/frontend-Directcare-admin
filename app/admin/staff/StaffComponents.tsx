@@ -567,13 +567,13 @@ export function StaffFormModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-violet-500/20 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-slate-200 dark:border-violet-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-violet-600/10 dark:to-cyan-500/10 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-violet-100/70 dark:border-slate-800 bg-gradient-to-r from-indigo-50/50 to-cyan-50/30 dark:from-indigo-950/20 dark:to-cyan-950/20 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h2 className="text-xl font-bold text-black dark:text-white">
               {mode === 'create' ? 'Create Staff' : 'Edit Staff'}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               {mode === 'create' ? 'Create a new staff account' : 'Update staff details'}
             </p>
           </div>
@@ -714,7 +714,7 @@ export function StaffFormModal({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 transition-all"
+            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-950 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 transition-all font-medium"
           >
             Cancel
           </button>
@@ -781,13 +781,12 @@ export function ResetPasswordModal({
 
   if (!isOpen || !staff) return null;  return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-amber-500/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
 
-        {/* HEADER */}
-        <div className="p-4 border-b border-slate-200 dark:border-amber-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-amber-500/10 dark:to-orange-500/10 flex items-center justify-between">
+        <div className="p-4 border-b border-amber-100/70 dark:border-slate-800 bg-gradient-to-r from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/20 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Reset Password</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <h2 className="text-xl font-bold text-black dark:text-white">Reset Password</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               for {staff.fullName || staff.email}
             </p>
           </div>
@@ -795,7 +794,7 @@ export function ResetPasswordModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-655 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 border border-transparent hover:border-red-200 dark:hover:border-red-500/50 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -871,7 +870,7 @@ export function ResetPasswordModal({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-950 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 font-medium"
           >
             Cancel
           </button>
@@ -909,11 +908,11 @@ export function StaffViewModal({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 border border-slate-200 dark:border-cyan-500/20 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
-        <div className="p-4 border-b border-slate-200 dark:border-cyan-500/20 bg-slate-50 dark:bg-gradient-to-r dark:from-cyan-500/10 dark:to-violet-600/10 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-cyan-100/70 dark:border-slate-800 bg-gradient-to-r from-cyan-50/50 to-indigo-50/30 dark:from-cyan-950/20 dark:to-indigo-950/20 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Staff Details</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{item?.email || '—'}</p>
+            <h2 className="text-xl font-bold text-black dark:text-white">Staff Details</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400">{item?.email || '—'}</p>
           </div>
           <button
             type="button"

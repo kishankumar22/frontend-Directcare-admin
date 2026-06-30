@@ -481,7 +481,7 @@ export default function AddProductPage() {
 
       } catch (error) {
         console.error('Error fetching data:', error);
-        toast.error('Failed to load data');
+        toast.error(`Failed to load data: ${getBackendMessage(error)}`);
         setAvailableProducts([]);
       }
     };
@@ -2008,7 +2008,7 @@ export default function AddProductPage() {
           }
         } catch (imageError) {
           console.error("Error uploading product images:", imageError);
-          toast.warning("Product created but some images failed to upload.");
+          toast.warning(`Product created but some images failed to upload: ${getBackendMessage(imageError)}`);
         }
       }
 
@@ -2038,7 +2038,7 @@ export default function AddProductPage() {
             }
           } catch (variantError) {
             console.error("Error uploading variant images:", variantError);
-            toast.warning("Some variant images failed to upload.");
+            toast.warning(`Some variant images failed to upload: ${getBackendMessage(variantError)}`);
           }
         }
       }
@@ -2059,7 +2059,7 @@ export default function AddProductPage() {
           console.log("  Pharmacy questions assigned");
         } catch (pharmaError) {
           console.error("Error assigning pharmacy questions:", pharmaError);
-          toast.warning("Product created but pharmacy questions failed to assign.");
+          toast.warning(`Product created but pharmacy questions failed to assign: ${getBackendMessage(pharmaError)}`);
         }
       }
 
@@ -2178,13 +2178,15 @@ export default function AddProductPage() {
         ...prev,
         productType: value,
 
-        // Clear SKU when switching to variable (unless in edit mode with an existing SKU)
-        ...(value === 'variable' && (!isEditMode || !prev.sku) && {
-          sku: '',
+        // Clear SKU and default inventory to "dont-track" when switching to variable (unless in edit mode with an existing SKU)
+        ...(value === 'variable' && {
+          manageInventory: 'dont-track',
+          ...((!isEditMode || !prev.sku) && { sku: '' }),
         }),
 
-        // Clear grouped fields when switching to simple
+        // Clear grouped fields and default inventory to "track" when switching to simple
         ...(value === 'simple' && {
+          manageInventory: 'track',
           requireOtherProducts: false,
           requiredProductIds: '',
           automaticallyAddProducts: false,
@@ -2804,9 +2806,7 @@ export default function AddProductPage() {
         !response?.data?.success ||
         !Array.isArray(response.data.data)
       ) {
-        throw new Error(
-          response?.data?.message || "Invalid server response"
-        );
+        throw new Error(getBackendMessage(response));
       }
 
       const uploadedImages = response.data.data || [];
@@ -2832,12 +2832,7 @@ export default function AddProductPage() {
     } catch (error: any) {
       console.error("❌ Upload error:", error);
 
-      toast.error(
-        `Failed to upload images: ${error?.response?.data?.message ||
-        error.message ||
-        "Unknown error"
-        }`
-      );
+      toast.error(`Failed to upload images: ${getBackendMessage(error)}`);
 
       return [];
     }
@@ -2914,6 +2909,7 @@ export default function AddProductPage() {
           return response.data;
         } catch (error: any) {
           console.error(`  Error uploading image for ${localVariant.name}:`, error);
+          toast.error(`Variant ${localVariant.name} image upload failed: ${getBackendMessage(error)}`);
           return null;
         }
       });

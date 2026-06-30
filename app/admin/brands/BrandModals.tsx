@@ -11,6 +11,7 @@ import { Brand, brandsService } from "@/lib/services/brands";
 import BrandFaqManager from "./BrandFaqManager";
 import { brandFaqsService } from "@/lib/services/brandFaqs";
 import { extractFilename, formatDate } from "../_utils/formatUtils";
+import { getBackendMessage } from "../_utils/errorUtils";
 
 
 const MAX_HOMEPAGE_BRANDS = 50;
@@ -168,7 +169,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
     await fetchBrands();
   } catch (error: any) {
     console.error("Error deleting image:", error);
-    toast.error(error?.response?.data?.message || "Failed to delete image");
+    toast.error(getBackendMessage(error));
   } finally {
     setIsDeletingImage(false);
     setImageDeleteConfirm(null);
@@ -280,7 +281,7 @@ if (!brandName) {
     setActiveTab("basic");
 
   } catch (err: any) {
-    toast.error(err?.message || "Failed");
+    toast.error(getBackendMessage(err));
   } finally {
     setIsSubmitting(false);
   }

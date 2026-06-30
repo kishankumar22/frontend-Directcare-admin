@@ -645,6 +645,7 @@ useEffect(() => {
                       <option value="AssignedToProducts">Assigned to products</option>
                       <option value="AssignedToCategories">Assigned to categories</option>
                       <option value="AssignedToShipping">Assigned to shipping</option>
+                      <option value="UpToPercentage">Up to X% (umbrella)</option>
                     </select>
                   </div>
 
@@ -694,7 +695,19 @@ useEffect(() => {
                 </h3>
 
                 <div className="space-y-4">
-                  
+
+                  {/* FOR UP TO X% (UMBRELLA) — no manual product/category selection */}
+                  {formData.discountType === "UpToPercentage" && (
+                    <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/30 text-sm text-slate-700 dark:text-slate-300">
+                      <p className="font-medium text-slate-900 dark:text-white mb-1">🏷️ Automatic umbrella discount</p>
+                      <p>
+                        No need to pick products. This will automatically include every product whose
+                        current percentage discount is <strong>greater than 0% and up to the percentage</strong> you
+                        set below. Use it to run a single “Up to X% Off” campaign covering all your smaller discounts.
+                      </p>
+                    </div>
+                  )}
+
                   {/* FOR ASSIGNED TO PRODUCTS */}
                   {formData.discountType === "AssignedToProducts" && (
                     <div>
@@ -922,7 +935,7 @@ useEffect(() => {
                   <span>Discount Value</span>
                 </h3>
                 
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+       <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 ${formData.discountType === "UpToPercentage" ? "hidden" : ""}`}>
 
   {/* Percentage */}
   <label

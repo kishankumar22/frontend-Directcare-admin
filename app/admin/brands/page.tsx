@@ -9,6 +9,7 @@ import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
 import { useRouter } from "next/navigation";
 import BrandModals from "./BrandModals";
 import { formatDate, getImageUrl } from "../_utils/formatUtils";
+import Link from "next/link";
 
 export default function BrandsPage() {
   const toast = useToast();
@@ -735,23 +736,23 @@ const goToPage = useCallback((page: number) => {
                         </div>
                       </td>
 
-                      <td className="py-2 px-3">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded-md text-xs font-medium">
-                            {brand.productCount}
-                          </span>
-                          <a
-                            href={`http://localhost:3000/brands/${brand.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-slate-500 hover:text-cyan-400 transition-colors p-0.5 rounded"
-                            title="View on website"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                      </td>
+                   <td className="py-2 px-3">
+  <div className="flex items-center justify-center gap-1.5">
+    <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded-md text-xs font-medium">
+      {brand.productCount}
+    </span>
 
+    <Link
+      href={`/brands/${brand.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-slate-500 hover:text-cyan-400 transition-colors p-0.5 rounded inline-flex"
+      title="View on website"
+    >
+      <ExternalLink className="h-3 w-3" />
+    </Link>
+  </div>
+</td>
                       <td className="py-2 px-3 text-center">
                         <span
                           className={`px-2 py-0.5 rounded-md text-xs font-medium ${

@@ -7,6 +7,7 @@ import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { blogCommentsService, BlogComment, BlogPost } from "@/lib/services/blogComments";
 import { formatDate } from "../_utils/formatUtils";
+import { getBackendMessage } from "../_utils/errorUtils";
 
 
 export default function CommentsPage() {
@@ -160,35 +161,13 @@ const handleUndelete = async (commentId: string) => {
       await fetchBlogPosts();
     } else {
       // ✅ FIXED: Better error handling
-      const errorMessage = response.data?.message || "Failed to restore comment";
-      
-      // Check specific error types
-      if (errorMessage.toLowerCase().includes("not deleted")) {
-        toast.error("⚠️ This comment is already active!");
-      } else if (errorMessage.toLowerCase().includes("not found")) {
-        toast.error("❌ Comment not found!");
-      } else {
-        toast.error(`❌ ${errorMessage}`);
-      }
-      
-      console.log("❌ Undelete failed:", errorMessage);
+      toast.error(getBackendMessage(response));
+      console.log("❌ Undelete failed:", getBackendMessage(response));
     }
     
   } catch (error: any) {
     console.error("❌ Error undeleting comment:", error);
-    
-    const errorMessage = 
-      error?.response?.data?.message || 
-      error?.response?.data?.errors?.[0] ||
-      error?.message || 
-      "Failed to restore comment. Please try again.";
-    
-    // ✅ Better error display
-    if (errorMessage.toLowerCase().includes("not deleted")) {
-      toast.error("⚠️ This comment is already active!");
-    } else {
-      toast.error(`❌ ${errorMessage}`);
-    }
+    toast.error(getBackendMessage(error));
     
     console.error("Error details:", {
       status: error?.response?.status,
@@ -229,16 +208,11 @@ const handleSubmitSpamFlag = async () => {
       setSpamFlagModal(null);
       await fetchBlogPosts(); // Refresh data
     } else {
-      toast.error(response.data?.message || "Failed to flag as spam");
+      toast.error(getBackendMessage(response));
     }
   } catch (error: any) {
     console.error("❌ Error:", error);
-    const errorMessage = 
-      error?.response?.data?.message || 
-      error?.response?.data?.errors?.[0] ||
-      error?.message || 
-      "Failed to flag as spam";
-    toast.error(errorMessage);
+    toast.error(getBackendMessage(error));
   } finally {
     setIsSubmittingSpam(false);
   }
@@ -290,7 +264,7 @@ const handleSubmitSpamFlag = async () => {
       }
     } catch (error: any) {
       console.error("Error fetching blog posts:", error);
-      toast.error("Failed to load blog posts");
+      toast.error(`Failed to load blog posts: ${getBackendMessage(error)}`);
       setBlogPosts([]);
     } finally {
       setLoadingPosts(false);
@@ -372,7 +346,7 @@ const fetchComments = async (specificPostId?: string) => {
     setComments(filteredComments);
   } catch (error: any) {
     console.error("Error fetching comments:", error);
-    toast.error("Failed to load comments");
+    toast.error(`Failed to load comments: ${getBackendMessage(error)}`);
     setComments([]);
   } finally {
     setLoadingComments(false);
@@ -403,11 +377,11 @@ useEffect(() => {
         toast.success("Comment approved successfully!");
         await fetchBlogPosts();
       } else {
-        toast.error(response.data?.message || "Failed to approve comment");
+        toast.error(getBackendMessage(response));
       }
     } catch (error: any) {
       console.error("Error approving comment:", error);
-      toast.error(error?.response?.data?.message || "Failed to approve comment");
+      toast.error(getBackendMessage(error));
     } finally {
       setActionLoading(null);
     }
@@ -422,12 +396,11 @@ useEffect(() => {
         setDeleteConfirm(null);
         await fetchBlogPosts();
       } else {
-        toast.error(response.data?.message || "Failed to delete comment");
+        toast.error(getBackendMessage(response));
       }
     } catch (error: any) {
       console.error("Error deleting comment:", error);
-      const errorMessage = error?.response?.data?.message || error?.response?.data?.errors?.[0] || error?.message || "Failed to delete comment";
-      toast.error(errorMessage);
+      toast.error(getBackendMessage(error));
     } finally {
       setIsDeleting(false);
     }
@@ -441,11 +414,11 @@ useEffect(() => {
         toast.success("Comment restored from spam!");
         await fetchBlogPosts();
       } else {
-        toast.error(response.data?.message || "Failed to restore comment");
+        toast.error(getBackendMessage(response));
       }
     } catch (error: any) {
       console.error("Error unflagging spam:", error);
-      toast.error(error?.response?.data?.message || "Failed to restore comment");
+      toast.error(getBackendMessage(error));
     } finally {
       setActionLoading(null);
     }
@@ -472,11 +445,11 @@ useEffect(() => {
         setReplyText("");
         await fetchBlogPosts();
       } else {
-        toast.error(response.data?.message || "Failed to post reply");
+        toast.error(getBackendMessage(response));
       }
     } catch (error: any) {
       console.error("Error posting reply:", error);
-      toast.error(error?.response?.data?.message || "Failed to post reply");
+      toast.error(getBackendMessage(error));
     } finally {
       setActionLoading(null);
     }

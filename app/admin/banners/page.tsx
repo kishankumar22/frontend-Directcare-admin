@@ -43,7 +43,7 @@ const handleRestore = async (id: string) => {
   try {
     const res = await bannersService.restore(id);
     if (res.error) {
-      toast.error(res.error);
+      toast.error(getBackendMessage(res));
       return;
     }
     toast.success("Banner restored successfully!");
@@ -155,7 +155,7 @@ const fetchBanners = async () => {
     const response = await bannersService.getAll({ params });
 
     if (response.error) {
-      toast.error(response.error);
+      toast.error(getBackendMessage(response));
       return;
     }
 
@@ -469,14 +469,14 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (editingBanner) {
       const res = await bannersService.update(editingBanner.id, payload);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(getBackendMessage(res));
         return;
       }
       toast.success("Banner updated successfully!");
     } else {
       const res = await bannersService.create(payload);
       if (res.error) {
-        toast.error(res.error);
+        toast.error(getBackendMessage(res));
         return;
       }
       toast.success("Banner created successfully!");
@@ -536,7 +536,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     try {
       const response = await bannersService.delete(id);
       if (response.error) {
-        toast.error(response.error);
+        toast.error(getBackendMessage(response));
         return;
       }
       toast.success("Banner deleted successfully! 🗑️");
@@ -1969,7 +1969,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
             const res = await bannersService.update(statusConfirm.id, payload);
             if (res.error) {
-              toast.error(res.error);
+              toast.error(getBackendMessage(res));
               return;
             }
 
@@ -1978,7 +1978,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             await fetchBanners();
 
           } catch (error: any) {
-            toast.error(error.message || "Update failed");
+            toast.error(getBackendMessage(error));
           }
         }}
         title="Change Status"

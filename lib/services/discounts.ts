@@ -10,7 +10,8 @@ export type DiscountType =
   | "AssignedToCategories"
   | "AssignedToManufacturers"
   | "AssignedToShipping"
-  | "AssignedToOrderSubTotal";
+  | "AssignedToOrderSubTotal"
+  | "UpToPercentage";
 
 export type DiscountLimitationType = "Unlimited" | "NTimesOnly" | "NTimesPerCustomer";
 

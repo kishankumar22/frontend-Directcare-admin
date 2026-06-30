@@ -1,13 +1,13 @@
 //app\admin\products\page.tsx
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import Select from "react-select";
 import {
-  Plus, Package, Edit, Trash2, Eye, Search,  FilterX,
-   AlertCircle, X, CheckCircle, XCircle, ChevronLeft,
-  ChevronRight, ChevronsLeft, ChevronsRight, Send, 
+  Plus, Package, Edit, Trash2, Eye, Search, FilterX,
+  AlertCircle, X, CheckCircle, XCircle, ChevronLeft,
+  ChevronRight, ChevronsLeft, ChevronsRight, Send,
   Tag, ExternalLink, ChevronDown, ChevronUp,
   FileSpreadsheet,
   Upload,
@@ -72,7 +72,7 @@ interface FormattedProduct {
   updatedAt: string;
   updatedBy: string;
   variantsCount: number;
-    isPharmaProduct: boolean;
+  isPharmaProduct: boolean;
   pharmaApprovalStatus: string;
   pharmaApprovedAt?: string | null;
   pharmaApprovedBy?: string | null;
@@ -85,7 +85,7 @@ interface FormattedProduct {
   notifyAdminForQuantityBelow: boolean;
   notifyQuantityBelow: number;
   allowBackorder: boolean;
-  
+
   // Other flags
   markAsNew: boolean;
   notReturnable: boolean;
@@ -94,16 +94,17 @@ interface FormattedProduct {
   nextDayDeliveryEnabled: boolean;
   standardDeliveryEnabled: boolean;
   sameDayDeliveryEnabled: boolean;
-  
+
   // Discounts
   hasDiscount: boolean;
   discountLabel: string;
   discountTitle: string;
   assignedDiscounts?: any[]; // Add this for discount filtering
-  
+
   // Raw date for sorting
   rawCreatedAt: string;
   rawUpdatedAt: string;
+  variants?: any[];
 }
 interface CategoryData {
   id: string;
@@ -142,7 +143,7 @@ export default function ProductsPage() {
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const ALLOWED_SORT_FIELDS = ['name', 'price', 'createdAt'];
-  
+
   // API Pagination state
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -154,22 +155,23 @@ export default function ProductsPage() {
   const [filterLoading, setFilterLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Add these near your other state declarations (around line where you have searchTerm)
-const [searchInput, setSearchInput] = useState("");
-const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
   // Export menu state
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [expandedProducts, setExpandedProducts] = useState<string[]>([]);
 
 
-const [bulkAction, setBulkAction] = useState<null | {
-  type: "activate" | "deactivate" | "publish" | "unpublish" | "delete" | "restore";
-  items: FormattedProduct[];
-}>(null);
+  const [bulkAction, setBulkAction] = useState<null | {
+    type: "activate" | "deactivate" | "publish" | "unpublish" | "delete" | "restore";
+    items: FormattedProduct[];
+  }>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<SelectOption>({ value: "all", label: "All Categories" });
   const [selectedBrand, setSelectedBrand] = useState<SelectOption>({ value: "all", label: "All Brands" });
   const [selectedHomepage, setSelectedHomepage] = useState<SelectOption>({ value: "all", label: "Homepage: All" });
   const [selectedType, setSelectedType] = useState<SelectOption>({ value: "all", label: "All Types" });
-  
+
   // Second row filters
   const [statusFilter, setStatusFilter] = useState<SelectOption>({ value: "all", label: "All Stock Status" });
   const [publishedFilter, setPublishedFilter] = useState<SelectOption>({ value: "all", label: "All Visibility" });
@@ -179,7 +181,7 @@ const [bulkAction, setBulkAction] = useState<null | {
   // const [inventoryFilter, setInventoryFilter] = useState<SelectOption>({ value: "all", label: "Inventory: All" });
   const [recurringFilter, setRecurringFilter] = useState<SelectOption>({ value: "all", label: "Subscription: All" });
   const [vatFilter, setVatFilter] = useState<SelectOption>({ value: "all", label: "VAT: All" });
-  
+
 
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -209,26 +211,26 @@ const [bulkAction, setBulkAction] = useState<null | {
     { value: "variable", label: "variable" },
   ];
 
-const statusOptions: SelectOption[] = [
-  { value: "all", label: "All Stock Status" },
-  { value: "InStock", label: "In Stock" },
-  { value: "LowStock", label: "Low Stock" },
-  { value: "OutOfStock", label: "Out of Stock" },
-];
+  const statusOptions: SelectOption[] = [
+    { value: "all", label: "All Stock Status" },
+    { value: "InStock", label: "In Stock" },
+    { value: "LowStock", label: "Low Stock" },
+    { value: "OutOfStock", label: "Out of Stock" },
+  ];
 
-const pharmaOptions: SelectOption[] = [
-  { value: "all", label: "Product Type" },
-  { value: "yes", label: "Pharma " },
-  { value: "no", label: "Others" },
-];
+  const pharmaOptions: SelectOption[] = [
+    { value: "all", label: "Product Type" },
+    { value: "yes", label: "Pharma " },
+    { value: "no", label: "Others" },
+  ];
 
-const pharmaApprovalOptions: SelectOption[] = [
-  { value: "all", label: "Approval: All" },
-  { value: "Pending", label: "Pending Review" },
-  { value: "Approved", label: "Approved" },
-  { value: "Rejected", label: "Rejected" },
-  { value: "NotRequired", label: "Not Required" },
-];
+  const pharmaApprovalOptions: SelectOption[] = [
+    { value: "all", label: "Approval: All" },
+    { value: "Pending", label: "Pending Review" },
+    { value: "Approved", label: "Approved" },
+    { value: "Rejected", label: "Rejected" },
+    { value: "NotRequired", label: "Not Required" },
+  ];
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
     { value: "published", label: "Published" },
@@ -265,22 +267,22 @@ const pharmaApprovalOptions: SelectOption[] = [
     { value: "no", label: "One-time" },
   ];
 
-const [vatOptions, setVatOptions] = useState<SelectOption[]>([
- { value:"all", label:"VAT: All" }
-]);
+  const [vatOptions, setVatOptions] = useState<SelectOption[]>([
+    { value: "all", label: "VAT: All" }
+  ]);
 
 
-const deletedOptions = [
-  { value: "all", label: "All Records" },
-  { value: "active", label: "Active Only" },
-  { value: "inactive", label: "Inactive Only" },
-  { value: "deleted", label: "Deleted Only" },
-];
+  const deletedOptions = [
+    { value: "all", label: "All Records" },
+    { value: "active", label: "Active Only" },
+    { value: "inactive", label: "Inactive Only" },
+    { value: "deleted", label: "Deleted Only" },
+  ];
 
- const [deletedFilter, setDeletedFilter] = useState({
-  value: "all",
-  label: "All Records",
-});
+  const [deletedFilter, setDeletedFilter] = useState({
+    value: "all",
+    label: "All Records",
+  });
   const [isProcessing, setIsProcessing] = useState(false);
 
 
@@ -290,80 +292,80 @@ const deletedOptions = [
   const [showToggleConfirm, setShowToggleConfirm] = useState(false);
   const [apiStats, setApiStats] = useState<any>(null);
   const [sortBy, setSortBy] = useState<string>('createdAt');
-const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-// BULK SELECTION
-const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-const [exportingSelected, setExportingSelected] = useState(false);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  // BULK SELECTION
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [exportingSelected, setExportingSelected] = useState(false);
   // ✅ HELPERS
   // BULK SELECT HANDLERS
-const handleSelectProduct = (productId: string) => {
-  setSelectedProducts((prev) =>
-    prev.includes(productId)
-      ? prev.filter((id) => id !== productId)
-      : [...prev, productId]
-  );
-};
+  const handleSelectProduct = (productId: string) => {
+    setSelectedProducts((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId]
+    );
+  };
 
-const fetchVATRates = async () => {
-  try {
-    
+  const fetchVATRates = async () => {
+    try {
 
-    const response = await vatratesService.getAll();
 
-    if (response?.data?.success) {
-      const list = response.data.data || [];
+      const response = await vatratesService.getAll();
+
+      if (response?.data?.success) {
+        const list = response.data.data || [];
+
+        setVatOptions([
+          { value: "all", label: "All VAT Rates" },
+
+          ...list.map((v: any) => ({
+            value: v.id,
+            label: `${v.name} (${v.rate}%)`,
+          })),
+        ]);
+      } else {
+        setVatOptions([
+          { value: "all", label: "All VAT Rates" },
+        ]);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load VAT rates");
 
       setVatOptions([
         { value: "all", label: "All VAT Rates" },
+      ]);
+    } finally {
 
-        ...list.map((v: any) => ({
-          value: v.id,
-          label: `${v.name} (${v.rate}%)`,
-        })),
-      ]);
-    } else {
-      setVatOptions([
-        { value: "all", label: "All VAT Rates" },
-      ]);
     }
-  } catch (error) {
-    console.error(error);
-    toast.error("Failed to load VAT rates");
+  };
 
-    setVatOptions([
-      { value: "all", label: "All VAT Rates" },
-    ]);
-  } finally {
-   
-  }
-};
+  const handleSort = (field: string) => {
+    if (!ALLOWED_SORT_FIELDS.includes(field)) return;
 
-const handleSort = (field: string) => {
-  if (!ALLOWED_SORT_FIELDS.includes(field)) return;
+    if (sortBy === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortDirection('asc');
+    }
+  };
+  useEffect(() => {
+    if (searchInput.trim() !== "") {
+      setSearchLoading(true);
+    }
+  }, [searchInput]);
 
-  if (sortBy === field) {
-    setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
-  } else {
-    setSortBy(field);
-    setSortDirection('asc');
-  }
-};
-useEffect(() => {
-  if (searchInput.trim() !== "") {
-    setSearchLoading(true);
-  }
-}, [searchInput]);
-
-const handleSelectAll = () => {
-  if (selectedProducts.length === products.length) {
-    setSelectedProducts([]);
-  } else {
-    const selectableIds = products
-      .filter((p) => !p.isDeleted)
-      .map((p) => p.id);
-    setSelectedProducts(selectableIds);
-  }
-};
+  const handleSelectAll = () => {
+    if (selectedProducts.length === products.length) {
+      setSelectedProducts([]);
+    } else {
+      const selectableIds = products
+        .filter((p) => !p.isDeleted)
+        .map((p) => p.id);
+      setSelectedProducts(selectableIds);
+    }
+  };
 
 
   const openProductActionModal = (product: {
@@ -425,427 +427,430 @@ const handleSelectAll = () => {
       setShowDeleteConfirm(false);
     }
   };
-// ✅ INITIAL FETCH - runs when page, itemsPerPage, or BACKEND filters change
+  // ✅ INITIAL FETCH - runs when page, itemsPerPage, or BACKEND filters change
 
-const [pharmaFilter, setPharmaFilter] = useState<SelectOption>({
-  value: "all",
-  label: "All Products",
-});
-
-const [pharmaApprovalFilter, setPharmaApprovalFilter] = useState<SelectOption>({
-  value: "all",
-  label: "Approval: All",
-});
-
-const [pharmaApprovalModal, setPharmaApprovalModal] = useState<{
-  isOpen: boolean;
-  mode: "approve" | "reject";
-  productId: string;
-  productName: string;
-} | null>(null);
-const [pharmaComment, setPharmaComment] = useState("");
-const [pharmaProcessing, setPharmaProcessing] = useState(false);
-
-
-useEffect(()=>{
- fetchVATRates();
- fetchCategories();
- fetchBrands();
-},[])
-
-
-
-// ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
-const fetchProducts = async () => {
-  // setLoading(true);
-   setFilterLoading(true); // ✅ start loader
-
-  try {
-    // Build backend params
-    const params: any = {
-  page: currentPage,
-  pageSize: itemsPerPage,
-  sortBy,
-  sortDirection,
-};
-    if (statusFilter.value !== "all") {
-      params.stockStatus = statusFilter.value;
-    }
-
-delete params.isDeleted;
-delete params.isActive;
-
-if (deletedFilter.value === "deleted") {
-  params.isDeleted = true;
-}
-
-if (deletedFilter.value === "active") {
-  params.isActive = true;
-}
-
-if (deletedFilter.value === "inactive") {
-  params.isActive = false;
-}
-
-if (debouncedSearchTerm.trim()) {
-  params.searchTerm = debouncedSearchTerm.trim();
-}
-
-    if (selectedCategory.value !== "all") {
-  params.categoryId = selectedCategory.value;
-}
-
- if (selectedBrand.value !== "all") {
-  params.brandId = selectedBrand.value;
-}
-
-    if (publishedFilter.value !== "all") {
-      params.isPublished = publishedFilter.value === "published";
-    }
-
-    if (markAsNewFilter.value !== "all") {
-      params.markAsNew = markAsNewFilter.value === "yes";
-    }
-
-    if (selectedHomepage.value !== "all") {
-      params.showOnHomepage = selectedHomepage.value === "yes";
-    }
-    if (pharmaFilter.value !== "all") {
-  params.isPharmaProduct = pharmaFilter.value === "yes";
-}
-
-if (pharmaApprovalFilter.value !== "all") {
-  params.pharmaApprovalStatus = pharmaApprovalFilter.value;
-}
-
-if (selectedType.value !== "all") {
-  params.productType = selectedType.value;
-}
-    if (deliveryFilter.value !== "all") {
-      if (deliveryFilter.value === "nextDay") params.nextDayDeliveryEnabled = true;
-      else if (deliveryFilter.value === "sameDay") params.sameDayDeliveryEnabled = true;
-      else if (deliveryFilter.value === "standard") params.standardDeliveryEnabled = true;
-    }
-
-    if (notReturnableFilter.value !== "all") {
-      params.notReturnable = notReturnableFilter.value === "yes";
-    }
-
-    // if (inventoryFilter.value !== "all") {
-    //   if (inventoryFilter.value === "track") params.manageInventoryMethod = "track";
-    //   else if (inventoryFilter.value === "dont-track") params.manageInventoryMethod = "donttrack";
-    // }
-
-    if (recurringFilter.value !== "all") {
-      params.isRecurring = recurringFilter.value === "yes";
-    }
-
- // NEW ADD THIS
-if (vatFilter.value !== "all") {
-  params.vatRateId = vatFilter.value;
-}
-    const response = await productsService.getAll(params);
-
-    if (response.data?.success && response.data?.data?.items) {
-      const apiData = response.data.data;
-      let items = [...apiData.items];
-
-
-
-
-      // Calculate pagination info from API
-      const hasPrevious = apiData.page > 1;
-      const hasNext = apiData.page < apiData.totalPages;
-      
-     setTotalCount(apiData.stats?.totalProducts || 0);
-      setTotalPages(apiData.totalPages);
-      setCurrentPage(apiData.page);
-      setHasPrevious(hasPrevious);
-      setHasNext(hasNext);
-
-      const formattedProducts: FormattedProduct[] = items.map((p: any) => {
-        const primaryCategoryName = getPrimaryCategoryName(p.categories);
-        const defaultVariant =
-  Array.isArray(p.variants) &&
-  p.variants.length > 0
-    ? (
-        p.variants.find(
-          (v: {
-            isDefault?: boolean;
-          }) => v.isDefault === true
-        ) || p.variants[0]
-      )
-    : null;
-
-const resolvedStockQuantity: number =
-  typeof defaultVariant?.stockQuantity ===
-  "number"
-    ? defaultVariant.stockQuantity
-    : typeof p.stockQuantity === "number"
-    ? p.stockQuantity
-    : 0;
-    const resolvedPrice: number =
-  typeof defaultVariant?.price === "number"
-    ? defaultVariant.price
-    : typeof p.price === "number"
-    ? p.price
-    : 0;
-
-const resolvedStockStatus =
-  productHelpers.getStockStatus({
-    stockQuantity: resolvedStockQuantity,
-
-    trackQuantity:
-      typeof defaultVariant?.trackInventory ===
-      "boolean"
-        ? defaultVariant.trackInventory
-        : Boolean(p.trackQuantity),
-
-    lowStockThreshold:
-      typeof p.lowStockThreshold === "number"
-        ? p.lowStockThreshold
-        : 0,
-
-    allowBackorder:
-      typeof p.allowBackorder === "boolean"
-        ? p.allowBackorder
-        : false,
+  const [pharmaFilter, setPharmaFilter] = useState<SelectOption>({
+    value: "all",
+    label: "All Products",
   });
-        
 
-        // Discount Logic
-        const now = new Date();
-        const discountsArray = Array.isArray(p.assignedDiscounts) ? p.assignedDiscounts : [];
-        const activeDiscounts = discountsArray.filter((d: any) => {
-          if (!d?.isActive) return false;
-          const start = d.startDate ? new Date(d.startDate) : null;
-          const end = d.endDate ? new Date(d.endDate) : null;
-          if (start && now < start) return false;
-          if (end && now > end) return false;
-          return true;
-        });
+  const [pharmaApprovalFilter, setPharmaApprovalFilter] = useState<SelectOption>({
+    value: "all",
+    label: "Approval: All",
+  });
 
-        const hasDiscount = activeDiscounts.length > 0;
-        let discountLabel = "";
-        let discountTitle = "";
+  const [pharmaApprovalModal, setPharmaApprovalModal] = useState<{
+    isOpen: boolean;
+    mode: "approve" | "reject";
+    productId: string;
+    productName: string;
+  } | null>(null);
+  const [pharmaComment, setPharmaComment] = useState("");
+  const [pharmaProcessing, setPharmaProcessing] = useState(false);
 
-        if (hasDiscount) {
-          const bestDiscount = activeDiscounts.reduce((prev: any, current: any) => {
-            const prevValue = prev.usePercentage ? prev.discountPercentage : prev.discountAmount;
-            const currValue = current.usePercentage ? current.discountPercentage : current.discountAmount;
-            return currValue > prevValue ? current : prev;
+
+  useEffect(() => {
+    fetchVATRates();
+    fetchCategories();
+    fetchBrands();
+  }, [])
+
+
+
+  // ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
+  const fetchProducts = async () => {
+    // setLoading(true);
+    setFilterLoading(true); // ✅ start loader
+
+    try {
+      // Build backend params
+      const params: any = {
+        page: currentPage,
+        pageSize: itemsPerPage,
+        sortBy,
+        sortDirection,
+        outOfStockLast: false,
+      };
+      if (statusFilter.value !== "all") {
+        params.stockStatus = statusFilter.value;
+      }
+
+      delete params.isDeleted;
+      delete params.isActive;
+
+      if (deletedFilter.value === "deleted") {
+        params.isDeleted = true;
+      }
+
+      if (deletedFilter.value === "active") {
+        params.isActive = true;
+      }
+
+      if (deletedFilter.value === "inactive") {
+        params.isActive = false;
+      }
+
+      if (debouncedSearchTerm.trim()) {
+        params.searchTerm = debouncedSearchTerm.trim();
+      }
+
+      if (selectedCategory.value !== "all") {
+        params.categoryId = selectedCategory.value;
+      }
+
+      if (selectedBrand.value !== "all") {
+        params.brandId = selectedBrand.value;
+      }
+
+      if (publishedFilter.value !== "all") {
+        params.isPublished = publishedFilter.value === "published";
+      }
+
+      if (markAsNewFilter.value !== "all") {
+        params.markAsNew = markAsNewFilter.value === "yes";
+      }
+
+      if (selectedHomepage.value !== "all") {
+        params.showOnHomepage = selectedHomepage.value === "yes";
+      }
+      if (pharmaFilter.value !== "all") {
+        params.isPharmaProduct = pharmaFilter.value === "yes";
+      }
+
+      if (pharmaApprovalFilter.value !== "all") {
+        params.pharmaApprovalStatus = pharmaApprovalFilter.value;
+      }
+
+      if (selectedType.value !== "all") {
+        params.productType = selectedType.value;
+      }
+      if (deliveryFilter.value !== "all") {
+        if (deliveryFilter.value === "nextDay") params.nextDayDeliveryEnabled = true;
+        else if (deliveryFilter.value === "sameDay") params.sameDayDeliveryEnabled = true;
+        else if (deliveryFilter.value === "standard") params.standardDeliveryEnabled = true;
+      }
+
+      if (notReturnableFilter.value !== "all") {
+        params.notReturnable = notReturnableFilter.value === "yes";
+      }
+
+      // if (inventoryFilter.value !== "all") {
+      //   if (inventoryFilter.value === "track") params.manageInventoryMethod = "track";
+      //   else if (inventoryFilter.value === "dont-track") params.manageInventoryMethod = "donttrack";
+      // }
+
+      if (recurringFilter.value !== "all") {
+        params.isRecurring = recurringFilter.value === "yes";
+      }
+
+      // NEW ADD THIS
+      if (vatFilter.value !== "all") {
+        params.vatRateId = vatFilter.value;
+      }
+      const response = await productsService.getAll(params);
+
+      if (response.data?.success && response.data?.data?.items) {
+        const apiData = response.data.data;
+        let items = [...apiData.items];
+
+
+
+
+        // Calculate pagination info from API
+        const hasPrevious = apiData.page > 1;
+        const hasNext = apiData.page < apiData.totalPages;
+
+        setTotalCount(apiData.stats?.totalProducts || 0);
+        setTotalPages(apiData.totalPages);
+        setCurrentPage(apiData.page);
+        setHasPrevious(hasPrevious);
+        setHasNext(hasNext);
+
+        const formattedProducts: FormattedProduct[] = items.map((p: any) => {
+          const primaryCategoryName = getPrimaryCategoryName(p.categories);
+          const defaultVariant =
+            Array.isArray(p.variants) &&
+              p.variants.length > 0
+              ? (
+                p.variants.find(
+                  (v: {
+                    isDefault?: boolean;
+                  }) => v.isDefault === true
+                ) || p.variants[0]
+              )
+              : null;
+
+          const resolvedStockQuantity: number =
+            p.productType === "variable" && Array.isArray(p.variants)
+              ? p.variants.reduce((acc: number, curr: any) => acc + (curr.stockQuantity ?? 0), 0)
+              : typeof defaultVariant?.stockQuantity === "number"
+                ? defaultVariant.stockQuantity
+                : typeof p.stockQuantity === "number"
+                  ? p.stockQuantity
+                  : 0;
+          const resolvedPrice: number =
+            typeof defaultVariant?.price === "number"
+              ? defaultVariant.price
+              : typeof p.price === "number"
+                ? p.price
+                : 0;
+
+          const resolvedStockStatus =
+            productHelpers.getStockStatus({
+              stockQuantity: resolvedStockQuantity,
+
+              trackQuantity:
+                typeof defaultVariant?.trackInventory ===
+                  "boolean"
+                  ? defaultVariant.trackInventory
+                  : Boolean(p.trackQuantity),
+
+              lowStockThreshold:
+                typeof p.lowStockThreshold === "number"
+                  ? p.lowStockThreshold
+                  : 0,
+
+              allowBackorder:
+                typeof p.allowBackorder === "boolean"
+                  ? p.allowBackorder
+                  : false,
+            });
+
+
+          // Discount Logic
+          const now = new Date();
+          const discountsArray = Array.isArray(p.assignedDiscounts) ? p.assignedDiscounts : [];
+          const activeDiscounts = discountsArray.filter((d: any) => {
+            if (!d?.isActive) return false;
+            const start = d.startDate ? new Date(d.startDate) : null;
+            const end = d.endDate ? new Date(d.endDate) : null;
+            if (start && now < start) return false;
+            if (end && now > end) return false;
+            return true;
           });
 
-          discountLabel = bestDiscount.usePercentage
-            ? `${bestDiscount.discountPercentage}%`
-            : `£${bestDiscount.discountAmount}`;
-          discountTitle = `${bestDiscount.name} (${bestDiscount.discountType})`;
-        }
+          const hasDiscount = activeDiscounts.length > 0;
+          let discountLabel = "";
+          let discountTitle = "";
 
-        return {
-          id: p.id,
-          name: p.name,
-        isPharmaProduct: p.isPharmaProduct === true,
-        pharmaApprovalStatus: p.pharmaApprovalStatus || "NotRequired",
-        pharmaApprovedAt: p.pharmaApprovedAt || null,
-        pharmaApprovedBy: p.pharmaApprovedBy || null,
-        pharmaApprovalComment: p.pharmaApprovalComment || null,
-          categoryName: primaryCategoryName,
-         price: resolvedPrice,
-    stock: resolvedStockQuantity,
+          if (hasDiscount) {
+            const bestDiscount = activeDiscounts.reduce((prev: any, current: any) => {
+              const prevValue = prev.usePercentage ? prev.discountPercentage : prev.discountAmount;
+              const currValue = current.usePercentage ? current.discountPercentage : current.discountAmount;
+              return currValue > prevValue ? current : prev;
+            });
 
-stockQuantity: resolvedStockQuantity,
+            discountLabel = bestDiscount.usePercentage
+              ? `${bestDiscount.discountPercentage}%`
+              : `£${bestDiscount.discountAmount}`;
+            discountTitle = `${bestDiscount.name} (${bestDiscount.discountType})`;
+          }
 
-status: resolvedStockStatus,
-          image: getProductImage(p.images),
-          sales: 0,
-          shortDescription: p.shortDescription || "",
-       sku: p.sku || "",
-variantsCount: Array.isArray(p.variants) ? p.variants.length : 0,
-productType: p.productType || "simple",
-          createdAt: formatDate(p.createdAt),
-          updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
-          updatedBy: p.updatedBy || "N/A",
-          createdBy: p.createdBy || "N/A",
-          description: p.description || p.shortDescription || "",
-          category: primaryCategoryName,
-          isPublished: p.isPublished === true,
-        
-          brandName: p.brandName || "No Brand",
-          brandId: p.brandId,
-          slug: p.slug || "",
-          isActive: p.isActive === true,
-          showOnHomepage: p.showOnHomepage === true,
-          markAsNew: p.markAsNew === true,
-          notReturnable: p.notReturnable === true,
-          manageInventoryMethod: p.manageInventoryMethod || "track",
-          isRecurring: p.isRecurring === true,
-          vatExempt: p.vatExempt === true,
-          nextDayDeliveryEnabled: p.nextDayDeliveryEnabled === true,
-          standardDeliveryEnabled: p.standardDeliveryEnabled === true,
-          sameDayDeliveryEnabled: p.sameDayDeliveryEnabled === true,
-          trackQuantity: p.trackQuantity ?? false,
-          lowStockThreshold: p.lowStockThreshold ?? 0,
-          notifyAdminForQuantityBelow: p.notifyAdminForQuantityBelow ?? false,
-          notifyQuantityBelow: p.notifyQuantityBelow ?? 0,
-          allowBackorder: p.allowBackorder ?? false,
-          hasDiscount,
-          discountLabel,
-          discountTitle,
-          isDeleted: p.isDeleted === true,
-          rawCreatedAt: p.createdAt,
-          rawUpdatedAt: p.updatedAt,
-          assignedDiscounts: p.assignedDiscounts || [],
-        };
-      });
+          return {
+            id: p.id,
+            name: p.name,
+            isPharmaProduct: p.isPharmaProduct === true,
+            pharmaApprovalStatus: p.pharmaApprovalStatus || "NotRequired",
+            pharmaApprovedAt: p.pharmaApprovedAt || null,
+            pharmaApprovedBy: p.pharmaApprovedBy || null,
+            pharmaApprovalComment: p.pharmaApprovalComment || null,
+            categoryName: primaryCategoryName,
+            price: resolvedPrice,
+            stock: resolvedStockQuantity,
 
-      
+            stockQuantity: resolvedStockQuantity,
 
-// ✅ ADD THIS
-setApiStats(apiData.stats);
-// console.log("STATS 👉", apiData.stats);
-      setProducts(formattedProducts);
-setSelectedProducts([]);
-      // Related Products Map
-      const productMap = new Map<string, RelatedProduct>();
-      apiData.items.forEach((p: any) => {
-        productMap.set(p.id, {
-          id: p.id,
-          name: p.name,
-          price: p.price || 0,
-          sku: p.sku || "",
-          image: getProductImage(p.images),
+            status: resolvedStockStatus,
+            image: getProductImage(p.images),
+            sales: 0,
+            shortDescription: p.shortDescription || "",
+            sku: p.sku || "",
+            variantsCount: Array.isArray(p.variants) ? p.variants.length : 0,
+            productType: p.productType || "simple",
+            createdAt: formatDate(p.createdAt),
+            updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
+            updatedBy: p.updatedBy || "N/A",
+            createdBy: p.createdBy || "N/A",
+            description: p.description || p.shortDescription || "",
+            category: primaryCategoryName,
+            isPublished: p.isPublished === true,
+
+            brandName: p.brandName || "No Brand",
+            brandId: p.brandId,
+            slug: p.slug || "",
+            isActive: p.isActive === true,
+            showOnHomepage: p.showOnHomepage === true,
+            markAsNew: p.markAsNew === true,
+            notReturnable: p.notReturnable === true,
+            manageInventoryMethod: p.manageInventoryMethod || "track",
+            isRecurring: p.isRecurring === true,
+            vatExempt: p.vatExempt === true,
+            nextDayDeliveryEnabled: p.nextDayDeliveryEnabled === true,
+            standardDeliveryEnabled: p.standardDeliveryEnabled === true,
+            sameDayDeliveryEnabled: p.sameDayDeliveryEnabled === true,
+            trackQuantity: p.trackQuantity ?? false,
+            lowStockThreshold: p.lowStockThreshold ?? 0,
+            notifyAdminForQuantityBelow: p.notifyAdminForQuantityBelow ?? false,
+            notifyQuantityBelow: p.notifyQuantityBelow ?? 0,
+            allowBackorder: p.allowBackorder ?? false,
+            hasDiscount,
+            discountLabel,
+            discountTitle,
+            isDeleted: p.isDeleted === true,
+            rawCreatedAt: p.createdAt,
+            rawUpdatedAt: p.updatedAt,
+            assignedDiscounts: p.assignedDiscounts || [],
+            variants: p.variants || [],
+          };
         });
-      });
-      setAllProductsMap(productMap);
-    } else {
-      toast.warning("No products found.");
-      setProducts([]);
-      setTotalCount(0);
-      setTotalPages(1);
-      setHasPrevious(false);
-      setHasNext(false);
+
+
+
+        // ✅ ADD THIS
+        setApiStats(apiData.stats);
+        // console.log("STATS 👉", apiData.stats);
+        setProducts(formattedProducts);
+        setSelectedProducts([]);
+        // Related Products Map
+        const productMap = new Map<string, RelatedProduct>();
+        apiData.items.forEach((p: any) => {
+          productMap.set(p.id, {
+            id: p.id,
+            name: p.name,
+            price: p.price || 0,
+            sku: p.sku || "",
+            image: getProductImage(p.images),
+          });
+        });
+        setAllProductsMap(productMap);
+      } else {
+        toast.warning("No products found.");
+        setProducts([]);
+        setTotalCount(0);
+        setTotalPages(1);
+        setHasPrevious(false);
+        setHasNext(false);
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      toast.error("Failed to load products.");
+    } finally {
+      setLoading(false);
+      setSearchLoading(false); // ✅ search complete 
+      setFilterLoading(false); // ✅ stop loader
     }
-  } catch (err) {
-    console.error("Error fetching products:", err);
-    toast.error("Failed to load products.");
-  } finally {
-    setLoading(false);
-     setSearchLoading(false); // ✅ search complete 
-         setFilterLoading(false); // ✅ stop loader
-  }
-};
+  };
   // ✅ FETCH CATEGORIES
-const fetchCategories = async () => {
-  try {
-    const response = await categoriesService.getAll({
-      params: {
-        includeInactive: false,
-        includeSubCategories: true,
-      },
-    });
+  const fetchCategories = async () => {
+    try {
+      const response = await categoriesService.getAll({
+        params: {
+          includeInactive: false,
+          includeSubCategories: true,
+        },
+      });
 
-    const categoriesData = Array.isArray(response.data?.data?.items)
-      ? response.data.data.items
-      : [];
+      const categoriesData = Array.isArray(response.data?.data?.items)
+        ? response.data.data.items
+        : [];
 
-    setCategories(categoriesData);
+      setCategories(categoriesData);
 
-  } catch (err) {
-    console.error("Error fetching categories:", err);
-  }
-};
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+    }
+  };
   // ✅ FETCH BRANDS
-const fetchBrands = async () => {
-  try {
-    const response = await brandsService.getAll({
-      params: { includeUnpublished: false }
-    });
+  const fetchBrands = async () => {
+    try {
+      const response = await brandsService.getAll({
+        params: { includeUnpublished: false }
+      });
 
-    const brandsData = Array.isArray(response.data?.data?.items)
-      ? response.data.data.items
-      : [];
+      const brandsData = Array.isArray(response.data?.data?.items)
+        ? response.data.data.items
+        : [];
 
-    setBrands(brandsData);
+      setBrands(brandsData);
 
-  } catch (err) {
-    console.error("Error fetching brands:", err);
-  }
-};
+    } catch (err) {
+      console.error("Error fetching brands:", err);
+    }
+  };
 
 
   // ✅ FETCH PRODUCT DETAILS
-const fetchProductDetails = async (productId: string) => {
-  setLoadingDetails(true);
+  const fetchProductDetails = async (productId: string) => {
+    setLoadingDetails(true);
 
-  try {
-    // 🔍 First: find product from current list
-    const currentProduct = products.find(p => p.id === productId);
+    try {
+      // 🔍 First: find product from current list
+      const currentProduct = products.find(p => p.id === productId);
 
-    if (!currentProduct) {
-      toast.error("Product not found in list");
-      return;
-    }
-
-    let p: any = null;
-
-    // ✅ CASE 1: NORMAL PRODUCT → use getById
-    if (!currentProduct.isDeleted) {
-      const response = await productsService.getById(productId);
-
-      if (response.data?.success && response.data?.data) {
-        p = response.data.data;
+      if (!currentProduct) {
+        toast.error("Product not found in list");
+        return;
       }
-    }
 
-    // ✅ CASE 2: DELETED PRODUCT → use search API
-    else {
-      const response = await productsService.getAll({
-        isDeleted: true,
-        searchTerm: currentProduct.name, // 🔥 NAME SEARCH
-      });
+      let p: any = null;
 
-      if (response.data?.success && response.data?.data?.items?.length > 0) {
-        p = response.data.data.items[0]; // ✅ first match
+      // ✅ CASE 1: NORMAL PRODUCT → use getById
+      if (!currentProduct.isDeleted) {
+        const response = await productsService.getById(productId);
+
+        if (response.data?.success && response.data?.data) {
+          p = response.data.data;
+        }
       }
+
+      // ✅ CASE 2: DELETED PRODUCT → use search API
+      else {
+        const response = await productsService.getAll({
+          isDeleted: true,
+          searchTerm: currentProduct.name, // 🔥 NAME SEARCH
+        });
+
+        if (response.data?.success && response.data?.data?.items?.length > 0) {
+          p = response.data.data.items[0]; // ✅ first match
+        }
+      }
+
+      if (!p) {
+        toast.error("Product details not found");
+        return;
+      }
+
+      // ✅ Related Products Mapping
+      if (p.relatedProductIds) {
+        p.relatedProducts = p.relatedProductIds
+          .split(",")
+          .map((id: string) => allProductsMap.get(id.trim()))
+          .filter(
+            (product: RelatedProduct | undefined): product is RelatedProduct =>
+              product !== undefined
+          );
+      }
+
+      if (p.crossSellProductIds) {
+        p.crossSellProducts = p.crossSellProductIds
+          .split(",")
+          .map((id: string) => allProductsMap.get(id.trim()))
+          .filter(
+            (product: RelatedProduct | undefined): product is RelatedProduct =>
+              product !== undefined
+          );
+      }
+
+      // ✅ OPEN MODAL
+      setViewingProduct(p);
+
+    } catch (err) {
+      console.error("Error fetching product details:", err);
+      toast.error("Failed to load product details");
+    } finally {
+      setLoadingDetails(false);
     }
-
-    if (!p) {
-      toast.error("Product details not found");
-      return;
-    }
-
- // ✅ Related Products Mapping
-if (p.relatedProductIds) {
-  p.relatedProducts = p.relatedProductIds
-    .split(",")
-    .map((id: string) => allProductsMap.get(id.trim()))
-    .filter(
-      (product: RelatedProduct | undefined): product is RelatedProduct =>
-        product !== undefined
-    );
-}
-
-if (p.crossSellProductIds) {
-  p.crossSellProducts = p.crossSellProductIds
-    .split(",")
-    .map((id: string) => allProductsMap.get(id.trim()))
-    .filter(
-      (product: RelatedProduct | undefined): product is RelatedProduct =>
-        product !== undefined
-    );
-}
-
-    // ✅ OPEN MODAL
-    setViewingProduct(p);
-
-  } catch (err) {
-    console.error("Error fetching product details:", err);
-    toast.error("Failed to load product details");
-  } finally {
-    setLoadingDetails(false);
-  }
-};
+  };
 
 
 
@@ -860,9 +865,9 @@ if (p.crossSellProductIds) {
     if (!images || images.length === 0) return;
     const mediaItems: MediaItem[] = images.map((img) => ({
       type: "image",
-url: img.imageUrl?.startsWith("http")
-  ? img.imageUrl
-  : getProductImage(img.imageUrl),
+      url: img.imageUrl?.startsWith("http")
+        ? img.imageUrl
+        : getProductImage(img.imageUrl),
       title: img.altText || productName,
       description: `${productName} - ${img.isMain ? "Main Image" : "Product Image"}`,
       isMain: img.isMain,
@@ -885,120 +890,120 @@ url: img.imageUrl?.startsWith("http")
     }
   };
 
-// ✅ INITIAL DATA FETCH (runs once on component mount)
-useEffect(() => {
-  fetchMyTakeoverRequests();
-
-  const pollInterval = setInterval(() => {
+  // ✅ INITIAL DATA FETCH (runs once on component mount)
+  useEffect(() => {
     fetchMyTakeoverRequests();
-  }, 30000);
 
-  return () => clearInterval(pollInterval);
-}, []);
+    const pollInterval = setInterval(() => {
+      fetchMyTakeoverRequests();
+    }, 30000);
 
-// ✅ EFFECT 1: Fetch products when BACKEND filters change
-useEffect(() => {
-  fetchProducts();
-}, [
-  currentPage,
-  itemsPerPage,
+    return () => clearInterval(pollInterval);
+  }, []);
 
-  deletedFilter.value,
-  debouncedSearchTerm,
+  // ✅ EFFECT 1: Fetch products when BACKEND filters change
+  useEffect(() => {
+    fetchProducts();
+  }, [
+    currentPage,
+    itemsPerPage,
 
-  selectedCategory.value,
-  selectedBrand.value,
-  selectedType.value,
+    deletedFilter.value,
+    debouncedSearchTerm,
 
-  publishedFilter.value,
-  markAsNewFilter.value,
-  selectedHomepage.value,
+    selectedCategory.value,
+    selectedBrand.value,
+    selectedType.value,
 
-  deliveryFilter.value,
-  notReturnableFilter.value,
-  recurringFilter.value,
+    publishedFilter.value,
+    markAsNewFilter.value,
+    selectedHomepage.value,
 
-  vatFilter.value,
-  statusFilter.value,
-  pharmaFilter.value,
-  pharmaApprovalFilter.value,
+    deliveryFilter.value,
+    notReturnableFilter.value,
+    recurringFilter.value,
 
-  sortBy,
-  sortDirection
-]);
+    vatFilter.value,
+    statusFilter.value,
+    pharmaFilter.value,
+    pharmaApprovalFilter.value,
 
-// ✅ CLEAR FILTERS
-const clearFilters = useCallback(() => {
-  setSelectedCategory({ value: "all", label: "All Categories" });
-  setSelectedBrand({ value: "all", label: "All Brands" });
-  setSelectedHomepage({ value: "all", label: "Homepage: All" });
-  setSelectedType({ value: "all", label: "All Types" });
-  setStatusFilter({ value: "all", label: "All Stock Status" });
-  setPublishedFilter({ value: "all", label: "All Visibility" });
-  setDeliveryFilter({ value: "all", label: "All Delivery" });
-  setMarkAsNewFilter({ value: "all", label: "Mark as New: All" });
-  setNotReturnableFilter({ value: "all", label: "Returnable: All" });
-  // setInventoryFilter({ value: "all", label: "Inventory: All" });
-  setRecurringFilter({ value: "all", label: "Subscription: All" });
-  setVatFilter({ value: "all", label: "VAT: All" });
-  setDeletedFilter({ value: "all", label: "All Records" });
-  setPharmaFilter({  value: "all", label: "All Products" });
-  setPharmaApprovalFilter({ value: "all", label: "Approval: All" });
-
-  setSearchInput("");
-setSearchLoading(false);
-  // 🔥 ADD THIS (IMPORTANT)
-  setSortBy("createdAt");
-  setSortDirection("desc");
-
-  setCurrentPage(1);
-}, []);
-
-// ✅ CHECK ACTIVE FILTERS
-const hasActiveFilters = useMemo(
-  () =>
-    selectedCategory.value !== "all" ||
-    selectedBrand.value !== "all" ||
-    selectedHomepage.value !== "all" ||
-    selectedType.value !== "all" ||
-    statusFilter.value !== "all" ||
-    publishedFilter.value !== "all" ||
-    deliveryFilter.value !== "all" ||
-    markAsNewFilter.value !== "all" ||
-    notReturnableFilter.value !== "all" ||
-    // inventoryFilter.value !== "all" ||
-    recurringFilter.value !== "all" ||
-    vatFilter.value !== "all" ||
-    pharmaFilter.value !== "all" ||
-    pharmaApprovalFilter.value !== "all" ||
-    searchInput.trim() !== "" ||
-    deletedFilter.value !== "all" || // 
-
-    // 🔥 ADD THIS
-    sortBy !== "createdAt" ||
-    sortDirection !== "desc",
-
-  [
-    selectedCategory,
-    selectedBrand,
-    selectedHomepage,
-    selectedType,
-    statusFilter,  
-    publishedFilter,
-    deliveryFilter,
-    markAsNewFilter,
-    notReturnableFilter, 
-    recurringFilter,
-    vatFilter,
-    deletedFilter,
-    pharmaFilter,
-    pharmaApprovalFilter,
-
-    // 🔥 ADD DEPENDENCIES
     sortBy,
-    sortDirection,
-  ]
-);
+    sortDirection
+  ]);
+
+  // ✅ CLEAR FILTERS
+  const clearFilters = useCallback(() => {
+    setSelectedCategory({ value: "all", label: "All Categories" });
+    setSelectedBrand({ value: "all", label: "All Brands" });
+    setSelectedHomepage({ value: "all", label: "Homepage: All" });
+    setSelectedType({ value: "all", label: "All Types" });
+    setStatusFilter({ value: "all", label: "All Stock Status" });
+    setPublishedFilter({ value: "all", label: "All Visibility" });
+    setDeliveryFilter({ value: "all", label: "All Delivery" });
+    setMarkAsNewFilter({ value: "all", label: "Mark as New: All" });
+    setNotReturnableFilter({ value: "all", label: "Returnable: All" });
+    // setInventoryFilter({ value: "all", label: "Inventory: All" });
+    setRecurringFilter({ value: "all", label: "Subscription: All" });
+    setVatFilter({ value: "all", label: "VAT: All" });
+    setDeletedFilter({ value: "all", label: "All Records" });
+    setPharmaFilter({ value: "all", label: "All Products" });
+    setPharmaApprovalFilter({ value: "all", label: "Approval: All" });
+
+    setSearchInput("");
+    setSearchLoading(false);
+    // 🔥 ADD THIS (IMPORTANT)
+    setSortBy("createdAt");
+    setSortDirection("desc");
+
+    setCurrentPage(1);
+  }, []);
+
+  // ✅ CHECK ACTIVE FILTERS
+  const hasActiveFilters = useMemo(
+    () =>
+      selectedCategory.value !== "all" ||
+      selectedBrand.value !== "all" ||
+      selectedHomepage.value !== "all" ||
+      selectedType.value !== "all" ||
+      statusFilter.value !== "all" ||
+      publishedFilter.value !== "all" ||
+      deliveryFilter.value !== "all" ||
+      markAsNewFilter.value !== "all" ||
+      notReturnableFilter.value !== "all" ||
+      // inventoryFilter.value !== "all" ||
+      recurringFilter.value !== "all" ||
+      vatFilter.value !== "all" ||
+      pharmaFilter.value !== "all" ||
+      pharmaApprovalFilter.value !== "all" ||
+      searchInput.trim() !== "" ||
+      deletedFilter.value !== "all" || // 
+
+      // 🔥 ADD THIS
+      sortBy !== "createdAt" ||
+      sortDirection !== "desc",
+
+    [
+      selectedCategory,
+      selectedBrand,
+      selectedHomepage,
+      selectedType,
+      statusFilter,
+      publishedFilter,
+      deliveryFilter,
+      markAsNewFilter,
+      notReturnableFilter,
+      recurringFilter,
+      vatFilter,
+      deletedFilter,
+      pharmaFilter,
+      pharmaApprovalFilter,
+
+      // 🔥 ADD DEPENDENCIES
+      sortBy,
+      sortDirection,
+    ]
+  );
 
   const handlePharmaActionClick = (mode: "approve" | "reject", productId: string, productName: string) => {
     if (user?.role?.toLowerCase() !== "pharmacist") {
@@ -1028,13 +1033,13 @@ const hasActiveFilters = useMemo(
         setProducts(prev => prev.map(p =>
           p.id === productId
             ? {
-                ...p,
-                pharmaApprovalStatus: result?.pharmaApprovalStatus ?? p.pharmaApprovalStatus,
-                pharmaApprovedAt: result?.pharmaApprovedAt ?? p.pharmaApprovedAt,
-                pharmaApprovedBy: result?.pharmaApprovedBy ?? p.pharmaApprovedBy,
-                pharmaApprovalComment: result?.pharmaApprovalComment ?? null,
-                isPublished: result?.isPublished ?? p.isPublished,
-              }
+              ...p,
+              pharmaApprovalStatus: result?.pharmaApprovalStatus ?? p.pharmaApprovalStatus,
+              pharmaApprovedAt: result?.pharmaApprovedAt ?? p.pharmaApprovedAt,
+              pharmaApprovedBy: result?.pharmaApprovedBy ?? p.pharmaApprovedBy,
+              pharmaApprovalComment: result?.pharmaApprovalComment ?? null,
+              isPublished: result?.isPublished ?? p.isPublished,
+            }
             : p
         ));
         toast.success(
@@ -1070,11 +1075,11 @@ const hasActiveFilters = useMemo(
             return sep + name;
           }).join('');
         }
-       options.push({
-  value: cat.id,
-  label: fullPath,
-  level,
-});
+        options.push({
+          value: cat.id,
+          label: fullPath,
+          level,
+        });
         if (cat.subCategories && cat.subCategories.length > 0) {
           flatten(cat.subCategories, level + 1, currentPath);
         }
@@ -1085,95 +1090,95 @@ const hasActiveFilters = useMemo(
   }, [categories]);
 
   // ✅ FORMAT WITH TITLE
-const formatOptionLabel = (option: SelectOption) => {
-  const parts = option.label.split(" > ");
-  const depth = parts.length;
+  const formatOptionLabel = (option: SelectOption) => {
+    const parts = option.label.split(" > ");
+    const depth = parts.length;
 
-  return (
-    <span
-      title={option.label}
-      className={`
+    return (
+      <span
+        title={option.label}
+        className={`
         block whitespace-normal break-words leading-tight
         ${depth === 1 ? "text-sm" : ""}
         ${depth === 2 ? "text-xs dark:text-slate-300 text-slate-600" : ""}
         ${depth >= 3 ? "text-[11px] dark:text-slate-400 text-slate-500" : ""}
       `}
-    >
-      {option.label}
-    </span>
-  );
-};
-
-const brandOptions: SelectOption[] = useMemo(() => {
-  return [
-    { value: "all", label: "All Brands" },
-    ...brands.map((b) => ({
-      value: b.id,     // ✅ backend id
-      label: b.name    // ✅ frontend name
-    })),
-  ];
-}, [brands]);
-
-
-
-
-const stats = useMemo(() => {
-  if (!apiStats) {
-    return {
-      totalCount: 0,
-      publishedCount: 0,
-      lowStockCount: 0,
-      outOfStockCount: 0,
-      unpublishedCount: 0,
-    };
-  }
-
-  return {
-    totalCount: apiStats.totalProducts,
-    publishedCount: apiStats.published,
-    lowStockCount: apiStats.lowStock,
-    outOfStockCount: apiStats.outOfStock,
-    unpublishedCount: apiStats.unpublished,
+      >
+        {option.label}
+      </span>
+    );
   };
-}, [apiStats]);
+
+  const brandOptions: SelectOption[] = useMemo(() => {
+    return [
+      { value: "all", label: "All Brands" },
+      ...brands.map((b) => ({
+        value: b.id,     // ✅ backend id
+        label: b.name    // ✅ frontend name
+      })),
+    ];
+  }, [brands]);
 
 
 
-const selectedProductItems = useMemo(() => {
-  return selectedProducts
-    .map((id) => products.find((p) => p.id === id))
-    .filter((p): p is FormattedProduct => Boolean(p));
-}, [selectedProducts, products]);
+
+  const stats = useMemo(() => {
+    if (!apiStats) {
+      return {
+        totalCount: 0,
+        publishedCount: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+        unpublishedCount: 0,
+      };
+    }
+
+    return {
+      totalCount: apiStats.totalProducts,
+      publishedCount: apiStats.published,
+      lowStockCount: apiStats.lowStock,
+      outOfStockCount: apiStats.outOfStock,
+      unpublishedCount: apiStats.unpublished,
+    };
+  }, [apiStats]);
+
+
+
+  const selectedProductItems = useMemo(() => {
+    return selectedProducts
+      .map((id) => products.find((p) => p.id === id))
+      .filter((p): p is FormattedProduct => Boolean(p));
+  }, [selectedProducts, products]);
   // ✅ STATS (using totalCount from API)
 
 
-const handleStatClick = useCallback(
-  (filterType: string) => {
-    clearFilters();
+  const handleStatClick = useCallback(
+    (filterType: string) => {
+      clearFilters();
 
-    switch (filterType) {
-      case "total":
-        break;
+      switch (filterType) {
+        case "total":
+          break;
 
-      case "published":
-        setPublishedFilter({ value: "published", label: "Published" });
-        break;
+        case "published":
+          setPublishedFilter({ value: "published", label: "Published" });
+          break;
 
-      case "unpublished":
-        setPublishedFilter({ value: "unpublished", label: "Unpublished" });
-        break;
+        case "unpublished":
+          setPublishedFilter({ value: "unpublished", label: "Unpublished" });
+          break;
 
-      case "lowStock":
-        setStatusFilter({ value: "LowStock", label: "Low Stock" });
-        break;
+        case "lowStock":
+          setStatusFilter({ value: "LowStock", label: "Low Stock" });
+          break;
 
-      case "outOfStock":
-        setStatusFilter({ value: "OutOfStock", label: "Out of Stock" });
-        break;
-    }
-  },
-  [clearFilters]
-);
+        case "outOfStock":
+          setStatusFilter({ value: "OutOfStock", label: "Out of Stock" });
+          break;
+      }
+    },
+    [clearFilters]
+  );
 
   const statusCounts = useMemo(() => {
     const counts = { Pending: 0, all: myTakeoverRequests.length };
@@ -1228,134 +1233,134 @@ const handleStatClick = useCallback(
 
 
 
-const normalizeExcelValue = (value: any): string | number | boolean => {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return "";
-    return JSON.stringify(value);
-  }
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
-};
-
-const mapProductToFullExportRow = (product: any) => {
-  const row: Record<string, string | number | boolean> = {};
-
-  Object.entries(product || {}).forEach(([key, value]) => {
-    const lowerKey = key.toLowerCase();
-    if (lowerKey !== "isactive" && lowerKey !== "is active") {
-      row[key] = normalizeExcelValue(value);
+  const normalizeExcelValue = (value: any): string | number | boolean => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return value;
     }
-  });
-
-  return row;
-};
-
-const writeProductsWorkbook = (
-  rows: Record<string, string | number | boolean>[],
-  sheetName: string,
-  fileName: string
-) => {
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  const headers = Object.keys(rows[0] || {});
-
-  worksheet["!cols"] = headers.map((key) => ({
-    wch: Math.min(
-      60,
-      Math.max(
-        key.length,
-        ...rows.map((row) => String(row[key] ?? "").length)
-      )
-    ),
-  }));
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  XLSX.writeFile(workbook, fileName);
-};
-
-const fetchProductForExport = async (productId: string) => {
-  const currentProduct = products.find((p) => p.id === productId);
-  if (!currentProduct) return null;
-
-  if (!currentProduct.isDeleted) {
-    const response = await productsService.getById(productId);
-    if (response.data?.success && response.data?.data) {
-      return response.data.data;
+    if (Array.isArray(value)) {
+      if (value.length === 0) return "";
+      return JSON.stringify(value);
     }
-  }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    if (typeof value === "object") {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
 
-  const deletedResponse = await productsService.getAll({
-    page: 1,
-    pageSize: 100,
-    isDeleted: true,
-    searchTerm: currentProduct.name,
-  });
+  const mapProductToFullExportRow = (product: any) => {
+    const row: Record<string, string | number | boolean> = {};
 
-  const deletedItems = deletedResponse.data?.data?.items || [];
-  return deletedItems.find((item: any) => item.id === productId) || null;
-};
+    Object.entries(product || {}).forEach(([key, value]) => {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey !== "isactive" && lowerKey !== "is active") {
+        row[key] = normalizeExcelValue(value);
+      }
+    });
 
-const handleExportSelected = async () => {
-  if (selectedProductItems.length === 0) {
-    toast.warning("Please select at least one product to export.");
-    return;
-  }
+    return row;
+  };
 
-  setExportingSelected(true);
-  toast.info("Preparing selected products export...");
+  const writeProductsWorkbook = (
+    rows: Record<string, string | number | boolean>[],
+    sheetName: string,
+    fileName: string
+  ) => {
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const headers = Object.keys(rows[0] || {});
 
-  try {
-    const settledResults = await Promise.allSettled(
-      selectedProductItems.map((product) => fetchProductForExport(product.id))
-    );
+    worksheet["!cols"] = headers.map((key) => ({
+      wch: Math.min(
+        60,
+        Math.max(
+          key.length,
+          ...rows.map((row) => String(row[key] ?? "").length)
+        )
+      ),
+    }));
 
-    const rawProductsData = settledResults
-      .filter(
-        (result): result is PromiseFulfilledResult<any> =>
-          result.status === "fulfilled" && Boolean(result.value)
-      )
-      .map((result) => result.value);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    XLSX.writeFile(workbook, fileName);
+  };
 
-    if (rawProductsData.length === 0) {
-      toast.warning("No selected products could be exported.");
+  const fetchProductForExport = async (productId: string) => {
+    const currentProduct = products.find((p) => p.id === productId);
+    if (!currentProduct) return null;
+
+    if (!currentProduct.isDeleted) {
+      const response = await productsService.getById(productId);
+      if (response.data?.success && response.data?.data) {
+        return response.data.data;
+      }
+    }
+
+    const deletedResponse = await productsService.getAll({
+      page: 1,
+      pageSize: 100,
+      isDeleted: true,
+      searchTerm: currentProduct.name,
+    });
+
+    const deletedItems = deletedResponse.data?.data?.items || [];
+    return deletedItems.find((item: any) => item.id === productId) || null;
+  };
+
+  const handleExportSelected = async () => {
+    if (selectedProductItems.length === 0) {
+      toast.warning("Please select at least one product to export.");
       return;
     }
 
-    const excelData = rawProductsData.map((product: any) =>
-      mapProductToFullExportRow(product)
-    );
+    setExportingSelected(true);
+    toast.info("Preparing selected products export...");
 
-    const timestamp = new Date().toISOString().split("T")[0];
-    writeProductsWorkbook(
-      excelData,
-      "Selected Products",
-      `products-selected-${timestamp}.xlsx`
-    );
-
-    const failedCount = settledResults.length - rawProductsData.length;
-    if (failedCount > 0) {
-      toast.success(
-        `Exported ${rawProductsData.length} selected product(s). ${failedCount} item(s) could not be fetched.`
+    try {
+      const settledResults = await Promise.allSettled(
+        selectedProductItems.map((product) => fetchProductForExport(product.id))
       );
-    } else {
-      toast.success(`Exported ${rawProductsData.length} selected product(s) successfully!`);
+
+      const rawProductsData = settledResults
+        .filter(
+          (result): result is PromiseFulfilledResult<any> =>
+            result.status === "fulfilled" && Boolean(result.value)
+        )
+        .map((result) => result.value);
+
+      if (rawProductsData.length === 0) {
+        toast.warning("No selected products could be exported.");
+        return;
+      }
+
+      const excelData = rawProductsData.map((product: any) =>
+        mapProductToFullExportRow(product)
+      );
+
+      const timestamp = new Date().toISOString().split("T")[0];
+      writeProductsWorkbook(
+        excelData,
+        "Selected Products",
+        `products-selected-${timestamp}.xlsx`
+      );
+
+      const failedCount = settledResults.length - rawProductsData.length;
+      if (failedCount > 0) {
+        toast.success(
+          `Exported ${rawProductsData.length} selected product(s). ${failedCount} item(s) could not be fetched.`
+        );
+      } else {
+        toast.success(`Exported ${rawProductsData.length} selected product(s) successfully!`);
+      }
+    } catch (error) {
+      console.error("Selected export error:", error);
+      toast.error("Failed to export selected products");
+    } finally {
+      setExportingSelected(false);
     }
-  } catch (error) {
-    console.error("Selected export error:", error);
-    toast.error("Failed to export selected products");
-  } finally {
-    setExportingSelected(false);
-  }
-};
+  };
 
   // Format expiry timestamp
   const formatExpiryTimestamp = (expiresAt: string): string => {
@@ -1411,143 +1416,143 @@ const handleExportSelected = async () => {
   return (
     <div className="space-y-1">
       {selectedProductItems.length > 0 && (() => {
-  const selectedItems = selectedProductItems;
+        const selectedItems = selectedProductItems;
 
-  const hasActive = selectedItems.some(p => p.isActive);
-  const hasInactive = selectedItems.some(p => !p.isActive);
-  const hasPublished = selectedItems.some(p => p.isPublished);
-  const hasUnpublished = selectedItems.some(p => !p.isPublished);
-  const hasDeleted = selectedItems.some(p => p.isDeleted);
-  const hasNotDeleted = selectedItems.some(p => !p.isDeleted);
+        const hasActive = selectedItems.some(p => p.isActive);
+        const hasInactive = selectedItems.some(p => !p.isActive);
+        const hasPublished = selectedItems.some(p => p.isPublished);
+        const hasUnpublished = selectedItems.some(p => !p.isPublished);
+        const hasDeleted = selectedItems.some(p => p.isDeleted);
+        const hasNotDeleted = selectedItems.some(p => !p.isDeleted);
 
-  return (
-  <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
-      <div className="mx-auto w-fit max-w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md pointer-events-auto">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="h-2 w-2 rounded-full bg-violet-500"></span>
-              <span className="font-semibold text-slate-900 dark:text-white">{selectedItems.length}</span>
-              <span className="text-slate-500 dark:text-slate-300">products selected</span>
+        return (
+          <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
+            <div className="mx-auto w-fit max-w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md pointer-events-auto">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="h-2 w-2 rounded-full bg-violet-500"></span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{selectedItems.length}</span>
+                    <span className="text-slate-500 dark:text-slate-300">products selected</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Bulk actions: export, update status, publish, or delete selected products.
+                  </p>
+                </div>
+
+                <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
+
+                <button
+                  onClick={handleExportSelected}
+                  disabled={exportingSelected}
+                  title={`Export ${selectedItems.length} selected product${selectedItems.length === 1 ? "" : "s"} to Excel`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {exportingSelected ? (
+                    <div className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {exportingSelected ? "Exporting..." : `Export (${selectedItems.length})`}
+                </button>
+
+                {hasInactive && (
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                      const items = selectedItems.filter(p => !p.isActive);
+                      setBulkAction({ type: "activate", items });
+                    }}
+                    title="Activate selected inactive products"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg disabled:opacity-50"
+                  >
+                    Activate
+                  </button>
+                )}
+
+                {hasActive && (
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                      const items = selectedItems.filter(p => p.isActive);
+                      setBulkAction({ type: "deactivate", items });
+                    }}
+                    title="Deactivate selected active products"
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50"
+                  >
+                    Deactivate
+                  </button>
+                )}
+
+                {hasUnpublished && (
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                      const items = selectedItems.filter(p => !p.isPublished);
+                      setBulkAction({ type: "publish", items });
+                    }}
+                    title="Publish selected unpublished products"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg disabled:opacity-50"
+                  >
+                    Publish
+                  </button>
+                )}
+
+                {hasPublished && (
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                      const items = selectedItems.filter(p => p.isPublished);
+                      setBulkAction({ type: "unpublish", items });
+                    }}
+                    title="Unpublish selected published products"
+                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-lg disabled:opacity-50"
+                  >
+                    Unpublish
+                  </button>
+                )}
+
+                {hasDeleted && (
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                      const items = selectedItems.filter(p => p.isDeleted);
+                      setBulkAction({ type: "restore", items });
+                    }}
+                    title="Restore selected deleted products"
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-lg disabled:opacity-50"
+                  >
+                    Restore
+                  </button>
+                )}
+
+                {hasNotDeleted && (
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                      const items = selectedItems.filter(p => !p.isDeleted);
+                      setBulkAction({ type: "delete", items });
+                    }}
+                    title="Delete selected active products"
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm rounded-lg disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setSelectedProducts([])}
+                  disabled={exportingSelected}
+                  title="Clear current product selection"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm rounded-lg transition-all border border-slate-200 dark:border-transparent disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-           Bulk actions: export, update status, publish, or delete selected products.
-            </p>
           </div>
-
-          <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
-
-          <button
-            onClick={handleExportSelected}
-            disabled={exportingSelected}
-            title={`Export ${selectedItems.length} selected product${selectedItems.length === 1 ? "" : "s"} to Excel`}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {exportingSelected ? (
-              <div className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            {exportingSelected ? "Exporting..." : `Export (${selectedItems.length})`}
-          </button>
-
-          {hasInactive && (
-            <button
-              disabled={isProcessing}
-              onClick={() => {
-                const items = selectedItems.filter(p => !p.isActive);
-                setBulkAction({ type: "activate", items });
-              }}
-              title="Activate selected inactive products"
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg disabled:opacity-50"
-            >
-              Activate
-            </button>
-          )}
-
-          {hasActive && (
-            <button
-              disabled={isProcessing}
-              onClick={() => {
-                const items = selectedItems.filter(p => p.isActive);
-                setBulkAction({ type: "deactivate", items });
-              }}
-              title="Deactivate selected active products"
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50"
-            >
-              Deactivate
-            </button>
-          )}
-
-          {hasUnpublished && (
-            <button
-              disabled={isProcessing}
-              onClick={() => {
-                const items = selectedItems.filter(p => !p.isPublished);
-                setBulkAction({ type: "publish", items });
-              }}
-              title="Publish selected unpublished products"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg disabled:opacity-50"
-            >
-              Publish
-            </button>
-          )}
-
-          {hasPublished && (
-            <button
-              disabled={isProcessing}
-              onClick={() => {
-                const items = selectedItems.filter(p => p.isPublished);
-                setBulkAction({ type: "unpublish", items });
-              }}
-              title="Unpublish selected published products"
-              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-lg disabled:opacity-50"
-            >
-              Unpublish
-            </button>
-          )}
-
-          {hasDeleted && (
-            <button
-              disabled={isProcessing}
-              onClick={() => {
-                const items = selectedItems.filter(p => p.isDeleted);
-                setBulkAction({ type: "restore", items });
-              }}
-              title="Restore selected deleted products"
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-lg disabled:opacity-50"
-            >
-              Restore
-            </button>
-          )}
-
-          {hasNotDeleted && (
-            <button
-              disabled={isProcessing}
-              onClick={() => {
-                const items = selectedItems.filter(p => !p.isDeleted);
-                setBulkAction({ type: "delete", items });
-              }}
-              title="Delete selected active products"
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm rounded-lg disabled:opacity-50"
-            >
-              Delete
-            </button>
-          )}
-
-          <button
-            onClick={() => setSelectedProducts([])}
-            disabled={exportingSelected}
-            title="Clear current product selection"
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm rounded-lg transition-all border border-slate-200 dark:border-transparent disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-})()}
+        );
+      })()}
 
 
       {/* ================= HEADER ================= */}
@@ -1559,247 +1564,241 @@ const handleExportSelected = async () => {
           <p className="text-xs text-slate-400">Manage your product inventory</p>
         </div>
 
-<div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
 
 
 
-  <button
-    onClick={() => setShowImportModal(true)}
-    className="flex items-center gap-2 px-3 py-1.5 text-[13px]
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-[13px]
     bg-slate-800 border border-slate-700
     hover:bg-slate-700
     text-white rounded-xl font-medium transition"
-  >
-    <Upload className="w-4 h-4" />
-    Import Excel
-  </button>
+          >
+            <Upload className="w-4 h-4" />
+            Import Excel
+          </button>
 
 
-  {/* REQUESTS */}
-  {statusCounts.Pending > 0 && (
-    <button
-      onClick={() => setShowTakeoverPanel(true)}
-      className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
-      shadow transition-all relative ${
-        statusCounts.Pending > 0
-          ? "bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse shadow-orange-500/40"
-          : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-blue-500/40"
-      }`}
-    >
-      <Send className="w-4 h-4" />
-      Requests
-      <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
-        {statusCounts.Pending}
-      </span>
-    </button>
-  )}
+          {/* REQUESTS */}
+          {statusCounts.Pending > 0 && (
+            <button
+              onClick={() => setShowTakeoverPanel(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
+      shadow transition-all relative ${statusCounts.Pending > 0
+                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse shadow-orange-500/40"
+                  : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-blue-500/40"
+                }`}
+            >
+              <Send className="w-4 h-4" />
+              Requests
+              <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
+                {statusCounts.Pending}
+              </span>
+            </button>
+          )}
 
 
 
-  {/* ADD PRODUCT */}
-  <Link href="/admin/products/add">
-    <button className="flex items-center gap-2 px-3 py-1.5 text-[13px]
+          {/* ADD PRODUCT */}
+          <Link href="/admin/products/add">
+            <button className="flex items-center gap-2 px-3 py-1.5 text-[13px]
     bg-gradient-to-r from-violet-500 to-cyan-500
     text-white rounded-lg font-semibold shadow
     hover:shadow-violet-500/40 transition-all"
-    title="Add new product">
-      <Plus className="w-4 h-4" />
-      Add Product
-    </button>
-  </Link>
+              title="Add new product">
+              <Plus className="w-4 h-4" />
+              Add Product
+            </button>
+          </Link>
 
-</div>
+        </div>
       </div>
 
 
       {/* ================= STATS ================= */}
-<div className="grid gap-2.5 md:grid-cols-5">
+      <div className="grid gap-2.5 md:grid-cols-5">
 
-  {/* TOTAL */}
-  <div
-    onClick={() => handleStatClick("total")}
-    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
-      !hasActiveFilters
-        ? "bg-gradient-to-br from-violet-500/20 to-purple-500/20 border-violet-400 shadow-lg shadow-violet-500/20 ring-2 ring-violet-500/50"
-        : "bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/20 hover:shadow-lg hover:shadow-violet-500/10"
-    }`}
-  >
-    <div className="flex items-center gap-2.5">
-      <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
-        <Package className="w-4 h-4 text-white" />
-      </div>
-      <div>
-        <p className="text-xs text-slate-400">Total Products</p>
-        <p className="text-lg font-bold text-white">{stats.totalCount}</p>
-      </div>
-    </div>
-  </div>
+        {/* TOTAL */}
+        <div
+          onClick={() => handleStatClick("total")}
+          className={`rounded-xl p-2.5 cursor-pointer transition-all border ${!hasActiveFilters
+              ? "bg-gradient-to-br from-violet-500/20 to-purple-500/20 border-violet-400 shadow-lg shadow-violet-500/20 ring-2 ring-violet-500/50"
+              : "bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/20 hover:shadow-lg hover:shadow-violet-500/10"
+            }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
+              <Package className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Total Products</p>
+              <p className="text-lg font-bold text-white">{stats.totalCount}</p>
+            </div>
+          </div>
+        </div>
 
-  {/* PUBLISHED */}
-  <div
-    onClick={() => handleStatClick("published")}
-    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
-      publishedFilter.value === "published"
-        ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-400 shadow-lg shadow-green-500/20 ring-2 ring-green-500/50"
-        : "bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20 hover:shadow-lg hover:shadow-green-500/10"
-    }`}
-  >
-    <div className="flex items-center gap-2.5">
-      <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-        <CheckCircle className="w-4 h-4 text-white" />
-      </div>
-      <div>
-        <p className="text-xs text-slate-400">Published</p>
-        <p className="text-lg font-bold text-white">{stats.publishedCount}</p>
-      </div>
-    </div>
-  </div>
+        {/* PUBLISHED */}
+        <div
+          onClick={() => handleStatClick("published")}
+          className={`rounded-xl p-2.5 cursor-pointer transition-all border ${publishedFilter.value === "published"
+              ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-400 shadow-lg shadow-green-500/20 ring-2 ring-green-500/50"
+              : "bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20 hover:shadow-lg hover:shadow-green-500/10"
+            }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
+              <CheckCircle className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Published</p>
+              <p className="text-lg font-bold text-white">{stats.publishedCount}</p>
+            </div>
+          </div>
+        </div>
 
-  {/* LOW STOCK */}
-  <div
-    onClick={() => handleStatClick("lowStock")}
-    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
-      statusFilter.value === "LowStock"
-        ? "bg-gradient-to-br from-orange-500/20 to-amber-500/20 border-orange-400 shadow-lg shadow-orange-500/20 ring-2 ring-orange-500/50"
-        : "bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/10"
-    }`}
-  >
-    <div className="flex items-center gap-2.5">
-      <div className="p-1.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
-        <AlertCircle className="w-4 h-4 text-white" />
-      </div>
-      <div>
-        <p className="text-xs text-slate-400">Low Stock</p>
-        <p className="text-lg font-bold text-white">{stats.lowStockCount}</p>
-      </div>
-    </div>
-  </div>
+        {/* LOW STOCK */}
+        <div
+          onClick={() => handleStatClick("lowStock")}
+          className={`rounded-xl p-2.5 cursor-pointer transition-all border ${statusFilter.value === "LowStock"
+              ? "bg-gradient-to-br from-orange-500/20 to-amber-500/20 border-orange-400 shadow-lg shadow-orange-500/20 ring-2 ring-orange-500/50"
+              : "bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/10"
+            }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Low Stock</p>
+              <p className="text-lg font-bold text-white">{stats.lowStockCount}</p>
+            </div>
+          </div>
+        </div>
 
-  {/* UNPUBLISHED */}
-  <div
-    onClick={() => handleStatClick("unpublished")}
-    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
-      publishedFilter.value === "unpublished"
-        ? "bg-gradient-to-br from-slate-400/20 to-slate-500/20 border-slate-300 shadow-lg shadow-slate-500/20 ring-2 ring-slate-400/50"
-        : "bg-gradient-to-br from-slate-500/10 to-slate-600/10 border-slate-500/20 hover:shadow-lg hover:shadow-slate-500/10"
-    }`}
-  >
-    <div className="flex items-center gap-2.5">
-      <div className="p-1.5 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg">
-        <EyeOff className="w-4 h-4 text-white" />
-      </div>
-      <div>
-        <p className="text-xs text-slate-400">Unpublished</p>
-        <p className="text-lg font-bold text-white">{stats.unpublishedCount}</p>
-      </div>
-    </div>
-  </div>
+        {/* UNPUBLISHED */}
+        <div
+          onClick={() => handleStatClick("unpublished")}
+          className={`rounded-xl p-2.5 cursor-pointer transition-all border ${publishedFilter.value === "unpublished"
+              ? "bg-gradient-to-br from-slate-400/20 to-slate-500/20 border-slate-300 shadow-lg shadow-slate-500/20 ring-2 ring-slate-400/50"
+              : "bg-gradient-to-br from-slate-500/10 to-slate-600/10 border-slate-500/20 hover:shadow-lg hover:shadow-slate-500/10"
+            }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg">
+              <EyeOff className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Unpublished</p>
+              <p className="text-lg font-bold text-white">{stats.unpublishedCount}</p>
+            </div>
+          </div>
+        </div>
 
-  {/* OUT OF STOCK */}
-  <div
-    onClick={() => handleStatClick("outOfStock")}
-    className={`rounded-xl p-2.5 cursor-pointer transition-all border ${
-      statusFilter.value === "OutOfStock"
-        ? "bg-gradient-to-br from-red-500/20 to-rose-500/20 border-red-400 shadow-lg shadow-red-500/20 ring-2 ring-red-500/50"
-        : "bg-gradient-to-br from-red-500/10 to-rose-500/10 border-red-500/20 hover:shadow-lg hover:shadow-red-500/10"
-    }`}
-  >
-    <div className="flex items-center gap-2.5">
-      <div className="p-1.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
-        <XCircle className="w-4 h-4 text-white" />
-      </div>
-      <div>
-        <p className="text-xs text-slate-400">Out of Stock</p>
-        <p className="text-lg font-bold text-white">{stats.outOfStockCount}</p>
-      </div>
-    </div>
-  </div>
+        {/* OUT OF STOCK */}
+        <div
+          onClick={() => handleStatClick("outOfStock")}
+          className={`rounded-xl p-2.5 cursor-pointer transition-all border ${statusFilter.value === "OutOfStock"
+              ? "bg-gradient-to-br from-red-500/20 to-rose-500/20 border-red-400 shadow-lg shadow-red-500/20 ring-2 ring-red-500/50"
+              : "bg-gradient-to-br from-red-500/10 to-rose-500/10 border-red-500/20 hover:shadow-lg hover:shadow-red-500/10"
+            }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
+              <XCircle className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Out of Stock</p>
+              <p className="text-lg font-bold text-white">{stats.outOfStockCount}</p>
+            </div>
+          </div>
+        </div>
 
-</div>
+      </div>
 
       {/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-2.5 py-1.5">
-  <div className="flex items-center justify-between gap-3 relative">
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-2.5 py-1.5">
+        <div className="flex items-center justify-between gap-3 relative">
 
-    {/* LEFT SIDE */}
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-400">Show</span>
+          {/* LEFT SIDE */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400">Show</span>
 
-      <select
-        value={itemsPerPage}
-        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-        className="px-2 py-1 bg-slate-800/60 border border-slate-600
+            <select
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              className="px-2 py-1 bg-slate-800/60 border border-slate-600
         rounded-md text-white text-xs
         focus:outline-none focus:ring-1 focus:ring-violet-500"
-      >
-        <option value={25}>25</option>
-        <option value={50}>50</option>
-        <option value={75}>75</option>
-        <option value={100}>100</option>
-        <option value={500}>500</option>
-        <option value={1000}>1000</option>
-      </select>
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={75}>75</option>
+              <option value={100}>100</option>
+              <option value={500}>500</option>
+              <option value={1000}>1000</option>
+            </select>
 
-      <span className="text-xs text-slate-400">entries</span>
-    </div>
+            <span className="text-xs text-slate-400">entries</span>
+          </div>
 
 
-    {/* RIGHT SIDE */}
-    <div className="flex items-center gap-3">
+          {/* RIGHT SIDE */}
+          <div className="flex items-center gap-3">
 
-      {/* RESULT TEXT */}
-      <div className="text-xs text-slate-400 whitespace-nowrap">
-        Showing {totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to{" "}
-        {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} product
-        {totalCount !== 1 ? "s" : ""}
+            {/* RESULT TEXT */}
+            <div className="text-xs text-slate-400 whitespace-nowrap">
+              Showing {totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to{" "}
+              {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} product
+              {totalCount !== 1 ? "s" : ""}
 
-        {hasActiveFilters && (
-          <span className="text-violet-400">
-            {" "}.{" "}
-            {[
-              selectedCategory.value !== "all",
-              selectedBrand.value !== "all",
-              selectedHomepage.value !== "all",
-              selectedType.value !== "all",
-              statusFilter.value !== "all",
-              publishedFilter.value !== "all",
-              deliveryFilter.value !== "all",
-              markAsNewFilter.value !== "all",
-              notReturnableFilter.value !== "all",          
-              recurringFilter.value !== "all",
-              vatFilter.value !== "all",
-              pharmaFilter.value !== "all",
-              searchInput.trim() !== "",
-              deletedFilter.value !== "all",
-              sortBy !== "createdAt",
-              sortDirection !== "desc",
-            ].filter(Boolean).length} active filter
-            {[
-              selectedCategory.value !== "all",
-              selectedBrand.value !== "all",
-              selectedHomepage.value !== "all",
-              selectedType.value !== "all",
-              statusFilter.value !== "all",
-              publishedFilter.value !== "all",
-              deliveryFilter.value !== "all",
-              markAsNewFilter.value !== "all",
-              notReturnableFilter.value !== "all",         
-              recurringFilter.value !== "all",
-              vatFilter.value !== "all",
-              pharmaFilter.value !== "all",
-              searchInput.trim() !== "",
-              deletedFilter.value !== "all",
-              sortBy !== "createdAt",
-              sortDirection !== "desc",
-            ].filter(Boolean).length !== 1 && "s"}
-          </span>
-        )}
+              {hasActiveFilters && (
+                <span className="text-violet-400">
+                  {" "}.{" "}
+                  {[
+                    selectedCategory.value !== "all",
+                    selectedBrand.value !== "all",
+                    selectedHomepage.value !== "all",
+                    selectedType.value !== "all",
+                    statusFilter.value !== "all",
+                    publishedFilter.value !== "all",
+                    deliveryFilter.value !== "all",
+                    markAsNewFilter.value !== "all",
+                    notReturnableFilter.value !== "all",
+                    recurringFilter.value !== "all",
+                    vatFilter.value !== "all",
+                    pharmaFilter.value !== "all",
+                    searchInput.trim() !== "",
+                    deletedFilter.value !== "all",
+                    sortBy !== "createdAt",
+                    sortDirection !== "desc",
+                  ].filter(Boolean).length} active filter
+                  {[
+                    selectedCategory.value !== "all",
+                    selectedBrand.value !== "all",
+                    selectedHomepage.value !== "all",
+                    selectedType.value !== "all",
+                    statusFilter.value !== "all",
+                    publishedFilter.value !== "all",
+                    deliveryFilter.value !== "all",
+                    markAsNewFilter.value !== "all",
+                    notReturnableFilter.value !== "all",
+                    recurringFilter.value !== "all",
+                    vatFilter.value !== "all",
+                    pharmaFilter.value !== "all",
+                    searchInput.trim() !== "",
+                    deletedFilter.value !== "all",
+                    sortBy !== "createdAt",
+                    sortDirection !== "desc",
+                  ].filter(Boolean).length !== 1 && "s"}
+                </span>
+              )}
+            </div>
+
+          </div>
+
+        </div>
       </div>
-
-    </div>
-
-  </div>
-</div>
 
       {/* ✅ FILTERS SECTION - ROW 1 */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1.5">
@@ -1865,24 +1864,23 @@ const handleExportSelected = async () => {
           </div>
           <div>
 
-<select
-  value={pharmaFilter.value}
-  onChange={(e) => {
-    const option = pharmaOptions.find(opt => opt.value === e.target.value);
-    if (option) setPharmaFilter(option);
-  }}
-  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-    pharmaFilter.value !== "all"
-      ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-      : "border-slate-600"
-  }`}
->
-  {pharmaOptions.map((opt) => (
-    <option key={opt.value} value={opt.value}>
-      {opt.label}
-    </option>
-  ))}
-</select>
+            <select
+              value={pharmaFilter.value}
+              onChange={(e) => {
+                const option = pharmaOptions.find(opt => opt.value === e.target.value);
+                if (option) setPharmaFilter(option);
+              }}
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${pharmaFilter.value !== "all"
+                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                  : "border-slate-600"
+                }`}
+            >
+              {pharmaOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
 
           </div>
 
@@ -1894,11 +1892,10 @@ const handleExportSelected = async () => {
                 const option = typeOptions.find(opt => opt.value === e.target.value);
                 if (option) setSelectedType(option);
               }}
-              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                selectedType.value !== "all"
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${selectedType.value !== "all"
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                   : "border-slate-600"
-              }`}
+                }`}
             >
               {typeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -1916,11 +1913,10 @@ const handleExportSelected = async () => {
                 const option = deletedOptions.find(opt => opt.value === e.target.value);
                 if (option) setDeletedFilter(option);
               }}
-              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                deletedFilter.value !== "all"
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${deletedFilter.value !== "all"
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                   : "border-slate-600"
-              }`}
+                }`}
             >
               {deletedOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -1938,11 +1934,10 @@ const handleExportSelected = async () => {
                 const option = visibilityOptions.find(opt => opt.value === e.target.value);
                 if (option) setPublishedFilter(option);
               }}
-              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                publishedFilter.value !== "all"
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${publishedFilter.value !== "all"
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                   : "border-slate-600"
-              }`}
+                }`}
             >
               {visibilityOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -1994,11 +1989,10 @@ const handleExportSelected = async () => {
                   const option = statusOptions.find(opt => opt.value === e.target.value);
                   if (option) setStatusFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  statusFilter.value !== "all"
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${statusFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
-                }`}
+                  }`}
               >
                 {statusOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -2013,11 +2007,10 @@ const handleExportSelected = async () => {
                   const option = deliveryOptions.find(opt => opt.value === e.target.value);
                   if (option) setDeliveryFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  deliveryFilter.value !== "all"
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${deliveryFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
-                }`}
+                  }`}
               >
                 {deliveryOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -2032,11 +2025,10 @@ const handleExportSelected = async () => {
                   const option = markAsNewOptions.find(opt => opt.value === e.target.value);
                   if (option) setMarkAsNewFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  markAsNewFilter.value !== "all"
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${markAsNewFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
-                }`}
+                  }`}
               >
                 {markAsNewOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -2051,11 +2043,10 @@ const handleExportSelected = async () => {
                   const option = returnableOptions.find(opt => opt.value === e.target.value);
                   if (option) setNotReturnableFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  notReturnableFilter.value !== "all"
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${notReturnableFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
-                }`}
+                  }`}
               >
                 {returnableOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -2089,11 +2080,10 @@ const handleExportSelected = async () => {
                   const option = subscriptionOptions.find(opt => opt.value === e.target.value);
                   if (option) setRecurringFilter(option);
                 }}
-                className={`w-full px-3 py-2 min-w-[136px] bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  recurringFilter.value !== "all"
+                className={`w-full px-3 py-2 min-w-[136px] bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${recurringFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
-                }`}
+                  }`}
               >
                 {subscriptionOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -2101,71 +2091,68 @@ const handleExportSelected = async () => {
                   </option>
                 ))}
               </select>
-<select
-  value={vatFilter.value}
-  onChange={(e) => {
-    const option = vatOptions.find(
-      (opt) => opt.value === e.target.value
-    );
+              <select
+                value={vatFilter.value}
+                onChange={(e) => {
+                  const option = vatOptions.find(
+                    (opt) => opt.value === e.target.value
+                  );
 
-    if (option) setVatFilter(option);
-  }}
-  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs ${
-    vatFilter.value !== "all"
-      ? "border-blue-500"
-      : "border-slate-600"
-  }`}
->
-  {vatOptions.map((opt) => (
-    <option
-      key={opt.value}
-      value={opt.value}
-    >
-      {opt.label}
-    </option>
-  ))}
-</select>
-          {/* HOMEPAGE */}
-          <div className="flex-1 min-w-[120px] max-w-[150px] w-full">
-            <select
-              value={selectedHomepage.value}
-              onChange={(e) => {
-                const option = homepageOptions.find(opt => opt.value === e.target.value);
-                if (option) setSelectedHomepage(option);
-              }}
-              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                selectedHomepage.value !== "all"
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                  : "border-slate-600"
-              }`}
-            >
-              {homepageOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+                  if (option) setVatFilter(option);
+                }}
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs ${vatFilter.value !== "all"
+                    ? "border-blue-500"
+                    : "border-slate-600"
+                  }`}
+              >
+                {vatOptions.map((opt) => (
+                  <option
+                    key={opt.value}
+                    value={opt.value}
+                  >
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {/* HOMEPAGE */}
+              <div className="flex-1 min-w-[120px] max-w-[150px] w-full">
+                <select
+                  value={selectedHomepage.value}
+                  onChange={(e) => {
+                    const option = homepageOptions.find(opt => opt.value === e.target.value);
+                    if (option) setSelectedHomepage(option);
+                  }}
+                  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${selectedHomepage.value !== "all"
+                      ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                      : "border-slate-600"
+                    }`}
+                >
+                  {homepageOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
 
-<select
-  value={pharmaApprovalFilter.value}
-  onChange={(e) => {
-    const option = pharmaApprovalOptions.find(opt => opt.value === e.target.value);
-    if (option) setPharmaApprovalFilter(option);
-  }}
-  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-    pharmaApprovalFilter.value !== "all"
-      ? "border-cyan-500 bg-cyan-500/10 ring-2 ring-cyan-500/50"
-      : "border-slate-600"
-  }`}
->
-  {pharmaApprovalOptions.map((opt) => (
-    <option key={opt.value} value={opt.value}>
-      {opt.label}
-    </option>
-  ))}
-</select>
+              <select
+                value={pharmaApprovalFilter.value}
+                onChange={(e) => {
+                  const option = pharmaApprovalOptions.find(opt => opt.value === e.target.value);
+                  if (option) setPharmaApprovalFilter(option);
+                }}
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${pharmaApprovalFilter.value !== "all"
+                    ? "border-cyan-500 bg-cyan-500/10 ring-2 ring-cyan-500/50"
+                    : "border-slate-600"
+                  }`}
+              >
+                {pharmaApprovalOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
 
             </div>
           </div>
@@ -2173,68 +2160,68 @@ const handleExportSelected = async () => {
       </div>
 
       {/* ✅ PRODUCTS TABLE */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2 relative">
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2 relative">
 
-  {/* 🔄 OVERLAY LOADER */}
-  {filterLoading && (
-    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center z-20 rounded-2xl">
-      <div className="w-8 h-8 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  )}
+        {/* 🔄 OVERLAY LOADER */}
+        {filterLoading && (
+          <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center z-20 rounded-2xl">
+            <div className="w-8 h-8 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
 
-  {/* TABLE (always render) */}
-  <div   className={`
+        {/* TABLE (always render) */}
+        <div className={`
     overflow-auto
    max-h-[70vh]
   ${scrollCls}
   ${filterLoading ? "opacity-40" : ""}
 `}>
-    
-    {products.length === 0 && !filterLoading ? (
-      <div className="text-center py-12">
-        <Package className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-        <p className="text-slate-400">No products found</p>
-      </div>
-    ) : (
-    <table className="w-full table-fixed text-[12px]">
-    <thead className="sticky top-0 z-20 bg-gray-300   dark:bg-slate-900/95 backdrop-blur border-b border-slate-800">
-      <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 ">
-        <th className="text-left py-2 px-2 w-[360px]">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={selectedProducts.length === products.length && products.length > 0}
-              onChange={handleSelectAll}
-              className="h-4 w-4 accent-violet-500"
-            />
-          <span className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 cursor-pointer select-none" onClick={() => handleSort('name')} title="Sort by name">
-  Product Name {sortBy === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-</span>
-          </div>
-        </th>
 
-        <th className="text-center py-2 px-2 w-[60px]">SKU</th>
-        <th className="text-center py-2 px-2 text-red-400 w-[80px] cursor-pointer hover:text-red-300 select-none" onClick={() => handleSort('price')} title="Sort by price">
-          Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-        </th>
-        {/* <th className="text-center py-2 px-2 w-[70px]">Status</th> */}
-        <th className="text-center py-2 px-2 w-[160px]">Stock Status</th>
-        <th className="text-center py-2 px-2 w-[90px]">Visibility</th>
-        <th
-  onClick={() => handleSort('createdAt')}
-  className="text-left py-2 px-2 text-blue-400 w-[150px] cursor-pointer hover:text-blue-300 select-none"
-  title="Sort by created date"
->
-  Created At
-  {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
-</th>
+          {products.length === 0 && !filterLoading ? (
+            <div className="text-center py-12">
+              <Package className="h-16 w-16 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400">No products found</p>
+            </div>
+          ) : (
+            <table className="w-full table-fixed text-[12px]">
+              <thead className="sticky top-0 z-20 bg-gray-300   dark:bg-slate-900/95 backdrop-blur border-b border-slate-800">
+                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 ">
+                  <th className="text-left py-2 px-2 w-[360px]">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.length === products.length && products.length > 0}
+                        onChange={handleSelectAll}
+                        className="h-4 w-4 accent-violet-500"
+                      />
+                      <span className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 cursor-pointer select-none" onClick={() => handleSort('name')} title="Sort by name">
+                        Product Name {sortBy === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                      </span>
+                    </div>
+                  </th>
 
- <th className="text-left py-2 px-2 w-[150px]">
-  Updated At
-</th>
-        <th className="text-center py-2 px-2 w-[85px]">Actions</th>
-      </tr>
-    </thead>
+                  <th className="text-center py-2 px-2 w-[60px]">SKU</th>
+                  <th className="text-center py-2 px-2 text-red-400 w-[80px] cursor-pointer hover:text-red-300 select-none" onClick={() => handleSort('price')} title="Sort by price">
+                    Price {sortBy === 'price' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                  </th>
+                  {/* <th className="text-center py-2 px-2 w-[70px]">Status</th> */}
+                  <th className="text-center py-2 px-2 w-[160px]">Stock Status</th>
+                  <th className="text-center py-2 px-2 w-[90px]">Visibility</th>
+                  <th
+                    onClick={() => handleSort('createdAt')}
+                    className="text-left py-2 px-2 text-blue-400 w-[150px] cursor-pointer hover:text-blue-300 select-none"
+                    title="Sort by created date"
+                  >
+                    Created At
+                    {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                  </th>
+
+                  <th className="text-left py-2 px-2 w-[150px]">
+                    Updated At
+                  </th>
+                  <th className="text-center py-2 px-2 w-[85px]">Actions</th>
+                </tr>
+              </thead>
 
               <tbody className="text-sm">
                 {products.map((product) => {
@@ -2244,168 +2231,169 @@ const handleExportSelected = async () => {
                       selectedDeleteProduct?.id === product.id ||
                       selectedToggleProduct?.id === product.id
                     );
-                    const isDeleted = product.isDeleted;
-                    const imageUrl =
-  product.image?.startsWith("http")
-    ? product.image
-    : `${API_BASE_URL}${product.image?.startsWith("/") ? "" : "/"}${product.image}`;
+                  const isDeleted = product.isDeleted;
+                  const imageUrl =
+                    product.image?.startsWith("http")
+                      ? product.image
+                      : `${API_BASE_URL}${product.image?.startsWith("/") ? "" : "/"}${product.image}`;
 
                   return (
-                    <tr
-                      key={product.id}
-className={`border-b border-slate-800 transition-colors
-  ${
-    product.isDeleted
-      ? 'bg-red-500/5'
-      : ''
-  }
-  ${
-    selectedProducts.includes(product.id)
-      ? 'bg-violet-500/10 ring-1 ring-violet-500/40'
-      : 'hover:bg-slate-800/30'
-  }
+                    <React.Fragment key={product.id}>
+                      <tr
+                        className={`border-b border-slate-800 transition-colors
+  ${product.isDeleted
+                            ? 'bg-red-500/5'
+                            : ''
+                          }
+  ${selectedProducts.includes(product.id)
+                            ? 'bg-violet-500/10 ring-1 ring-violet-500/40'
+                            : 'hover:bg-slate-800/30'
+                          }
   ${isBusy ? 'pointer-events-none' : ''}
 `}
-                    >
-                      {/* PRODUCT */}
-                      <td className="py-1.5 px-2">
-                       <div className="flex items-center gap-2">
-  <input
-    type="checkbox"
-    checked={selectedProducts.includes(product.id)}
-    onChange={() => handleSelectProduct(product.id)}
-    className="accent-violet-500"
-  />
-                           <div className="w-9 h-9 rounded-md cursor-zoom-in hover:scale-105 transition bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
-                            {product.image ? (
-                              <img
-                              src={imageUrl}                                                          
-                                alt={product.name}
-                                className="w-full h-full object-cover cursor-pointer hover:opacity-80"
-                                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-onClick={async (e) => {
-  e.stopPropagation();
+                      >
+                        {/* PRODUCT */}
+                        <td className="py-1.5 px-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.includes(product.id)}
+                              onChange={() => handleSelectProduct(product.id)}
+                              className="accent-violet-500"
+                            />
+                            <div className="w-9 h-9 rounded-md cursor-zoom-in hover:scale-105 transition bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
+                              {product.image ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover cursor-pointer hover:opacity-80"
+                                  onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
 
-  try {
-    const res = await productsService.getById(product.id);
+                                    try {
+                                      const res = await productsService.getById(product.id);
 
-    const images = res?.data?.data?.images;
-    
+                                      const images = res?.data?.data?.images;
 
-    if (Array.isArray(images) && images.length > 0) {
-      // ✅ REAL MULTI IMAGES
-      viewProductImages(images, product.name, 0);
-    } else if (product.image) {
-      // ✅ FALLBACK (single)
-      viewProductImages(
-        [
-          {
-            imageUrl: product.image,
-            isMain: true,
-            altText: product.name,
-          },
-        ],
-        product.name,
-        0
-      );
-    }
-  } catch (err) {
-    console.error("Image load failed", err);
-  }
-}}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-white">
-                                📦
+
+                                      if (Array.isArray(images) && images.length > 0) {
+                                        // ✅ REAL MULTI IMAGES
+                                        viewProductImages(images, product.name, 0);
+                                      } else if (product.image) {
+                                        // ✅ FALLBACK (single)
+                                        viewProductImages(
+                                          [
+                                            {
+                                              imageUrl: product.image,
+                                              isMain: true,
+                                              altText: product.name,
+                                            },
+                                          ],
+                                          product.name,
+                                          0
+                                        );
+                                      }
+                                    } catch (err) {
+                                      console.error("Image load failed", err);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white">
+                                  📦
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="flex items-center gap-1.5 text-white font-medium truncate cursor-pointer hover:text-violet-400"
+                                onClick={() => fetchProductDetails(product.id)}
+                                title={product.name}
+                              >
+                                <span className="truncate">
+                                  {product.name}
+                                </span>
+
+                                {/* ✅ PHARMA ICON */}
+                                {product.isPharmaProduct && (
+                                  <span
+                                    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-2  text-cyan-300 text-xs font-medium"
+                                    title="Pharma Product"
+                                  >
+                                    {/* <Pill className="w-3.5 h-3.5" /> */}
+                                    💊
+                                  </span>
+                                )}
+                              </p>
+                              <div className="flex items-center gap-2">
+
+                                {/* CATEGORY (secondary) */}
+                                <span
+                                  className="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700 px-2 py-0.5 rounded-md truncate"
+                                  title={product.categoryName}
+                                >
+                                  {product.categoryName}
+                                </span>
+
+                                {/* BRAND (primary) */}
+                                <span
+                                  className="text-[11px] text-cyan-300 bg-cyan-500/20 border border-cyan-400/40 px-2 py-0.5 rounded-md font-medium"
+                                  title={product.brandName}
+                                >
+                                  {product.brandName}
+                                </span>
+
                               </div>
-                            )}
+                            </div>
                           </div>
+                        </td>
 
-                          <div className="min-w-0 flex-1">
-                         <p
-  className="flex items-center gap-1.5 text-white font-medium truncate cursor-pointer hover:text-violet-400"
-  onClick={() => fetchProductDetails(product.id)}
-  title={product.name}
->
-  <span className="truncate">
-    {product.name}
-  </span>
+                        {/* SKU */}
+                        <td className="py-1.5 px-2 text-center">
+                          {product.productType === "variable" ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedProducts((prev: string[]) =>
+                                  prev.includes(product.id)
+                                    ? prev.filter((id: string) => id !== product.id)
+                                    : [...prev, product.id]
+                                );
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded bg-violet-500/10 text-purple-600 dark:text-purple-400 hover:bg-violet-500/20 transition-all border border-violet-500/20"
+                            >
+                              <span>{product.variantsCount} Variants</span>
+                              <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expandedProducts.includes(product.id) ? "rotate-180" : ""
+                                }`} />
+                            </button>
+                          ) : (
+                            <span
+                              onClick={() => {
+                                navigator.clipboard.writeText(product.sku);
+                                setCopiedId(product.id);
+                                setTimeout(() => setCopiedId(null), 1200);
+                              }}
+                              className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded transition text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/50 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"
+                              title="Click to copy"
+                            >
+                              {copiedId === product.id ? (
+                                <span className="text-emerald-400">Copied ✓</span>
+                              ) : (
+                                product.sku || "-"
+                              )}
+                            </span>
+                          )}
+                        </td>
 
-  {/* ✅ PHARMA ICON */}
-{product.isPharmaProduct && (
-  <span
-    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-2  text-cyan-300 text-xs font-medium"
-    title="Pharma Product"
-  >
-    {/* <Pill className="w-3.5 h-3.5" /> */}
-    💊
-  </span>
-)}
-</p>
-   <div className="flex items-center gap-2">
+                        {/* PRICE */}
+                        <td className="py-1.5 px-2 text-center font-semibold text-white">
+                          £{product.price.toFixed(2)}
+                        </td>
 
-  {/* CATEGORY (secondary) */}
-  <span
-    className="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700 px-2 py-0.5 rounded-md truncate"
-    title={product.categoryName}
-  >
-    {product.categoryName}
-  </span>
-
-  {/* BRAND (primary) */}
-  <span
-    className="text-[11px] text-cyan-300 bg-cyan-500/20 border border-cyan-400/40 px-2 py-0.5 rounded-md font-medium"
-    title={product.brandName}
-  >
-    {product.brandName}
-  </span>
-
-</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* SKU */}
- <td className="py-1.5 px-2 text-center">
-  <span
-    onClick={() => {
-      // ❌ variable product में copy नहीं करना
-      if (product.productType === "variable") return;
-      navigator.clipboard.writeText(product.sku);
-      setCopiedId(product.id);
-
-      setTimeout(() => {
-        setCopiedId(null);
-      }, 1200);
-    }}
-    className={`inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded transition ${
-      product.productType === "variable"
-        ? "text-cyan-400 bg-slate-800/30 cursor-default"
-        : "text-slate-300 bg-slate-800/50 cursor-pointer hover:bg-slate-700"
-    }`}
-    title={
-      product.productType === "variable"
-        ? "Variant product"
-        : "Click to copy"
-    }
-  >
-    {product.productType === "variable" ? (
-      <span>{product.variantsCount} Variants</span>
-    ) : copiedId === product.id ? (
-      <span className="text-emerald-400">Copied ✓</span>
-    ) : (
-      product.sku || "-"
-    )}
-  </span>
-</td>
-
-                      {/* PRICE */}
-                      <td className="py-1.5 px-2 text-center font-semibold text-white">
-                        £{product.price.toFixed(2)}
-                      </td>
-
-                      {/* Clickable Status Cell */}
-                      {/* <td
+                        {/* Clickable Status Cell */}
+                        {/* <td
                         className={`py-1.5 px-2 text-center ${
                           product.isDeleted ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                         }`}
@@ -2434,251 +2422,322 @@ onClick={async (e) => {
                         </span>
                       </td> */}
 
-                      {/* STOCK */}
-                       <td className="py-1.5 px-2 text-center">
-                        {(() => {
-                          const qty = product.stockQuantity ?? 0;
-                          const track = product.trackQuantity ?? true;
-                          const lowThreshold = product.lowStockThreshold ?? 0;
-                          const notifyBelow = product.notifyQuantityBelow ?? 0;
-                          const notifyEnabled = product.notifyAdminForQuantityBelow ?? false;
-                          const allowBackorder = product.allowBackorder ?? false;
+                        {/* STOCK */}
+                        <td className="py-1.5 px-2 text-center">
+                          {(() => {
+                            const qty = product.stockQuantity ?? 0;
+                            const track = product.trackQuantity ?? true;
+                            const lowThreshold = product.lowStockThreshold ?? 0;
+                            const notifyBelow = product.notifyQuantityBelow ?? 0;
+                            const notifyEnabled = product.notifyAdminForQuantityBelow ?? false;
+                            const allowBackorder = product.allowBackorder ?? false;
 
-                          let label = "";
-                          let style = "";
+                            let label = "";
+                            let style = "";
 
-                          if (!track) {
-                            label = "Not Tracked";
-                            style = "bg-slate-500/15 text-slate-400 border border-slate-500/30";
-                          } 
-                          else if (qty === 0 && allowBackorder) {
-                            label = "Backorder Allowed";
-                            style = "bg-purple-500/15 text-purple-400 border border-purple-500/30";
-                          } 
-                          else if (qty === 0) {
-                            label = "Out of Stock";
-                            style = "bg-red-500/15 text-red-400 border border-red-500/30";
-                          } 
-                          else if (lowThreshold > 0 && qty <= lowThreshold) {
-                            label = "Low Stock";
-                            style = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
-                          } 
-                          else {
-                            label = "In Stock";
-                            style = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
-                          }
+                            if (!track) {
+                              label = "Not Tracked";
+                              style = "bg-slate-500/15 text-slate-400 border border-slate-500/30";
+                            }
+                            else if (qty === 0 && allowBackorder) {
+                              label = "Backorder Allowed";
+                              style = "bg-purple-500/15 text-purple-400 border border-purple-500/30";
+                            }
+                            else if (qty === 0) {
+                              label = "Out of Stock";
+                              style = "bg-red-500/15 text-red-400 border border-red-500/30";
+                            }
+                            else if (lowThreshold > 0 && qty <= lowThreshold) {
+                              label = "Low Stock";
+                              style = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
+                            }
+                            else {
+                              label = "In Stock";
+                              style = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+                            }
 
-                          const showAdminAlert =
-                            notifyEnabled && notifyBelow > 0 && qty <= notifyBelow;
+                            const showAdminAlert =
+                              notifyEnabled && notifyBelow > 0 && qty <= notifyBelow;
 
-                                const tooltip = [
-                                `Tracking: ${track ? "Enabled" : "Disabled"}`,
-                                `Low Threshold: ${lowThreshold || "-"}`,
-                                `Notify Below: ${notifyBelow || "-"}`,
-                                `Admin Alert: ${notifyEnabled ? "Enabled" : "Disabled"}`,
-                                `Backorder: ${allowBackorder ? "Allowed" : "No"}`
-                                ].join("\n");
+                            const tooltip = [
+                              `Tracking: ${track ? "Enabled" : "Disabled"}`,
+                              `Low Threshold: ${lowThreshold || "-"}`,
+                              `Notify Below: ${notifyBelow || "-"}`,
+                              `Admin Alert: ${notifyEnabled ? "Enabled" : "Disabled"}`,
+                              `Backorder: ${allowBackorder ? "Allowed" : "No"}`
+                            ].join("\n");
 
-                          return (
-                            <div className="flex flex-col items-center gap-1">
-                              <div
-                                title={tooltip}
-                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold transition-all ${style}`}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                                {label}
-                                {track && (
-                                  <span className="opacity-70 text-[11px]">({qty})</span>
+                            return (
+                              <div className="flex flex-col items-center gap-1">
+                                <div
+                                  title={tooltip}
+                                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold transition-all ${style}`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                  {label}
+                                  {track && (
+                                    <span className="opacity-70 text-[11px]">({qty})</span>
+                                  )}
+                                </div>
+
+                                {showAdminAlert && (
+                                  <span
+                                    title="Admin notification threshold reached"
+                                    className="text-[10px] text-red-400 flex items-center gap-1"
+                                  >
+                                    <span className="w-1 h-1 bg-red-400 rounded-full animate-pulse" />
+                                    Admin Alert
+                                  </span>
                                 )}
                               </div>
+                            );
+                          })()}
+                        </td>
 
-                              {showAdminAlert && (
-                                <span
-                                  title="Admin notification threshold reached"
-                                  className="text-[10px] text-red-400 flex items-center gap-1"
-                                >
-                                  <span className="w-1 h-1 bg-red-400 rounded-full animate-pulse" />
-                                  Admin Alert
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </td>
 
-                    
-                      {/* VISIBILITY */}
-                    <td className="py-1.5 px-2 text-center">
-  <div className="flex flex-col items-center gap-1">
+                        {/* VISIBILITY */}
+                        <td className="py-1.5 px-2 text-center">
+                          <div className="flex flex-col items-center gap-1">
 
-    <span
-      title={
-        product.isPublished
-          ? "Product visible to customers"
-          : "Product hidden from customers"
-      }
-      className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-semibold leading-5 ${
-        product.isPublished
-          ? "bg-emerald-500/15 text-emerald-400"
-          : "bg-slate-600/20 text-slate-400"
-      }`}
-    >
-      {product.isPublished
-        ? "Published"
-        : "Unpublished"}
-    </span>
+                            <span
+                              title={
+                                product.isPublished
+                                  ? "Product visible to customers"
+                                  : "Product hidden from customers"
+                              }
+                              className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-semibold leading-5 ${product.isPublished
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : "bg-slate-600/20 text-slate-400"
+                                }`}
+                            >
+                              {product.isPublished
+                                ? "Published"
+                                : "Unpublished"}
+                            </span>
 
-    <span
-      title={
-        product.showOnHomepage
-          ? "Featured on homepage"
-          : "Not featured on homepage"
-      }
-      className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-medium leading-5 ${
-        product.showOnHomepage
-          ? "bg-violet-500/15 text-violet-400"
-          : "bg-slate-600/20 text-slate-400"
-      }`}
-    >
-      {product.showOnHomepage
-        ? "★ Featured"
-        : "Standard"}
-    </span>
+                            <span
+                              title={
+                                product.showOnHomepage
+                                  ? "Featured on homepage"
+                                  : "Not featured on homepage"
+                              }
+                              className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-medium leading-5 ${product.showOnHomepage
+                                  ? "bg-violet-500/15 text-violet-400"
+                                  : "bg-slate-600/20 text-slate-400"
+                                }`}
+                            >
+                              {product.showOnHomepage
+                                ? "★ Featured"
+                                : "Standard"}
+                            </span>
 
-    {product.isPharmaProduct && (
-      <span
-        title={`Pharma approval: ${product.pharmaApprovalStatus}${product.pharmaApprovedBy ? ` by ${product.pharmaApprovedBy}` : ""}${product.pharmaApprovalComment ? ` — ${product.pharmaApprovalComment}` : ""}`}
-        className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-semibold leading-5 ${
-          product.pharmaApprovalStatus === "Approved"
-            ? "bg-emerald-500/15 text-emerald-400"
-            : product.pharmaApprovalStatus === "Pending"
-            ? "bg-amber-500/15 text-amber-400"
-            : product.pharmaApprovalStatus === "Rejected"
-            ? "bg-red-500/15 text-red-400"
-            : "bg-slate-600/20 text-slate-500"
-        }`}
-      >
-        {product.pharmaApprovalStatus === "Approved" && "✓ Approved"}
-        {product.pharmaApprovalStatus === "Pending" && "⏳ Pending"}
-        {product.pharmaApprovalStatus === "Rejected" && "✗ Rejected"}
-        {product.pharmaApprovalStatus === "NotRequired" && "— N/A"}
-      </span>
-    )}
+                            {product.isPharmaProduct && (
+                              <span
+                                title={`Pharma approval: ${product.pharmaApprovalStatus}${product.pharmaApprovedBy ? ` by ${product.pharmaApprovedBy}` : ""}${product.pharmaApprovalComment ? ` — ${product.pharmaApprovalComment}` : ""}`}
+                                className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-semibold leading-5 ${product.pharmaApprovalStatus === "Approved"
+                                    ? "bg-emerald-500/15 text-emerald-400"
+                                    : product.pharmaApprovalStatus === "Pending"
+                                      ? "bg-amber-500/15 text-amber-400"
+                                      : product.pharmaApprovalStatus === "Rejected"
+                                        ? "bg-red-500/15 text-red-400"
+                                        : "bg-slate-600/20 text-slate-500"
+                                  }`}
+                              >
+                                {product.pharmaApprovalStatus === "Approved" && "✓ Approved"}
+                                {product.pharmaApprovalStatus === "Pending" && "⏳ Pending"}
+                                {product.pharmaApprovalStatus === "Rejected" && "✗ Rejected"}
+                                {product.pharmaApprovalStatus === "NotRequired" && "— N/A"}
+                              </span>
+                            )}
 
-  </div>
-</td>
- <td
-   className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
-  title={`Created At: ${product.createdAt || "N/A"}
+                          </div>
+                        </td>
+                        <td
+                          className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
+                          title={`Created At: ${product.createdAt || "N/A"}
 Created By: ${product.createdBy || "N/A"}`}
->
-  <div className="flex flex-col">
-    <span>{product.createdAt || "N/A"}</span>
-    <span className="text-[10px] text-slate-500">
-      {product.createdBy || "N/A"}
-    </span>
-  </div>
-</td>
- <td
-   className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
-  title={`Updated At: ${product.updatedAt || "N/A"}
+                        >
+                          <div className="flex flex-col">
+                            <span>{product.createdAt || "N/A"}</span>
+                            <span className="text-[10px] text-slate-500">
+                              {product.createdBy || "N/A"}
+                            </span>
+                          </div>
+                        </td>
+                        <td
+                          className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
+                          title={`Updated At: ${product.updatedAt || "N/A"}
 Updated By: ${product.updatedBy || "N/A"}`}
->
-  <div className="flex flex-col">
-    <span>{product.updatedAt || "N/A"}</span>
-    <span className="text-[10px] text-slate-500">
-      {product.updatedBy || "N/A"}
-    </span>
-  </div>
-</td>
+                        >
+                          <div className="flex flex-col">
+                            <span>{product.updatedAt || "N/A"}</span>
+                            <span className="text-[10px] text-slate-500">
+                              {product.updatedBy || "N/A"}
+                            </span>
+                          </div>
+                        </td>
 
-                      {/* ACTIONS */}
-                      <td className="py-1.5 px-2">
-                    <div className="flex items-center justify-center gap-0.5">
+                        {/* ACTIONS */}
+                        <td className="py-1.5 px-2">
+                          <div className="flex items-center justify-center gap-0.5">
 
-  {/* VIEW */}
-  {!isDeleted && (
-    <Link href={`/product/${product.slug}`} target="_blank">
-      <button className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md">
-        <ExternalLink className="h-3.5 w-3.5" />
-      </button>
-    </Link>
-  )}
+                            {/* VIEW */}
+                            {!isDeleted && (
+                              <Link href={`/product/${product.slug}`} target="_blank">
+                                <button className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md">
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </button>
+                              </Link>
+                            )}
 
-  {/* VIEW DETAILS */}
-  {!isDeleted && (
-      <button
-        onClick={() => fetchProductDetails(product.id)}
-        className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
-      >
-        <Eye className="h-3.5 w-3.5" />
-      </button>
-  )}
+                            {/* VIEW DETAILS */}
+                            {!isDeleted && (
+                              <button
+                                onClick={() => fetchProductDetails(product.id)}
+                                className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                            )}
 
-  {/* EDIT */}
-  {!isDeleted && (
-    <Link href={`/admin/products/edit/${product.id}`}>
-      <button className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md">
-        <Edit className="h-3.5 w-3.5" />
-      </button>
-    </Link>
-  )}
+                            {/* EDIT */}
+                            {!isDeleted && (
+                              <Link href={`/admin/products/edit/${product.id}`}>
+                                <button className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md">
+                                  <Edit className="h-3.5 w-3.5" />
+                                </button>
+                              </Link>
+                            )}
 
-  {/* PHARMA APPROVE / REJECT */}
-  {product.isPharmaProduct && (product.pharmaApprovalStatus === "Pending" || (product.isPublished && product.pharmaApprovalStatus === "NotRequired")) && !product.isDeleted && (
-    <>
-      <button
-        onClick={() => handlePharmaActionClick("approve", product.id, product.name)}
-        className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
-        title="Approve pharma product"
-      >
-        <CheckCircle className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={() => handlePharmaActionClick("reject", product.id, product.name)}
-        className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
-        title="Reject pharma product"
-      >
-        <XCircle className="h-3.5 w-3.5" />
-      </button>
-    </>
-  )}
+                            {/* PHARMA APPROVE / REJECT */}
+                            {product.isPharmaProduct && (product.pharmaApprovalStatus === "Pending" || (product.isPublished && product.pharmaApprovalStatus === "NotRequired")) && !product.isDeleted && (
+                              <>
+                                <button
+                                  onClick={() => handlePharmaActionClick("approve", product.id, product.name)}
+                                  className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
+                                  title="Approve pharma product"
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handlePharmaActionClick("reject", product.id, product.name)}
+                                  className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
+                                  title="Reject pharma product"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </button>
+                              </>
+                            )}
 
-  {/* DELETE / RESTORE */}
-<button
-  onClick={() =>
-    openProductActionModal({
-      id: product.id,
-      name: product.name,
-      isDeleted: product.isDeleted,
-    })
-  }
-  className={`p-1 rounded-md transition-all ${
-    product.isDeleted
-      ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
-      : 'text-red-400 hover:bg-red-500/10'
-  }`}
->
-  {isBusy ? (
-    <div className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-  ) : product.isDeleted ? (
-    <CheckCircle className="h-3.5 w-3.5 shadow shadow-emerald-500/20" />
-  ) : (
-    <Trash2 className="h-3.5 w-3.5" />
-  )}
-</button>
+                            {/* DELETE / RESTORE */}
+                            <button
+                              onClick={() =>
+                                openProductActionModal({
+                                  id: product.id,
+                                  name: product.name,
+                                  isDeleted: product.isDeleted,
+                                })
+                              }
+                              className={`p-1 rounded-md transition-all ${product.isDeleted
+                                  ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
+                                  : 'text-red-400 hover:bg-red-500/10'
+                                }`}
+                            >
+                              {isBusy ? (
+                                <div className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              ) : product.isDeleted ? (
+                                <CheckCircle className="h-3.5 w-3.5 shadow shadow-emerald-500/20" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </button>
 
-</div>
-                      </td>
-                    </tr>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Collapsible Variants Row */}
+                      {product.productType === "variable" && expandedProducts.includes(product.id) && (
+                        <tr key={`${product.id}-expanded`} className={theme === "dark" ? "bg-slate-900/40" : "bg-slate-50/50"}>
+                          <td colSpan={8} className="py-2 px-2 border-b border-slate-800">
+                            <div className={`p-2 rounded-xl border ${theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200 shadow-inner"
+                              }`}>
+                              {/* <h6> Variants</h6> */}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs text-left">
+                                  <thead>
+                                    <tr className={`border-b ${theme === "dark" ? "border-slate-800 text-slate-400" : "border-slate-200 text-slate-600"}`}>
+                                      <th className="py-1 px-2 font-semibold"></th>
+                                      <th className="py-1 px-2 font-semibold text-center w-[120px]"></th>
+                                      <th className="py-1 px-2 font-semibold text-center w-[100px]"></th>
+                                      <th className="py-1 px-2 font-semibold text-center w-[150px]"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className={`divide-y ${theme === "dark" ? "divide-slate-900" : "divide-slate-100"}`}>
+                                    {(product.variants || []).map((v: any) => {
+                                      const variantQty = v.stockQuantity ?? 0;
+                                      const isOutOfStock = variantQty === 0;
+
+                                      return (
+                                        <tr key={v.id} className={theme === "dark" ? "hover:bg-slate-900/60" : "hover:bg-slate-50"}>
+                                          <td className={`py-1.5 px-2 font-medium ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <span>{v.name}</span>
+                                              {v.isDefault && (
+                                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                                                  Default
+                                                </span>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="py-1.5 px-2 text-center font-mono">
+                                            <span
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!v.sku) return;
+                                                navigator.clipboard.writeText(v.sku);
+                                                setCopiedId(v.id);
+                                                setTimeout(() => setCopiedId(null), 1200);
+                                              }}
+                                              className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded transition cursor-pointer ${copiedId === v.id
+                                                  ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20"
+                                                  : "bg-slate-100 dark:bg-slate-800/40 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400"
+                                                }`}
+                                              title={v.sku ? "Click to copy" : "No SKU"}
+                                            >
+                                              {copiedId === v.id ? "Copied ✓" : (v.sku || "-")}
+                                            </span>
+                                          </td>
+                                          <td className={`py-1.5 px-2 text-center font-semibold ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
+                                            £{(v.price ?? 0).toFixed(2)}
+                                          </td>
+                                          <td className="py-1.5 px-2 text-center">
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${isOutOfStock
+                                                ? "bg-red-500/15 text-red-500 dark:text-red-400 border-red-500/30"
+                                                : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                              }`}>
+                                              <span className="w-1 h-1 rounded-full bg-current" />
+                                              {isOutOfStock ? "Out of Stock" : `In Stock (${variantQty})`}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
-    </table>
-    )}
+            </table>
+          )}
 
-  </div>
-</div>
+        </div>
+      </div>
       {/* PAGINATION */}
       {totalPages > 1 && (
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
@@ -2709,11 +2768,10 @@ Updated By: ${product.updatedBy || "N/A"}`}
                   <button
                     key={page}
                     onClick={() => goToPage(page)}
-                    className={`px-3 py-2 text-sm rounded-lg transition-all ${
-                      currentPage === page
+                    className={`px-3 py-2 text-sm rounded-lg transition-all ${currentPage === page
                         ? "bg-violet-500 text-white font-semibold"
                         : "text-slate-400 hover:text-white hover:bg-slate-800"
-                    }`}
+                      }`}
                   >
                     {page}
                   </button>
@@ -2806,9 +2864,8 @@ Updated By: ${product.updatedBy || "N/A"}`}
                     {myTakeoverRequests.map((request, index) => (
                       <tr
                         key={request.id}
-                        className={`hover:bg-slate-800/40 transition-colors ${
-                          index !== myTakeoverRequests.length - 1 ? 'border-b border-slate-700/30' : ''
-                        }`}
+                        className={`hover:bg-slate-800/40 transition-colors ${index !== myTakeoverRequests.length - 1 ? 'border-b border-slate-700/30' : ''
+                          }`}
                       >
                         <td className="px-4 py-4">
                           <div className="text-white font-medium text-sm max-w-[220px]" title={request.productName}>
@@ -2948,76 +3005,76 @@ Updated By: ${product.updatedBy || "N/A"}`}
         }
         isLoading={isProcessing}
       />
-<ConfirmDialog
-  isOpen={!!bulkAction}
-  onClose={() => setBulkAction(null)}
-  onConfirm={async () => {
-    if (!bulkAction) return;
+      <ConfirmDialog
+        isOpen={!!bulkAction}
+        onClose={() => setBulkAction(null)}
+        onConfirm={async () => {
+          if (!bulkAction) return;
 
-    try {
-      setIsProcessing(true);
+          try {
+            setIsProcessing(true);
 
-      const { type, items } = bulkAction;
+            const { type, items } = bulkAction;
 
-      if (items.length === 0) {
-        toast.warning("No valid products selected");
-        return;
-      }
+            if (items.length === 0) {
+              toast.warning("No valid products selected");
+              return;
+            }
 
-      if (type === "activate" || type === "deactivate") {
-        await Promise.all(items.map(p => productsService.toggleActive(p.id)));
-      }
+            if (type === "activate" || type === "deactivate") {
+              await Promise.all(items.map(p => productsService.toggleActive(p.id)));
+            }
 
-      if (type === "publish" || type === "unpublish") {
-        await Promise.all(items.map(p => productsService.togglePublish(p.id)));
-      }
+            if (type === "publish" || type === "unpublish") {
+              await Promise.all(items.map(p => productsService.togglePublish(p.id)));
+            }
 
-      if (type === "delete") {
-        await Promise.all(items.map(p => productsService.delete(p.id)));
-      }
+            if (type === "delete") {
+              await Promise.all(items.map(p => productsService.delete(p.id)));
+            }
 
-      if (type === "restore") {
-        await Promise.all(items.map(p => productsService.restore(p.id)));
-      }
+            if (type === "restore") {
+              await Promise.all(items.map(p => productsService.restore(p.id)));
+            }
 
-      toast.success(`${items.length} product ${type} successfully`);
-      setSelectedProducts([]);
-      fetchProducts();
+            toast.success(`${items.length} product ${type} successfully`);
+            setSelectedProducts([]);
+            fetchProducts();
 
-    } catch (err) {
-      toast.error("Bulk action failed");
-    } finally {
-      setIsProcessing(false);
-      setBulkAction(null);
-    }
-  }}
-  title={
-    bulkAction?.type === "activate"
-      ? "Activate Products?"
-      : bulkAction?.type === "deactivate"
-      ? "Deactivate Products?"
-      : bulkAction?.type === "publish"
-      ? "Publish Products?"
-      : bulkAction?.type === "unpublish"
-      ? "Unpublish Products?"
-      : bulkAction?.type === "delete"
-      ? "Delete Products?"
-      : "Restore Products?"
-  }
-  message={`This will affect ${bulkAction?.items.length || 0} product(s).`}
-  confirmText="Yes, Continue"
-  cancelText="Cancel"
-  iconColor={
-    bulkAction?.type === "delete"
-      ? "text-red-400"
-      : "text-emerald-400"
-  }
-  confirmButtonStyle={
-    bulkAction?.type === "delete"
-      ? "bg-gradient-to-r from-red-600 to-rose-600"
-      : "bg-gradient-to-r from-emerald-600 to-green-600"
-  }
-/>
+          } catch (err) {
+            toast.error("Bulk action failed");
+          } finally {
+            setIsProcessing(false);
+            setBulkAction(null);
+          }
+        }}
+        title={
+          bulkAction?.type === "activate"
+            ? "Activate Products?"
+            : bulkAction?.type === "deactivate"
+              ? "Deactivate Products?"
+              : bulkAction?.type === "publish"
+                ? "Publish Products?"
+                : bulkAction?.type === "unpublish"
+                  ? "Unpublish Products?"
+                  : bulkAction?.type === "delete"
+                    ? "Delete Products?"
+                    : "Restore Products?"
+        }
+        message={`This will affect ${bulkAction?.items.length || 0} product(s).`}
+        confirmText="Yes, Continue"
+        cancelText="Cancel"
+        iconColor={
+          bulkAction?.type === "delete"
+            ? "text-red-400"
+            : "text-emerald-400"
+        }
+        confirmButtonStyle={
+          bulkAction?.type === "delete"
+            ? "bg-gradient-to-r from-red-600 to-rose-600"
+            : "bg-gradient-to-r from-emerald-600 to-green-600"
+        }
+      />
       <ConfirmDialog
         isOpen={showToggleConfirm}
         onClose={() => {
@@ -3121,11 +3178,10 @@ Updated By: ${product.updatedBy || "N/A"}`}
               <button
                 onClick={handlePharmaReview}
                 disabled={pharmaProcessing || !pharmaComment.trim()}
-                className={`flex-1 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
-                  pharmaApprovalModal.mode === "approve"
+                className={`flex-1 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${pharmaApprovalModal.mode === "approve"
                     ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500"
                     : "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500"
-                }`}
+                  }`}
               >
                 {pharmaProcessing && <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 {pharmaApprovalModal.mode === "approve" ? "Approve" : "Reject"}

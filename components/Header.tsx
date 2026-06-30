@@ -12,12 +12,14 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { usePathname } from "next/navigation";
+
 import {
   getDiscountBadge,
   getDiscountedPrice,
 } from "@/app/lib/discountHelpers";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
 import { getOldPriceDiscount } from "@/utils/pricing";
+import TrustpilotWidget from "./TrustpilotWidget";
 const iconMap: Record<string, any> = {
   Zap: Zap,
   Truck: Truck,
@@ -315,7 +317,8 @@ export default function Header({
 
         {/* Desktop Grid */}
         <div className="hidden lg:block h-full">
-          <div className="w-full flex items-center justify-center px-6 lg:px-10 xl:px-16 gap-8">
+          <div className="w-full h-full flex items-center justify-between px-6 lg:px-10 xl:px-16 gap-8">
+            <div className="flex items-center justify-center gap-8 flex-1">
             {deliveryStrip.length > 0 &&
               deliveryStrip.map((item) => {
                 const Icon = iconMap[item.icon] || Truck;
@@ -341,6 +344,11 @@ export default function Header({
                   </Link>
                 );
               })}
+            </div>
+
+            <div className="hidden xl:flex mt-3 items-center justify-end flex-shrink-0 min-w-[270px]">
+              <TrustpilotWidget className="w-full max-w-[270px] scale-[0.88] origin-right" />
+            </div>
           </div>
         </div>
       </div>
