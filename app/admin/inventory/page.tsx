@@ -47,9 +47,9 @@ interface ProductRow {
   stockQuantity: number;
   price: number;
 
-  newStock: number;
-  newPrice: number;
-  newOldPrice: number;
+  newStock: number | "";
+  newPrice: number | "";
+  newOldPrice: number | "";
 
   brandName: string;
   categoryName: string;
@@ -339,11 +339,17 @@ export default function InventoryPage() {
     return () => clearTimeout(h);
   }, [searchTerm]);
 
-  const updateInventory = async (items: { productId: string; variantId?: string; newStock: number; newPrice: number; newOldPrice: number; }[]) => {
+  const updateInventory = async (items: { productId: string; variantId?: string; newStock: number | ""; newPrice: number | ""; newOldPrice: number | ""; }[]) => {
     if (!items.length) return;
     try {
       setRowLoading(items.length === 1 ? `${items[0].productId}-${items[0].variantId || "main"}` : "bulk");
-      const res = await productsService.bulkUpdateInventory(items);
+      const normalizedItems = items.map(item => ({
+        ...item,
+        newStock: item.newStock === "" ? 0 : Number(item.newStock),
+        newPrice: item.newPrice === "" ? 0 : Number(item.newPrice),
+        newOldPrice: item.newOldPrice === "" ? 0 : Number(item.newOldPrice),
+      }));
+      const res = await productsService.bulkUpdateInventory(normalizedItems);
       if (!res?.data?.success) {
         toast.error(res?.data?.message || "Update failed");
         return;
@@ -357,7 +363,7 @@ export default function InventoryPage() {
     }
   };
 
-  const handleChange = (productId: string, variantId: string | undefined, field: "newStock" | "newPrice" | "newOldPrice", value: number) => {
+  const handleChange = (productId: string, variantId: string | undefined, field: "newStock" | "newPrice" | "newOldPrice", value: number | "") => {
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id === productId && !variantId) return { ...p, [field]: value };
@@ -381,7 +387,11 @@ export default function InventoryPage() {
   });
 
   const handleBulkUpdate = () => {
-    const invalidProducts = changedProducts.filter(p => p.newOldPrice > 0 && p.newOldPrice <= p.newPrice);
+    const invalidProducts = changedProducts.filter(p => {
+      const newOldPrice = p.newOldPrice === "" ? 0 : Number(p.newOldPrice);
+      const newPrice = p.newPrice === "" ? 0 : Number(p.newPrice);
+      return newOldPrice > 0 && newOldPrice <= newPrice;
+    });
     
     if (invalidProducts.length > 0) {
       toast.error(`Invalid Prices: Old Price must be greater than New Price for ${invalidProducts.length} product(s).`);
@@ -708,7 +718,9 @@ export default function InventoryPage() {
             ) : (
               products.map((p) => {
                 const changed = p.newStock !== p.stockQuantity || p.newPrice !== p.price || p.newOldPrice !== (p.oldPrice ?? 0);
-                const priceInvalid = p.newOldPrice > 0 && p.newOldPrice <= p.newPrice;
+                const newOldPriceNum = p.newOldPrice === "" ? 0 : Number(p.newOldPrice);
+                const newPriceNum = p.newPrice === "" ? 0 : Number(p.newPrice);
+                const priceInvalid = newOldPriceNum > 0 && newOldPriceNum <= newPriceNum;
 
                 return (
                   <React.Fragment key={getRowKey(p)}>
@@ -804,54 +816,56 @@ export default function InventoryPage() {
                       <td className="p-2.5 text-center"><StockBadge qty={p.stockQuantity} /></td>
                       <td className="p-2.5 text-center">
                         {p.productType === "variable" ? (
-                          <span className="text-slate-500">—</span>
+                           <span className="text-slate-500">—</span>
                         ) : (
-                          <input type="number" min={0} value={p.newStock} onChange={(e) => handleChange(p.id, undefined, "newStock", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newStock !== p.stockQuantity ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"}`} />
+                           <input type="number" min={0} value={p.newStock === 0 ? "" : p.newStock} onChange={(e) => handleChange(p.id, undefined, "newStock", e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newStock !== p.stockQuantity ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"}`} />
                         )}
                       </td>
                       <td className="p-2.5 text-center">
                         {p.productType === "variable" ? (
-                          <span className="text-slate-500">—</span>
+                           <span className="text-slate-500">—</span>
                         ) : (
-                          <span className="text-sm font-bold text-emerald-400">£{p.price.toFixed(2)}</span>
+                           <span className="text-sm font-bold text-emerald-400">£{p.price.toFixed(2)}</span>
                         )}
                       </td>
                       <td className="p-2.5 text-center relative">
                         {p.productType === "variable" ? (
-                          <span className="text-slate-500">—</span>
+                           <span className="text-slate-500">—</span>
                         ) : (
-                          <>
-                            <input type="number" min={0} step="0.01" value={p.newPrice} onChange={(e) => handleChange(p.id, undefined, "newPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newPrice !== p.price ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
-                            {rowLoading === p.id && <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 rounded-lg"><div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>}
-                          </>
+                           <>
+                             <input type="number" min={0} step="0.01" value={p.newPrice === 0 ? "" : p.newPrice} onChange={(e) => handleChange(p.id, undefined, "newPrice", e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newPrice !== p.price ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
+                             {rowLoading === p.id && <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 rounded-lg"><div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>}
+                           </>
                         )}
                       </td>
                       <td className="p-2.5 text-center">
                         {p.productType === "variable" ? (
-                          <span className="text-slate-500">—</span>
+                           <span className="text-slate-500">—</span>
                         ) : (
-                          <span className="text-sm text-slate-500 line-through">£{(p.oldPrice ?? 0).toFixed(2)}</span>
+                           <span className="text-sm text-slate-500 line-through">£{(p.oldPrice ?? 0).toFixed(2)}</span>
                         )}
                       </td>
                       <td className="p-2.5 text-center relative">
                         {p.productType === "variable" ? (
-                          <span className="text-slate-500">—</span>
+                           <span className="text-slate-500">—</span>
                         ) : (
-                          <>
-                            <input type="number" min={0} step="0.01" value={p.newOldPrice} onChange={(e) => handleChange(p.id, undefined, "newOldPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newOldPrice !== (p.oldPrice ?? 0) ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
-                            {priceInvalid && (
-                              <div className="absolute -top-1 right-0 translate-x-1/2 bg-red-600 text-white text-[8px] px-1 rounded shadow-lg z-10 font-bold" title="Old Price must be greater than New Price">
-                                ?
-                              </div>
-                            )}
-                          </>
+                           <>
+                             <input type="number" min={0} step="0.01" value={p.newOldPrice === 0 ? "" : p.newOldPrice} onChange={(e) => handleChange(p.id, undefined, "newOldPrice", e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${p.newOldPrice !== (p.oldPrice ?? 0) ? "border-amber-500/60 bg-amber-500/5" : "border-slate-700"} ${priceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
+                             {priceInvalid && (
+                               <div className="absolute -top-1 right-0 translate-x-1/2 bg-red-600 text-white text-[8px] px-1 rounded shadow-lg z-10 font-bold" title="Old Price must be greater than New Price">
+                                 ?
+                               </div>
+                             )}
+                           </>
                         )}
                       </td>
                       <td className="p-2.5 text-center">{changed ? <button disabled={priceInvalid} onClick={() => updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice, newOldPrice: p.newOldPrice }])} className={`p-2 rounded-lg transition-colors ${priceInvalid ? "bg-slate-800 text-slate-600 cursor-not-allowed border-slate-700" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"}`} title={priceInvalid ? "Old Price must be > New Price" : "Save Changes"}><Save className="h-4 w-4" /></button> : <span className="text-slate-800">—</span>}</td>
                     </tr>
                     {expandedRows.has(p.id) && p.variants?.map((v) => {
                       const vChanged = v.newStock !== v.stockQuantity || v.newPrice !== v.price || v.newOldPrice !== (v.oldPrice ?? 0);
-                      const vPriceInvalid = v.newOldPrice > 0 && v.newOldPrice <= v.newPrice;
+                      const newOldPriceNum = v.newOldPrice === "" ? 0 : Number(v.newOldPrice);
+                      const newPriceNum = v.newPrice === "" ? 0 : Number(v.newPrice);
+                      const vPriceInvalid = newOldPriceNum > 0 && newOldPriceNum <= newPriceNum;
                       return (
                         <tr key={`${p.id}-${v.variantId}`} className={`bg-slate-950/40 border-b border-slate-800/30 transition-colors ${selected.has(`${p.id}-${v.variantId}`) ? "bg-violet-500/5" : "hover:bg-slate-900/40"} ${vPriceInvalid ? "bg-red-500/5" : ""}`}>
                           <td className="p-2.5 text-center">
@@ -884,14 +898,14 @@ export default function InventoryPage() {
                             </span>
                           </td>
                           <td className="p-2.5 text-center"><StockBadge qty={v.stockQuantity} /></td>
-                          <td className="p-2.5 text-center"><input type="number" min={0} value={v.newStock} onChange={(e) => handleChange(p.id, v.variantId, "newStock", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${v.newStock !== v.stockQuantity ? "border-amber-500/40 bg-amber-500/5" : "border-slate-700"}`} /></td>
+                          <td className="p-2.5 text-center"><input type="number" min={0} value={v.newStock === 0 ? "" : v.newStock} onChange={(e) => handleChange(p.id, v.variantId, "newStock", e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${v.newStock !== v.stockQuantity ? "border-amber-500/40 bg-amber-500/5" : "border-slate-700"}`} /></td>
                           <td className="p-2.5 text-center"><span className="text-sm font-semibold text-emerald-400/80">£{v.price.toFixed(2)}</span></td>
                           <td className="p-2.5 text-center relative">
-                            <input type="number" min={0} step="0.01" value={v.newPrice} onChange={(e) => handleChange(p.id, v.variantId, "newPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${v.newPrice !== v.price ? "border-amber-500/40 bg-amber-500/5" : "border-slate-700"} ${vPriceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
+                            <input type="number" min={0} step="0.01" value={v.newPrice === 0 ? "" : v.newPrice} onChange={(e) => handleChange(p.id, v.variantId, "newPrice", e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${v.newPrice !== v.price ? "border-amber-500/40 bg-amber-500/5" : "border-slate-700"} ${vPriceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
                           </td>
                           <td className="p-2.5 text-center"><span className="text-xs text-slate-600 line-through">£{(v.oldPrice ?? 0).toFixed(2)}</span></td>
                           <td className="p-2.5 text-center relative">
-                            <input type="number" min={0} step="0.01" value={v.newOldPrice} onChange={(e) => handleChange(p.id, v.variantId, "newOldPrice", Number(e.target.value))} className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${v.newOldPrice !== (v.oldPrice ?? 0) ? "border-amber-500/40 bg-amber-500/5" : "border-slate-700"} ${vPriceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
+                            <input type="number" min={0} step="0.01" value={v.newOldPrice === 0 ? "" : v.newOldPrice} onChange={(e) => handleChange(p.id, v.variantId, "newOldPrice", e.target.value === "" ? "" : Number(e.target.value))} placeholder="0" className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm px-2 py-1.5 ${v.newOldPrice !== (v.oldPrice ?? 0) ? "border-amber-500/40 bg-amber-500/5" : "border-slate-700"} ${vPriceInvalid ? "border-red-500 ring-1 ring-red-500/50" : ""}`} />
                             {vPriceInvalid && (
                               <div className="absolute -top-1 right-0 translate-x-1/2 bg-red-600 text-white text-[8px] px-1 rounded shadow-lg z-10 font-bold" title="Old Price must be greater than New Price">
                                 ?

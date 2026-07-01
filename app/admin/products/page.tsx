@@ -688,7 +688,14 @@ export default function ProductsPage() {
             nextDayDeliveryEnabled: p.nextDayDeliveryEnabled === true,
             standardDeliveryEnabled: p.standardDeliveryEnabled === true,
             sameDayDeliveryEnabled: p.sameDayDeliveryEnabled === true,
-            trackQuantity: p.trackQuantity ?? false,
+            trackQuantity:
+              p.productType === "variable"
+                ? (typeof defaultVariant?.trackInventory === "boolean"
+                    ? defaultVariant.trackInventory
+                    : (Array.isArray(p.variants) && p.variants.length > 0
+                        ? p.variants.some((v: any) => v.trackInventory)
+                        : false))
+                : (p.trackQuantity ?? false),
             lowStockThreshold: p.lowStockThreshold ?? 0,
             notifyAdminForQuantityBelow: p.notifyAdminForQuantityBelow ?? false,
             notifyQuantityBelow: p.notifyQuantityBelow ?? 0,

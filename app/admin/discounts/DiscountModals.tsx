@@ -43,7 +43,7 @@ interface FormData {
   discountType: DiscountType;
   usePercentage: boolean;
   discountAmount: number;
-  discountPercentage: number;
+  discountPercentage: number | "";
   maximumDiscountAmount: number | null;
   startDate: string;
   endDate: string;
@@ -1002,12 +1002,18 @@ useEffect(() => {
   min="0"
   max="100"
   step="0.01"
-  value={formData.discountPercentage}
+  value={formData.discountPercentage === 0 ? "" : formData.discountPercentage}
   onChange={(e) => {
-    const value = Math.min(100, Math.max(0, Number(e.target.value)));
-    setFormData({ ...formData, discountPercentage: value });
+    const value = e.target.value;
+    if (value === "") {
+      setFormData({ ...formData, discountPercentage: "" });
+    } else {
+      const numVal = Math.min(100, Math.max(0, Number(value)));
+      setFormData({ ...formData, discountPercentage: numVal });
+    }
   }}
-                          className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
+  placeholder="Enter discount"
+  className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
 
 />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">%</span>
@@ -1073,7 +1079,7 @@ useEffect(() => {
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Start Date & Time     <span className="text-red-500">*</span></label>
                     <input
                       type="datetime-local"
-                      required
+                  
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                       className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
@@ -1084,7 +1090,7 @@ useEffect(() => {
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">End Date & Time     <span className="text-red-500">*</span></label>
                     <input
                       type="datetime-local"
-                      required
+                   
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                       className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"

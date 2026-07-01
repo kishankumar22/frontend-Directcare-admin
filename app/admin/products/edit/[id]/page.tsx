@@ -1177,7 +1177,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           productData.options.forEach((opt: any, i: number) => {
             unifiedAttrs.push({
               id: opt.id || `opt-${Date.now()}-${i}`,
-              name: opt.name || '',
+              name: (opt.name || '').trim(),
               value: Array.isArray(opt.values)
                 ? opt.values.join(', ')
                 : (opt.values || '').split(',').map((v: string) => v.trim()).filter(Boolean).join(', '),
@@ -1194,7 +1194,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           productData.attributes.forEach((attr: any, i: number) => {
             unifiedAttrs.push({
               id: attr.id || `attr-${Date.now()}-${i}`,
-              name: attr.name || '',
+              name: (attr.name || '').trim(),
               value: attr.value || '',
               isVariation: false,
               displayOrder: attr.displayOrder || i,
@@ -1225,14 +1225,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           const vars = productData.variants.map((variant: any) => {
             // Find the actual option names in order they appear in options array
             const orderedOptionNames = (productData.options && Array.isArray(productData.options))
-              ? productData.options.map((opt: any) => opt.name).filter(Boolean)
+              ? productData.options.map((opt: any) => (opt.name || '').trim()).filter(Boolean)
               : [];
 
             // Helper to get value matching option name
             const getValueForOption = (name: string) => {
-              if (name === variant.option1Name) return variant.option1Value;
-              if (name === variant.option2Name) return variant.option2Value;
-              if (name === variant.option3Name) return variant.option3Value;
+              const cleanName = name.trim().toLowerCase();
+              if (cleanName === variant.option1Name?.trim().toLowerCase()) return variant.option1Value;
+              if (cleanName === variant.option2Name?.trim().toLowerCase()) return variant.option2Value;
+              if (cleanName === variant.option3Name?.trim().toLowerCase()) return variant.option3Value;
               return null;
             };
 
@@ -2283,7 +2284,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         console.log('🔄 Refreshing lock...');
       }
 
-      const response = await productLockService.acquireLock(productId, 5);
+      const response = await productLockService.acquireLock(productId, 2);
       console.log('🔒 LOCK: Response received:', response);
 
       if (response.success && response.data) {

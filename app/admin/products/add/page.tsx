@@ -23,7 +23,7 @@ import VatRateSelector from "../VatRateSelector";
 import { scrollCls } from "../../_utils/styles";
 import { cn } from "@/lib/utils";
 import { getBackendMessage } from "../../_utils/errorUtils";
-import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
+
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -481,7 +481,7 @@ export default function AddProductPage() {
 
       } catch (error) {
         console.error('Error fetching data:', error);
-        toast.error(`Failed to load data: ${getBackendMessage(error)}`);
+        toast.error('Failed to load data');
         setAvailableProducts([]);
       }
     };
@@ -1397,6 +1397,27 @@ export default function AddProductPage() {
           }
         }
 
+        const existingVariantSkus: string[] = [];
+        for (const variant of productVariants) {
+          const skuToCheck = variant.sku?.trim();
+          if (!skuToCheck) continue;
+
+          const summary = await productsService.searchSummary({ sku: skuToCheck });
+          if (summary.data?.data?.skuFound) {
+            existingVariantSkus.push(skuToCheck);
+          }
+        }
+
+        if (existingVariantSkus.length > 0) {
+          toast.error(`The following variant SKUs already exist: ${existingVariantSkus.join(", ")}`, {
+            autoClose: 10000,
+          });
+          target.removeAttribute("data-submitting");
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+
       }
 
       setSubmitProgress({
@@ -1876,20 +1897,33 @@ export default function AddProductPage() {
       if (formData.allowCustomerReviews) productData.allowCustomerReviews = true;
 
       console.log("¦ FINAL PAYLOAD:");
+      delete productData.categoryId;
+      delete productData.categories;
+      delete productData.brands;
+      delete productData.allowBackInStockSubscriptions;
+      delete productData.lowStockActivity;
+      delete productData.productAvailabilityRange;
+
+      Object.keys(productData).forEach((key) => {
+        if (productData[key] === undefined) {
+          delete productData[key];
+        }
+      });
+
       console.log(JSON.stringify(productData, null, 2));
 
       // ============================================================
       // SECTION 9: DYNAMIC CREATE OR UPDATE (DRAFT-FIRST ARCHITECTURE)
       // ============================================================
       setSubmitProgress({
-        step: isEditModeInitial ? "Updating product..." : "Creating safe draft...",
+        step: isEditModeInitial ? "Updating product..." : "Creating product...",
         percentage: 70,
       });
 
       let response: any;
       let currentProductId: string | any = productId;
 
-      if (!isEditModeInitial) {
+      if (false && !isEditModeInitial) {
         // STEP 1: CREATE MINIMAL DRAFT
         console.log(" • STEP 1: Creating minimal draft first...");
 
@@ -1944,16 +1978,34 @@ export default function AddProductPage() {
         }
       }
 
-      // STEP 3: UPDATE FULL PRODUCT (Works for both existing and newly created drafts)
+      // Save full product in one request for create, and update in one request for edit.
       try {
-        console.log(isEditModeInitial ? "Updating existing product:" : "Updating newly created draft:", currentProductId);
+        console.log(isEditModeInitial ? "Updating existing product:" : "Creating full product:", currentProductId);
 
-        response = await productsService.update(currentProductId, productData);
+        response = isEditModeInitial
+          ? await productsService.update(currentProductId, productData)
+          : await productsService.create(productData);
         if (response.error) {
           throw new Error(getBackendMessage(response));
         }
 
-        toast.success(isDraft ? "Draft saved successfully!" : "Product published successfully!", {
+        if (!isEditModeInitial) {
+          currentProductId = (response.data as any)?.data?.id || (response.data as any)?.id || (response as any)?.id;
+
+          if (!currentProductId) {
+            throw new Error("Product ID not found in create response");
+          }
+
+          setProductId(currentProductId);
+          setIsEditMode(true);
+
+          if (typeof window !== 'undefined') {
+            const newUrl = `${window.location.pathname}?id=${currentProductId}`;
+            window.history.replaceState(null, '', newUrl);
+          }
+        }
+
+        toast.success(isDraft ? "Draft saved successfully!" : "Product Created successfully!", {
           autoClose: 2000,
         });
         const snapshot = structuredClone({
@@ -1963,26 +2015,11 @@ export default function AddProductPage() {
 
         setInitialFormData(snapshot);
         setHasUnsavedChanges(false);
-      } catch (updateError: any) {
-        console.error("Update failed after draft creation:", updateError);
-
-        // If we just created the draft, show specialized message
-        if (!isEditModeInitial) {
-          toast.warning("Draft saved but some sections failed to update. You can fix and retry.", {
-            autoClose: 10000,
-          });
-        } else {
-          // Normal update failure
-          const errorMessage = getBackendMessage(updateError);
-          toast.error(`Update failed: ${errorMessage}`);
-        }
-
-        // IMPORTANT: We do NOT throw here if we want to proceed to image uploads 
-        // OR we can throw if we want to stop. Industry standard is to keep trying images 
-        // if the ID exists, but usually update failure means something is wrong with the payload.
-        // However, per requirements: "Failed update must NOT delete draft, form should NOT reset, page should remain in edit mode".
-        // Throwing here will skip images but go to main catch which is fine.
-        throw updateError;
+      } catch (saveError: any) {
+        console.error(isEditModeInitial ? "Update failed:" : "Create failed:", saveError);
+        const errorMessage = getBackendMessage(saveError);
+        toast.error(`${isEditModeInitial ? "Update" : "Create"} failed: ${errorMessage}`);
+        throw saveError;
       }
 
       // ============================================================
@@ -2008,7 +2045,7 @@ export default function AddProductPage() {
           }
         } catch (imageError) {
           console.error("Error uploading product images:", imageError);
-          toast.warning(`Product created but some images failed to upload: ${getBackendMessage(imageError)}`);
+          toast.warning("Product created but some images failed to upload.");
         }
       }
 
@@ -2038,7 +2075,7 @@ export default function AddProductPage() {
             }
           } catch (variantError) {
             console.error("Error uploading variant images:", variantError);
-            toast.warning(`Some variant images failed to upload: ${getBackendMessage(variantError)}`);
+            toast.warning("Some variant images failed to upload.");
           }
         }
       }
@@ -2059,7 +2096,7 @@ export default function AddProductPage() {
           console.log("  Pharmacy questions assigned");
         } catch (pharmaError) {
           console.error("Error assigning pharmacy questions:", pharmaError);
-          toast.warning(`Product created but pharmacy questions failed to assign: ${getBackendMessage(pharmaError)}`);
+          toast.warning("Product created but pharmacy questions failed to assign.");
         }
       }
 
@@ -2178,7 +2215,7 @@ export default function AddProductPage() {
         ...prev,
         productType: value,
 
-        // Clear SKU and default inventory to "dont-track" when switching to variable (unless in edit mode with an existing SKU)
+        // Clear SKU and default inventory to "dont-track" when switching to variable
         ...(value === 'variable' && {
           manageInventory: 'dont-track',
           ...((!isEditMode || !prev.sku) && { sku: '' }),
@@ -2806,7 +2843,9 @@ export default function AddProductPage() {
         !response?.data?.success ||
         !Array.isArray(response.data.data)
       ) {
-        throw new Error(getBackendMessage(response));
+        throw new Error(
+          response?.data?.message || "Invalid server response"
+        );
       }
 
       const uploadedImages = response.data.data || [];
@@ -2832,7 +2871,12 @@ export default function AddProductPage() {
     } catch (error: any) {
       console.error("❌ Upload error:", error);
 
-      toast.error(`Failed to upload images: ${getBackendMessage(error)}`);
+      toast.error(
+        `Failed to upload images: ${error?.response?.data?.message ||
+        error.message ||
+        "Unknown error"
+        }`
+      );
 
       return [];
     }
@@ -2909,7 +2953,6 @@ export default function AddProductPage() {
           return response.data;
         } catch (error: any) {
           console.error(`  Error uploading image for ${localVariant.name}:`, error);
-          toast.error(`Variant ${localVariant.name} image upload failed: ${getBackendMessage(error)}`);
           return null;
         }
       });

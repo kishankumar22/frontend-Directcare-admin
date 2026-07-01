@@ -51,7 +51,7 @@ interface FormData {
   discountType: DiscountType;
   usePercentage: boolean;
   discountAmount: number;
-  discountPercentage: number;
+  discountPercentage: number | "";
   maximumDiscountAmount: number | null;
   startDate: string;
   endDate: string;
@@ -202,7 +202,7 @@ const [mobileFile, setMobileFile] = useState<File | null>(null);
     discountType: "AssignedToOrderTotal",
     usePercentage: true,
     discountAmount: 0,
-    discountPercentage: 0,
+    discountPercentage: "",
     maximumDiscountAmount: null,
     startDate: "",
     endDate: "",
@@ -405,9 +405,9 @@ const handleStatusToggle = async () => {
         statusConfirm.maximumDiscountedQuantity ?? undefined,
     };
 
-    await discountsService.update(statusConfirm.id, payload);
+    const res = await discountsService.update(statusConfirm.id, payload);
 
-    toast.success("Status updated successfully!");
+    toast.success(getBackendMessage(res) || "Status updated successfully!");
     await fetchDiscounts();
 
   } catch (error: any) {
@@ -419,17 +419,14 @@ const handleStatusToggle = async () => {
 };
 
 
-
-
-
 const handleRestore = async () => {
   if (!restoreConfirm) return;
 
   setIsRestoring(true);
   try {
-    await discountsService.restore(restoreConfirm.id);
+    const res = await discountsService.restore(restoreConfirm.id);
 
-    toast.success("Discount restored successfully");
+    toast.success(getBackendMessage(res) || "Discount restored successfully");
     await fetchDiscounts();
   } catch (error: any) {
     toast.error(getBackendMessage(error));
@@ -538,7 +535,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 }   
 
-  if (!formData.discountPercentage) {
+  if (formData.usePercentage && !formData.discountPercentage) {
     toast.error("Discount percentage is required");
     return;
   }
@@ -560,6 +557,7 @@ if (editingDiscount) {
   try {
     const payload = {
       ...formData,
+      discountPercentage: formData.discountPercentage === "" ? 0 : Number(formData.discountPercentage),
       assignedProductIds: formData.assignedProductIds.join(","),
       assignedCategoryIds: formData.assignedCategoryIds.join(","),
       assignedManufacturerIds: formData.assignedManufacturerIds.join(","),
@@ -575,8 +573,8 @@ if (editingDiscount) {
         await handleUploadBannerImage(editingDiscount.id, mobileFile, "mobile");
       }
       
-      await discountsService.update(editingDiscount.id, payload);
-      toast.success("Discount updated successfully!");
+      const resUpdate = await discountsService.update(editingDiscount.id, payload);
+      toast.success(getBackendMessage(resUpdate) || "Discount updated successfully!");
     } else {
       const res = await discountsService.create(payload);
 
@@ -595,7 +593,7 @@ if (editingDiscount) {
         await handleUploadBannerImage(discountId, mobileFile, "mobile");
       }
 
-      toast.success("Discount created successfully!");
+      toast.success(getBackendMessage(res) || "Discount created successfully!");
     }
 
     await fetchDiscounts();
@@ -604,7 +602,7 @@ if (editingDiscount) {
 
   } catch (error: any) {
     console.error(error);
-    toast.error("Failed to save discount");
+    toast.error(getBackendMessage(error) || "Failed to save discount");
   }
 };
 const handleEdit = (discount: Discount) => {
@@ -659,7 +657,7 @@ setEditingDiscount(discount);
       discountType: "AssignedToOrderTotal",
       usePercentage: true,
       discountAmount: 0,
-      discountPercentage: 0,
+      discountPercentage: "",
       maximumDiscountAmount: null,
       startDate: "",
       endDate: "",
@@ -738,14 +736,14 @@ if (json?.success){
     try {
       const response = await discountsService.delete(id);
       if (!response.error && (response.status === 200 || response.status === 204)) {
-        toast.success("Discount deleted successfully!");
+        toast.success(getBackendMessage(response) || "Discount deleted successfully!");
         await fetchDiscounts();
       } else {
-        toast.error(response.error || "Failed to delete discount");
+        toast.error(getBackendMessage(response) || response.error || "Failed to delete discount");
       }
     } catch (error: any) {
       console.error("Error deleting discount:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete discount");
+      toast.error(getBackendMessage(error) || "Failed to delete discount");
     } finally {
       setIsDeleting(false);
       setDeleteConfirm(null);

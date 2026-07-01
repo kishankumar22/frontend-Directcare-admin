@@ -53,6 +53,7 @@ import {
 } from '@/lib/services/loyaltyPoints';
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatCurrency, getImageUrl } from "../_utils/formatUtils";
+import { getBackendMessage } from "@/app/admin/_utils/errorUtils";
 
 type SortField = 'currentBalance' | 'totalPointsEarned' | 'totalPointsRedeemed' | 'lastActivity';
 type SortDirection = 'asc' | 'desc';
@@ -128,11 +129,11 @@ export default function LoyaltyPointsPage() {
         setTotalCount(response.data.totalCount);
         setStats(response.data.stats);
       } else {
-        toast.error('Failed to load loyalty points data');
+        toast.error(response.message || 'Failed to load loyalty points data');
       }
     } catch (error: any) {
       console.error('Error fetching users:', error);
-      toast.error(error?.message || 'Failed to load loyalty points data');
+      toast.error(getBackendMessage(error) || 'Failed to load loyalty points data');
     } finally {
       setLoading(false);
     }
@@ -202,12 +203,12 @@ export default function LoyaltyPointsPage() {
         setUserHistory(transactions);
         setHasMoreHistory(transactions.length === historyPageSize);
       } else {
-        toast.error('Failed to load transaction history');
+        toast.error(getBackendMessage(response) || 'Failed to load transaction history');
         setUserHistory([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      toast.error('Failed to load transaction history');
+      toast.error(getBackendMessage(error) || 'Failed to load transaction history');
       setUserHistory([]);
     } finally {
       setLoadingModal(false);
@@ -239,7 +240,7 @@ export default function LoyaltyPointsPage() {
       }
     } catch (error: any) {
       console.error('Error:', error);
-      toast.error('Failed to load more transactions');
+      toast.error(getBackendMessage(error) || 'Failed to load more transactions');
     } finally {
       setLoadingModal(false);
     }
