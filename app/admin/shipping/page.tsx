@@ -18,8 +18,20 @@ interface PostcodeRule {
   surchargeAmount: number; notes?: string; isActive: boolean;
 }
 
-const emptyDelivery: Omit<DeliveryOption, "id"> = { name: "", displayName: "", description: "", price: 0, freeShippingThreshold: undefined, deliveryMinDays: 1, deliveryMaxDays: 5, isActive: true, displayOrder: 0 };
-const emptyRule: Omit<PostcodeRule, "id"> = { postcodePattern: "", ruleType: "Surcharge", surchargeAmount: 0, notes: "", isActive: true };
+type DeliveryOptionForm = Omit<DeliveryOption, "id" | "price" | "freeShippingThreshold" | "deliveryMinDays" | "deliveryMaxDays" | "displayOrder"> & {
+  price: number | "";
+  freeShippingThreshold?: number | "";
+  deliveryMinDays: number | "";
+  deliveryMaxDays: number | "";
+  displayOrder: number | "";
+};
+
+const emptyDelivery: DeliveryOptionForm = { name: "", displayName: "", description: "", price: "", freeShippingThreshold: "", deliveryMinDays: "", deliveryMaxDays: "", isActive: true, displayOrder: "" };
+type PostcodeRuleForm = Omit<PostcodeRule, "id" | "surchargeAmount"> & {
+  surchargeAmount: number | "";
+};
+
+const emptyRule: PostcodeRuleForm = { postcodePattern: "", ruleType: "Surcharge", surchargeAmount: "", notes: "", isActive: true };
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
@@ -64,7 +76,7 @@ function DeliveryTab() {
   const [modal, setModal] = useState(false);
   const [viewing, setViewing] = useState<DeliveryOption | null>(null);
   const [editing, setEditing] = useState<DeliveryOption | null>(null);
-  const [form, setForm] = useState<Omit<DeliveryOption, "id">>(emptyDelivery);
+  const [form, setForm] = useState<DeliveryOptionForm>(emptyDelivery);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -76,14 +88,23 @@ function DeliveryTab() {
   }
   function openCreate() { setEditing(null); setForm({ ...emptyDelivery }); setError(""); setModal(true); }
   function openEdit(o: DeliveryOption) {
-    setEditing(o); setForm({ name: o.name, displayName: o.displayName, description: o.description ?? "", price: o.price, freeShippingThreshold: o.freeShippingThreshold, deliveryMinDays: o.deliveryMinDays, deliveryMaxDays: o.deliveryMaxDays, isActive: o.isActive, displayOrder: o.displayOrder });
+    setEditing(o); setForm({ name: o.name, displayName: o.displayName, description: o.description ?? "", price: o.price, freeShippingThreshold: o.freeShippingThreshold ?? "", deliveryMinDays: o.deliveryMinDays, deliveryMaxDays: o.deliveryMaxDays, isActive: o.isActive, displayOrder: o.displayOrder });
     setError(""); setModal(true);
   }
   async function save() {
     if (!form.name.trim() || !form.displayName.trim()) { setError("Name and Display Name are required."); return; }
+    if (form.price === "" || form.deliveryMinDays === "" || form.deliveryMaxDays === "" || form.displayOrder === "") { setError("Please fill all required numeric fields."); return; }
     setSaving(true); setError("");
     try {
-      const body = { ...form, freeShippingThreshold: form.freeShippingThreshold || null, description: form.description || null };
+      const body = { 
+        ...form, 
+        price: Number(form.price), 
+        deliveryMinDays: Number(form.deliveryMinDays), 
+        deliveryMaxDays: Number(form.deliveryMaxDays), 
+        displayOrder: Number(form.displayOrder),
+        freeShippingThreshold: form.freeShippingThreshold === "" ? null : Number(form.freeShippingThreshold), 
+        description: form.description || null 
+      };
       editing ? await apiFetch(`${API_ENDPOINTS.deliveryOptions}/${editing.id}`, { method: "PUT", body: JSON.stringify({ id: editing.id, ...body }) })
               : await apiFetch(API_ENDPOINTS.deliveryOptions, { method: "POST", body: JSON.stringify(body) });
       toast.success(editing ? "Updated!" : "Created!"); setModal(false); await load();
@@ -230,7 +251,7 @@ function DeliveryTab() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-slate-400 mb-1">Price (£)</label>
-                  <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))} className={inp} />
+                  <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className={inp} placeholder="Enter price" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-slate-400 mb-1">Free Shipping Over (£)</label>
@@ -238,15 +259,15 @@ function DeliveryTab() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-slate-400 mb-1">Min Days</label>
-                  <input type="number" min="0" value={form.deliveryMinDays} onChange={e => setForm(f => ({ ...f, deliveryMinDays: parseInt(e.target.value) || 0 }))} className={inp} />
+                  <input type="number" min="0" value={form.deliveryMinDays} onChange={e => setForm(f => ({ ...f, deliveryMinDays: e.target.value === '' ? '' : parseInt(e.target.value) }))} className={inp} placeholder="Enter min days" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-slate-400 mb-1">Max Days</label>
-                  <input type="number" min="0" value={form.deliveryMaxDays} onChange={e => setForm(f => ({ ...f, deliveryMaxDays: parseInt(e.target.value) || 0 }))} className={inp} />
+                  <input type="number" min="0" value={form.deliveryMaxDays} onChange={e => setForm(f => ({ ...f, deliveryMaxDays: e.target.value === '' ? '' : parseInt(e.target.value) }))} className={inp} placeholder="Enter max days" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-slate-400 mb-1">Display Order</label>
-                  <input type="number" min="0" value={form.displayOrder} onChange={e => setForm(f => ({ ...f, displayOrder: parseInt(e.target.value) || 0 }))} className={inp} />
+                  <input type="number" min="0" value={form.displayOrder} onChange={e => setForm(f => ({ ...f, displayOrder: e.target.value === '' ? '' : parseInt(e.target.value) }))} className={inp} placeholder="Enter display order" />
                 </div>
                 <div className="flex items-center gap-2 pt-1">
                   <span className="text-[10px] font-medium text-slate-400">Active</span>
@@ -278,7 +299,7 @@ function PostcodeTab() {
   const [modal, setModal] = useState(false);
   const [viewing, setViewing] = useState<PostcodeRule | null>(null);
   const [editing, setEditing] = useState<PostcodeRule | null>(null);
-  const [form, setForm] = useState<Omit<PostcodeRule, "id">>(emptyRule);
+  const [form, setForm] = useState<PostcodeRuleForm>(emptyRule);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | "Surcharge" | "Restricted">("all");
@@ -296,9 +317,10 @@ function PostcodeTab() {
   }
   async function save() {
     if (!form.postcodePattern.trim()) { setError("Postcode pattern is required."); return; }
+    if (form.ruleType === "Surcharge" && form.surchargeAmount === "") { setError("Surcharge Amount is required for Surcharge rules."); return; }
     setSaving(true); setError("");
     try {
-      const body = { ...form, notes: form.notes || null };
+      const body = { ...form, surchargeAmount: Number(form.surchargeAmount), notes: form.notes || null };
       editing ? await apiFetch(`${API_ENDPOINTS.postcodeRules}/${editing.id}`, { method: "PUT", body: JSON.stringify({ id: editing.id, ...body }) })
               : await apiFetch(API_ENDPOINTS.postcodeRules, { method: "POST", body: JSON.stringify(body) });
       toast.success(editing ? "Updated!" : "Created!"); setModal(false); await load();
@@ -454,7 +476,7 @@ function PostcodeTab() {
               {form.ruleType === "Surcharge" && (
                 <div>
                   <label className="block text-[10px] font-medium text-slate-400 mb-1">Surcharge Amount (£)</label>
-                  <input type="number" min="0" step="0.01" value={form.surchargeAmount} onChange={e => setForm(f => ({ ...f, surchargeAmount: parseFloat(e.target.value) || 0 }))} className={inp} />
+                  <input type="number" min="0" step="0.01" value={form.surchargeAmount} onChange={e => setForm(f => ({ ...f, surchargeAmount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className={inp} placeholder="Enter surcharge amount" />
                 </div>
               )}
               <div>

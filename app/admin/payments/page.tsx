@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { CreditCard, RefreshCw, ExternalLink, AlertCircle, CheckCircle, Clock, XCircle, RotateCcw } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -51,13 +50,13 @@ const STATUS_STRING_MAP: Record<string, number> = {
 };
 
 const STATUS_MAP: Record<number, { label: string; color: string; icon: any }> = {
-  1: { label: 'Pending',           color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: Clock },
-  2: { label: 'Authorized',        color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',       icon: CreditCard },
-  3: { label: 'Successful',        color: 'bg-green-500/20 text-green-400 border-green-500/30',    icon: CheckCircle },
-  4: { label: 'Failed',            color: 'bg-red-500/20 text-red-400 border-red-500/30',          icon: XCircle },
-  5: { label: 'Cancelled',         color: 'bg-slate-500/20 text-slate-400 border-slate-500/30',    icon: XCircle },
-  6: { label: 'Refunded',          color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: RotateCcw },
-  7: { label: 'Partial Refund',    color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: RotateCcw },
+  1: { label: 'Pending',           color: 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30', icon: Clock },
+  2: { label: 'Authorized',        color: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30',       icon: CreditCard },
+  3: { label: 'Successful',        color: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30',    icon: CheckCircle },
+  4: { label: 'Failed',            color: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30',          icon: XCircle },
+  5: { label: 'Cancelled',         color: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30',    icon: XCircle },
+  6: { label: 'Refunded',          color: 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30', icon: RotateCcw },
+  7: { label: 'Partial Refund',    color: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30', icon: RotateCcw },
 };
 
 const convertPayment = (p: PaymentFromAPI): Payment => ({
@@ -76,13 +75,13 @@ const fmtDate = (d: string | null) =>
   d ? new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
 export default function AdminPaymentsPage() {
-  const { accessToken } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('all');
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const pageSize = 20;
@@ -94,12 +93,13 @@ export default function AdminPaymentsPage() {
   };
 
   const fetchPayments = useCallback(async () => {
-    if (!accessToken) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    if (!token) return;
     setLoading(true);
     try {
       const res = await fetch(
         `${API}/api/Payment?status=${status}&page=${page}&pageSize=${pageSize}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) {
         showToast(`API error: ${res.status} ${res.statusText}`, false);
@@ -116,17 +116,18 @@ export default function AdminPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, page, accessToken]);
+  }, [status, page]);
 
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
   const syncPayment = async (paymentIntentId: string) => {
-    if (!accessToken) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    if (!token) return;
     setSyncing(paymentIntentId);
     try {
       const res = await fetch(`${API}/api/Payment/sync/${paymentIntentId}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
       showToast(json.message ?? 'Synced', res.ok);
@@ -135,6 +136,25 @@ export default function AdminPaymentsPage() {
       showToast('Sync failed', false);
     } finally {
       setSyncing(null);
+    }
+  };
+
+  const backfillFees = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    if (!token) return;
+    setBackfilling(true);
+    try {
+      const res = await fetch(`${API}/api/Payment/backfill-fees?limit=100`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      showToast(json.message ?? 'Backfill done', res.ok);
+      if (res.ok) fetchPayments();
+    } catch {
+      showToast('Backfill failed', false);
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -157,26 +177,32 @@ export default function AdminPaymentsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-violet-400" /> Payments
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-violet-600 dark:text-violet-400" /> Payments
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">{total} total payments</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{total} total payments</p>
         </div>
-        <button onClick={fetchPayments} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition">
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={backfillFees} disabled={backfilling} title="Fetch missing Stripe fees from Stripe for successful payments"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm rounded-lg transition">
+            <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? 'animate-spin' : ''}`} /> {backfilling ? 'Backfilling…' : 'Backfill Fees'}
+          </button>
+          <button onClick={fetchPayments} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm rounded-lg transition">
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total Charged',  value: fmt(totalAmt),  color: 'text-white' },
-          { label: 'Stripe Fees',    value: fmt(totalFees), color: 'text-red-400' },
-          { label: 'Net Received',   value: fmt(totalNet),  color: 'text-green-400' },
-          { label: 'Showing',        value: `${payments.length} / ${total}`, color: 'text-slate-300' },
+          { label: 'Total Charged',  value: fmt(totalAmt),  color: 'text-slate-900 dark:text-white' },
+          { label: 'Stripe Fees',    value: fmt(totalFees), color: 'text-red-500 dark:text-red-400' },
+          { label: 'Net Received',   value: fmt(totalNet),  color: 'text-green-600 dark:text-green-400' },
+          { label: 'Showing',        value: `${payments.length} / ${total}`, color: 'text-slate-600 dark:text-slate-300' },
         ].map(c => (
-          <div key={c.label} className="bg-slate-800 border border-slate-700 rounded-xl p-3">
-            <p className="text-xs text-slate-400">{c.label}</p>
+          <div key={c.label} className="bg-white border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-xl p-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">{c.label}</p>
             <p className={`text-lg font-bold mt-0.5 ${c.color}`}>{c.value}</p>
           </div>
         ))}
@@ -191,7 +217,7 @@ export default function AdminPaymentsPage() {
             className={`px-3 py-1 text-xs rounded-full border transition font-medium
               ${status === s
                 ? 'bg-violet-600 border-violet-500 text-white'
-                : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:border-slate-500'}`}
           >
             {s === 'all' ? 'All' : s}
           </button>
@@ -199,17 +225,17 @@ export default function AdminPaymentsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden">
+      <div className="bg-white border border-slate-200 dark:bg-slate-800/60 dark:border-slate-700 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-700 bg-slate-800">
+              <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                 {['Date', 'Order', 'Customer', 'Method', 'Charged', 'Stripe Fee', 'Net', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
               {loading ? (
                 <tr><td colSpan={9} className="text-center py-10 text-slate-500">Loading...</td></tr>
               ) : payments.length === 0 ? (
@@ -218,23 +244,23 @@ export default function AdminPaymentsPage() {
                 const s = STATUS_MAP[p.status] ?? STATUS_MAP[1];
                 const Icon = s.icon;
                 return (
-                  <tr key={p.id} className="hover:bg-slate-700/30 transition">
-                    <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{fmtDate(p.createdAt)}</td>
+                  <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{fmtDate(p.createdAt)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {p.orderNumber ? (
                         <a href={`/admin/orders/${p.orderId}`} target="_blank"
-                          className="text-violet-400 hover:text-violet-300 flex items-center gap-1 text-xs font-mono">
+                          className="text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300 flex items-center gap-1 text-xs font-mono">
                           {p.orderNumber} <ExternalLink className="h-3 w-3" />
                         </a>
-                      ) : <span className="text-slate-500 text-xs">—</span>}
+                      ) : <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-300 max-w-[160px] truncate" title={p.customerEmail ?? ''}>
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300 max-w-[160px] truncate" title={p.customerEmail ?? ''}>
                       {p.customerEmail ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-400 capitalize">{p.paymentMethod}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">{fmt(p.amount)}</td>
-                    <td className="px-4 py-3 text-xs text-red-400 whitespace-nowrap">{fmt(p.stripeFee)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-green-400 whitespace-nowrap">{fmt(p.netAmount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 capitalize">{p.paymentMethod}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white whitespace-nowrap">{fmt(p.amount)}</td>
+                    <td className="px-4 py-3 text-xs text-red-500 dark:text-red-400 whitespace-nowrap">{fmt(p.stripeFee)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">{fmt(p.netAmount)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${s.color}`}>
                         <Icon className="h-3 w-3" /> {s.label}
@@ -245,7 +271,7 @@ export default function AdminPaymentsPage() {
                         <button
                           onClick={() => syncPayment(p.paymentIntentId!)}
                           disabled={syncing === p.paymentIntentId}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/30 text-violet-400 text-xs rounded-lg transition disabled:opacity-50"
+                          className="flex items-center gap-1 px-2.5 py-1 bg-violet-100 hover:bg-violet-200 border border-violet-300 text-violet-700 dark:bg-violet-600/20 dark:hover:bg-violet-600/40 dark:border-violet-500/30 dark:text-violet-400 text-xs rounded-lg transition disabled:opacity-50"
                         >
                           <RefreshCw className={`h-3 w-3 ${syncing === p.paymentIntentId ? 'animate-spin' : ''}`} />
                           Sync
@@ -261,15 +287,15 @@ export default function AdminPaymentsPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700">
-            <span className="text-xs text-slate-400">Page {page} of {totalPages}</span>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-700">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Page {page} of {totalPages}</span>
             <div className="flex gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg disabled:opacity-40 transition">
+                className="px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white rounded-lg disabled:opacity-40 transition">
                 Prev
               </button>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg disabled:opacity-40 transition">
+                className="px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white rounded-lg disabled:opacity-40 transition">
                 Next
               </button>
             </div>

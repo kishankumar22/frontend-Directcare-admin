@@ -336,6 +336,36 @@ html:not(.dark) [data-admin] .text-gray-500 { color: #6b7280 !important; }
 html:not(.dark) [data-admin] [class*="from-violet-5"] * { color: #ffffff !important; }
 html:not(.dark) [data-admin] [class*="from-violet-4"] * { color: #ffffff !important; }
 
+/* ── Dark gradient panels → light (from/via/to slate-800/900/950 & opacity variants) ── */
+html:not(.dark) [data-admin] .from-slate-900,
+html:not(.dark) [data-admin] .from-slate-950,
+html:not(.dark) [data-admin] .from-slate-800,
+html:not(.dark) [data-admin] .from-gray-900,
+html:not(.dark) [data-admin] .from-gray-800 { --tw-gradient-from: #ffffff !important; }
+
+html:not(.dark) [data-admin] .via-slate-900,
+html:not(.dark) [data-admin] .via-slate-800,
+html:not(.dark) [data-admin] .via-gray-900,
+html:not(.dark) [data-admin] .via-gray-800 { --tw-gradient-stops: var(--tw-gradient-from), #f8fafc, var(--tw-gradient-to) !important; }
+
+html:not(.dark) [data-admin] .to-slate-800,
+html:not(.dark) [data-admin] .to-slate-900,
+html:not(.dark) [data-admin] .to-slate-950,
+html:not(.dark) [data-admin] .to-gray-800,
+html:not(.dark) [data-admin] .to-gray-900 { --tw-gradient-to: #f1f5f9 !important; }
+
+/* opacity variants (e.g. from-slate-800/60, to-slate-900/40) */
+html:not(.dark) [data-admin] [class*="from-slate-800/"],
+html:not(.dark) [data-admin] [class*="from-slate-900/"],
+html:not(.dark) [data-admin] [class*="from-gray-800/"],
+html:not(.dark) [data-admin] [class*="from-gray-900/"] { --tw-gradient-from: rgba(255,255,255,0.92) !important; }
+html:not(.dark) [data-admin] [class*="to-slate-800/"],
+html:not(.dark) [data-admin] [class*="to-slate-900/"],
+html:not(.dark) [data-admin] [class*="to-gray-800/"],
+html:not(.dark) [data-admin] [class*="to-gray-900/"] { --tw-gradient-to: rgba(241,245,249,0.92) !important; }
+html:not(.dark) [data-admin] [class*="via-slate-900/"],
+html:not(.dark) [data-admin] [class*="via-slate-800/"] { --tw-gradient-stops: var(--tw-gradient-from), rgba(248,250,252,0.92), var(--tw-gradient-to) !important; }
+
 /* ── Hover backgrounds ──────────────────────────────────────── */
 html:not(.dark) [data-admin] .hover\:bg-slate-900:hover,
 html:not(.dark) [data-admin] .hover\:bg-gray-900:hover { background-color: #e2e8f0 !important; }

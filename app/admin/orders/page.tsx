@@ -1652,6 +1652,28 @@ export default function OrdersListPage() {
                               {order.shippingAddress?.addressLine1}
                             </p>
 
+                            {/* MARKETING SOURCE (organic vs paid) */}
+                            {order.orderSource && (() => {
+                              const isPaid = /ads|paid/i.test(order.orderSource);
+                              return (
+                                <span
+                                  title={[
+                                    `Source: ${order.orderSource}`,
+                                    order.utmCampaign ? `Campaign: ${order.utmCampaign}` : "",
+                                    order.gclid ? "Google Ads click (gclid)" : "",
+                                  ].filter(Boolean).join("\n")}
+                                  className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                    isPaid
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+                                      : "bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300"
+                                  }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? "bg-emerald-500" : "bg-slate-400"}`} />
+                                  {order.orderSource}
+                                </span>
+                              );
+                            })()}
+
                           </div>
                         </div>
                       </td>
@@ -1674,6 +1696,31 @@ export default function OrdersListPage() {
                           >
                             {statusInfo.label}
                           </span>
+
+                          {/* Tracking number(s) — shown inline for shipped/dispatched orders */}
+                          {(() => {
+                            const trackings = (order.shipments ?? [])
+                              .map((s: any) => s?.trackingNumber)
+                              .filter((t: any) => t && String(t).trim());
+                            if (trackings.length === 0) return null;
+                            return (
+                              <div className="flex flex-col items-center gap-0.5">
+                                {trackings.map((t: string, i: number) => (
+                                  <span
+                                    key={i}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(t);
+                                    }}
+                                    title="Tracking number — click to copy"
+                                    className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 cursor-pointer hover:bg-blue-500/20 max-w-[140px] truncate"
+                                  >
+                                    📦 {t}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
 
                           {order.pharmacyVerificationStatus && (
                             <span

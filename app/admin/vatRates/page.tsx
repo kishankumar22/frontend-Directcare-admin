@@ -141,7 +141,7 @@ const [formData, setFormData] = useState({
   isActive: true,
   country: "",
   region: "",
-  displayOrder: 0,
+  displayOrder: "" as number | "",
 });
 
   // Pagination states
@@ -206,8 +206,7 @@ const fetchVATRates = async () => {
       const data = await countriesService.getAllCountries();
       setCountries(data);
     } catch (error) {
-      console.error("Error fetching countries:", error);
-      toast.error("Failed to load countries");
+      toast.error("Failed to load countries. Please check your network connection.");
     }
   };
 
@@ -334,7 +333,9 @@ if (formData.rate === 0) {
       errors.country = "Country is required";
     }
 
-    if (formData.displayOrder < 0) {
+    if (formData.displayOrder === "") {
+      errors.displayOrder = "Display order is required";
+    } else if (Number(formData.displayOrder) < 0) {
       errors.displayOrder = "Display order cannot be negative";
     }
 
@@ -396,6 +397,7 @@ const handleCreate = async (e: React.FormEvent) => {
 const payload: CreateVATRateDto = {
   ...formData,
   rate: formData.rate === "" ? 0 : Number(formData.rate),
+  displayOrder: formData.displayOrder === "" ? 0 : Number(formData.displayOrder),
 };
 
 const response = await vatratesService.create(payload);
@@ -435,6 +437,7 @@ const handleUpdate = async (e: React.FormEvent) => {
  const payload: CreateVATRateDto = {
   ...formData,
   rate: formData.rate === "" ? 0 : Number(formData.rate),
+  displayOrder: formData.displayOrder === "" ? 0 : Number(formData.displayOrder),
 };
 
 const response = await vatratesService.update(editingRate.id, payload);
@@ -1355,10 +1358,14 @@ const clearFilters = () => {
                     value={formData.rate}
                     onChange={(e) => {
                       const val = e.target.value;
+                      let parsedVal: number | "" = val === "" ? "" : parseFloat(val);
+                      if (typeof parsedVal === "number" && parsedVal > 100) {
+                        return; // Prevent values > 100 from being typed
+                      }
                       setFormData({
-  ...formData,
-  rate: val === "" ? "" : parseFloat(val),
-});
+                        ...formData,
+                        rate: parsedVal,
+                      });
                       setFormErrors({ ...formErrors, rate: '' });
                     }}
                     className={`w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border ${
@@ -1471,13 +1478,13 @@ const clearFilters = () => {
                     min="0"
                     value={formData.displayOrder}
                     onChange={(e) => {
-                      setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 });
+                      setFormData({ ...formData, displayOrder: e.target.value === '' ? '' : parseInt(e.target.value) });
                       setFormErrors({ ...formErrors, displayOrder: '' });
                     }}
                     className={`w-full px-4 py-2.5 bg-white dark:bg-slate-800/50 border ${
                       formErrors.displayOrder ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'
                     } rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
-                    placeholder="0"
+                    placeholder="Enter display order"
                   />
                   {formErrors.displayOrder && (
                     <p className="mt-1 text-xs text-red-400 flex items-center gap-1">

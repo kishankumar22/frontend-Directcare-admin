@@ -50,12 +50,16 @@ export function getSelectStyles(isDark: boolean) {
     singleValue: (base: any) => ({
       ...base,
       color: text,
+      marginLeft: 0,
+      marginRight: 0,
     }),
     valueContainer: (base: any) => ({
       ...base,
+      paddingLeft: '10px',
+      paddingRight: '4px',
     }),
-    input:               (base: any) => ({ ...base, color: text }),
-    placeholder:         (base: any) => ({ ...base, color: muted }),
+    input:               (base: any) => ({ ...base, color: text, margin: 0, padding: 0 }),
+    placeholder:         (base: any) => ({ ...base, color: muted, marginLeft: 0, marginRight: 0 }),
     dropdownIndicator:   (base: any) => ({ ...base, color: muted, padding: '0 8px' }),
     clearIndicator:      (base: any) => ({
       ...base, color: muted, padding: '0 4px', cursor: 'pointer',

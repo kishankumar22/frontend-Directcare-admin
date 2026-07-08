@@ -23,6 +23,7 @@ interface FormErrors {
   body?: string;
   metaTitle?: string;
   metaDescription?: string;
+  displayOrder?: string;
 }
 
 interface BlogPostFormProps {
@@ -336,7 +337,7 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
   const [allowComments, setAllowComments] = useState(initialData?.allowComments ?? true);
   const [showOnHomePage, setShowOnHomePage] = useState(initialData?.showOnHomePage ?? false);
   const [includeInSitemap, setIncludeInSitemap] = useState(initialData?.includeInSitemap ?? true);
-  const [displayOrder, setDisplayOrder] = useState(initialData?.displayOrder ?? 0);
+  const [displayOrder, setDisplayOrder] = useState<number | "">(initialData?.displayOrder ?? "");
   const [metaTitle, setMetaTitle] = useState(initialData?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(initialData?.metaDescription ?? "");
   const [metaKeywords, setMetaKeywords] = useState(initialData?.metaKeywords ?? "");
@@ -435,7 +436,7 @@ if ((initialData?.categoryIds?.length ?? 0) > 0) {
   setAllowComments(initialData.allowComments ?? true);
   setShowOnHomePage(initialData.showOnHomePage ?? false);
   setIncludeInSitemap(initialData.includeInSitemap ?? true);
-  setDisplayOrder(initialData.displayOrder ?? 0);
+  setDisplayOrder(initialData.displayOrder ?? "");
   setMetaTitle(initialData.metaTitle ?? "");
   setMetaDescription(initialData.metaDescription ?? "");
   setMetaKeywords(initialData.metaKeywords ?? "");
@@ -459,9 +460,12 @@ if ((initialData?.categoryIds?.length ?? 0) > 0) {
     if (metaDescription && metaDescription.length > 160)
       e.metaDescription = "Meta description must be under 160 characters.";
 
+    if (String(displayOrder) === "") e.displayOrder = "Display order is required.";
+    else if (Number(displayOrder) < 0) e.displayOrder = "Cannot be negative.";
+
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [title, slug, body, metaTitle, metaDescription]);
+  }, [title, slug, body, metaTitle, metaDescription, displayOrder]);
 
   // ── Save ─────────────────────────────────────────────────────────────────
 async function handleSave(publish?: boolean) {
@@ -511,7 +515,7 @@ async function handleSave(publish?: boolean) {
       showOnHomePage,
       includeInSitemap,
 
-      displayOrder,
+      displayOrder: String(displayOrder) === "" ? 1 : Number(displayOrder),
 
       metaTitle: metaTitle?.trim() || undefined,
       metaDescription:
@@ -1177,9 +1181,11 @@ async function handleSave(publish?: boolean) {
                   type="number"
                   min={0}
                   value={displayOrder}
-                  onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setDisplayOrder(e.target.value === '' ? '' : parseInt(e.target.value))}
+                  placeholder="Enter display order"
                   className={inp}
                 />
+                {errors.displayOrder && <p className="text-red-400 text-xs mt-1">{errors.displayOrder}</p>}
               </div>
               
             </div>

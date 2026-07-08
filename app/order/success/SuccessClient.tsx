@@ -6,6 +6,55 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { ArrowRight, MapPin, Package, PackageCheck, PackageIcon, ShoppingBag, Store } from "lucide-react";
 import { trackAdsPurchase, trackPurchase } from "@/lib/analytics";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+// Inline Stripe form to complete payment for a pending order (Approach B).
+function CompletePaymentForm({ orderId, amount, email, onPaid }: { orderId: string; amount: number; email?: string; onPaid: () => void; }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const handlePay = async () => {
+    if (!stripe || !elements) return;
+    setProcessing(true);
+    setErr(null);
+    const result = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/order/success?orderId=${orderId}`,
+        payment_method_data: { billing_details: { email: email || undefined } },
+      },
+      redirect: "if_required",
+    });
+    if (result.error) { setErr(result.error.message ?? "Payment failed"); setProcessing(false); return; }
+    if (!result.paymentIntent?.id) { setErr("Payment failed"); setProcessing(false); return; }
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/confirm/${result.paymentIntent.id}`, { method: "POST" });
+    } catch { /* confirm is best-effort; webhook also confirms */ }
+    try {
+      localStorage.removeItem("pending_order");
+      localStorage.removeItem("checkout_form");
+    } catch { }
+    onPaid();
+    setProcessing(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <PaymentElement />
+      {err && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-md px-3 py-2">{err}</div>}
+      <button
+        onClick={handlePay}
+        disabled={processing || !stripe}
+        className="w-full bg-[#445D41] hover:bg-[#3a5037] disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+      >
+        {processing ? "Processing…" : `Pay £${amount.toFixed(2)}`}
+      </button>
+    </div>
+  );
+}
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
@@ -72,6 +121,63 @@ export default function SuccessClient() {
 
   const { accessToken, isAuthenticated } = useAuth();
 
+  // ── Complete-payment (pending order) state ──
+  const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
+  const [payClientSecret, setPayClientSecret] = useState<string | null>(null);
+  const [startingPay, setStartingPay] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  // Load Stripe publishable key once.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/config`);
+        const json = await res.json().catch(() => null);
+        const pk = json?.data?.publishableKey;
+        if (pk && mounted) setStripePromise(loadStripe(pk));
+      } catch { /* ignore */ }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const refetchOrder = async () => {
+    if (!orderId) return;
+    try {
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders/${orderId}`, {
+        headers: { "Content-Type": "application/json", ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }) },
+      });
+      const json = await resp.json().catch(() => null);
+      if (json?.success) setOrder(json.data);
+    } catch { /* ignore */ }
+    setPayClientSecret(null);
+  };
+
+  // Create a payment intent for this order and reveal the Stripe form.
+  const startPayment = async (amount: number, email: string) => {
+    if (!orderId) return;
+    setStartingPay(true);
+    setPayError(null);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/create-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, currency: "GBP", customerEmail: email, orderId }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.data?.clientSecret) {
+        setPayError(json?.message || "Could not start payment. Please try again.");
+        setStartingPay(false);
+        return;
+      }
+      setPayClientSecret(json.data.clientSecret);
+    } catch (e: any) {
+      setPayError(e?.message || "Could not start payment.");
+    } finally {
+      setStartingPay(false);
+    }
+  };
+
   useEffect(() => {
     if (!orderId) {
       setLoading(false);
@@ -132,62 +238,112 @@ export default function SuccessClient() {
     );
   }
 
-  const payment = order.payments?.[0] ?? null;
+  // An order can have multiple payment records (e.g. an abandoned first attempt +
+  // the one that actually succeeded). Prefer a Successful payment, else the latest.
+  const _payments: any[] = Array.isArray(order.payments) ? order.payments : [];
+  const _successfulPayment = _payments.find((p: any) => {
+    const s = String(p?.status ?? "").toLowerCase();
+    return s.includes("successful") || s.includes("paid") || s.includes("captured");
+  });
+  const payment = _successfulPayment ?? _payments[_payments.length - 1] ?? null;
   const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
   const loyaltyDiscount = order.loyaltyDiscountAmount ?? 0;
 
-  return (
-    <div className="max-w-7xl  mx-auto px-4 md:px-6 py-2">
+  // ── Is this order still awaiting payment? ──
+  const _payStatus = String(order.paymentStatus ?? payment?.status ?? "").toLowerCase();
+  const _orderStatus = String(order.status ?? "").toLowerCase();
+  const _isPaid = _payStatus.includes("successful") || _payStatus.includes("paid")
+    || ((order.totalPaidAmount ?? 0) >= (order.totalAmount ?? 0) && (order.totalAmount ?? 0) > 0);
+  const _amountDue = Number(
+    order.pendingPaymentAmount && order.pendingPaymentAmount > 0
+      ? order.pendingPaymentAmount
+      : Math.max((order.totalAmount ?? 0) - (order.totalPaidAmount ?? 0), 0)
+  );
+  const canCompletePayment =
+    !_isPaid &&
+    !["cancelled", "refunded"].includes(_orderStatus) &&
+    _amountDue > 0;
 
-      <div className="bg-white rounded-2xl shadow-md p-6">
+  return (
+    <div className="max-w-7xl mx-auto px-3 md:px-6 py-2">
+
+      <div className="bg-white rounded-2xl shadow-md p-3 sm:p-6">
 
         {/* SUCCESS HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-6 mb-4 sm:mb-6">
           {/* LEFT: Order confirmed */}
-          <div className="flex items-start gap-4">
-            <div className="h-12 w-12 rounded-md bg-green-100 flex items-center justify-center text-green-700 font-bold">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-md bg-green-100 flex items-center justify-center text-green-700 font-bold flex-shrink-0">
               ✓
             </div>
 
-            <div>
-              <h1 className="text-2xl font-semibold text-[#445D41]">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-semibold text-[#445D41]">
                 Order confirmed
               </h1>
-              <p className="text-sm text-[#445D41]">
+              <p className="text-xs sm:text-sm text-[#445D41] break-all">
                 Confirmation sent to <strong>{order.customerEmail}</strong>
               </p>
             </div>
           </div>
 
-          <div
-            className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold shadow-sm ${loyaltyPointsEarned > 0
-              ? "bg-gradient-to-br from-green-600 to-[#445D41] text-white"
-              : "bg-orange-100 text-orange-700 "
-              }`}
-          >
-            <span className="text-xl leading-none">
-              {loyaltyPointsEarned > 0 ? "🎁" : "ℹ️"}
-            </span>
-            <span className="tracking-tight">
-              You have earned{" "}
-              <span className="font-bold">
-                {loyaltyPointsEarned.toLocaleString()}
-              </span>{" "}
-              loyalty points on this order
-            </span>
-          </div>
+          {/* RIGHT SLOT: pending-payment CTA (beside the header) or loyalty badge */}
+          {canCompletePayment && !payClientSecret ? (
+            <div className="flex items-center justify-between sm:justify-start gap-3 rounded-lg border-2 border-orange-300 bg-orange-50 px-4 py-2.5">
+              <div className="leading-tight">
+                <p className="text-sm font-semibold text-orange-800">⚠️ Payment pending</p>
+                <p className="text-xs text-orange-700 mt-0.5"><strong>£{_amountDue.toFixed(2)}</strong> due</p>
+              </div>
+              <button
+                onClick={() => startPayment(_amountDue, order.customerEmail)}
+                disabled={startingPay || !stripePromise}
+                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+              >
+                {startingPay ? "Loading…" : "Pay Now →"}
+              </button>
+            </div>
+          ) : loyaltyPointsEarned > 0 ? (
+            <div className="flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold shadow-sm bg-gradient-to-br from-green-600 to-[#445D41] text-white">
+              <span className="text-xl leading-none">🎁</span>
+              <span className="tracking-tight">
+                You have earned <span className="font-bold">{loyaltyPointsEarned.toLocaleString()}</span> loyalty points on this order
+              </span>
+            </div>
+          ) : null}
         </div>
+
+        {/* COMPLETE PAYMENT — Stripe form appears once "Pay now" is clicked */}
+        {canCompletePayment && payError && !payClientSecret && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md px-3 py-2">{payError}</div>
+        )}
+        {canCompletePayment && payClientSecret && stripePromise && (
+          <div className="mb-4 rounded-xl border border-orange-200 bg-white p-3 sm:p-4">
+            <p className="text-sm font-semibold text-gray-800 mb-2">Complete payment · £{_amountDue.toFixed(2)}</p>
+            <Elements stripe={stripePromise} options={{ clientSecret: payClientSecret, locale: "en-GB" } as any}>
+              <CompletePaymentForm
+                orderId={String(orderId)}
+                amount={_amountDue}
+                email={order.customerEmail}
+                onPaid={refetchOrder}
+              />
+            </Elements>
+            {payError && (
+              <div className="mt-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md px-3 py-2">{payError}</div>
+            )}
+          </div>
+        )}
+
         {/* GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
           {/* LEFT */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-5">
 
             {/* ORDER INFO */}
             <section>
-              <h2 className="text-sm font-semibold uppercase mb-2">
+              <h2 className="text-xs font-semibold uppercase mb-1.5 text-gray-500">
                 Order information
               </h2>
-              <div className="border rounded-lg p-4 space-y-1.5">
+              <div className="border rounded-lg p-3 space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>Order Number:</span>
                   <span className="font-medium">{order.orderNumber}</span>
@@ -227,17 +383,17 @@ export default function SuccessClient() {
 
             {/* DELIVERY */}
             <section>
-              <h2 className="text-sm font-semibold uppercase mb-2">
+              <h2 className="text-xs font-semibold uppercase mb-1.5 text-gray-500">
                 Delivery & Billing
               </h2>
 
-              <div className="border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="border rounded-lg p-3 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
 
                 {order.deliveryMethod === "HomeDelivery" && order.shippingAddress && (
                   <div className="flex gap-3">
                     <MapPin className="w-5 h-5 mt-1 text-gray-500" />
-                    <div className="text-sm">
-                      <p className="font-semibold mb-1 text-lg">Shipping Address</p>
+                    <div className="text-sm leading-snug space-y-0.5">
+                      <p className="font-semibold mb-1 text-sm">Shipping Address</p>
                       <p className="font-medium">
                         {order.shippingAddress.firstName}{" "}
                         {order.shippingAddress.lastName}
@@ -271,8 +427,8 @@ export default function SuccessClient() {
                     {/* STORE CARD */}
                     <div className="flex gap-3">
                       <MapPin className="w-5 h-5 mt-1 text-gray-500" />
-                      <div className="text-sm">
-                        <p className="font-semibold  text-lg mb-1">Store Location</p>
+                      <div className="text-sm leading-snug space-y-0.5">
+                        <p className="font-semibold text-sm mb-1">Store Location</p>
                         <p className="font-medium">
                           {order.collectionStoreName || "Selected Store"}
                         </p>
@@ -323,7 +479,7 @@ export default function SuccessClient() {
 
                     {/* COLLECTION INFO CARD */}
                     <div className="text-sm space-y-2">
-                      <p className="font-semibold mb-1 text-lg">Collection Details</p>
+                      <p className="font-semibold mb-1 text-base">Collection Details</p>
                       {order.collectionStatus && (
                         <div className="flex justify-between">
                           <span>Collection Status</span>
@@ -372,8 +528,8 @@ export default function SuccessClient() {
                 {order.billingAddress && (
                   <div className="flex gap-3">
                     <MapPin className="w-5 h-5 mt-1 text-gray-500" />
-                    <div className="text-sm">
-                      <p className="font-semibold mb-1 text-lg">Billing Address</p>
+                    <div className="text-sm leading-snug space-y-0.5">
+                      <p className="font-semibold mb-1 text-sm">Billing Address</p>
 
                       <p className="font-medium">
                         {order.billingAddress.firstName}{" "}
@@ -416,7 +572,7 @@ export default function SuccessClient() {
             <section>
               <div className="flex items-center gap-2 mb-2">
                 <Package className="w-4 h-4 text-[#445D41]" />
-                <h2 className="text-sm font-semibold uppercase">
+                <h2 className="text-xs font-semibold uppercase text-gray-500">
                   Items
                 </h2>
               </div>
@@ -426,13 +582,13 @@ export default function SuccessClient() {
 
                   <div
                     key={item.id}
-                    className="flex gap-4 p-4 items-start"
+                    className="flex gap-3 p-3 sm:p-4 items-start"
                   >
-                    <Link href={`/product/${item.productSlug}`}>
+                    <Link href={`/product/${item.productSlug}`} className="flex-shrink-0">
                       <img
                         src={resolveImageUrl(item.productImageUrl)}
                         alt={item.productName}
-                        className="w-20 h-20 object-contain border rounded bg-white"
+                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain border rounded bg-white"
                       />
 
                     </Link>
@@ -511,14 +667,14 @@ export default function SuccessClient() {
 
           {/* RIGHT */}
           <div className="lg:col-span-1">
-            <div className="lg:sticky lg:top-24 space-y-6">
+            <div className="lg:sticky lg:top-24 space-y-4">
 
               {/* PAYMENT */}
               <section>
-                <h2 className="text-sm font-semibold uppercase mb-2">
+                <h2 className="text-xs font-semibold uppercase mb-1.5 text-gray-500">
                   Payment Details
                 </h2>
-                <div className="border rounded-lg p-4 space-y-2">
+                <div className="border rounded-lg p-3 sm:p-4 space-y-2">
                   {!payment && (
                     <>
                       <div className="flex justify-between">
@@ -575,10 +731,10 @@ export default function SuccessClient() {
 
               {/* TOTALS */}
               <section>
-                <h2 className="text-sm font-semibold uppercase mb-2">
+                <h2 className="text-xs font-semibold uppercase mb-1.5 text-gray-500">
                   Summary
                 </h2>
-                <div className="border rounded-lg p-4 space-y-2 bg-gray-50">
+                <div className="border rounded-lg p-3 sm:p-4 space-y-2 bg-gray-50">
                   <div className="flex justify-between">
                     <span>Subtotal (Incl. VAT)</span>
 

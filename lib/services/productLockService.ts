@@ -231,14 +231,17 @@ requestTakeover: async (productId: string, data: RequestTakeoverDto) => {
         }
       );
       
-      if (!response.data || !response.data.data) {
+      if ((response as any).error) {
+        throw new Error((response as any).error);
+      }
+      
+      if (!response.data || (!response.data.data && response.data.success !== false)) {
         throw new Error('Invalid response format');
       }
       
       return response.data;
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Failed to approve takeover';
-      throw new Error(errorMsg);
+      throw error;
     }
   },
 
@@ -255,14 +258,17 @@ requestTakeover: async (productId: string, data: RequestTakeoverDto) => {
         }
       );
       
-      if (!response.data || !response.data.data) {
+      if ((response as any).error) {
+        throw new Error((response as any).error);
+      }
+      
+      if (!response.data || (!response.data.data && response.data.success !== false)) {
         throw new Error('Invalid response format');
       }
       
       return response.data;
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Failed to reject takeover';
-      throw new Error(errorMsg);
+      throw error;
     }
   },
 
@@ -276,14 +282,17 @@ requestTakeover: async (productId: string, data: RequestTakeoverDto) => {
         `${API_ENDPOINTS.products}/takeover-requests/${requestId}/cancel`
       );
       
-      if (!response.data || !response.data.data) {
+      if ((response as any).error) {
+        throw new Error((response as any).error);
+      }
+      
+      if (!response.data || (!response.data.data && response.data.success !== false)) {
         throw new Error('Invalid response format');
       }
       
       return response.data;
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Failed to cancel request';
-      throw new Error(errorMsg);
+      throw error;
     }
   },
 };

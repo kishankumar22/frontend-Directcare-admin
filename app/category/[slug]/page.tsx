@@ -102,12 +102,23 @@ async function getProducts(
 
   if (minRating) query.set("minRating", minRating);
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
-    { cache: "no-store" }
-  );
-
-  return res.json();
+  // Safe fetch: never throw on an empty/non-JSON/error response (would crash the page).
+  const empty = { success: false, data: { items: [], totalCount: 0, page: 1, pageSize: 20, totalPages: 1 } };
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
+      { cache: "no-store" }
+    );
+    const text = await res.text();
+    if (!text) return empty;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return empty;
+    }
+  } catch {
+    return empty;
+  }
 }
 
 /* =====================

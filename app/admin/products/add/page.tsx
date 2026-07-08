@@ -13,6 +13,7 @@ import { MultiCategorySelector } from "../MultiCategorySelector";
 import RelatedProductsSelector from "../RelatedProductsSelector";
 import ProductVariantsManager from "../ProductVariantsManager";
 import PharmacyQuestionAssignModal from "../PharmacyQuestionAssignModal";
+import PharmaQuestionChoiceModal from "../_components/PharmaQuestionChoiceModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../ProductNameInput";
 import SKUInput from "../SKUInput";
@@ -44,6 +45,8 @@ export default function AddProductPage() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [showPharmacyModal, setShowPharmacyModal] = useState(false);
   const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
+  const [pharmaWithQuestions, setPharmaWithQuestions] = useState<boolean>(true);
+  const [showPharmaChoiceModal, setShowPharmaChoiceModal] = useState<boolean>(false);
 
   const [nameError, setNameError] = useState(false);
   const [skuError, setSkuError] = useState(false);
@@ -210,33 +213,10 @@ export default function AddProductPage() {
    * Only basic fields required to save as draft
    */
   const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
-    const missing: string[] = [];
-
-    // 1. Product Name
-    if (!formData.name?.trim()) {
-      missing.push('Product Name');
-    }
-
-    // 2. SKU (optional for variable products   €” auto-generated)
-    if (!formData.sku?.trim() && formData.productType !== 'variable') {
-      missing.push('SKU');
-    }
-
-    // 3. At least one category
-    if (!formData.categoryIds || formData.categoryIds.length === 0) {
-      missing.push('Category');
-    }
-
-    // 4. At least one brand
-    const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
-    if (!hasBrand) {
-      missing.push('Brand');
-    }
-
-    return {
-      isValid: missing.length === 0,
-      missing
-    };
+    // Raasta A: Draft me kuch bhi mandatory nahi — hamesha valid.
+    // Khaali fields ke liye submit ke waqt safe defaults bhar diye jaate hain
+    // (name → "Untitled Draft", sku → auto). Category/Brand optional.
+    return { isValid: true, missing: [] };
   };
 
   /**
@@ -951,6 +931,23 @@ export default function AddProductPage() {
         percentage: 10,
       });
 
+      // ============ DRAFT AUTO-DEFAULTS (Raasta A) ============
+      // Draft ke liye kuch bhi mandatory nahi. Jo field khaali chhoda, uske liye safe default
+      // bhar dete hain taaki backend/DB (name, sku, slug) satisfy ho aur draft hamesha save ho jaye.
+      if (isDraft) {
+        if (!formData.name?.trim()) {
+          // "Untitled Draft" + chhota unique number (slug collision se bachne ke liye; user baad me rename kar sakta hai)
+          const draftName = `Untitled Draft ${Date.now().toString().slice(-6)}`;
+          formData.name = draftName;
+          setFormData(prev => ({ ...prev, name: draftName }));
+        }
+        if (formData.productType !== 'variable' && !formData.sku?.trim()) {
+          const autoSku = `DRAFT-${Date.now()}`;
+          formData.sku = autoSku;
+          setFormData(prev => ({ ...prev, sku: autoSku }));
+        }
+      }
+
       if (nameError) {
         toast.error('Product name already exists');
         target.removeAttribute("data-submitting");
@@ -1026,9 +1023,9 @@ export default function AddProductPage() {
         }
 
         const descLength = getPlainText(formData.fullDescription).length;
-        if (descLength > 2000) {
-          formData.fullDescription = truncateHtmlByTextLength(formData.fullDescription, 2000);
-          toast.info("Full description trimmed to 5000 characters");
+        if (descLength > 10000) {
+          formData.fullDescription = truncateHtmlByTextLength(formData.fullDescription, 10000);
+          toast.info("Full description trimmed to 10000 characters");
         }
       }
 
@@ -1438,7 +1435,7 @@ export default function AddProductPage() {
         });
       }
 
-      if (categoryIdsArray.length === 0) {
+      if (!isDraft && categoryIdsArray.length === 0) {
         console.error("VALIDATION: No valid categories selected");
         toast.error("Please select at least one category");
         target.removeAttribute("data-submitting");
@@ -1467,7 +1464,7 @@ export default function AddProductPage() {
         }
       }
 
-      if (brandIdsArray.length === 0) {
+      if (!isDraft && brandIdsArray.length === 0) {
         toast.error("Please select at least one brand");
         target.removeAttribute("data-submitting");
         setIsSubmitting(false);
@@ -1492,6 +1489,7 @@ export default function AddProductPage() {
 
       if (
         formData.isPharmaProduct &&
+        pharmaWithQuestions &&
         (!pharmacyQuestions || pharmacyQuestions.length === 0)
       ) {
         toast.error(
@@ -1522,6 +1520,37 @@ export default function AddProductPage() {
         setIsSubmitting(false);
         setSubmitProgress(null);
         return;
+      }
+
+      // Ensure at least one image is marked as main
+      if (formData.productImages && formData.productImages.length > 0) {
+        const hasMainImage = formData.productImages.some((img) => img.isMain === true);
+
+        if (!hasMainImage) {
+          // Automatically set first image as main
+          formData.productImages[0].isMain = true;
+          toast.info("ℹ️ First image automatically set as main image", { autoClose: 3000 });
+        }
+
+        // Ensure only one image is marked as main
+        let mainImageCount = 0;
+        let lastMainIndex = -1;
+
+        formData.productImages.forEach((img, idx) => {
+          if (img.isMain) {
+            mainImageCount++;
+            lastMainIndex = idx;
+          }
+        });
+
+        if (mainImageCount > 1) {
+          formData.productImages.forEach((img, idx) => {
+            img.isMain = idx === lastMainIndex;
+          });
+          toast.warning("⚠️ Only one image can be main. Last selected image set as main.", {
+            autoClose: 4000
+          });
+        }
       }
 
       setSubmitProgress({
@@ -2820,7 +2849,7 @@ export default function AddProductPage() {
 
       uploadFormData.append(
         "isMain",
-        String(image.isMain ?? index === 0)
+        String(image.isMain === true)
       );
 
       validImageCount++;
@@ -3007,9 +3036,16 @@ export default function AddProductPage() {
   };
 
   const removeImage = (imageId: string) => {
+    const isMainRemoved = formData.productImages.find(img => img.id === imageId)?.isMain;
+    const remainingImages = formData.productImages.filter(img => img.id !== imageId);
+
+    if (isMainRemoved && remainingImages.length > 0) {
+      remainingImages[0].isMain = true;
+    }
+
     setFormData({
       ...formData,
-      productImages: formData.productImages.filter(img => img.id !== imageId)
+      productImages: remainingImages
     });
   };
 
@@ -3076,14 +3112,14 @@ export default function AddProductPage() {
                 </div>
 
                 {missingFields.length > 0 && (
-                  <div className="mt-1 flex items-center gap-2 rounded-xl border border-orange-500/10 bg-orange-500/5 px-2 py-1 overflow-hidden max-w-[900px]">
-                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400"></div>
+                  <div className="mt-1 flex items-center gap-2 rounded-xl border border-orange-300 bg-orange-50 dark:border-orange-500/10 dark:bg-orange-500/5 px-2 py-1 overflow-hidden max-w-[900px]">
+                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500 dark:bg-orange-400"></div>
 
-                    <span className="shrink-0 text-[10px] font-semibold text-orange-300">
+                    <span className="shrink-0 text-[10px] font-semibold text-orange-700 dark:text-orange-300">
                       {missingFields.length} Required
                     </span>
 
-                    <span className="truncate text-[10px] text-orange-200/80">
+                    <span className="truncate text-[10px] text-orange-600/90 dark:text-orange-200/80">
                       {missingFields.join(", ")}
                     </span>
                   </div>
@@ -3335,10 +3371,10 @@ export default function AddProductPage() {
                     <Truck className="h-4 w-4" />
                     Shipping
                   </TabsTrigger>
-                  <TabsTrigger value="related-products" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  {/* <TabsTrigger value="related-products" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <LinkIcon className="h-4 w-4" />
                     Related
-                  </TabsTrigger>
+                  </TabsTrigger> */}
                   <TabsTrigger value="product-attributes" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Tag className="h-4 w-4" />
                     Attributes
@@ -3416,10 +3452,28 @@ export default function AddProductPage() {
                         height={400}
                         required={true}
                         // minLength={50}
-                        maxLength={5000}
                         showCharCount={true}
-                      // showHelpText="Detailed product information with formatting (50-5000 characters)"
+                      // No character limit on Full Description
                       />
+
+                      {/* ================= H2 ACCORDION NOTICE ================= */}
+                      <div className="mt-3 flex items-start gap-3 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 p-3.5">
+                        <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-500/20 ring-1 ring-violet-300 dark:ring-violet-400/30">
+                          <svg className="h-4 w-4 text-violet-600 dark:text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" />
+                          </svg>
+                        </span>
+                        <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                          <p className="mb-1 text-[13px] font-semibold text-violet-700 dark:text-violet-300">Formatting Tip — Accordions</p>
+                          <p>
+                            Use <code className="rounded bg-violet-100 dark:bg-violet-500/20 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-violet-700 dark:text-violet-200">H2 (Heading 2)</code> for each section title — for example{" "}
+                            <span className="font-medium text-slate-900 dark:text-white">Product Description</span>, <span className="font-medium text-slate-900 dark:text-white">Ingredients</span>, <span className="font-medium text-slate-900 dark:text-white">Directions</span>, and <span className="font-medium text-slate-900 dark:text-white">Safety Warnings</span>.
+                          </p>
+                          <p className="mt-1 text-slate-500 dark:text-slate-400">
+                            Each <span className="font-semibold text-violet-700 dark:text-violet-300">H2</span> section becomes a separate <span className="font-semibold text-violet-700 dark:text-violet-300">collapsible accordion</span> on the product page.
+                          </p>
+                        </div>
+                      </div>
 
                     </div>
 
@@ -4066,11 +4120,12 @@ export default function AddProductPage() {
                             handleChange(e);
 
                             if (checked) {
-                              //   Open modal when enabled
-                              setShowPharmacyModal(true);
+                              // Open choice modal when enabled
+                              setShowPharmaChoiceModal(true);
                             } else {
-                              //   Reset pharmacy questions when disabled
+                              // Reset pharmacy questions when disabled
                               setPharmacyQuestions([]);
+                              setPharmaWithQuestions(true);
                               setShowPharmacyModal(false);
                             }
                           }}
@@ -4090,22 +4145,35 @@ export default function AddProductPage() {
 
                       {/* RIGHT SIDE BUTTON */}
                       {formData.isPharmaProduct && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPharmacyModal(true)}
-                          className="flex items-center gap-2 px-4 py-2 
-        bg-violet-500/10 border border-violet-500/50 
-        text-violet-400 rounded-lg hover:bg-violet-500/20 
-        transition-all text-sm font-semibold"
-                        >
-                          Configure Questions
+                        pharmaWithQuestions ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowPharmacyModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 
+          bg-violet-500/10 border border-violet-500/50 
+          text-violet-400 rounded-lg hover:bg-violet-500/20 
+          transition-all text-sm font-semibold"
+                          >
+                            Configure Questions
 
-                          {pharmacyQuestions.length > 0 && (
-                            <span className="px-2 py-0.5 bg-violet-500/20 text-violet-200 rounded-full text-xs font-semibold">
-                              {pharmacyQuestions.length}
-                            </span>
-                          )}
-                        </button>
+                            {pharmacyQuestions.length > 0 && (
+                              <span className="px-2 py-0.5 bg-violet-500/20 text-violet-200 rounded-full text-xs font-semibold">
+                                {pharmacyQuestions.length}
+                              </span>
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowPharmaChoiceModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 
+          bg-cyan-500/10 border border-cyan-500/50 
+          text-cyan-400 rounded-lg hover:bg-cyan-500/20 
+          transition-all text-sm font-semibold"
+                          >
+                            Without Questions (Click to change)
+                          </button>
+                        )
                       )}
 
                     </div>
@@ -5648,7 +5716,7 @@ export default function AddProductPage() {
                             className="bg-slate-800/30 border border-slate-700 rounded p-2 space-y-1 relative group"
                           >
                             {/* Main Badge */}
-                            {index === 0 && (
+                            {image.isMain && (
                               <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-violet-500 text-white text-[10px] font-medium rounded z-10">
                                 Main
                               </div>
@@ -5907,6 +5975,26 @@ export default function AddProductPage() {
         productId={null}
         initialSelections={pharmacyQuestions}
         onSave={(selections) => setPharmacyQuestions(selections)}
+      />
+
+      {/* PHARMACY QUESTION CHOICE MODAL */}
+      <PharmaQuestionChoiceModal
+        isOpen={showPharmaChoiceModal}
+        onSelect={(withQuestions) => {
+          setPharmaWithQuestions(withQuestions);
+          setShowPharmaChoiceModal(false);
+          if (withQuestions) {
+            setShowPharmacyModal(true);
+          } else {
+            setPharmacyQuestions([]);
+          }
+        }}
+        onCancel={() => {
+          setFormData((prev) => ({ ...prev, isPharmaProduct: false }));
+          setPharmacyQuestions([]);
+          setPharmaWithQuestions(true);
+          setShowPharmaChoiceModal(false);
+        }}
       />
 
 

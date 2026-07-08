@@ -14,7 +14,9 @@ import {
   Download,
   Database,
   EyeOff,
-  Pill
+  Pill,
+  FileText,
+  Copy
 } from "lucide-react";
 
 type ToggleProduct = {
@@ -234,7 +236,8 @@ export default function ProductsPage() {
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
     { value: "published", label: "Published" },
-    { value: "unpublished", label: "Unpublished / Draft" },
+    { value: "unpublished", label: "Unpublished" },
+    { value: "draft", label: "Draft" },
   ];
 
   const deliveryOptions: SelectOption[] = [
@@ -284,8 +287,9 @@ export default function ProductsPage() {
     label: "All Records",
   });
   const [isProcessing, setIsProcessing] = useState(false);
-
-
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
+  const [selectedDuplicateProduct, setSelectedDuplicateProduct] = useState<ToggleProduct | null>(null);
   const [selectedDeleteProduct, setSelectedDeleteProduct] = useState<ToggleProduct | null>(null);
   const [selectedToggleProduct, setSelectedToggleProduct] = useState<ToggleProduct | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -406,6 +410,28 @@ export default function ProductsPage() {
     return primaryCategory?.categoryName || categories[0]?.categoryName || "Uncategorized";
   };
 
+  const handleDuplicateProduct = async (id: string) => {
+    if (duplicatingId) return;
+    setDuplicatingId(id);
+    try {
+      const res = await productsService.duplicate(id);
+      const newProduct = (res as any)?.data;
+      toast.success("Product duplicated as a draft. Add images and publish when ready.");
+      if (newProduct?.id) {
+        router.push(`/admin/products/edit/${newProduct.id}`);
+      } else {
+        await fetchProducts();
+      }
+    } catch (err) {
+      console.error("Duplicate product error:", err);
+      toast.error("Failed to duplicate product");
+    } finally {
+      setDuplicatingId(null);
+      setShowDuplicateConfirm(false);
+      setSelectedDuplicateProduct(null);
+    }
+  };
+
   const handleConfirmProductAction = async () => {
     if (!selectedDeleteProduct) return;
     setIsProcessing(true);
@@ -503,7 +529,16 @@ export default function ProductsPage() {
       }
 
       if (publishedFilter.value !== "all") {
-        params.isPublished = publishedFilter.value === "published";
+        if (publishedFilter.value === "published") {
+          params.isPublished = true;
+        } else if (publishedFilter.value === "unpublished") {
+          // Unpublished excluding drafts (clean separation)
+          params.isPublished = false;
+          params.status = "NotDraft";
+        } else if (publishedFilter.value === "draft") {
+          // Only drafts
+          params.status = "Draft";
+        }
       }
 
       if (markAsNewFilter.value !== "all") {
@@ -1137,6 +1172,7 @@ export default function ProductsPage() {
         lowStockCount: 0,
         outOfStockCount: 0,
         unpublishedCount: 0,
+        draftCount: 0,
       };
     }
 
@@ -1146,6 +1182,7 @@ export default function ProductsPage() {
       lowStockCount: apiStats.lowStock,
       outOfStockCount: apiStats.outOfStock,
       unpublishedCount: apiStats.unpublished,
+      draftCount: apiStats.draft ?? 0,
     };
   }, [apiStats]);
 
@@ -1173,6 +1210,10 @@ export default function ProductsPage() {
 
         case "unpublished":
           setPublishedFilter({ value: "unpublished", label: "Unpublished" });
+          break;
+
+        case "draft":
+          setPublishedFilter({ value: "draft", label: "Draft" });
           break;
 
         case "lowStock":
@@ -1624,7 +1665,7 @@ export default function ProductsPage() {
 
 
       {/* ================= STATS ================= */}
-      <div className="grid gap-2.5 md:grid-cols-5">
+      <div className="grid gap-2.5 md:grid-cols-3 lg:grid-cols-6">
 
         {/* TOTAL */}
         <div
@@ -1698,6 +1739,25 @@ export default function ProductsPage() {
             <div>
               <p className="text-xs text-slate-400">Unpublished</p>
               <p className="text-lg font-bold text-white">{stats.unpublishedCount}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* DRAFT */}
+        <div
+          onClick={() => handleStatClick("draft")}
+          className={`rounded-xl p-2.5 cursor-pointer transition-all border ${publishedFilter.value === "draft"
+              ? "bg-gradient-to-br from-amber-400/20 to-amber-500/20 border-amber-300 shadow-lg shadow-amber-500/20 ring-2 ring-amber-400/50"
+              : "bg-gradient-to-br from-amber-500/10 to-amber-600/10 border-amber-500/20 hover:shadow-lg hover:shadow-amber-500/10"
+            }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg">
+              <FileText className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Draft</p>
+              <p className="text-lg font-bold text-white">{stats.draftCount}</p>
             </div>
           </div>
         </div>
@@ -2191,8 +2251,8 @@ export default function ProductsPage() {
             </div>
           ) : (
             <table className="w-full table-fixed text-[12px]">
-              <thead className="sticky top-0 z-20 bg-gray-300   dark:bg-slate-900/95 backdrop-blur border-b border-slate-800">
-                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 ">
+              <thead className="sticky top-0 z-20 bg-[#eef3ec] dark:bg-slate-900/95 backdrop-blur border-b border-[#d9e5d6] dark:border-slate-800">
+                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 ">
                   <th className="text-left py-2 px-2 w-[360px]">
                     <div className="flex items-center gap-2">
                       <input
@@ -2216,15 +2276,11 @@ export default function ProductsPage() {
                   <th className="text-center py-2 px-2 w-[90px]">Visibility</th>
                   <th
                     onClick={() => handleSort('createdAt')}
-                    className="text-left py-2 px-2 text-blue-400 w-[150px] cursor-pointer hover:text-blue-300 select-none"
+                    className="text-left py-2 px-2 text-blue-400 w-[160px] cursor-pointer hover:text-blue-300 select-none"
                     title="Sort by created date"
                   >
-                    Created At
+                    Created / Updated
                     {sortBy === 'createdAt' ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
-                  </th>
-
-                  <th className="text-left py-2 px-2 w-[150px]">
-                    Updated At
                   </th>
                   <th className="text-center py-2 px-2 w-[85px]">Actions</th>
                 </tr>
@@ -2254,7 +2310,7 @@ export default function ProductsPage() {
                           }
   ${selectedProducts.includes(product.id)
                             ? 'bg-violet-500/10 ring-1 ring-violet-500/40'
-                            : 'hover:bg-slate-800/30'
+                            : 'hover:bg-[#f2f6f1] dark:hover:bg-slate-800/30'
                           }
   ${isBusy ? 'pointer-events-none' : ''}
 `}
@@ -2338,7 +2394,7 @@ export default function ProductsPage() {
 
                                 {/* CATEGORY (secondary) */}
                                 <span
-                                  className="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700 px-2 py-0.5 rounded-md truncate"
+                                  className="text-[10px] text-slate-600 bg-slate-100 border border-slate-300 dark:text-slate-400 dark:bg-slate-800/60 dark:border-slate-700 px-2 py-0.5 rounded-md truncate"
                                   title={product.categoryName}
                                 >
                                   {product.categoryName}
@@ -2346,7 +2402,7 @@ export default function ProductsPage() {
 
                                 {/* BRAND (primary) */}
                                 <span
-                                  className="text-[11px] text-cyan-300 bg-cyan-500/20 border border-cyan-400/40 px-2 py-0.5 rounded-md font-medium"
+                                  className="text-[11px] text-cyan-700 bg-cyan-100 border border-cyan-300 dark:text-cyan-300 dark:bg-cyan-500/20 dark:border-cyan-400/40 px-2 py-0.5 rounded-md font-medium"
                                   title={product.brandName}
                                 >
                                   {product.brandName}
@@ -2369,9 +2425,9 @@ export default function ProductsPage() {
                                     : [...prev, product.id]
                                 );
                               }}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded bg-violet-500/10 text-purple-600 dark:text-purple-400 hover:bg-violet-500/20 transition-all border border-violet-500/20"
+                              className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium px-2 py-1 rounded bg-violet-500/10 text-purple-600 dark:text-purple-400 hover:bg-violet-500/20 transition-all border border-violet-500/20"
                             >
-                              <span>{product.variantsCount} Variants</span>
+                              <span className="whitespace-nowrap">{product.variantsCount} Variants</span>
                               <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expandedProducts.includes(product.id) ? "rotate-180" : ""
                                 }`} />
                             </button>
@@ -2486,16 +2542,6 @@ export default function ProductsPage() {
                                     <span className="opacity-70 text-[11px]">({qty})</span>
                                   )}
                                 </div>
-
-                                {showAdminAlert && (
-                                  <span
-                                    title="Admin notification threshold reached"
-                                    className="text-[10px] text-red-400 flex items-center gap-1"
-                                  >
-                                    <span className="w-1 h-1 bg-red-400 rounded-full animate-pulse" />
-                                    Admin Alert
-                                  </span>
-                                )}
                               </div>
                             );
                           })()}
@@ -2522,21 +2568,14 @@ export default function ProductsPage() {
                                 : "Unpublished"}
                             </span>
 
-                            <span
-                              title={
-                                product.showOnHomepage
-                                  ? "Featured on homepage"
-                                  : "Not featured on homepage"
-                              }
-                              className={`min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-medium leading-5 ${product.showOnHomepage
-                                  ? "bg-violet-500/15 text-violet-400"
-                                  : "bg-slate-600/20 text-slate-400"
-                                }`}
-                            >
-                              {product.showOnHomepage
-                                ? "★ Featured"
-                                : "Standard"}
-                            </span>
+                            {product.showOnHomepage && (
+                              <span
+                                title="Featured on homepage"
+                                className="min-w-[92px] px-2 py-0.5 rounded-md text-[11px] font-medium leading-5 bg-violet-500/15 text-violet-400"
+                              >
+                                ★ Featured
+                              </span>
+                            )}
 
                             {product.isPharmaProduct && (
                               <span
@@ -2561,37 +2600,35 @@ export default function ProductsPage() {
                         </td>
                         <td
                           className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
-                          title={`Created At: ${product.createdAt || "N/A"}
-Created By: ${product.createdBy || "N/A"}`}
+                          title={`Created: ${product.createdAt || "N/A"} by ${product.createdBy || "N/A"}
+Updated: ${product.updatedAt || "N/A"} by ${product.updatedBy || "N/A"}`}
                         >
-                          <div className="flex flex-col">
-                            <span>{product.createdAt || "N/A"}</span>
-                            <span className="text-[10px] text-slate-500">
-                              {product.createdBy || "N/A"}
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="flex items-baseline gap-1 min-w-0">
+                              <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400 uppercase shrink-0">C</span>
+                              <span className="flex flex-col leading-tight min-w-0">
+                                <span className="truncate">{product.createdAt || "N/A"}</span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-500 truncate">{product.createdBy || "N/A"}</span>
+                              </span>
                             </span>
-                          </div>
-                        </td>
-                        <td
-                          className="py-1.5 px-2 text-xs text-slate-300 cursor-help"
-                          title={`Updated At: ${product.updatedAt || "N/A"}
-Updated By: ${product.updatedBy || "N/A"}`}
-                        >
-                          <div className="flex flex-col">
-                            <span>{product.updatedAt || "N/A"}</span>
-                            <span className="text-[10px] text-slate-500">
-                              {product.updatedBy || "N/A"}
+                            <span className="flex items-baseline gap-1 text-slate-500 dark:text-slate-400 min-w-0">
+                              <span className="text-[9px] font-semibold text-slate-500 uppercase shrink-0">U</span>
+                              <span className="flex flex-col leading-tight min-w-0">
+                                <span className="truncate">{product.updatedAt || "N/A"}</span>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{product.updatedBy || "N/A"}</span>
+                              </span>
                             </span>
                           </div>
                         </td>
 
                         {/* ACTIONS */}
                         <td className="py-1.5 px-2">
-                          <div className="flex items-center justify-center gap-0.5">
+                          <div className="flex flex-wrap items-center justify-center gap-0.5">
 
                             {/* VIEW */}
                             {!isDeleted && (
                               <Link href={`/product/${product.slug}`} target="_blank">
-                                <button className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md">
+                                <button className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-md">
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </button>
                               </Link>
@@ -2601,7 +2638,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
                             {!isDeleted && (
                               <button
                                 onClick={() => fetchProductDetails(product.id)}
-                                className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                                className="p-1 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 rounded-md"
                               >
                                 <Eye className="h-3.5 w-3.5" />
                               </button>
@@ -2610,10 +2647,29 @@ Updated By: ${product.updatedBy || "N/A"}`}
                             {/* EDIT */}
                             {!isDeleted && (
                               <Link href={`/admin/products/edit/${product.id}`}>
-                                <button className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md">
+                                <button className="p-1 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 rounded-md">
                                   <Edit className="h-3.5 w-3.5" />
                                 </button>
                               </Link>
+                            )}
+
+                            {/* DUPLICATE */}
+                            {!isDeleted && (
+                              <button
+                                onClick={() => {
+                                  setSelectedDuplicateProduct({ id: product.id, name: product.name, isActive: product.isActive });
+                                  setShowDuplicateConfirm(true);
+                                }}
+                                disabled={duplicatingId === product.id}
+                                title="Duplicate as draft (images not copied)"
+                                className="p-1 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-md disabled:opacity-50"
+                              >
+                                {duplicatingId === product.id ? (
+                                  <div className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </button>
                             )}
 
                             {/* PHARMA APPROVE / REJECT */}
@@ -2621,14 +2677,14 @@ Updated By: ${product.updatedBy || "N/A"}`}
                               <>
                                 <button
                                   onClick={() => handlePharmaActionClick("approve", product.id, product.name)}
-                                  className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
+                                  className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-md"
                                   title="Approve pharma product"
                                 >
                                   <CheckCircle className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handlePharmaActionClick("reject", product.id, product.name)}
-                                  className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
+                                  className="p-1 text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-md"
                                   title="Reject pharma product"
                                 >
                                   <XCircle className="h-3.5 w-3.5" />
@@ -2646,8 +2702,8 @@ Updated By: ${product.updatedBy || "N/A"}`}
                                 })
                               }
                               className={`p-1 rounded-md transition-all ${product.isDeleted
-                                  ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
-                                  : 'text-red-400 hover:bg-red-500/10'
+                                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
+                                  : 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
                                 }`}
                             >
                               {isBusy ? (
@@ -2665,7 +2721,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
                       {/* Collapsible Variants Row */}
                       {product.productType === "variable" && expandedProducts.includes(product.id) && (
                         <tr key={`${product.id}-expanded`} className={theme === "dark" ? "bg-slate-900/40" : "bg-slate-50/50"}>
-                          <td colSpan={8} className="py-2 px-2 border-b border-slate-800">
+                          <td colSpan={7} className="py-2 px-2 border-b border-slate-800">
                             <div className={`p-2 rounded-xl border ${theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200 shadow-inner"
                               }`}>
                               {/* <h6> Variants</h6> */}
@@ -2673,10 +2729,10 @@ Updated By: ${product.updatedBy || "N/A"}`}
                                 <table className="w-full text-xs text-left">
                                   <thead>
                                     <tr className={`border-b ${theme === "dark" ? "border-slate-800 text-slate-400" : "border-slate-200 text-slate-600"}`}>
-                                      <th className="py-1 px-2 font-semibold"></th>
-                                      <th className="py-1 px-2 font-semibold text-center w-[120px]"></th>
-                                      <th className="py-1 px-2 font-semibold text-center w-[100px]"></th>
-                                      <th className="py-1 px-2 font-semibold text-center w-[150px]"></th>
+                                      <th className="py-1 px-2 font-semibold text-left w-[200px]">Variant</th>
+                                      <th className="py-1 px-2 font-semibold text-left w-[220px]">SKU</th>
+                                      <th className="py-1 px-2 font-semibold text-left w-[100px]">Price</th>
+                                      <th className="py-1 px-2 font-semibold text-left">Stock</th>
                                     </tr>
                                   </thead>
                                   <tbody className={`divide-y ${theme === "dark" ? "divide-slate-900" : "divide-slate-100"}`}>
@@ -2696,7 +2752,7 @@ Updated By: ${product.updatedBy || "N/A"}`}
                                               )}
                                             </div>
                                           </td>
-                                          <td className="py-1.5 px-2 text-center font-mono">
+                                          <td className="py-1.5 px-2 text-left font-mono">
                                             <span
                                               onClick={(e) => {
                                                 e.stopPropagation();
@@ -2714,10 +2770,10 @@ Updated By: ${product.updatedBy || "N/A"}`}
                                               {copiedId === v.id ? "Copied ✓" : (v.sku || "-")}
                                             </span>
                                           </td>
-                                          <td className={`py-1.5 px-2 text-center font-semibold ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
+                                          <td className={`py-1.5 px-2 text-left font-semibold ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
                                             £{(v.price ?? 0).toFixed(2)}
                                           </td>
-                                          <td className="py-1.5 px-2 text-center">
+                                          <td className="py-1.5 px-2 text-left">
                                             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${isOutOfStock
                                                 ? "bg-red-500/15 text-red-500 dark:text-red-400 border-red-500/30"
                                                 : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
@@ -2974,6 +3030,27 @@ Updated By: ${product.updatedBy || "N/A"}`}
         media={mediaToView}
         initialIndex={mediaStartIndex}
         baseUrl={API_BASE_URL.replace("/api", "")}
+      />
+
+      <ConfirmDialog
+        isOpen={showDuplicateConfirm}
+        onClose={() => {
+          setShowDuplicateConfirm(false);
+          setSelectedDuplicateProduct(null);
+        }}
+        onConfirm={async () => {
+          if (selectedDuplicateProduct) {
+            await handleDuplicateProduct(selectedDuplicateProduct.id);
+          }
+        }}
+        title="Duplicate Product"
+        message={`Are you sure you want to duplicate "${selectedDuplicateProduct?.name}"?`}
+        confirmText="Create Duplicate"
+        cancelText="Cancel"
+        icon={Copy}
+        iconColor="text-amber-400"
+        confirmButtonStyle="bg-gradient-to-r from-amber-500 to-orange-500"
+        isLoading={duplicatingId !== null}
       />
 
       <ConfirmDialog

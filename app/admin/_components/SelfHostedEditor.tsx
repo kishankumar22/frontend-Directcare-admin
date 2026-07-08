@@ -256,7 +256,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         
         menubar: 'edit view insert format tools',
         
-        toolbar: 'undo redo | formatselect | bold italic underline | alignleft aligncenter alignright | bullist numlist | link image deleteimage | removeformat code',
+        toolbar: 'undo redo | blocks formatselect | h1 h2 h3 | bold italic underline | alignleft aligncenter alignright | bullist numlist | link image deleteimage | removeformat code',
         
         skin: isDark ? 'oxide-dark' : 'oxide',
         content_css: isDark ? 'dark' : 'default',

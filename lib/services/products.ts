@@ -452,6 +452,7 @@ export interface ProductQueryParams {
 
   // Status
   isPublished?: boolean;
+  status?: string;          // "Draft" | "NotDraft" — visibility/draft filter
   isActive?: boolean;
   isDeleted?: boolean;
 
@@ -563,6 +564,9 @@ getAll: async (params?: ProductQueryParams) => {
       "isPublished",
       params.isPublished.toString()
     );
+
+  if (params?.status)
+    queryParams.append("status", params.status);
 
   if (params?.showOnHomepage !== undefined)
     queryParams.append(
@@ -804,6 +808,11 @@ pharmaReject: async (id: string, comment?: string) => {
 restore: async (id: string) => {
   return apiClient.post<ApiResponse<void>>(
     `${API_ENDPOINTS.products}/${id}/restore`
+  );
+},
+duplicate: async (id: string) => {
+  return apiClient.post<ApiResponse<Product>>(
+    `${API_ENDPOINTS.products}/${id}/duplicate`
   );
 },
   getByCategory: async (categoryId: string, params?: Omit<ProductQueryParams, 'categoryId'>) => {

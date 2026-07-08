@@ -19,7 +19,7 @@ import ConfirmDialog from "../_components/ConfirmDialog";
 import { googleMerchantService } from "@/lib/services/GoogleMerchant";
 import { Product, productsService } from "@/lib/services/products";
 
-type ActionType = "sync-all" | "sync-selected" | "delete-selected";
+type ActionType = "sync-all" | "sync-selected" | "delete-selected" | "clean-resync";
 
 interface MerchantProductRow {
   id: string;
@@ -218,18 +218,7 @@ export default function GoogleMerchantSettings() {
   };
 
   const handleCleanResync = async () => {
-    try {
-      setButtonLoading("clean");
-      const response = await googleMerchantService.cleanResync();
-      if (response.error || response.data?.success === false) {
-        throw new Error(response.error || response.data?.message || "Clean resync failed");
-      }
-      toast.success(response.data?.message || "Clean resync completed successfully");
-    } catch (error: any) {
-      toast.error(error?.message || "Clean resync failed");
-    } finally {
-      setButtonLoading(null);
-    }
+    setConfirmState({ open: true, action: "clean-resync" });
   };
 
   const handlePreviewExcel = async () => {
@@ -392,6 +381,14 @@ export default function GoogleMerchantSettings() {
         setSelectedDeleteIds([]);
         closeDeleteModal();
       }
+
+      if (confirmState.action === "clean-resync") {
+        const response = await googleMerchantService.cleanResync();
+        if (response.error || response.data?.success === false) {
+          throw new Error(response.error || response.data?.message || "Clean resync failed");
+        }
+        toast.success(response.data?.message || "Clean resync completed successfully");
+      }
     } catch (error: any) {
       toast.error(error?.message || "Action failed");
     } finally {
@@ -409,6 +406,9 @@ export default function GoogleMerchantSettings() {
     }
     if (confirmState.action === "delete-selected") {
       return `Are you sure you want to remove ${selectedDeleteIds.length} selected product(s) from Google Merchant Center?`;
+    }
+    if (confirmState.action === "clean-resync") {
+      return "Are you sure you want to remove stale entries and re-sync all data? This is a complete database refresh.";
     }
     return "";
   }, [confirmState.action, selectedDeleteIds.length, selectedSyncIds.length]);
@@ -604,6 +604,8 @@ export default function GoogleMerchantSettings() {
         confirmText={
           confirmState.action === "delete-selected"
             ? "Delete Products"
+            : confirmState.action === "clean-resync"
+            ? "Clean Resync"
             : "Confirm Sync"
         }
         cancelText="Cancel"
@@ -614,7 +616,7 @@ export default function GoogleMerchantSettings() {
             : "text-emerald-400"
         }
         confirmButtonStyle={
-          confirmState.action === "delete-selected"
+          confirmState.action === "delete-selected" || confirmState.action === "clean-resync"
             ? "bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/40"
             : "bg-gradient-to-r from-emerald-500 to-cyan-500 hover:shadow-lg hover:shadow-emerald-500/40"
         }

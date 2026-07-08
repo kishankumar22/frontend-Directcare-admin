@@ -7,7 +7,7 @@ import { LucideIcon, AlertCircle, X } from 'lucide-react';
 interface ConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => any;
   title: string;
   message: string;
   confirmText?: string;
@@ -83,9 +83,13 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   // Don't render if not open and not closing
   if (!isOpen && !isClosing) return null;
 
-  const handleConfirmClick = () => {
-    onConfirm();
-    handleClose();
+  const handleConfirmClick = async () => {
+    const result = onConfirm();
+    if (result instanceof Promise) {
+      await result;
+    } else {
+      handleClose();
+    }
   };
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -183,7 +187,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 {isLoading ? (
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Loading...</span>
+                    <span>{confirmText}</span>
                   </div>
                 ) : (
                   confirmText

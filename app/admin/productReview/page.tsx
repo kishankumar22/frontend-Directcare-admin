@@ -56,7 +56,7 @@ export default function ProductReviewsPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ratingFilter, setRatingFilter] = useState<string>("all");
   const [productFilter, setProductFilter] = useState<string>("all");
   const [verifiedOnlyFilter, setVerifiedOnlyFilter] = useState(false);
@@ -236,8 +236,12 @@ if (res.data?.success) {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchProducts(), fetchFormProducts()]);
+      // Only the lightweight dropdown products block the page render
+      await fetchProducts();
       setLoading(false);
+      // Heavy list (all products, only needed for the create-review form) loads in the
+      // background so it never blocks the page from showing.
+      fetchFormProducts();
     };
     init();
   }, []);

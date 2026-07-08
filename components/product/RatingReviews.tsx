@@ -20,6 +20,10 @@ interface RatingReviewsProps {
   productId: string;
   allowCustomerReviews: boolean;
   highlightReviewId?: string | null; // 🔥 ADD
+  // Selected variant SKU (variant products) and the product's own SKU. Reviews are filtered
+  // to the active SKU + general (no-SKU) reviews so each variant shows only its own reviews.
+  variantSku?: string | null;
+  productSku?: string | null;
 }
 
 interface ReviewReply {
@@ -50,7 +54,9 @@ export interface Review {
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
-export default function RatingReviews({ productId, allowCustomerReviews, highlightReviewId }: RatingReviewsProps) {
+export default function RatingReviews({ productId, allowCustomerReviews, highlightReviewId, variantSku, productSku }: RatingReviewsProps) {
+  // Active SKU used to filter reviews: selected variant's SKU, else the product's own SKU.
+  const activeSku = (variantSku && variantSku.trim()) || (productSku && productSku.trim()) || "";
   const router = useRouter();
   const [swiperInstance, setSwiperInstance] = useState<any>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -235,8 +241,9 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
   };
   const fetchReviews = useCallback(async () => {
     try {
+      const skuParam = activeSku ? `?sku=${encodeURIComponent(activeSku)}` : "";
       const res = await fetch(
-        `${API_BASE_URL}/api/ProductReviews/product/${productId}`, {
+        `${API_BASE_URL}/api/ProductReviews/product/${productId}${skuParam}`, {
         next: { revalidate: 60 },
       });
 
@@ -245,7 +252,7 @@ export default function RatingReviews({ productId, allowCustomerReviews, highlig
     } catch (err) {
       console.log("Fetch reviews error:", err);
     }
-  }, [productId]);
+  }, [productId, activeSku]);
 
   useEffect(() => {
     fetchReviews();

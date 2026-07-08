@@ -14,6 +14,7 @@ import SavedAddressesSection from "@/components/checkout/SavedAddressesSection";
 import LoyaltyRedemptionBox from "@/components/checkout/LoyaltyRedemptionBox";
 import { getPharmaSessionId } from "@/app/lib/pharmaSession";
 import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo } from "@/lib/analytics";
+import { getAttributionPayload } from "@/lib/attribution";
 // ---------- Types ----------
 type AddressSuggestion = {
   id: string;
@@ -156,10 +157,10 @@ function CheckoutPayment({
         return_url: `${window.location.origin}/order/success?orderId=${orderId}`,
         payment_method_data: {
           billing_details: {
-            name: `${orderPayload.billingFirstName} ${orderPayload.billingLastName}`,
+            name: `${orderPayload.billingFirstName ?? ""} ${orderPayload.billingLastName ?? ""}`.trim() || undefined,
             email: orderPayload.customerEmail,
             address: {
-              line1: orderPayload.billingAddressLine1,
+              line1: orderPayload.billingAddressLine1 || undefined,
               country: "GB",
             },
           },
@@ -353,6 +354,8 @@ const handleAddressSelect = (addr: any | null) => {
  
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
 const [stripeOrderId, setStripeOrderId] = useState<string | null>(null);
+// Resume-payment (Approach B): if a Pending unpaid order exists from an earlier
+// attempt, the mount effect below redirects to the order page to complete payment.
 const [orderSummary, setOrderSummary] = useState<{
   subtotalAmount: number;
   shippingAmount: number;
@@ -384,6 +387,82 @@ useEffect(() => {
     }
   }
 }, []);
+
+// ── Resume pending payment (Approach B) ──────────────────────────────────
+// On mount, if a Pending unpaid order was created earlier in this browser,
+// verify it's still unpaid via the public track endpoint and offer to resume.
+useEffect(() => {
+  const raw = typeof window !== "undefined" ? localStorage.getItem("pending_order") : null;
+  if (!raw) return;
+
+  let saved: any;
+  try { saved = JSON.parse(raw); } catch { localStorage.removeItem("pending_order"); return; }
+
+  // Ignore stale captures (older than 24h)
+  if (!saved?.orderNumber || !saved?.orderId || (saved.ts && Date.now() - saved.ts > 24 * 60 * 60 * 1000)) {
+    localStorage.removeItem("pending_order");
+    return;
+  }
+
+  (async () => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Orders/track/${encodeURIComponent(saved.orderNumber)}?email=${encodeURIComponent(saved.email || "")}`
+      );
+      if (!res.ok) { localStorage.removeItem("pending_order"); return; }
+      const json = await res.json();
+      const o = json?.data;
+      const status = String(o?.status ?? "").toLowerCase();
+      const payStatus = String(o?.paymentStatus ?? "").toLowerCase();
+      const paid = payStatus === "successful" || payStatus === "paid";
+      const closed = ["cancelled", "refunded"].includes(status);
+
+      // Still Pending and unpaid → send the customer to the order page to complete
+      // payment (instead of a fresh checkout). The order-success page handles paying.
+      if (o && status === "pending" && !paid && !closed) {
+        router.replace(`/order/success?orderId=${o.id ?? saved.orderId}`);
+      } else {
+        localStorage.removeItem("pending_order");
+      }
+    } catch {
+      // Network issue — keep the stored order; don't block checkout.
+    }
+  })();
+}, []);
+
+// Restore the billing/shipping details the customer typed for a still-pending order,
+// so the checkout form is pre-filled when they come back (Approach B).
+useEffect(() => {
+  const raw = typeof window !== "undefined" ? localStorage.getItem("checkout_form") : null;
+  if (!raw) return;
+  try {
+    const f = JSON.parse(raw);
+    if (f.billingFirstName) setBillingFirstName(f.billingFirstName);
+    if (f.billingLastName) setBillingLastName(f.billingLastName);
+    if (f.billingEmail) setBillingEmail(f.billingEmail);
+    if (f.billingPhone) setBillingPhone(f.billingPhone);
+    if (f.billingCompany) setBillingCompany(f.billingCompany);
+    if (f.billingAddress1) setBillingAddress1(f.billingAddress1);
+    if (f.billingAddress2) setBillingAddress2(f.billingAddress2);
+    if (f.billingCity) setBillingCity(f.billingCity);
+    if (f.billingState) setBillingState(f.billingState);
+    if (f.billingPostalCode) setBillingPostalCode(f.billingPostalCode);
+    if (f.billingCountry) setBillingCountry(f.billingCountry);
+    if (f.deliveryMethod) setDeliveryMethod(f.deliveryMethod);
+    if (typeof f.shippingSameAsBilling === "boolean") setShippingSameAsBilling(f.shippingSameAsBilling);
+    if (f.shippingFirstName) setShippingFirstName(f.shippingFirstName);
+    if (f.shippingLastName) setShippingLastName(f.shippingLastName);
+    if (f.shippingCompany) setShippingCompany(f.shippingCompany);
+    if (f.shippingAddress1) setShippingAddress1(f.shippingAddress1);
+    if (f.shippingAddress2) setShippingAddress2(f.shippingAddress2);
+    if (f.shippingCity) setShippingCity(f.shippingCity);
+    if (f.shippingState) setShippingState(f.shippingState);
+    if (f.shippingPostalCode) setShippingPostalCode(f.shippingPostalCode);
+    if (f.shippingCountry) setShippingCountry(f.shippingCountry);
+    if (f.shippingPhone) setShippingPhone(f.shippingPhone);
+  } catch { /* ignore */ }
+}, []);
+
 const isBuyNowFlow = !!buyNowItem;
 
 const checkoutItems = isBuyNowFlow
@@ -1089,6 +1168,8 @@ selectedShippingMethodName:
       notes,
       pointsToRedeem: pointsToRedeem || 0,
 pointsDiscountAmount: pointsDiscount || 0,
+      // Marketing attribution (gclid / utm / referrer captured on landing)
+      ...getAttributionPayload(),
     };
   };
 const validateAndBuildPayload = async (): Promise<any | null> => {
@@ -1141,7 +1222,21 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
     setError("Please fill all required fields");
     return null;
   }
-  // 🔁 subscription logic (AS IS – unchanged)
+  // Build a canonical frequency string the backend understands:
+  // numeric interval → "every-30-days"; named → "weekly"/"monthly" as-is.
+  const toCanonicalFrequency = (freq: any, period: any): string => {
+    const p = String(period ?? "").toLowerCase().trim();
+    const n = Number(freq);
+    if (!isNaN(n) && n > 0 && /^(day|days|week|weeks|month|months|year|years)$/.test(p)) {
+      const unit = p.endsWith("s") ? p : p + "s";
+      return `every-${n}-${unit}`;
+    }
+    if (p && p !== "nan") return p;
+    const f = String(freq ?? "").toLowerCase().trim();
+    return f && f !== "nan" ? f : "monthly";
+  };
+
+  // 🔁 subscription logic
   const subscriptionMap: Record<string, string> = {};
   for (const item of checkoutItems) {
     if (item.type === "subscription") {
@@ -1156,7 +1251,7 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
             productId: item.productId ?? item.id,
             productVariantId: item.variantId ?? null,
             quantity: item.quantity,
-            frequency: item.frequencyPeriod,
+            frequency: toCanonicalFrequency(item.frequency, item.frequencyPeriod),
             shippingFirstName: shippingSameAsBilling ? billingFirstName : shippingFirstName,
             shippingLastName: shippingSameAsBilling ? billingLastName : shippingLastName,
             shippingPhone: `+44${shippingSameAsBilling ? billingPhone : shippingPhone}`,
@@ -1231,6 +1326,9 @@ const onPaymentSuccess = (createdOrder: any) => {
 if (!isAuthenticated) {
   localStorage.removeItem("pharmacy_session_id");
 }
+  // Payment done — clear the resume-payment markers.
+  localStorage.removeItem("pending_order");
+  localStorage.removeItem("checkout_form");
   router.push(`/order/success?orderId=${createdOrder.data.id}`);
 };
   const onPaymentError = (err: any) => {
@@ -2015,6 +2113,27 @@ const isNextDay =
         setStripeClientSecret(
           intentJson.data.clientSecret
         );
+
+        // Remember this Pending order so the customer can resume payment if they
+        // navigate away before paying (Approach B — works for guest & logged-in).
+        try {
+          localStorage.setItem("pending_order", JSON.stringify({
+            orderId,
+            orderNumber: orderJson.data.orderNumber,
+            email: billingEmail,
+            total: totalAmount,
+            ts: Date.now(),
+          }));
+          // Also remember the details the customer typed so the checkout form is
+          // pre-filled if they come back (they don't have to re-enter everything).
+          localStorage.setItem("checkout_form", JSON.stringify({
+            billingFirstName, billingLastName, billingEmail, billingPhone, billingCompany,
+            billingAddress1, billingAddress2, billingCity, billingState, billingPostalCode, billingCountry,
+            deliveryMethod, shippingSameAsBilling,
+            shippingFirstName, shippingLastName, shippingCompany,
+            shippingAddress1, shippingAddress2, shippingCity, shippingState, shippingPostalCode, shippingCountry, shippingPhone,
+          }));
+        } catch { /* storage blocked — ignore */ }
 
         trackAddPaymentInfo(
           checkoutItems,

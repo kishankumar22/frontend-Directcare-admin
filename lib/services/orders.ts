@@ -268,6 +268,13 @@ export interface Order {
   paymentMethod?: string;
   paymentStatus?: string;
 
+  // ================= MARKETING ATTRIBUTION =================
+  orderSource?: string | null;
+  gclid?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+
   payments: Payment[];
 
   // ================= ITEMS =================
@@ -1026,11 +1033,18 @@ export const formatCurrency = (amount: number, currency: string = 'GBP') => {
  * Format date
  */
 export const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString('en-GB', {
+  if (!date) return '';
+  // Backend timestamps are UTC. If the string has no timezone marker, treat it as UTC
+  // (append 'Z') so it converts correctly, then always display in UK time (Europe/London)
+  // regardless of where the viewer is — this matches Stripe / the store's local time.
+  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(date);
+  const iso = date.includes('T') && !hasTz ? `${date}Z` : date;
+  return new Date(iso).toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/London',
   });
 };

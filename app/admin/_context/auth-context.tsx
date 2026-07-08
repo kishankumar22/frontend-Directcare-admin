@@ -58,6 +58,17 @@ export const AuthProvider = ({
             );
             const payload = JSON.parse(jsonPayload);
             roleFromToken = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role || "";
+
+            // Token expiry check — if the JWT is expired, treat as logged out so the
+            // AdminLayout guard redirects to /login (instead of appearing "stuck").
+            const expSec = typeof payload.exp === "number" ? payload.exp : 0;
+            if (expSec && Date.now() >= expSec * 1000) {
+              localStorage.removeItem("authToken");
+              setAccessToken(null);
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
           } catch (e) {
             console.error("Failed to parse JWT role in context:", e);
           }
@@ -123,6 +134,34 @@ export const AuthProvider = ({
     };
 
     loadUserData();
+  }, []);
+
+  // Proactively watch for token expiry: check every 30s (and when the tab regains focus)
+  // so an expired session redirects to /login even without an API call.
+  useEffect(() => {
+    const checkExpiry = () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+      try {
+        const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(window.atob(base64));
+        const expSec = typeof payload.exp === "number" ? payload.exp : 0;
+        if (expSec && Date.now() >= expSec * 1000) {
+          localStorage.removeItem("authToken");
+          setAccessToken(null);
+          setUser(null);
+        }
+      } catch {
+        /* malformed token — ignore */
+      }
+    };
+
+    const interval = setInterval(checkExpiry, 30000);
+    window.addEventListener("focus", checkExpiry);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", checkExpiry);
+    };
   }, []);
 
   const handleLogout = () => {

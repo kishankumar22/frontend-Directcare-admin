@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { getBackendMessage } from '../app/admin/_utils/errorUtils';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://test.direct-care.co.uk';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.direct-care.co.uk';
 
 export interface ApiResponse<T> {
   data?: T;
@@ -18,7 +18,7 @@ class ApiClient {
     // ✅ Validate and log base URL
     if (!baseURL || baseURL === 'undefined') {
       console.error('❌ Invalid API_BASE_URL:', baseURL);
-      baseURL = 'https://test.direct-care.co.uk';
+      baseURL = 'https://api.direct-care.co.uk';
     }
 
     console.log('🔧 API Client initialized with URL:', baseURL);
@@ -104,7 +104,7 @@ class ApiClient {
 
           console.log('📦 Payload Size (KB):', payloadSize);
 
-          if (payloadSize > 500) {
+          if (payloadSize > 1000) {
             console.warn('⚠️ Payload too large → likely backend drop');
           }
 
@@ -121,10 +121,20 @@ class ApiClient {
 
         console.groupEnd();
 
-        // ✅ AUTH HANDLING
+        // ✅ AUTH HANDLING — session invalid/expired: clear BOTH localStorage and the
+        // authToken cookie, otherwise the middleware keeps bouncing back to /admin (loop).
         if (status === 401 && typeof window !== 'undefined') {
-          localStorage.removeItem('authToken');
-          window.location.href = '/login';
+          if (url?.includes('/takeover-requests/')) {
+            // Do not logout, let the modal handle the 401 error
+          } else {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('refreshToken');
+            document.cookie = 'authToken=; path=/; max-age=0';
+            document.cookie = 'refreshToken=; path=/; max-age=0';
+            if (!window.location.pathname.startsWith('/login')) {
+              window.location.href = '/login';
+            }
+          }
         }
 
         return Promise.reject(error);

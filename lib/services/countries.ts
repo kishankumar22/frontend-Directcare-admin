@@ -37,10 +37,8 @@ export const countriesService = {
       );
       
       return cachedCountries;
-    } catch (error) {
-      console.error('Error fetching countries:', error);
-      // Return empty array on error
-      return [];
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to fetch countries');
     }
   },
 

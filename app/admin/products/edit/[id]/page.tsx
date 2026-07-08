@@ -22,6 +22,7 @@ import RequestTakeoverModal from "../../RequestTakeoverModal";
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
+import PharmaQuestionChoiceModal from "../../_components/PharmaQuestionChoiceModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
@@ -60,6 +61,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   const [showPharmacyModal, setShowPharmacyModal] = useState(false);
   const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
+  const [pharmaWithQuestions, setPharmaWithQuestions] = useState<boolean>(true);
+  const [showPharmaChoiceModal, setShowPharmaChoiceModal] = useState<boolean>(false);
 
   // ================================
   // ✅ LOADING STATE (Add after other useState)
@@ -1321,6 +1324,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               isRequired: pq.isRequired,
               displayOrder: pq.displayOrder,
             })));
+            setPharmaWithQuestions(pharmaData.length > 0);
             console.log('✅ Pharmacy questions loaded:', pharmaData.length);
           } catch (pharmaError) {
             console.error('Error loading pharmacy questions:', pharmaError);
@@ -3006,9 +3010,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           toast.warning('⚠️ Minimum stock is higher than current stock');
         }
 
-        if (formData.notifyAdminForQuantityBelow && notifyQty > stockQty) {
-          toast.info('ℹ️ You will receive low stock notification immediately');
-        }
+        // if (formData.notifyAdminForQuantityBelow && notifyQty > stockQty) {
+        //   toast.info('ℹ️ You will receive low stock notification immediately');
+        // }
       }
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -3678,6 +3682,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       // ═══════════════════════════════════════════════════════════════════════
       if (
         formData.isPharmaProduct &&
+        pharmaWithQuestions &&
         (!pharmacyQuestions || pharmacyQuestions.length === 0)
       ) {
         toast.error(
@@ -4067,15 +4072,24 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             toast.warning('⚠️ Product saved, but incompatibilities could not be updated.');
           }
 
+          // Save/Clear pharmacy questions
+          try {
+            console.log('🚀 Saving pharmacy questions...');
+            const finalQuestions = (formData.isPharmaProduct && pharmaWithQuestions) ? pharmacyQuestions : [];
+            await pharmacyQuestionsService.assignProductQuestions(productId, {
+              questions: finalQuestions
+            });
+            console.log('✅ Pharmacy questions saved');
+          } catch (pharmaError) {
+            console.error('❌ Failed to save pharmacy questions:', pharmaError);
+            toast.warning('⚠️ Product saved, but pharmacy questions could not be updated.');
+          }
+
           toast.success(
             isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
             { autoClose: 3000 }
           );
 
-          toast.info('Product updated successfully. Changes will appear on the website within 1 minute.', {
-            autoClose: 5000,
-            position: 'top-center'
-          })
           const updatedSnapshot = JSON.parse(
             JSON.stringify({
               ...formData,
@@ -4366,8 +4380,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     if (name === "fullDescription") {
       const plainText = value.replace(/<[^>]*>/g, '');
 
-      if (plainText.length > 5000) {
-        toast.warning('⚠️ Full description cannot exceed 5000 characters');
+      if (plainText.length > 10000) {
+        toast.warning('⚠️ Full description cannot exceed 10000 characters');
         return;
       }
 
@@ -5373,15 +5387,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
             {/* REQUIRED */}
             {missingFields.length > 0 && (
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-orange-500/10 bg-orange-500/5 px-2.5 py-1.5 overflow-hidden">
+              <div className="mt-2 flex items-center gap-2 rounded-xl border border-orange-300 bg-orange-50 dark:border-orange-500/10 dark:bg-orange-500/5 px-2.5 py-1.5 overflow-hidden">
 
-                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400"></div>
+                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500 dark:bg-orange-400"></div>
 
-                <span className="shrink-0 text-[11px] font-semibold text-orange-300">
+                <span className="shrink-0 text-[11px] font-semibold text-orange-700 dark:text-orange-300">
                   {missingFields.length} Required
                 </span>
 
-                <span className="truncate text-[11px] text-orange-200/80">
+                <span className="truncate text-[11px] text-orange-600/90 dark:text-orange-200/80">
                   {missingFields.join(", ")}
                 </span>
               </div>
@@ -5412,10 +5426,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   <Truck className="h-4 w-4" />
                   Shipping
                 </TabsTrigger>
-                <TabsTrigger value="related-products" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                {/* <TabsTrigger value="related-products" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                   <LinkIcon className="h-4 w-4" />
                   Related
-                </TabsTrigger>
+                </TabsTrigger> */}
                 <TabsTrigger value="product-attributes" className="flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                   <Tag className="h-4 w-4" />
                   Attributes
@@ -5495,10 +5509,28 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         placeholder="Enter detailed product description..."
                         height={400}
                         required={true}          // ✅ Shows red asterisk
-                        maxLength={5000}         // ✅ Maximum 5000 characters
                         showCharCount={true}     // ✅ Show built-in character counter
-                        showHelpText="Detailed product information with formatting (Max 5000 characters)"
+                      // No character limit on Full Description
                       />
+
+                      {/* ================= H2 ACCORDION NOTICE ================= */}
+                      <div className="mt-3 flex items-start gap-3 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 p-3.5">
+                        <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-500/20 ring-1 ring-violet-300 dark:ring-violet-400/30">
+                          <svg className="h-4 w-4 text-violet-600 dark:text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" />
+                          </svg>
+                        </span>
+                        <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                          <p className="mb-1 text-[13px] font-semibold text-violet-700 dark:text-violet-300">Formatting Tip — Accordions</p>
+                          <p>
+                            Use <code className="rounded bg-violet-100 dark:bg-violet-500/20 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-violet-700 dark:text-violet-200">H2 (Heading 2)</code> for each section title — for example{" "}
+                            <span className="font-medium text-slate-900 dark:text-white">Product Description</span>, <span className="font-medium text-slate-900 dark:text-white">Ingredients</span>, <span className="font-medium text-slate-900 dark:text-white">Directions</span>, and <span className="font-medium text-slate-900 dark:text-white">Safety Warnings</span>.
+                          </p>
+                          <p className="mt-1 text-slate-500 dark:text-slate-400">
+                            Each <span className="font-semibold text-violet-700 dark:text-violet-300">H2</span> section becomes a separate <span className="font-semibold text-violet-700 dark:text-violet-300">collapsible accordion</span> on the product page.
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
                   </div>
@@ -6235,9 +6267,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
                           handleChange(e);
 
-                          // Open modal only when switching false → true
+                          // Open choice modal only when switching false → true
                           if (isChecked && !formData.isPharmaProduct) {
-                            setShowPharmacyModal(true);
+                            setShowPharmaChoiceModal(true);
+                          } else if (!isChecked) {
+                            setPharmacyQuestions([]);
+                            setPharmaWithQuestions(true);
+                            setShowPharmacyModal(false);
                           }
                         }}
                         className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
@@ -6256,22 +6292,35 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
                     {/* RIGHT SIDE */}
                     {formData.isPharmaProduct && (
-                      <button
-                        type="button"
-                        onClick={() => setShowPharmacyModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 
-        bg-violet-500/10 border border-violet-500/40 
-        text-violet-300 rounded-lg hover:bg-violet-500/20 
-        transition-all text-sm font-semibold"
-                      >
-                        Configure Questions
+                      pharmaWithQuestions ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowPharmacyModal(true)}
+                          className="flex items-center gap-2 px-4 py-2 
+          bg-violet-500/10 border border-violet-500/40 
+          text-violet-300 rounded-lg hover:bg-violet-500/20 
+          transition-all text-sm font-semibold"
+                        >
+                          Configure Questions
 
-                        {pharmacyQuestions.length > 0 && (
-                          <span className="px-2 py-0.5 bg-violet-500/30 text-violet-200 rounded-full text-xs font-semibold">
-                            {pharmacyQuestions.length}
-                          </span>
-                        )}
-                      </button>
+                          {pharmacyQuestions.length > 0 && (
+                            <span className="px-2 py-0.5 bg-violet-500/30 text-violet-200 rounded-full text-xs font-semibold">
+                              {pharmacyQuestions.length}
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowPharmaChoiceModal(true)}
+                          className="flex items-center gap-2 px-4 py-2 
+          bg-cyan-500/10 border border-cyan-500/50 
+          text-cyan-400 rounded-lg hover:bg-cyan-500/20 
+          transition-all text-sm font-semibold"
+                        >
+                          Without Questions (Click to change)
+                        </button>
+                      )
                     )}
 
                   </div>
@@ -8210,6 +8259,26 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         productId={productId}
         initialSelections={pharmacyQuestions}
         onSave={(selections) => setPharmacyQuestions(selections)}
+      />
+
+      {/* PHARMACY QUESTION CHOICE MODAL */}
+      <PharmaQuestionChoiceModal
+        isOpen={showPharmaChoiceModal}
+        onSelect={(withQuestions) => {
+          setPharmaWithQuestions(withQuestions);
+          setShowPharmaChoiceModal(false);
+          if (withQuestions) {
+            setShowPharmacyModal(true);
+          } else {
+            setPharmacyQuestions([]);
+          }
+        }}
+        onCancel={() => {
+          setFormData((prev) => ({ ...prev, isPharmaProduct: false }));
+          setPharmacyQuestions([]);
+          setPharmaWithQuestions(true);
+          setShowPharmaChoiceModal(false);
+        }}
       />
 
       {/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}

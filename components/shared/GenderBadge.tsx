@@ -40,24 +40,20 @@ export default function GenderBadge({
   return (
 <div
   className={`
-    group
     ${absolute ? "absolute top-1 left-1 sm:top-2 sm:left-2 z-20" : ""}
-    bg-white/70 px-2 py-1 rounded-md shadow
-    flex items-center gap-1
+    bg-white/70 p-1 rounded-md shadow
+    inline-flex items-center justify-center shrink-0
     ${className}
   `}
+  title={config.label}
 >
+  {/* Only the icon — label shown as native tooltip so the badge never wraps */}
   <img
     src={config.icon}
     alt={config.label}
-    className="h-3 w-3 sm:h-5 sm:w-5"
+    className="h-4 w-4 sm:h-5 sm:w-5"
     loading="lazy"
-    title={config.label}
   />
-
-  <span className="hidden group-hover:inline text-[8px] sm:text-[10px] font-semibold text-gray-700">
-    {config.label}
-  </span>
 </div>
   );
 }

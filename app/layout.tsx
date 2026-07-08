@@ -9,6 +9,8 @@ import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import StripeCleanup from "@/components/StripeCleanup";
+import AttributionCapture from "@/components/AttributionCapture";
+import { Suspense } from "react";
 import { GTM_ID } from "@/lib/analytics";
 
 const montserrat = Montserrat({
@@ -102,6 +104,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <CartProvider>
               <WishlistProvider>
                 <StripeCleanup />
+                <Suspense fallback={null}>
+                  <AttributionCapture />
+                </Suspense>
                 <ConditionalLayout
                   categories={categories}
                   deliveryStrip={deliveryStrip}

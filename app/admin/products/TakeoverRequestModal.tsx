@@ -7,6 +7,7 @@ import { productLockService } from '@/lib/services/productLockService';
 import { useToast } from '@/app/admin/_components/CustomToast';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { getBackendMessage } from '@/app/admin/_utils/errorUtils';
 
 interface TakeoverRequest {
   id: string;
@@ -158,7 +159,7 @@ export default function TakeoverRequestModal({
         );
         
         if (response.success) {
-          toast.success('Takeover approved! Lock released.');
+          toast.success(response.message || 'Takeover approved! Lock released.');
           onActionComplete();
           onClose();
           setTimeout(() => router.push('/admin/products'), 1000);
@@ -172,7 +173,7 @@ export default function TakeoverRequestModal({
         );
         
         if (response.success) {
-          toast.success('Request rejected successfully');
+          toast.success(response.message || 'Request rejected successfully');
           onActionComplete();
           onClose();
         } else {
@@ -185,7 +186,7 @@ export default function TakeoverRequestModal({
         onActionComplete();
         onClose();
       } else {
-        toast.error(error.message || 'Action failed. Please try again.');
+        toast.error(getBackendMessage(error) || 'Action failed. Please try again.');
       }
     } finally {
       setIsSubmitting(false);

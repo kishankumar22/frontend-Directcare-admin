@@ -65,7 +65,7 @@ export default function BlogCategoriesPage() {
     slug: "",
     imageUrl: "",
     isActive: true,
-    displayOrder: 1,
+    displayOrder: "" as number | "",
     metaTitle: "",
     metaDescription: "",
     metaKeywords: "",
@@ -227,8 +227,9 @@ export default function BlogCategoriesPage() {
       if (!parent.isActive) { toast.error("Cannot add subcategory to an inactive parent"); return; }
       if (editingBlogCategory && formData.parentCategoryId === editingBlogCategory.id) { toast.error("Category cannot be its own parent"); return; }
     }
-    if (isNaN(formData.displayOrder) || !Number.isInteger(formData.displayOrder)) { toast.error("Display order must be a whole number"); return; }
-    if (formData.displayOrder < 1 || formData.displayOrder > 1000) { toast.error("Display order must be 1–1000"); return; }
+    if (String(formData.displayOrder) === "") { toast.error("Display order is required"); return; }
+    if (isNaN(Number(formData.displayOrder)) || !Number.isInteger(Number(formData.displayOrder))) { toast.error("Display order must be a whole number"); return; }
+    if (Number(formData.displayOrder) < 1 || Number(formData.displayOrder) > 1000) { toast.error("Display order must be 1–1000"); return; }
     if (formData.metaTitle && formData.metaTitle.trim().length > 60) { toast.error(`Meta title must be under 60 characters`); return; }
     if (formData.metaDescription && formData.metaDescription.trim().length > 160) { toast.error(`Meta description must be under 160 characters`); return; }
     if (formData.metaKeywords && formData.metaKeywords.trim().length > 255) { toast.error(`Meta keywords must be under 255 characters`); return; }
@@ -270,7 +271,7 @@ export default function BlogCategoriesPage() {
         name: categoryName, description, slug,
         imageUrl: finalImageUrl,
         isActive: formData.isActive,
-        displayOrder: formData.displayOrder,
+        displayOrder: String(formData.displayOrder) === "" ? 1 : Number(formData.displayOrder),
         parentCategoryId: formData.parentCategoryId || null,
         metaTitle: formData.metaTitle?.trim() || undefined,
         metaDescription: formData.metaDescription?.trim() || undefined,
@@ -319,7 +320,7 @@ export default function BlogCategoriesPage() {
     setFormData({
       name: cat.name, description: cat.description, slug: cat.slug,
       imageUrl: cat.imageUrl || "", isActive: cat.isActive,
-      displayOrder: cat.displayOrder,
+      displayOrder: cat.displayOrder ?? "",
       metaTitle: cat.metaTitle || "", metaDescription: cat.metaDescription || "",
       metaKeywords: cat.metaKeywords || "",
       searchEngineFriendlyPageName: cat.searchEngineFriendlyPageName || "",
@@ -330,7 +331,7 @@ export default function BlogCategoriesPage() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", slug: "", imageUrl: "", isActive: true, displayOrder: 1, metaTitle: "", metaDescription: "", metaKeywords: "", searchEngineFriendlyPageName: "", parentCategoryId: "" });
+    setFormData({ name: "", description: "", slug: "", imageUrl: "", isActive: true, displayOrder: "" as number | "", metaTitle: "", metaDescription: "", metaKeywords: "", searchEngineFriendlyPageName: "", parentCategoryId: "" });
     setEditingBlogCategory(null); setImageFile(null);
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null); setSeoOpen(false);
@@ -968,7 +969,8 @@ export default function BlogCategoriesPage() {
                             type="number"
                             required
                             value={formData.displayOrder}
-                            onChange={e => setFormData(p => ({ ...p, displayOrder: parseInt(e.target.value) || 1 }))}
+                            onChange={e => setFormData(p => ({ ...p, displayOrder: e.target.value === '' ? '' : parseInt(e.target.value) }))}
+                            placeholder="Enter display order"
                             min="1" max="1000"
                             className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
                           />

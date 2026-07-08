@@ -18,7 +18,7 @@ import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle } from "lucide-react";
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle, Info } from "lucide-react";
 import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -380,6 +380,166 @@ const LiveCartActivityBanner = ({ activity }: { activity: { message: string, tim
   );
 };
 
+// Split product description by <h2> headings into sections.
+// Walks nodes ONCE (each element added as outerHTML a single time) to avoid the
+// double-counting that caused massive content duplication with nested lists.
+const parseByH2 = (html: string) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  const sections: { title: string; html: string }[] = [];
+  let currentTitle = "";
+  let currentHtml = "";
+
+  const flush = () => {
+    const content = currentHtml.trim();
+    if (content) {
+      sections.push({ title: currentTitle || "Description", html: content });
+    }
+    currentHtml = "";
+  };
+
+  const walk = (parent: Node) => {
+    Array.from(parent.childNodes).forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        const tag = el.tagName.toLowerCase();
+
+        if (tag === "h2") {
+          const heading = el.textContent?.trim() || "";
+          // Ignore empty <h2> tags (e.g. <h2 id="..."></h2> junk from pasted rich text)
+          // so they don't reset the current section title and split content wrongly.
+          if (!heading) return;
+          flush();
+          currentTitle = heading;
+          return;
+        }
+
+        // A wrapper that contains a NON-EMPTY <h2> descendant → descend into it so
+        // nested headings still split the content (without adding the wrapper whole).
+        const hasRealH2 = Array.from(el.querySelectorAll("h2")).some(
+          (h) => (h.textContent?.trim() || "") !== ""
+        );
+        if (hasRealH2) {
+          walk(el);
+          return;
+        }
+
+        // Normal element with no <h2> inside → add once.
+        currentHtml += el.outerHTML;
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        currentHtml += node.textContent || "";
+      }
+    });
+  };
+
+  walk(doc.body);
+  flush();
+
+  return sections;
+};
+
+// Fallback: split by well-known heading phrases when the description has no <h2>.
+// Handles headings written as their own bold line, <p><strong>…</strong></p>, or <h3>/<h4> etc.
+const normalizeHeading = (s: string) =>
+  (s || "").toLowerCase().replace(/&amp;/g, "&").replace(/[:：]\s*$/, "").replace(/\s+/g, " ").trim();
+
+// Known section headings to split on (with common aliases)
+const KNOWN_HEADINGS = new Set(
+  [
+    "Warnings & Side Effects", "Warnings and Side Effects", "Side Effects", "Safety Warnings", "Warnings",
+    "Usage Instructions", "Directions", "Directions for use", "How to use",
+    "Ingredients",
+    "Delivery & Returns Policy", "Delivery and Returns Policy", "Delivery & Returns", "Delivery and Returns",
+    "Product Description",
+  ].map(normalizeHeading)
+);
+
+const parseByKnownHeadings = (html: string) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  const sections: { title: string; html: string }[] = [];
+  let currentTitle = "";
+  let currentHtml = "";
+
+  const flush = () => {
+    const content = currentHtml.trim();
+    if (content) {
+      sections.push({ title: currentTitle || "Description", html: content });
+    }
+    currentHtml = "";
+  };
+
+  // Returns the heading title if this element is a stand-alone known heading, else null
+  const headingTitleOf = (el: Element): string | null => {
+    const tag = el.tagName.toLowerCase();
+    if (!["h1", "h2", "h3", "h4", "h5", "h6", "strong", "b", "p"].includes(tag)) return null;
+    const norm = normalizeHeading(el.textContent || "");
+    if (norm && KNOWN_HEADINGS.has(norm)) {
+      return (el.textContent || "").trim().replace(/[:：]\s*$/, "");
+    }
+    return null;
+  };
+
+  // Does this subtree contain a known heading element? (used to descend into wrappers)
+  const containsHeading = (el: Element): boolean => {
+    for (const child of Array.from(el.children)) {
+      if (headingTitleOf(child)) return true;
+      if (containsHeading(child)) return true;
+    }
+    return false;
+  };
+
+  const walk = (parent: Node) => {
+    Array.from(parent.childNodes).forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        const title = headingTitleOf(el);
+        if (title) {
+          flush();
+          currentTitle = title;
+          return;
+        }
+        // Wrapper that contains headings → descend (don't add wrapper whole).
+        if (el.children.length > 0 && containsHeading(el)) {
+          walk(el);
+          return;
+        }
+        currentHtml += el.outerHTML;
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        currentHtml += node.textContent || "";
+      }
+    });
+  };
+
+  walk(doc.body);
+  flush();
+
+  return sections;
+};
+
+const parseDescriptionSections = (html: string) => {
+  if (!html) return [];
+  if (typeof window === "undefined") {
+    return [{ title: "Description", html }];
+  }
+
+  // 1) Prefer splitting by <h2> headings
+  if (/<h2[\s>]/i.test(html)) {
+    return parseByH2(html);
+  }
+
+  // 2) No <h2> → fall back to known heading phrases
+  const byHeadings = parseByKnownHeadings(html);
+  if (byHeadings.length > 1) {
+    return byHeadings;
+  }
+
+  // 3) Nothing to split on → single block
+  return [{ title: "Description", html }];
+};
+
 export default function ProductDetails({ product, initialVariantId }: ProductDetailsProps & { initialVariantId?: string }) {
   if (!product) {
     return (
@@ -429,6 +589,14 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const descriptionSections = useMemo(() => parseDescriptionSections(product.description), [product.description]);
+  const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
+  const toggleAccordion = useCallback((title: string) => {
+    setOpenAccordions(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  }, []);
   // 🔥 Coupon Available (but not applied)
   const hasCouponAvailable = useMemo(() => {
     if (!product.assignedDiscounts) return false;
@@ -631,13 +799,41 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   const [showPharmaModal, setShowPharmaModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<"cart" | "buy" | null>(null);
   const pharmaApprovedRef = useRef(false);
+  const [hasPharmaQuestions, setHasPharmaQuestions] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!product || !product.isPharmaProduct) {
+      setHasPharmaQuestions(false);
+      return;
+    }
+
+    const checkPharmaQuestions = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/products/${product.id}/pharmacy-form`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          const qs = json?.data?.questions || [];
+          setHasPharmaQuestions(qs.length > 0);
+        } else {
+          setHasPharmaQuestions(true); // default to true on error to be safe
+        }
+      } catch (error) {
+        console.error("Error fetching pharmacy questions check:", error);
+        setHasPharmaQuestions(true); // default to true on error to be safe
+      }
+    };
+
+    checkPharmaQuestions();
+  }, [product.id, product.isPharmaProduct]);
 
   const handlePharmaGuard = (action: "cart" | "buy") => {
     // ✅ already approved → skip guard
     if (pharmaApprovedRef.current) {
       return true;
     }
-    if (product.isPharmaProduct) {
+    if (product.isPharmaProduct && hasPharmaQuestions !== false) {
       setPendingAction(action);
       setShowPharmaModal(true);
       return false;
@@ -838,18 +1034,33 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   );
   // 🔹 Reviews for PDP hover tooltip
   const [reviews, setReviews] = useState<Review[]>([]);
+  // SKU used to filter reviews to the current scent/variant (backend does base-family matching).
+  const reviewSku = (selectedVariant?.sku && selectedVariant.sku.trim()) || (product.sku && product.sku.trim()) || "";
   useEffect(() => {
     if (!product?.id) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ProductReviews/product/${product.id}`)
+    const skuParam = reviewSku ? `?sku=${encodeURIComponent(reviewSku)}` : "";
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ProductReviews/product/${product.id}${skuParam}`)
       .then(res => res.json())
       .then(json => {
         setReviews(json?.data ?? []);
       })
       .catch(() => { });
-  }, [product.id]);
+  }, [product.id, reviewSku]);
   const recentReviews = useMemo(
     () => getRecentApprovedReviews(reviews),
     [reviews]
+  );
+  // Variant/scent-specific rating + count, computed from the filtered reviews.
+  const approvedReviews = useMemo(
+    () => reviews.filter((r) => r.isApproved),
+    [reviews]
+  );
+  const variantReviewCount = approvedReviews.length;
+  const variantAverageRating = useMemo(
+    () => (approvedReviews.length > 0
+      ? approvedReviews.reduce((s, r) => s + (r.rating || 0), 0) / approvedReviews.length
+      : 0),
+    [approvedReviews]
   );
   //Recently viewed
   useEffect(() => {
@@ -957,6 +1168,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     setShowImageModal(false);
     setActiveTab("description");
     setRelatedProducts([]);
+    setOpenAccordions({});
     setCouponCode("");
     setAppliedCoupon(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1157,10 +1369,11 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   }, [isGroupedProduct, requiredProductIds, groupedSelections]);
   // Fetch related products
   useEffect(() => {
-    if (product.relatedProductIds) {
-      fetchRelatedProducts(product.relatedProductIds);
+    const primaryCategoryId = product.categories?.find(c => c.isPrimary)?.categoryId ?? product.categories?.[0]?.categoryId;
+    if (primaryCategoryId) {
+      fetchRelatedProducts(primaryCategoryId);
     }
-  }, [product.relatedProductIds]);
+  }, [product.id]);
   // Fetch cross-sell products
   useEffect(() => {
     if (product.crossSellProductIds) {
@@ -1168,24 +1381,29 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     }
   }, [product.crossSellProductIds]);
 
-  const fetchRelatedProducts = async (relatedIds: string) => {
+  const fetchRelatedProducts = async (categoryId: string) => {
     try {
-      const ids = relatedIds.split(',').map(id => id.trim());
-      const promises = ids.slice(0, 8).map(id =>
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Products/${id}`, {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Products?categoryId=${categoryId}&sortBy=price&sortDirection=asc&stockStatus=InStock&isPublished=true&pageSize=22`,
+        {
           next: { revalidate: 60 }
-        }).then(res => res.json())
+        }
       );
-      const results = await Promise.all(promises);
-      const validProducts = results
-        .filter((r: any) => r.success && r.data?.isPublished === true)
-        .map((r: any) => r.data);
-      setRelatedProducts(
-        validProducts.filter(
-          (p: any, index: number, self: any[]) => index === self.findIndex(x => x.id === p.id)
-        )
-      );
-
+      if (!res.ok) {
+        throw new Error(`Failed to fetch related products: ${res.status}`);
+      }
+      const result = await res.json();
+      if (result.success && result.data && Array.isArray(result.data.items)) {
+        const filtered = result.data.items
+          .filter((p: any) => p.id !== product.id && p.isPublished === true)
+          .slice(0, 20);
+        setRelatedProducts(filtered);
+      } else if (result.success && Array.isArray(result.data)) {
+        const filtered = result.data
+          .filter((p: any) => p.id !== product.id && p.isPublished === true)
+          .slice(0, 20);
+        setRelatedProducts(filtered);
+      }
     } catch (error) {
       console.error("Error fetching related products:", error);
     }
@@ -1326,7 +1544,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
   const handleAddToCart = useCallback(() => {
     // 🔥 PHARMA GUARD
-    if (product.isPharmaProduct && !pharmaApprovedRef.current) {
+    if (product.isPharmaProduct && !pharmaApprovedRef.current && hasPharmaQuestions !== false) {
       setPendingAction("cart");
       setShowPharmaModal(true);
       return;
@@ -1620,7 +1838,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   ]);
   const handleBuyNow = () => {
     // 🔥 PHARMA GUARD
-    if (product.isPharmaProduct && !pharmaApprovedRef.current) {
+    if (product.isPharmaProduct && !pharmaApprovedRef.current && hasPharmaQuestions !== false) {
       setPendingAction("buy");
       setShowPharmaModal(true);
       return;
@@ -2202,6 +2420,14 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             </div>
             {/* end inner row */}
 
+            {/* Pharma packaging note — shown below the image gallery, only for pharma products */}
+            {product.isPharmaProduct && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                <span><strong>Please note:</strong> Product packaging may vary from the image shown.</span>
+              </div>
+            )}
+
           </div>
 
           {/* RIGHT: Product Info */}
@@ -2225,7 +2451,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 })()}
               </h1>
             </div>
-            <div className="flex flex-wrap items-center gap-3 mb-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mb-2">
               {/* Brand */}
               {product.brandName && (
                 <p className="text-sm text-gray-600">
@@ -2233,12 +2459,12 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 </p>
               )}
               {/* Rating + Reviews */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`h-4 w-4 ${star <= product.averageRating
+                      className={`h-4 w-4 ${star <= Math.round(variantAverageRating)
                         ? "fill-yellow-400 text-yellow-400"
                         : "text-gray-300"
                         }`}
@@ -2246,7 +2472,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                   ))}
                 </div>
                 <span className="text-sm font-medium">
-                  {(product.averageRating ?? 0).toFixed(1)}
+                  {variantAverageRating.toFixed(1)}
                 </span>
                 <div
                   className="relative group inline-block"
@@ -2256,7 +2482,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                   }}
                 >
                   <span className="text-sm text-[#445D41] cursor-pointer">
-                    ({product.reviewCount || 0} reviews)
+                    ({variantReviewCount} reviews)
                   </span>
                   {/* ✅ HOVER TOOLTIP */}
                   <div
@@ -2300,7 +2526,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                         ))}
 
                         {/* 🔥 VIEW ALL REVIEWS CTA */}
-                        {product.reviewCount > recentReviews.length && (
+                        {variantReviewCount > recentReviews.length && (
                           <button
                             className="mt-2 w-full text-sm font-semibold text-[#445D41] hover:text-black"
                             onClick={() => {
@@ -2329,9 +2555,17 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 <GenderBadge
                   gender={product.gender}
                   absolute={false}
-                  className="bg-gray-100 text-gray-700 border border-purple-200 px-2 py-0 rounded text-xs font-semibold gap-1 shadow-none "
+                  className="bg-gray-100 border border-purple-200 rounded shadow-none"
                 />
-             
+                {/* SOLD THIS WEEK — last badge (DirectCare theme, compact + responsive) */}
+                {(activeSaleCount ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#445D41] px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-white whitespace-nowrap shadow-sm">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/90"></span>
+                    {(activeSaleCount ?? 0) >= 1000
+                      ? ((activeSaleCount ?? 0) / 1000).toFixed((activeSaleCount ?? 0) >= 10000 ? 0 : 1) + "K"
+                      : activeSaleCount} sold this week
+                  </span>
+                )}
               </div>
             </div>
 
@@ -2490,9 +2724,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             {/* Price Card */}
             <Card className="mb-4">
               <CardContent className="p-4">
-                {/* PURCHASE MODE CARDS SIDE BY SIDE */}
+                {/* PURCHASE MODE CARDS STACKED (one-time on top, subscribe below) */}
                 {product.isRecurring ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-0">
+                  <div className="flex flex-col gap-3 mt-0">
                     {/* LEFT NORMAL PURCHASE CARD */}
                     <div
                       id="normal-purchase-card"
@@ -2504,8 +2738,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     >
                       {/* <<< Your current full card starts here >>> */}
                       <Card className="shadow-sm bg-transparent border-none">
-                        <CardContent className="px-3 pt-3 pb-2">
-                          <label className="flex items-center gap-2 cursor-pointer mb-2">
+                        <CardContent className="px-3 py-2">
+                          <label className="flex items-center gap-2 cursor-pointer mb-1.5">
                             <input
                               type="radio"
                               name="purchaseType"
@@ -2517,7 +2751,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                             <span className="font-semibold text-sm">One-Time Purchase</span>
                           </label>
                           {/* Price + VAT + Loyalty — all compact inline */}
-                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                             <span className="text-lg font-bold text-[#445D41]">
                               £{(finalPrice * normalQty).toFixed(2)}
                             </span>
@@ -2550,27 +2784,32 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                           </div>
 
                           {/* Qty + Stock — same row */}
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <QuantitySelector
-                              quantity={normalQty}
-                              setQuantity={setNormalQty}
-                              maxStock={groupedMaxQty}
-                              stockError={normalStockError}
-                              setStockError={setNormalStockError}
-                              minQty={product.orderMinimumQuantity ?? 1}
-                              maxQty={product.orderMaximumQuantity}
-                            />
-                            {stockDisplay.show && (
-                              <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${stockDisplay.type === "out" ? "bg-red-100 text-red-700"
-                                : stockDisplay.type === "low" ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-green-100 text-green-700"
-                                }`}>
-                                <span className={`inline-block w-2 h-2 rounded-full ${stockDisplay.type === "out" ? "bg-red-600"
-                                  : stockDisplay.type === "low" ? "bg-yellow-600"
-                                    : "bg-green-600"
-                                  }`}></span>
-                                {stockDisplay.text}
-                              </div>
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            {/* Quantity + In Stock — only when One-Time is selected */}
+                            {purchaseType === "one" && (
+                              <>
+                                <QuantitySelector
+                                  quantity={normalQty}
+                                  setQuantity={setNormalQty}
+                                  maxStock={groupedMaxQty}
+                                  stockError={normalStockError}
+                                  setStockError={setNormalStockError}
+                                  minQty={product.orderMinimumQuantity ?? 1}
+                                  maxQty={product.orderMaximumQuantity}
+                                />
+                                {stockDisplay.show && (
+                                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${stockDisplay.type === "out" ? "bg-red-100 text-red-700"
+                                    : stockDisplay.type === "low" ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-green-100 text-green-700"
+                                    }`}>
+                                    <span className={`inline-block w-2 h-2 rounded-full ${stockDisplay.type === "out" ? "bg-red-600"
+                                      : stockDisplay.type === "low" ? "bg-yellow-600"
+                                        : "bg-green-600"
+                                      }`}></span>
+                                    {stockDisplay.text}
+                                  </div>
+                                )}
+                              </>
                             )}
                             {product.assignedDiscounts?.some(d => d.requiresCouponCode) && (
                               <button
@@ -2582,15 +2821,12 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 {appliedCoupon ? "Remove coupon" : "Apply coupon"}
                               </button>
                             )}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {/* ADD TO CART */}
+                            {/* ADD TO CART — same row as qty + stock */}
                             {purchaseType === "one" && backorderState.canBuy && (
                               <Button
                                 onClick={handleAddToCart}
                                 disabled={product.disableBuyButton || (isGroupedProduct && !allRequiredSelected)}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="py-2 px-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
                               >
                                 <ShoppingCart className="h-4 w-4" />
                                 Add to Cart
@@ -2601,19 +2837,19 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               <Button
                                 onClick={handleBuyNow}
                                 disabled={product.disableBuyButton}
-                                className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="py-2 px-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-1 bg-[#445D41] hover:bg-black text-white disabled:opacity-60 disabled:cursor-not-allowed"
                               >
                                 <Zap className="h-4 w-4" />
                                 Buy Now
                               </Button>
                             )}
                             {purchaseType === "one" && !backorderState.canBuy && !backorderState.showNotify && (
-                              <Button disabled className="flex-1 py-2 rounded-xl bg-red-400 cursor-not-allowed opacity-70 text-white text-sm">
+                              <Button disabled className="py-2 px-3 rounded-xl bg-red-400 cursor-not-allowed opacity-70 text-white text-sm">
                                 Out of Stock
                               </Button>
                             )}
                             {purchaseType === "one" && backorderState.showNotify && (
-                              <Button variant="outline" className="flex-1 py-2 rounded-xl border-yellow-500 text-yellow-700 hover:bg-yellow-50 text-sm" onClick={() => setShowNotifyModal(true)}>
+                              <Button variant="outline" className="py-2 px-3 rounded-xl border-yellow-500 text-yellow-700 hover:bg-yellow-50 text-sm" onClick={() => setShowNotifyModal(true)}>
                                 Notify me
                               </Button>
                             )}
@@ -2882,27 +3118,14 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                   </>
                 )}
 
-                       {!!(product.isPharmaProduct || (activeSaleCount ?? 0) > 0) && (
+                       {product.isPharmaProduct && (
               <div className="flex items-center gap-1.5 md:gap-2 mb-2.5 md:mb-3 flex-wrap">
-                  {product.isPharmaProduct && (
-                  <div className="inline-flex items-center gap-2 bg-green-50 border border-green-200 px-2.5 md:px-3 py-1 rounded-full shrink-0 shadow-sm hover:bg-green-100 hover:border-green-300 hover:shadow-md transition-all duration-200">
+                  <div className="inline-flex items-center gap-2 bg-green-50 border border-green-200 px-2.5 md:px-3 py-1 rounded-full mt-2 shrink-0 shadow-sm hover:bg-green-100 hover:border-green-300 hover:shadow-md transition-all duration-200">
                   <PlusCircle className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600 flex-shrink-0" />
                   <span className="text-[9px] md:text-[11px] lg:text-xs font-semibold text-black whitespace-nowrap leading-tight">
                   P Medicines are sold under pharmacist supervision
                   </span>
                   </div>
-                  )}
-                  {(activeSaleCount ?? 0) > 0 && (
-                  <div className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500/20 to-orange-500/20 border-2 border-rose-400/40 px-2.5 md:px-3 py-0.5 md:py-1 rounded-full shrink-0 shadow-md shadow-rose-500/10 hover:shadow-lg hover:shadow-rose-500/20 transition-all duration-200 animate-heartbeat-glow">
-                    
-                    <span className="text-[9px] md:text-[11px] lg:text-xs font-extrabold text-rose-700 whitespace-nowrap leading-tight tracking-wide">
-                      {(activeSaleCount ?? 0) >= 1000 
-                        ? ((activeSaleCount ?? 0) / 1000).toFixed((activeSaleCount ?? 0) >= 10000 ? 0 : 1) + 'K' 
-                        : activeSaleCount
-                      } Sold This Week
-                    </span>
-                  </div>
-                  )}
               </div>
               )}
 
@@ -3199,23 +3422,98 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             </div>
             <div className="p-4 sm:p-6">
               {activeTab === "description" && (
-                <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: product.description }} />
+                <div className="space-y-2">
+                  {descriptionSections.map((section, idx) => {
+                    if (idx === 0) {
+                      return (
+                        <div key={idx} className="mb-4">
+                          {section.title !== "Description" && section.title !== "Product Description" && section.title && (
+                            <h2 className="text-lg font-bold text-gray-900 mb-2">{section.title}</h2>
+                          )}
+                          <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: section.html }} />
+                        </div>
+                      );
+                    }
+
+                    const isOpen = !!openAccordions[section.title];
+                    return (
+                      <div key={idx} className="border-t border-gray-200 py-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleAccordion(section.title)}
+                          className="flex w-full items-center justify-between py-2 text-left font-bold text-gray-900 hover:text-[#445D41] transition-colors"
+                        >
+                          <span className="text-base sm:text-lg">{section.title}</span>
+                          <ChevronDown
+                            className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${
+                              isOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {isOpen && (
+                          <div className="mt-3 pl-1">
+                            <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: section.html }} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
               {activeTab === "delivery" && (
                 <div className="space-y-6">
+                  {/* Standard Delivery */}
                   <div className="border-l-4 border-[#445D41] pl-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Truck className="h-5 w-5 text-[#445D41]" />
                       <h3 className="font-bold text-lg">Standard Delivery</h3>
                     </div>
-                    <p className="text-sm text-gray-700 mb-2">We offer a reliable Standard Delivery service for just <strong>£2.99</strong>. Enjoy free standard delivery on orders over <strong>£35</strong>.</p>
                     <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-                      <li>Orders processed between 10 AM and 8 PM</li>
-                      <li>Estimated delivery: 1-2 working days</li>
-                      <li>Excludes weekends and Bank Holidays</li>
+                      <li><strong>£2.99</strong> standard delivery applies to orders under <strong>£35</strong>.</li>
+                      <li>Free standard delivery applies to orders over <strong>£35</strong>.</li>
+                      <li>Orders are processed and dispatched from the Direct Care warehouse.</li>
+                      <li>Standard delivery applies to eligible UK orders.</li>
+                      <li>Delivery takes place from Monday to Friday, excluding bank holidays.</li>
+                      <li>Delivery estimates start once your order has been placed and processed.</li>
+                      <li>Some parcels may require a customer signature.</li>
+                      <li>Remote, offshore and extended delivery areas may take longer.</li>
+                      <li>Delivery times can vary during bank holidays, busy trading periods, severe weather or courier network delays.</li>
                     </ul>
                   </div>
-                  {/* other delivery options... */}
+
+                  {/* Next Day Delivery */}
+                  <div className="border-l-4 border-[#445D41] pl-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Bike className="h-5 w-5 text-[#445D41]" />
+                      <h3 className="font-bold text-lg">Next Day Delivery</h3>
+                    </div>
+                    <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                      <li><strong>£3.75</strong> next day delivery applies to eligible orders and eligible postcodes.</li>
+                      <li>Orders placed before <strong>3 pm</strong>, Monday to Friday, will be dispatched the same day and delivered the following working day.</li>
+                      <li>Orders placed after 3 pm will be processed on the next working day.</li>
+                      <li>Orders placed after 3 pm on Friday, or during the weekend, will be processed on the next working day.</li>
+                      <li>Next day delivery does not include Saturdays, Sundays or bank holidays.</li>
+                      <li>Some postcodes do not qualify for next day delivery.</li>
+                      <li>A signature may be required when your parcel arrives.</li>
+                    </ul>
+                  </div>
+
+                  {/* Click & Collect */}
+                  <div className="border-l-4 border-[#445D41] pl-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="h-5 w-5 text-[#445D41]" />
+                      <h3 className="font-bold text-lg">Click &amp; Collect</h3>
+                    </div>
+                    <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                      <li><strong>Free Click &amp; Collect:</strong> Available on all orders over <strong>£30</strong>.</li>
+                      <li><strong>Collection Fee:</strong> A <strong>£1</strong> charge applies to orders under £30.</li>
+                      <li>Please wait for confirmation before travelling to collect your order.</li>
+                      <li>Bring your order confirmation when collecting.</li>
+                      <li>Some healthcare or pharmacy-related products may require checks before collection.</li>
+                      <li>If we need more information before releasing your order, our team will contact you.</li>
+                    </ul>
+                  </div>
                 </div>
               )}
             </div>
@@ -3226,6 +3524,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             productId={product.id}
             allowCustomerReviews={product.allowCustomerReviews}
             highlightReviewId={highlightReviewId}
+            variantSku={selectedVariant?.sku ?? null}
+            productSku={product.sku}
           />
         )}
         {showPharmaModal && (

@@ -47,7 +47,7 @@ export default function CartPage() {
 
     setIsCheckingStock(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://test.direct-care.co.uk";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.direct-care.co.uk";
 
       const stockChecks = await Promise.all(
         inStockItems.map(async (item) => {
@@ -116,6 +116,36 @@ export default function CartPage() {
   const [showOffers, setShowOffers] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [pharmaEditItem, setPharmaEditItem] = useState<any | null>(null);
+  const [noQuestionProductIds, setNoQuestionProductIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const checkQuestions = async (pid: string) => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${pid}/pharmacy-form`);
+        if (res.ok) {
+          const json = await res.json();
+          const qs = json?.data?.questions || [];
+          if (qs.length === 0) {
+            setNoQuestionProductIds(prev => new Set([...prev, pid]));
+          }
+        }
+      } catch (err) {
+        console.error("Error checking questions for cart item:", pid, err);
+      }
+    };
+
+    cart.forEach((item) => {
+      const pid = item.productId;
+      if (pid && item.productData?.isPharmaProduct) {
+        setNoQuestionProductIds(prev => {
+          if (!prev.has(pid)) {
+            checkQuestions(pid);
+          }
+          return prev;
+        });
+      }
+    });
+  }, [cart]);
   // map itemId->error for stock/qty UI (keeps your existing state shape)
   const [stockError, setStockError] = useState<{ [key: string]: string | null }>({});
   // -------------------------
@@ -1023,7 +1053,7 @@ export default function CartPage() {
 
                       {/* Row 5: extras */}
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        {item.productData?.isPharmaProduct && (
+                        {item.productData?.isPharmaProduct && item.productId && !noQuestionProductIds.has(item.productId) && (
                           <button onClick={() => setPharmaEditItem(item)} className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#445D41] bg-[#445D41]/10 border border-[#445D41]/30 px-2 py-0.5 rounded hover:bg-[#445D41]/20 transition-colors">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
                             Edit Medical Info
