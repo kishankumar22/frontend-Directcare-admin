@@ -19,6 +19,14 @@ export default function ProductNameInput({
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
 
+  const originalNameRef = useRef("");
+
+useEffect(() => {
+  if (productId && value && !originalNameRef.current) {
+    originalNameRef.current = value.trim();
+  }
+}, [productId, value]);
+
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 const requestIdRef = useRef(0);
   useEffect(() => {
@@ -27,6 +35,17 @@ const requestIdRef = useRef(0);
 
 const checkName = async (name: string) => {
   if (!name || name.length < 3) return;
+
+  // Edit mode: original name ko allow karo
+  if (
+    productId &&
+    name.trim().toLowerCase() ===
+      originalNameRef.current.toLowerCase()
+  ) {
+    setChecking(false);
+    setError("");
+    return;
+  }
 
   const currentRequestId = ++requestIdRef.current;
 
@@ -41,8 +60,7 @@ const checkName = async (name: string) => {
 
     const exists = res.data?.data?.nameFound ?? false;
 
-    setError(exists ? 'Product name already exists' : '');
-
+    setError(exists ? "Product name already exists" : "");
   } catch (err) {
     console.warn(err);
   } finally {

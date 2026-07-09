@@ -104,7 +104,7 @@ class ApiClient {
 
           console.log('📦 Payload Size (KB):', payloadSize);
 
-          if (payloadSize > 1000) {
+          if (payloadSize > 500) {
             console.warn('⚠️ Payload too large → likely backend drop');
           }
 
@@ -124,16 +124,12 @@ class ApiClient {
         // ✅ AUTH HANDLING — session invalid/expired: clear BOTH localStorage and the
         // authToken cookie, otherwise the middleware keeps bouncing back to /admin (loop).
         if (status === 401 && typeof window !== 'undefined') {
-          if (url?.includes('/takeover-requests/')) {
-            // Do not logout, let the modal handle the 401 error
-          } else {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('refreshToken');
-            document.cookie = 'authToken=; path=/; max-age=0';
-            document.cookie = 'refreshToken=; path=/; max-age=0';
-            if (!window.location.pathname.startsWith('/login')) {
-              window.location.href = '/login';
-            }
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('refreshToken');
+          document.cookie = 'authToken=; path=/; max-age=0';
+          document.cookie = 'refreshToken=; path=/; max-age=0';
+          if (!window.location.pathname.startsWith('/login')) {
+            window.location.href = '/login';
           }
         }
 

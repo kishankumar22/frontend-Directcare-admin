@@ -1253,13 +1253,37 @@ export default function AddProductPage() {
         formData.nextDayDeliveryEnabled &&
         !formData.nextDayDeliveryCutoffTime
       ) {
-        toast.error('   Œ Next-Day Delivery cutoff time required');
+        toast.error('Next-Day Delivery cutoff time required');
 
         target.removeAttribute("data-submitting");
         setIsSubmitting(false);
         setSubmitProgress(null);
 
         return;
+      }
+
+      // ============================================================
+      // SECTION 4B: RECURRING VALIDATION
+      // ============================================================
+      if (formData.isRecurring) {
+        if (!formData.allowedSubscriptionFrequencies?.trim()) {
+          toast.error('❌ Subscription frequency is required');
+          target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+
+        if (formData.subscriptionDiscountPercentage) {
+          const subDiscount = parseNumber(formData.subscriptionDiscountPercentage, 'subscription discount');
+          if (subDiscount !== null && (subDiscount < 1 || subDiscount > 100)) {
+            toast.error('❌ Subscription discount must be between 1 and 100');
+            target.removeAttribute('data-submitting');
+            setIsSubmitting(false);
+            setSubmitProgress(null);
+            return;
+          }
+        }
       }
 
       // ============================================================
@@ -3950,20 +3974,8 @@ export default function AddProductPage() {
                     {/*   ONLY SHOW IF ENABLED AND NOT GROUPED */}
                     {formData.isRecurring && formData.productType !== 'grouped' && (
                       <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
-                        {/* Billing Cycle */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
-                            <input
-                              type="number"
-                              name="recurringCycleLength"
-                              value={formData.recurringCycleLength}
-                              onChange={handleChange}
-                              min="1"
-                              placeholder="30"
-                              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            />
-                          </div>
+                        {/* First Row: Period, Discount, Frequencies, Description */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div>
                             <label className="block text-xs font-medium text-slate-400 mb-1">Period</label>
                             <select
@@ -3978,28 +3990,15 @@ export default function AddProductPage() {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
-                            <input
-                              type="number"
-                              name="recurringTotalCycles"
-                              value={formData.recurringTotalCycles}
-                              onChange={handleChange}
-                              min="0"
-                              placeholder="0 = Unlimited"
-                              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Subscription Discount & Options */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
-                          <div>
                             <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
                             <input
                               type="number"
                               name="subscriptionDiscountPercentage"
                               value={formData.subscriptionDiscountPercentage}
-                              onChange={handleChange}
+                              onChange={(e) => {
+                                if (Number(e.target.value) > 100) return;
+                                handleChange(e);
+                              }}
                               min="0"
                               max="100"
                               step="0.01"
@@ -4033,6 +4032,34 @@ export default function AddProductPage() {
                           </div>
                         </div>
 
+                        {/* Second Row: Charge every, Total Billing Cycles */}
+                        {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-700">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
+                            <input
+                              type="number"
+                              name="recurringCycleLength"
+                              value={formData.recurringCycleLength}
+                              onChange={handleChange}
+                              min="1"
+                              placeholder="30"
+                              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
+                            <input
+                              type="number"
+                              name="recurringTotalCycles"
+                              value={formData.recurringTotalCycles}
+                              onChange={handleChange}
+                              min="0"
+                              placeholder="0 = Unlimited"
+                              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            />
+                          </div>
+                        </div> */}
+
                         {/* Warning Banner */}
                         <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
                           <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -4040,14 +4067,8 @@ export default function AddProductPage() {
                           </svg>
                           <div className="flex w-full justify-between">
                             <span>
-                              Customer will be charged every {formData.recurringCycleLength || "?"} {formData.recurringCyclePeriod || "days"}
-                              {formData.recurringTotalCycles && parseInt(formData.recurringTotalCycles) > 0
-                                ? ` for ${formData.recurringTotalCycles} times`
-                                : " indefinitely"}
-                              {formData.subscriptionDiscountPercentage && ` with ${formData.subscriptionDiscountPercentage}% discount`}
-                            </span>
-                            <span className="text-slate-400 whitespace-nowrap">
-                              Leave 0 for unlimited recurring payments
+                              Customer will be charged every {formData.allowedSubscriptionFrequencies?.split(',')[0]?.trim() || "?"}
+                              {formData.subscriptionDiscountPercentage ? ` with ${formData.subscriptionDiscountPercentage}% discount` : ""}
                             </span>
                           </div>
                         </div>

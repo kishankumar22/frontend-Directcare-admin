@@ -1824,7 +1824,7 @@ const isNextDay =
 
       <div className="flex-1">
         <div className="font-medium text-sm text-[#445D41] hover:text-black transition">
-          {it.name}
+          {it.productData?.productType === "variable" ? it.name : (it.productData?.name ?? it.name)}
         </div>
 
         {it.type === "subscription" && (

@@ -51,7 +51,7 @@ export default function CartPage() {
 
       const stockChecks = await Promise.all(
         inStockItems.map(async (item) => {
-          const sku = item.sku || (item.variantId ? item.productData?.variants?.find((v: any) => v.id === item.variantId)?.sku : null) || item.productData?.sku;
+          const sku = item.sku || (item.productData?.productType === "variable" && item.variantId ? item.productData?.variants?.find((v: any) => v.id === item.variantId)?.sku : null) || item.productData?.sku;
 
           if (!sku) {
             // Allow checkout if SKU is not found
@@ -170,7 +170,7 @@ export default function CartPage() {
     if (!pd || pd.excludeFromLoyaltyPoints) return 0;
 
     // variant priority
-    if (item.variantId && pd.variants?.length) {
+    if (item.productData?.productType === "variable" && item.variantId && pd.variants?.length) {
       const v = pd.variants.find((x: any) => x.id === item.variantId);
       if (v?.loyaltyPointsEarnable) {
         return v.loyaltyPointsEarnable;
@@ -594,7 +594,7 @@ export default function CartPage() {
 
   const getItemStock = (item: any) => {
     // Variant stock check
-    if (item.variantId) {
+    if (item.productData?.productType === "variable" && item.variantId) {
       const variant = item.productData?.variants?.find(
         (v: any) => v.id === item.variantId
       );
@@ -676,7 +676,7 @@ export default function CartPage() {
     let threshold = 0;
     for (const item of cart) {
       if (item.productData) {
-        if (item.variantId && item.productData.variants?.length) {
+        if (item.productData?.productType === "variable" && item.variantId && item.productData.variants?.length) {
           const v = item.productData.variants.find((x: any) => x.id === item.variantId);
           if (v) {
             const standardThresh = v.freeShippingThresholds?.find((t: any) => t.name === "standard")?.threshold ?? v.freeShippingThreshold;
@@ -797,7 +797,7 @@ export default function CartPage() {
                       <div className="flex items-start justify-between gap-1">
                         <Link href={`/product/${item.slug}`} className="flex-1 min-w-0 pr-2 md:pr-4">
                           <h2 className="font-medium text-xs md:text-sm text-gray-900 hover:text-[#445D41] leading-tight line-clamp-2">
-                            {item.name}
+                            {item.productData?.productType === "variable" ? item.name : (item.productData?.name ?? item.name)}
                           </h2>
                         </Link>
                         <div className="flex flex-col items-end flex-shrink-0 ml-1">

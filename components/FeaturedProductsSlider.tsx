@@ -77,6 +77,7 @@ interface Product {
   nextDayDeliveryFree?: boolean;
   sameDayDeliveryEnabled?: boolean;
   isPharmaProduct?: boolean;
+  productType?: string;
 }
 
 
@@ -216,7 +217,7 @@ export default function FeaturedProductsSlider({
         id: defaultVariant ? `${defaultVariant.id}-one` : product.id,
         type: "one-time",
         productId: product.id,
-        name: defaultVariant
+        name: product.productType === "variable" && defaultVariant
           ? `${product.name} (${[
             defaultVariant.option1Value,
             (defaultVariant as any)?.option2Value,
@@ -442,7 +443,23 @@ export default function FeaturedProductsSlider({
                     {/* UNISEX Badge */}
 
 
-                    <GenderBadge gender={product.gender} />
+                    {/* TOP LEFT BADGES (Pharma + Gender) */}
+                    <div className="absolute top-2 left-2 z-20 flex flex-col items-center gap-2">
+                      {product.isPharmaProduct && (
+                        <div
+                          className="bg-white/90 p-1 rounded-md shadow-sm border border-gray-100 inline-flex items-center justify-center shrink-0"
+                          title="Pharma Product"
+                        >
+                          <img
+                            src="/pharmacy-logo-v2.png"
+                            alt="Pharma Product"
+                            className="h-6 w-6 sm:h-7 sm:w-7 object-contain"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                      <GenderBadge gender={product.gender} absolute={false} />
+                    </div>
                     <div className="group h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
 
 
@@ -525,7 +542,7 @@ export default function FeaturedProductsSlider({
                             productId: product.id,
                             variantId: defaultVariant?.id ?? null,
 
-                            name: defaultVariant
+                            name: product.productType === "variable" && defaultVariant
                               ? `${product.name} (${[
                                 defaultVariant.option1Value,
                                 (defaultVariant as any)?.option2Value,
@@ -756,7 +773,7 @@ export default function FeaturedProductsSlider({
                                 id: defaultVariant ? `${defaultVariant.id}-one` : product.id,
                                 type: "one-time",
                                 productId: product.id,
-                                name: defaultVariant
+                                name: product.productType === "variable" && defaultVariant
                                   ? `${product.name} (${[
                                     defaultVariant.option1Value,
                                     (defaultVariant as any)?.option2Value,
@@ -1027,12 +1044,14 @@ export default function FeaturedProductsSlider({
                 id: variant ? `${variant.id}-one` : product.id,
                 type: "one-time",
                 productId: product.id,
-                name: variant
+                name: product.productType === "variable" && variant
                   ? `${product.name} (${[
                     variant.option1Value,
                     (variant as any)?.option2Value,
                     (variant as any)?.option3Value,
-                  ].filter(Boolean).join(", ")})`
+                  ]
+                    .filter(Boolean)
+                    .join(", ")})`
                   : product.name,
                 price: finalPrice,
                 priceBeforeDiscount: basePrice,

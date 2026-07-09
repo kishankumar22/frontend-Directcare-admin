@@ -154,6 +154,7 @@ export default function OrdersListPage() {
     shippingMethodName: "",
     isClickAndCollect: "",
     isPharmaProduct: "",
+    source: "",
   });
   const selectedOrderObjects = orders.filter(o =>
     selectedOrders.includes(o.id)
@@ -338,6 +339,9 @@ export default function OrdersListPage() {
       if (filters.isPharmaProduct !== "") {
         apiParams.isPharmaProduct = filters.isPharmaProduct === "true";
       }
+      if (filters.source) {
+        apiParams.source = filters.source;
+      }
 
       console.log("Calling OrderService with:", apiParams);
 
@@ -396,6 +400,7 @@ export default function OrdersListPage() {
     filters.shippingMethodName,
     filters.isClickAndCollect,
     filters.isPharmaProduct,
+    filters.source,
     debouncedSearch,
   ]);
 
@@ -601,6 +606,7 @@ export default function OrdersListPage() {
       shippingMethodName: "",
       isClickAndCollect: "",
       isPharmaProduct: "",
+      source: "",
     });
     setCurrentPage(1);
   };
@@ -1291,6 +1297,23 @@ export default function OrdersListPage() {
             <option value="Rejected">Rejected</option>
           </select>
           )}
+
+      {/* MARKETING SOURCE */}
+          <select
+            value={filters.source}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, source: e.target.value }))
+            }
+            title="Filter by how the order arrived (organic vs paid ads)"
+            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[120px]
+        ${filters.source ? "border-emerald-500 bg-emerald-500/10" : "border-slate-700"}`}
+          >
+            <option value="">Source: All</option>
+            <option value="paid">Paid / Ads</option>
+            <option value="organic">Organic</option>
+            <option value="direct">Direct</option>
+          </select>
+
           {/* DATE RANGE */}
           <div className="relative min-w-[130px]" ref={datePickerRef}>
             <button

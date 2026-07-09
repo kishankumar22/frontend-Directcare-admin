@@ -41,7 +41,7 @@ export default function GenderBadge({
 <div
   className={`
     ${absolute ? "absolute top-1 left-1 sm:top-2 sm:left-2 z-20" : ""}
-    bg-white/70 p-1 rounded-md shadow
+    p-1 rounded-md 
     inline-flex items-center justify-center shrink-0
     ${className}
   `}

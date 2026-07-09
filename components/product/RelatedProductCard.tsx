@@ -200,7 +200,7 @@ if (product.disableBuyButton) return;
     productId: product.id,
     variantId,
 
-    name: defaultVariant
+    name: product.productType === "variable" && defaultVariant
       ? `${product.name} (${[
           defaultVariant.option1Value,
           (defaultVariant as any)?.option2Value,
@@ -291,7 +291,7 @@ const handleToggleWishlist = () => {
     productId: product.id,
     variantId: defaultVariant?.id ?? null,
 
-    name: defaultVariant
+    name: product.productType === "variable" && defaultVariant
       ? `${product.name} (${[
           defaultVariant.option1Value,
           (defaultVariant as any)?.option2Value,
@@ -347,7 +347,23 @@ systemDiscountAmount:
       
       {/* IMAGE */}
     <div className="h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
-      <GenderBadge gender={product.gender} />
+      {/* TOP LEFT BADGES (Pharma + Gender) */}
+      <div className="absolute top-2 left-2 z-20 flex flex-col items-center gap-2">
+        {product.isPharmaProduct && (
+          <div
+            className="p-1 rounded-md inline-flex items-center justify-center shrink-0"
+            title="Pharma Product"
+          >
+            <img
+              src="/pharmacy-logo-v2.png"
+              alt="Pharma Product"
+              className="h-6 w-6 sm:h-7 sm:w-7 object-contain"
+              loading="lazy"
+            />
+          </div>
+        )}
+        <GenderBadge gender={product.gender} absolute={false} />
+      </div>
       {/* Offer badge — smaller */}
       {product.displayDiscountType === "System" &&
  discountBadge && (

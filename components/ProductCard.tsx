@@ -185,7 +185,7 @@ export default function ProductCard({
     const cartItem = {
       id: `${variantId ?? product.id}-one`,
       productId: product.id,
-      name: defaultVariant
+      name: product.productType === "variable" && defaultVariant
         ? `${product.name} (${[
           defaultVariant.option1Value,
           defaultVariant.option2Value,
@@ -265,7 +265,23 @@ export default function ProductCard({
             className="object-contain p-2 group-hover:scale-110 transition-transform duration-300"
             loading="lazy"
           />
-          <GenderBadge gender={product.gender} />
+          {/* TOP LEFT BADGES (Pharma + Gender) */}
+          <div className="absolute top-2 left-2 z-20 flex flex-col items-center gap-2">
+            <GenderBadge gender={product.gender} absolute={false} />
+            {product.isPharmaProduct && (
+              <div
+                className=" p-1 rounded-md  inline-flex items-center justify-center shrink-0"
+                title="Pharma Product"
+              >
+                <img
+                  src="/pharmacy-logo-v2.png"
+                  alt="Pharma Product"
+                  className="h-5 w-5 sm:h-6 sm:w-6 object-contain"
+                  loading="lazy"
+                />
+              </div>
+            )}
+          </div>
           {/* DISCOUNT BADGE — smaller */}
           {currentDisplayType === "System" && discountBadge && (
             <div className="absolute top-2 right-2 z-20">
@@ -320,14 +336,14 @@ export default function ProductCard({
                 id: wishlistId,
                 productId: product.id,
                 variantId: defaultVariant?.id ?? null,
-                name: defaultVariant
+                name: product.productType === "variable" && defaultVariant
                   ? `${product.name} (${[
-                      defaultVariant.option1Value,
-                      defaultVariant.option2Value,
-                      defaultVariant.option3Value,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")})`
+                    defaultVariant.option1Value,
+                    defaultVariant.option2Value,
+                    defaultVariant.option3Value,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")})`
                   : product.name,
                 slug: cardSlug,
                 price: finalPrice,
@@ -397,7 +413,7 @@ export default function ProductCard({
         {/* TITLE */}
         <Link href={`/product/${cardSlug}`}>
           <h3 className="font-semibold text-xs md:text-sm mb-1 line-clamp-2 hover:text-[#445D41] transition min-h-[32px] md:min-h-[40px]">
-            {defaultVariant
+            {product.productType === "variable" && defaultVariant
               ? `${product.name} (${[
                 defaultVariant.option1Value,
                 defaultVariant.option2Value,

@@ -1706,7 +1706,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       const res = await productsService.searchSummary({
         includeHomepageCount: true,
       });
-
+  console.log("================", res)
       const count = res.data?.data?.homepageCount ?? 0;
 
       setHomepageCount(count);
@@ -2527,7 +2527,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     return div.innerHTML;
   };
   // ==================== FORM SUBMISSION HANDLER ====================
-  const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, releaseLockAfter: boolean = true) => {
+  const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, releaseLockAfter: boolean = true): Promise<boolean | void> => {
     if (e) {
       e.preventDefault();
     }
@@ -2906,6 +2906,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           const res = await productsService.searchSummary({
             includeHomepageCount: true,
           });
+          console.log("================", res)
 
           const currentCount = res.data?.data?.homepageCount ?? 0;
 
@@ -3291,32 +3292,32 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       if (formData.isRecurring) {
         const cycleLength = parseInt(formData.recurringCycleLength) || 0;
 
-        if (cycleLength <= 0) {
-          toast.error('❌ Recurring cycle length must be greater than 0');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
+        // if (cycleLength <= 0) {
+        //   toast.error('❌ Recurring cycle length must be greater than 0');
+        //   target.removeAttribute('data-submitting');
+        //   setIsSubmitting(false);
+        //   setSubmitProgress(null);
+        //   return;
+        // }
 
-        if (cycleLength > 365) {
-          toast.error('⚠️ Recurring cycle length seems too long (>365)');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
+        // if (cycleLength > 365) {
+        //   toast.error('⚠️ Recurring cycle length seems too long (>365)');
+        //   target.removeAttribute('data-submitting');
+        //   setIsSubmitting(false);
+        //   setSubmitProgress(null);
+        //   return;
+        // }
 
-        if (formData.recurringTotalCycles) {
-          const totalCycles = parseInt(formData.recurringTotalCycles) || 0;
-          if (totalCycles < 0) {
-            toast.error('❌ Total cycles cannot be negative');
-            target.removeAttribute('data-submitting');
-            setIsSubmitting(false);
-            setSubmitProgress(null);
-            return;
-          }
-        }
+        // if (formData.recurringTotalCycles) {
+        //   const totalCycles = parseInt(formData.recurringTotalCycles) || 0;
+        //   if (totalCycles < 0) {
+        //     toast.error('❌ Total cycles cannot be negative');
+        //     target.removeAttribute('data-submitting');
+        //     setIsSubmitting(false);
+        //     setSubmitProgress(null);
+        //     return;
+        //   }
+        // }
         // ✅ ADD THIS (MISSING)
         if (!formData.allowedSubscriptionFrequencies?.trim()) {
           toast.error('❌ Subscription frequency is required');
@@ -3328,12 +3329,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
         if (formData.subscriptionDiscountPercentage) {
           const subDiscount = parseNumber(formData.subscriptionDiscountPercentage, 'subscription discount');
-          if (subDiscount !== null && (subDiscount < 0 || subDiscount > 100)) {
-            toast.error('❌ Subscription discount must be between 0 and 100');
+          if (subDiscount !== null && (subDiscount < 1 || subDiscount > 100)) {
+            toast.error('❌ Subscription discount must be between 1 and 100');
             target.removeAttribute('data-submitting');
             setIsSubmitting(false);
             setSubmitProgress(null);
-            return;
+            return false;
           }
         }
       }
@@ -3622,54 +3623,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
 
 
-      if (variantsArray && variantsArray.length > 0) {
-        try {
-          const allProductsResponse = await productsService.getAll({ productType: 'variable', });
-          const allProducts = allProductsResponse.data?.data?.items || [];
 
-          for (const variant of variantsArray) {
-            const productSkuConflict = allProducts.find((p: any) =>
-              p.id !== productId && p.sku?.toUpperCase() === variant.sku.toUpperCase()
-            );
-
-            if (productSkuConflict) {
-              toast.error(
-                `❌ Variant SKU "${variant.sku}" conflicts with product "${productSkuConflict.name}" SKU "${productSkuConflict.sku}"`,
-                { autoClose: 10000 }
-              );
-              return null;
-            }
-
-            for (const product of allProducts) {
-              if (product.id === productId) continue;
-
-              if (product.variants && Array.isArray(product.variants)) {
-                const variantSkuConflict = product.variants.find((v: any) =>
-                  v.sku?.toUpperCase() === variant.sku.toUpperCase()
-                );
-
-                if (variantSkuConflict) {
-                  toast.error(
-                    `❌ Variant SKU "${variant.sku}" conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
-                    { autoClose: 10000 }
-                  );
-                  return null;
-                }
-              }
-            }
-          }
-
-          console.log('✅ All variant SKUs are unique');
-        } catch (error: any) {
-          if (error.message?.includes('Variant SKU conflicts') || error.message?.includes('Duplicate variant SKU')) {
-            target.removeAttribute('data-submitting');
-            setIsSubmitting(false);
-            setSubmitProgress(null);
-            throw error;
-          }
-          console.warn('⚠️ Could not verify variant SKU uniqueness:', error);
-        }
-      }
 
       // ✅ PROGRESS: 70% - Image Validation
       setSubmitProgress({
@@ -4100,6 +4054,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           setInitialFormData(updatedSnapshot);
 
           setHasUnsavedChanges(false);
+          return true;
           // await productLockService.releaseLock(productId);
           // if (releaseLockAfter) {
           //   try {
@@ -4116,7 +4071,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           throw new Error(apiResponse.message || 'Update failed');
         }
       } else {
-        return null;
+        return false;
       }
 
     } catch (error: any) {
@@ -4125,6 +4080,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
       const errorMessage = getBackendMessage(error);
       toast.error(`❌ ${errorMessage}`, { autoClose: 10000 });
+      return false;
     } finally {
       target.removeAttribute('data-submitting');
       setIsSubmitting(false);
@@ -6051,20 +6007,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   {/* ✅ ONLY SHOW IF ENABLED AND NOT GROUPED */}
                   {formData.isRecurring && formData.productType !== 'grouped' && (
                     <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
-                      {/* Billing Cycle */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
-                          <input
-                            type="number"
-                            name="recurringCycleLength"
-                            value={formData.recurringCycleLength}
-                            onChange={handleChange}
-                            min="1"
-                            placeholder="30"
-                            className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                          />
-                        </div>
+                      {/* First Row: Period, Discount, Frequencies, Description */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-slate-400 mb-1">Period</label>
                           <select
@@ -6079,28 +6023,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
-                          <input
-                            type="number"
-                            name="recurringTotalCycles"
-                            value={formData.recurringTotalCycles}
-                            onChange={handleChange}
-                            min="0"
-                            placeholder="0 = Unlimited"
-                            className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Subscription Discount & Options */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
-                        <div>
                           <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
                           <input
                             type="number"
                             name="subscriptionDiscountPercentage"
                             value={formData.subscriptionDiscountPercentage}
-                            onChange={handleChange}
+                            onChange={(e) => {
+                              if (Number(e.target.value) > 100) return;
+                              handleChange(e);
+                            }}
                             min="0"
                             max="100"
                             step="0.01"
@@ -6134,6 +6065,34 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         </div>
                       </div>
 
+                      {/* Second Row: Charge every, Total Billing Cycles */}
+                      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-700">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
+                          <input
+                            type="number"
+                            name="recurringCycleLength"
+                            value={formData.recurringCycleLength}
+                            onChange={handleChange}
+                            min="1"
+                            placeholder="30"
+                            className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
+                          <input
+                            type="number"
+                            name="recurringTotalCycles"
+                            value={formData.recurringTotalCycles}
+                            onChange={handleChange}
+                            min="0"
+                            placeholder="0 = Unlimited"
+                            className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                        </div>
+                      </div> */}
+
                       {/* Warning Banner */}
                       <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
                         <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -6141,14 +6100,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         </svg>
                         <div className="flex w-full justify-between">
                           <span>
-                            Customer will be charged every {formData.recurringCycleLength || "?"} {formData.recurringCyclePeriod || "days"}
-                            {formData.recurringTotalCycles && parseInt(formData.recurringTotalCycles) > 0
-                              ? ` for ${formData.recurringTotalCycles} times`
-                              : " indefinitely"}
-                            {formData.subscriptionDiscountPercentage && ` with ${formData.subscriptionDiscountPercentage}% discount`}
-                          </span>
-                          <span className="text-slate-400 whitespace-nowrap">
-                            Leave 0 for unlimited recurring payments
+                            Customer will be charged every {formData.allowedSubscriptionFrequencies?.split(',')[0]?.trim() || "?"}
+                            {formData.subscriptionDiscountPercentage ? ` with ${formData.subscriptionDiscountPercentage}% discount` : ""}
                           </span>
                         </div>
                       </div>
@@ -7477,7 +7430,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         <Truck className="w-4 h-4 text-violet-400" />
                         Delivery Options
                       </h4>
-   
+
 
                       {/* ===== ALLOWED DELIVERY OPTIONS (restrict which methods show at checkout) ===== */}
                       <AllowedDeliveryOptions
@@ -8315,7 +8268,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         onActionComplete={handleTakeoverActionComplete}
         onSaveBeforeApprove={async () => {
           console.log('🔄 Auto-saving all changes before approval...');
-          await handleSubmit(undefined, false, false);
+          const result = await handleSubmit(undefined, false, false);
+          if (result !== true) {
+            throw new Error('Save failed due to validation or API error');
+          }
         }}
       />
 

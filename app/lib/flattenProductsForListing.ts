@@ -11,6 +11,7 @@ export function flattenProductsForListing(products: any[]): FlattenedProduct[] {
   products.forEach((product) => {
     if (
       product.visibleIndividually &&
+      product.productType === "variable" &&
       product.variants?.length
     ) {
       product.variants.forEach((variant: any) => {

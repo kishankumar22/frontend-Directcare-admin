@@ -119,6 +119,7 @@ interface Product {
   name: string;
   description: string;
   shortDescription: string;
+  publishedAt:string;
   slug: string;
   sku: string;
   price: number;
@@ -898,19 +899,19 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       !groupEnabled ||
       !product.groupedProducts
     ) {
-      return selectedVariant?.stockQuantity ?? product.stockQuantity;
+      return (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
     }
     const selectedGrouped = product.groupedProducts.filter(
       gp => groupedSelections[gp.productId]?.selected
     );
     if (selectedGrouped.length === 0) {
-      return selectedVariant?.stockQuantity ?? product.stockQuantity;
+      return (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
     }
     const minGroupedStock = Math.min(
       ...selectedGrouped.map(gp => gp.stockQuantity ?? Infinity)
     );
     const mainStock =
-      selectedVariant?.stockQuantity ?? product.stockQuantity;
+      (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
     return Math.min(mainStock, minGroupedStock);
   }, [
     isGroupedProduct,
@@ -1191,7 +1192,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     }
   }, [product.id]);
   const basePrice = useMemo(() => {
-    if (selectedVariant && typeof selectedVariant.price === "number" && selectedVariant.price > 0) {
+    if (product.productType === "variable" && selectedVariant && typeof selectedVariant.price === "number" && selectedVariant.price > 0) {
       return selectedVariant.price;
     }
     return product?.price ?? 0;
@@ -1220,7 +1221,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
   // 🔥 OLD PRICE/CUT PRICE LOGIC (Requirement Based)
   let oldPriceValue: number | undefined = undefined;
-  if (selectedVariant) {
+  if (product.productType === "variable" && selectedVariant) {
     // Variant product: show compareAtPrice only
     oldPriceValue = selectedVariant.compareAtPrice ?? undefined;
   } else {
@@ -1229,12 +1230,13 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   }
 
   const currentDisplayType =
-    selectedVariant?.displayDiscountType ??
+    (product.productType === "variable" && selectedVariant?.compareAtPrice ? "OldPrice" : undefined) ??
+    (product.productType === "variable" ? selectedVariant?.displayDiscountType : undefined) ??
     product.displayDiscountType ??
     "None";
 
   const currentSystemDiscountAmount =
-    selectedVariant?.systemDiscountAmount ??
+    (product.productType === "variable" ? selectedVariant?.systemDiscountAmount : undefined) ??
     product.systemDiscountAmount ??
     0;
 
@@ -1248,8 +1250,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       : null;
   // ✅ STOCK (variant aware)
   const stock = useMemo(() => {
-    return selectedVariant?.stockQuantity ?? product.stockQuantity ?? 0;
-  }, [selectedVariant, product.stockQuantity]);
+    return (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity ?? 0;
+  }, [selectedVariant, product.stockQuantity, product.productType]);
   // ✅ STOCK DISPLAY LOGIC (backend driven)
   const stockDisplay = useMemo(() => {
     // ❌ Always dominant
@@ -1608,13 +1610,13 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     // BASE + FINAL PRICE
     const basePrice = resolveBasePrice(product, selected);
     const final = finalPrice;
-    const variantText = [
+    const variantText = product.productType === "variable" ? [
       selected?.option1Value,
       selected?.option2Value,
       selected?.option3Value,
     ]
       .filter(Boolean)
-      .join(", ");
+      .join(", ") : "";
 
     const variantTitle = variantText
       ? `(${variantText})`
@@ -2195,7 +2197,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
                           variantId: selectedVariant?.id,
 
                           // ✅ EXACT SAME AS CART
-                          name: selectedVariant
+                          name: product.productType === "variable" && selectedVariant
                             ? `${product.name} (${[
                               selectedVariant.option1Value,
                               selectedVariant.option2Value,
@@ -2232,10 +2234,10 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
                           vatRate: vatRate ?? null,
                           vatExempt: product.vatExempt,
 
-                          sku: selectedVariant?.sku ?? product.sku,
+                          sku: (product.productType === "variable" ? selectedVariant?.sku : undefined) ?? product.sku,
 
                           stockQuantity:
-                            selectedVariant?.stockQuantity ??
+                            (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ??
                             product.stockQuantity ??
                             null,
                           productData: JSON.parse(JSON.stringify(product)),
@@ -2418,15 +2420,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               {/* end main image */}
 
             </div>
-            {/* end inner row */}
-
-            {/* Pharma packaging note — shown below the image gallery, only for pharma products */}
-            {product.isPharmaProduct && (
-              <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-                <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-                <span><strong>Please note:</strong> Product packaging may vary from the image shown.</span>
-              </div>
-            )}
+ 
 
           </div>
 
@@ -2445,7 +2439,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     .filter(Boolean)
                     .join(", ");
 
-                  return selectedVariant && variantText
+                  return product.productType === "variable" && selectedVariant && variantText
                     ? `${product.name} (${variantText})`
                     : product.name;
                 })()}
@@ -2630,7 +2624,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               </div>
             )}
             {/* VARIANTS UI */}
-            {product.variants && product.variants?.length > 0 && (
+            {product.productType === "variable" && product.variants && product.variants?.length > 0 && (
               <>
                 {/* OPTION 1 */}
                 {product.variants?.[0]?.option1Name && (
@@ -2964,7 +2958,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 let num = parseInt(val, 10);
                                 const minQty = product.orderMinimumQuantity ?? 1;
                                 const maxStock =
-                                  selectedVariant?.stockQuantity ?? product.stockQuantity;
+                                  (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
                                 const maxQty =
                                   product.orderMaximumQuantity ?? maxStock;
                                 const limit = Math.min(maxQty, maxStock);
@@ -2983,7 +2977,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               onBlur={() => {
                                 const minQty = product.orderMinimumQuantity ?? 1;
                                 const maxStock =
-                                  selectedVariant?.stockQuantity ?? product.stockQuantity;
+                                  (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
                                 const maxQty =
                                   product.orderMaximumQuantity ?? maxStock;
                                 const limit = Math.min(maxQty, maxStock);
@@ -2994,7 +2988,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               }}
                               inputMode="numeric"
                               min={1}
-                              max={selectedVariant?.stockQuantity ?? product.stockQuantity}
+                              max={(product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity}
                             />
                             {/* + Button */}
                             <Button
@@ -3003,7 +2997,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               className="px-2"
                               onClick={() => {
                                 const maxStock =
-                                  selectedVariant?.stockQuantity ?? product.stockQuantity;
+                                  (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
                                 const maxQty =
                                   product.orderMaximumQuantity ?? maxStock;
                                 const limit = Math.min(maxQty, maxStock);
@@ -3297,6 +3291,52 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             </Card>
           </div>
         </div>
+
+        {/* PHARMACY ACCURACY CHECK */}
+        {product.isPharmaProduct && (
+          <div className="mt-2 mb-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch max-w-5xl mx-auto">
+            {/* LEFT COLUMN: Pharmacist Check */}
+            <div className="relative flex items-center gap-2 border border-gray-200 rounded-lg p-4 bg-gray-50 shadow-sm w-full h-full">
+              {/* VERIFIED BADGE */}
+              <div className="absolute top-2 right-2 text-green-600 flex flex-col items-center">
+                <ShieldCheck className="w-6 h-6" />
+                <span className="text-[9px] font-bold mt-0.5">VERIFIED</span>
+              </div>
+              
+              <div className="w-16 h-16 rounded-full bg-gray-300 overflow-hidden flex-shrink-0">
+                <svg className="w-full h-full text-gray-100 mt-2" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <div className="text-[13px] text-gray-800 font-medium space-y-1">
+                <p>Checked for accuracy by: <span className="text-[#445D41] font-bold">Surabhi Kumari</span></p>
+                <p>Role: <span className="text-[#445D41] font-bold">Pharmacist</span></p>
+                <p>Date checked: <span className="text-[#445D41] font-bold">
+                  {product.publishedAt ? new Date(product.publishedAt).toLocaleDateString("en-GB") : 'N/A'}
+                </span></p>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: Pharmacy Info */}
+            <div className="flex items-start gap-2 border border-gray-200 rounded-lg p-4 bg-gray-50 shadow-sm w-full h-full">
+              <img src="/pharmacy-logo-v2.png" alt="Pharmacy Logo" className="w-12 h-12 object-contain flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-base font-bold text-gray-800 mb-0.5">Pharmacy Medicine</h3>
+                <p className="text-[13px] text-gray-700 font-medium leading-snug">
+                  This is a Pharmacy Medicine, therefore you'll need to answer a few short questions so our pharmacy team can ensure this product is right for you.
+                </p>
+              </div>
+            </div>
+
+            {/* Pharma packaging note — Spans full width below the two columns */}
+            <div className="md:col-span-2">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900">
+                <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                <span><strong>Please note:</strong> Product packaging may vary from the image shown.</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* RELATED PRODUCTS */}
         {relatedProducts.length > 0 && (
