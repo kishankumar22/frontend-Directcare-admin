@@ -1706,7 +1706,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       const res = await productsService.searchSummary({
         includeHomepageCount: true,
       });
-  console.log("================", res)
+  // console.log("================", res)
       const count = res.data?.data?.homepageCount ?? 0;
 
       setHomepageCount(count);
@@ -5193,7 +5193,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="flex h-[calc(100svh-8rem)] min-h-0 flex-col gap-2 overflow-hidden">
 
-      <div className="sticky top-0 z-30 shrink-0 px-2 pt-2 relative isolate bg-slate-950">
+      <div className="sticky top-0 z-20 shrink-0 px-2 pt-2 relative isolate bg-slate-950">
         {/* BACKGROUND */}
         <div className="pointer-events-none absolute inset-0 bg-slate-950 backdrop-blur-xl"></div>
 

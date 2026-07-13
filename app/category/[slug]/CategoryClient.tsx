@@ -189,7 +189,7 @@ export default function CategoryClient({
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
   const availableBrands = useMemo(
-    () => brands.filter((b) => b.productCount > 0),
+    () => brands.filter((b) => b.productCount !== 0),
     [brands]
   );
 

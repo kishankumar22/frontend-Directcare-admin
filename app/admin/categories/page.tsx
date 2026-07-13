@@ -6,7 +6,7 @@ import { Plus, Edit, Trash2, Search, FolderTree, Eye, FilterX, ChevronLeft, Chev
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 
-import { categoriesService, Category, CategoryStats } from "@/lib/services/categories";
+import { categoriesService, Category } from "@/lib/services/categories";
 import { useRouter } from "next/navigation";
 import CategoryModal from "./CategoryModal";
 import { categoryFaqsService, Faq } from "@/lib/services/categoryFaqs";
@@ -14,10 +14,23 @@ import { extractFilename, formatDate, getImageUrl } from "../_utils/formatUtils"
 import { getBackendMessage } from "../_utils/errorUtils";
 import React from "react";
 import Link from "next/link";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 export default function CategoriesPage() {
   const toast = useToast();
   const router = useRouter();
+  const { user } = useAuth();
+  
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const categoryPerms = myPermissions['categories'] || { view: false, create: false, edit: false, delete: false };
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -803,6 +816,10 @@ const [restoreConfirm, setRestoreConfirm] = useState<Category | null>(null);
 const [isRestoring, setIsRestoring] = useState(false);
 
 const handleStatusToggle = (category: Category) => {
+  if (!categoryPerms.edit) {
+    toast.error("You do not have permission to edit this.");
+    return;
+  }
   setStatusConfirm(category);
 };
 
@@ -965,17 +982,20 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         <div className="flex justify-center gap-1">
 
           {/* Add */}
-          <button
-            onClick={() =>
-              canAddSubcategory &&
-              onAddSubcategory(category.id, category.name)
-            }
-            disabled={!canAddSubcategory}
-              title="Add Subcategory"
-            className="p-1 text-green-400 hover:bg-green-500/10 rounded-md disabled:opacity-40"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          {categoryPerms.create && (
+            <button
+              onClick={() =>
+                canAddSubcategory &&
+                onAddSubcategory(category.id, category.name)
+              }
+              disabled={!canAddSubcategory}
+                title="Add Subcategory"
+              className="p-1 text-green-400 hover:bg-green-500/10 rounded-md disabled:opacity-40"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
+{categoryPerms.create && (
 <button
   onClick={() => onOpenFaq(category)}
    title="Manage FAQs"
@@ -983,42 +1003,49 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 >
   <HelpCircle className="h-4 w-4" />
 </button>
+)}
 
           {/* View */}
-          <button
-            onClick={() => onView(category)}
-            className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
-            title="View Category"
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </button>
+          {categoryPerms.view && (
+            <button
+              onClick={() => onView(category)}
+              className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
+              title="View Category"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+          )}
 
           {/* Edit */}
-          <button
-            onClick={() => onEdit(category)}
-            className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
-            title="Edit Category"
-          >
-            <Edit className="h-3.5 w-3.5" />
-          </button>
+          {categoryPerms.edit && (
+            <button
+              onClick={() => onEdit(category)}
+              className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
+              title="Edit Category"
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </button>
+          )}
 
           {/* Delete / Restore */}
-          {category.isDeleted ? (
-            <button
-              onClick={() => onRestore(category)}
-              className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
-               title="Restore Category"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-          ) : (
-            <button
-              onClick={() => onDelete(category.id, category.name)}
-              className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
-              title="Delete Category"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+          {categoryPerms.delete && (
+            category.isDeleted ? (
+              <button
+                onClick={() => onRestore(category)}
+                className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
+                 title="Restore Category"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <button
+                onClick={() => onDelete(category.id, category.name)}
+                className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
+                title="Delete Category"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )
           )}
         </div>
       </td>
@@ -1304,16 +1331,18 @@ useEffect(() => {
       Go To  Product Page
     </button>
 
-    <button
-      onClick={() => {
-        resetForm();
-        setShowModal(true);
-      }}
-      className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-600 to-cyan-600 dark:from-violet-500 dark:to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5 shadow-md shadow-violet-500/20 dark:shadow-none"
-    >
-      <Plus className="h-3 w-3" />
-      Add Category 
-    </button>
+    {categoryPerms.create && (
+      <button
+        onClick={() => {
+          resetForm();
+          setShowModal(true);
+        }}
+        className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-600 to-cyan-600 dark:from-violet-500 dark:to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5 shadow-md shadow-violet-500/20 dark:shadow-none"
+      >
+        <Plus className="h-3 w-3" />
+        Add Category 
+      </button>
+    )}
 
   </div>
 </div>
@@ -2000,16 +2029,18 @@ useEffect(() => {
                   <X className="h-4 w-4" />
                   Close
                 </button>
-                <button
-                  onClick={() => {
-                    setViewingCategory(null);
-                    handleEdit(viewingCategory);
-                  }}
-                  className="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2"
-                >
-                  <Edit className="h-4 w-4" />
-                  Edit Category
-                </button>
+                {categoryPerms.edit && (
+                  <button
+                    onClick={() => {
+                      setViewingCategory(null);
+                      handleEdit(viewingCategory);
+                    }}
+                    className="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit Category
+                  </button>
+                )}
               </div>
             </div>
 

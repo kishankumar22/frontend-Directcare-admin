@@ -192,7 +192,7 @@ const d = data ?? ({} as DashboardStats);
           icon={ShoppingCart} iconColor="text-cyan-400" iconBg="bg-cyan-500/10"
           glow="from-cyan-500/10 to-transparent"
           title="Total Orders"
-          value={d.totalOrders.toLocaleString()}
+          value={d.totalOrders?.toLocaleString() || "0"}
           sub={d.todayOrders > 0 ? `Today: ${d.todayOrders}` : undefined}
           change={d.orderGrowthPercent}
           onClick={() => router.push("/admin/orders")}
@@ -227,8 +227,8 @@ const d = data ?? ({} as DashboardStats);
           icon={Package} iconColor="text-pink-400" iconBg="bg-pink-500/10"
           glow="from-pink-500/10 to-transparent"
           title="Products"
-          value={d.totalProducts.toLocaleString()}
-          sub={`Active: ${d.activeProducts}`}
+          value={d.totalProducts?.toLocaleString() || "0"}
+          sub={`Active: ${d.activeProducts || 0}`}
           onClick={() => router.push("/admin/products")}
         />
         <KpiCard
@@ -244,7 +244,7 @@ const d = data ?? ({} as DashboardStats);
           icon={Users} iconColor="text-orange-400" iconBg="bg-orange-500/10"
           glow="from-orange-500/10 to-transparent"
           title="Customers"
-          value={d.totalCustomers.toLocaleString()}
+          value={d.totalCustomers?.toLocaleString() || "0"}
           sub={d.newCustomersThisMonth > 0 ? `New this month: ${d.newCustomersThisMonth}` : undefined}
           change={d.customersChangePercent}
           onClick={() => router.push("/admin/customers")}
@@ -259,7 +259,7 @@ const d = data ?? ({} as DashboardStats);
       </div>
 
       {/* ═══ ORDER STATUS BAR ═══ */}
-      {d.totalOrders > 0 && d.orderStatusBreakdown.length > 0 && (
+      {d.totalOrders > 0 && d.orderStatusBreakdown?.length > 0 && (
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
             Order Status Breakdown
@@ -321,7 +321,7 @@ const d = data ?? ({} as DashboardStats);
             </div>
           </div>
 
-          {d.revenueChart.length > 0 ? (
+          {d.revenueChart?.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={d.revenueChart} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                 <defs>
@@ -360,11 +360,11 @@ const d = data ?? ({} as DashboardStats);
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-white">Order Status</h3>
             <span className="text-[10px] text-slate-500 bg-slate-800/60 px-2 py-0.5 rounded-full">
-              {d.orderStatusBreakdown.length} statuses
+              {d.orderStatusBreakdown?.length || 0} statuses
             </span>
           </div>
 
-          {d.orderStatusBreakdown.length > 0 ? (
+          {d.orderStatusBreakdown?.length > 0 ? (
             <div className="flex gap-4 items-center flex-1">
               <div className="relative flex-shrink-0" style={{ width: 120, height: 120 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -497,7 +497,7 @@ const d = data ?? ({} as DashboardStats);
           </div>
 
           <div className={`space-y-1.5 max-h-[400px] overflow-y-auto pr-1  ${scrollCls} `}>
-            {d.recentOrders.length > 0 ? d.recentOrders.map((o, idx) => {
+            {d.recentOrders?.length > 0 ? d.recentOrders.map((o, idx) => {
               const meta = STATUS_META[o.status] ?? DEFAULT_META;
               const Icon = meta.icon;
               return (
@@ -543,7 +543,7 @@ const d = data ?? ({} as DashboardStats);
           </div>
 
           <div className={`space-y-2 max-h-[400px] overflow-y-auto pr-1   ${scrollCls}`}>
-            {d.topProducts.length > 0 ? (() => {
+            {d.topProducts?.length > 0 ? (() => {
               const maxSold = Math.max(...d.topProducts.map(p => p.totalSold), 1);
               return d.topProducts.map((p, i) => (
                 <div
@@ -621,7 +621,7 @@ const d = data ?? ({} as DashboardStats);
           </div>
 
           <div className={`space-y-2 max-h-[300px] overflow-y-auto pr-1  ${scrollCls}`}>
-            {d.topCustomers.length > 0 ? d.topCustomers.map((c, i) => (
+            {d.topCustomers?.length > 0 ? d.topCustomers.map((c, i) => (
               <div
                 key={c.customerId || i}
                 className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/40 border border-slate-700/60 hover:border-violet-500/30 transition-all"

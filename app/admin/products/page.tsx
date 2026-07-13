@@ -16,7 +16,8 @@ import {
   EyeOff,
   Pill,
   FileText,
-  Copy
+  Copy,
+  Info
 } from "lucide-react";
 
 type ToggleProduct = {
@@ -47,6 +48,8 @@ import { vatratesService } from "@/lib/services/vatrates";
 import { scrollCls, getSelectStyles } from "../_utils/styles";
 import { useTheme } from "@/app/admin/_context/theme-provider";
 import { useAuth } from "../_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -135,6 +138,14 @@ export default function ProductsPage() {
   const router = useRouter();
   const { theme } = useTheme();
   const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const productPerms = myPermissions['products'] || { view: false, create: false, edit: false, delete: false };
 
   // STATE MANAGEMENT
   const [products, setProducts] = useState<FormattedProduct[]>([]);
@@ -1490,7 +1501,8 @@ export default function ProductsPage() {
 
                 <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
-                <button
+                {productPerms.view && (
+                  <button
                   onClick={handleExportSelected}
                   disabled={exportingSelected}
                   title={`Export ${selectedItems.length} selected product${selectedItems.length === 1 ? "" : "s"} to Excel`}
@@ -1503,8 +1515,9 @@ export default function ProductsPage() {
                   )}
                   {exportingSelected ? "Exporting..." : `Export (${selectedItems.length})`}
                 </button>
+                )}
 
-                {hasInactive && (
+                {hasInactive && productPerms.edit && (
                   <button
                     disabled={isProcessing}
                     onClick={() => {
@@ -1518,7 +1531,7 @@ export default function ProductsPage() {
                   </button>
                 )}
 
-                {hasActive && (
+                {hasActive && productPerms.edit && (
                   <button
                     disabled={isProcessing}
                     onClick={() => {
@@ -1532,7 +1545,7 @@ export default function ProductsPage() {
                   </button>
                 )}
 
-                {hasUnpublished && (
+                {hasUnpublished && productPerms.edit && (
                   <button
                     disabled={isProcessing}
                     onClick={() => {
@@ -1546,7 +1559,7 @@ export default function ProductsPage() {
                   </button>
                 )}
 
-                {hasPublished && (
+                {hasPublished && productPerms.edit && (
                   <button
                     disabled={isProcessing}
                     onClick={() => {
@@ -1560,7 +1573,7 @@ export default function ProductsPage() {
                   </button>
                 )}
 
-                {hasDeleted && (
+                {hasDeleted && productPerms.delete && (
                   <button
                     disabled={isProcessing}
                     onClick={() => {
@@ -1574,7 +1587,7 @@ export default function ProductsPage() {
                   </button>
                 )}
 
-                {hasNotDeleted && (
+                {hasNotDeleted && productPerms.delete && (
                   <button
                     disabled={isProcessing}
                     onClick={() => {
@@ -1609,7 +1622,19 @@ export default function ProductsPage() {
           <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Product Management
           </h1>
-          <p className="text-xs text-slate-400">Manage your product inventory</p>
+          <p className="text-xs text-slate-400 flex items-center gap-1.5">
+            Manage your product inventory
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• Add / Edit: Requires Create / Edit permission
+• Delete / Restore: Requires Delete permission
+• Export / View: Requires View permission
+• Status Toggle (Active/Inactive): Requires Edit permission
+Note: If you don't have the required permission, the bulk action buttons will be hidden and the row buttons may be disabled or hidden.`}>
+                <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+              </span>
+            )}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -1649,16 +1674,18 @@ export default function ProductsPage() {
 
 
           {/* ADD PRODUCT */}
-          <Link href="/admin/products/add">
-            <button className="flex items-center gap-2 px-3 py-1.5 text-[13px]
-    bg-gradient-to-r from-violet-500 to-cyan-500
-    text-white rounded-lg font-semibold shadow
-    hover:shadow-violet-500/40 transition-all"
-              title="Add new product">
-              <Plus className="w-4 h-4" />
-              Add Product
-            </button>
-          </Link>
+          {productPerms.create && (
+            <Link href="/admin/products/add">
+              <button className="flex items-center gap-2 px-3 py-1.5 text-[13px]
+      bg-gradient-to-r from-violet-500 to-cyan-500
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-violet-500/40 transition-all"
+                title="Add new product">
+                <Plus className="w-4 h-4" />
+                Add Product
+              </button>
+            </Link>
+          )}
 
         </div>
       </div>
@@ -2645,7 +2672,7 @@ Updated: ${product.updatedAt || "N/A"} by ${product.updatedBy || "N/A"}`}
                             )}
 
                             {/* EDIT */}
-                            {!isDeleted && (
+                            {!isDeleted && productPerms.edit && (
                               <Link href={`/admin/products/edit/${product.id}`}>
                                 <button className="p-1 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 rounded-md">
                                   <Edit className="h-3.5 w-3.5" />
@@ -2654,7 +2681,7 @@ Updated: ${product.updatedAt || "N/A"} by ${product.updatedBy || "N/A"}`}
                             )}
 
                             {/* DUPLICATE */}
-                            {!isDeleted && (
+                            {!isDeleted && productPerms.view && (
                               <button
                                 onClick={() => {
                                   setSelectedDuplicateProduct({ id: product.id, name: product.name, isActive: product.isActive });
@@ -2693,27 +2720,29 @@ Updated: ${product.updatedAt || "N/A"} by ${product.updatedBy || "N/A"}`}
                             )}
 
                             {/* DELETE / RESTORE */}
-                            <button
-                              onClick={() =>
-                                openProductActionModal({
-                                  id: product.id,
-                                  name: product.name,
-                                  isDeleted: product.isDeleted,
-                                })
-                              }
-                              className={`p-1 rounded-md transition-all ${product.isDeleted
-                                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
-                                  : 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
-                                }`}
-                            >
-                              {isBusy ? (
-                                <div className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              ) : product.isDeleted ? (
-                                <CheckCircle className="h-3.5 w-3.5 shadow shadow-emerald-500/20" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </button>
+                            {productPerms.delete && (
+                              <button
+                                onClick={() =>
+                                  openProductActionModal({
+                                    id: product.id,
+                                    name: product.name,
+                                    isDeleted: product.isDeleted,
+                                  })
+                                }
+                                className={`p-1 rounded-md transition-all ${product.isDeleted
+                                    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
+                                    : 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
+                                  }`}
+                              >
+                                {isBusy ? (
+                                  <div className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : product.isDeleted ? (
+                                  <CheckCircle className="h-3.5 w-3.5 shadow shadow-emerald-500/20" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
 
                           </div>
                         </td>

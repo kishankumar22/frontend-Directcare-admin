@@ -10,10 +10,23 @@ import { useRouter } from "next/navigation";
 import BrandModals from "./BrandModals";
 import { formatDate, getImageUrl } from "../_utils/formatUtils";
 import Link from "next/link";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 export default function BrandsPage() {
   const toast = useToast();
   const router = useRouter();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const brandPerms = myPermissions['brands'] || { view: false, create: false, edit: false, delete: false };
+
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -382,17 +395,20 @@ const goToPage = useCallback((page: number) => {
     </button>
 
     {/* Add Brand */}
-    <button
-      title="Create a new brand"
-      onClick={() => {
-        resetForm();
-        setShowModal(true);
-      }}
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-[12px] transition-all"
-    >
-      <Plus className="h-3.5 w-3.5" />
-      Add Brand
-    </button>
+    {brandPerms.create && (
+      <button
+        title="Create a new brand"
+        onClick={() => {
+          setEditingBrand(null);
+          setSelectedImageUrl(null);
+          setShowModal(true);
+        }}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-[12px] transition-all"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add Brand
+      </button>
+    )}
 
   </div>
 </div>
@@ -767,13 +783,17 @@ const goToPage = useCallback((page: number) => {
 
                       <td className="py-2 px-3 text-center">
                   <button
-  onClick={() =>
+  onClick={() => {
+    if (!brandPerms.edit) {
+      toast.error("You do not have permission to edit this.");
+      return;
+    }
     setStatusConfirm({
       id: brand.id,
       name: brand.name,
       currentStatus: brand.isActive,
     })
-  }
+  }}
   className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
     brand.isActive
       ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
@@ -837,54 +857,62 @@ const goToPage = useCallback((page: number) => {
 
                       <td className="py-2 px-3">
                         <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => setViewingBrand(brand)}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
-                            title="View"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-  onClick={() => handleEdit(brand, 'faqs')}
-  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
-  title="Manage FAQs"
->
-  <HelpCircle className="h-4 w-4" />
-</button>
+                          {brandPerms.view && (
+                            <button
+                              onClick={() => setViewingBrand(brand)}
+                              className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                              title="View"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          )}
+                          {brandPerms.create && (
+                            <button
+                              onClick={() => handleEdit(brand, 'faqs')}
+                              className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                              title="Manage FAQs"
+                            >
+                              <HelpCircle className="h-4 w-4" />
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => handleEdit(brand)}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
-                            title="Edit"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
+                          {brandPerms.edit && (
+                            <button
+                              onClick={() => handleEdit(brand)}
+                              className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() =>
-                              openBrandActionModal({
-                                id: brand.id,
-                                name: brand.name,
-                                isDeleted: brand.isDeleted,
-                              })
-                            }
-                            className={`p-1.5 rounded-md transition-all ${
-                              brand.isDeleted
-                                ? 'text-emerald-400 hover:bg-emerald-500/10'
-                                : 'text-red-400 hover:bg-red-500/10'
-                            }`}
-                            title={
-                              brand.isDeleted ? 'Restore Brand' : 'Delete Brand'
-                            }
-                          >
-                            {isBusy ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : brand.isDeleted ? (
-                              <CheckCircle className="h-4 w-4" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </button>
+                          {brandPerms.delete && (
+                            <button
+                              onClick={() =>
+                                openBrandActionModal({
+                                  id: brand.id,
+                                  name: brand.name,
+                                  isDeleted: brand.isDeleted,
+                                })
+                              }
+                              className={`p-1.5 rounded-md transition-all ${
+                                brand.isDeleted
+                                  ? 'text-emerald-400 hover:bg-emerald-500/10'
+                                  : 'text-red-400 hover:bg-red-500/10'
+                              }`}
+                              title={
+                                brand.isDeleted ? 'Restore Brand' : 'Delete Brand'
+                              }
+                            >
+                              {isBusy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : brand.isDeleted ? (
+                                <CheckCircle className="h-4 w-4" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

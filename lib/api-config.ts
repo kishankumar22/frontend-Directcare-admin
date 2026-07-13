@@ -129,4 +129,12 @@ export const API_ENDPOINTS = {
     balance: '/api/loyalty/balance',
     history: '/api/loyalty/history'
   },
+
+  // Permissions
+  permissions: {
+    pages: '/api/Permissions/pages',
+    roles: (role: string) => `/api/Permissions/roles/${role}`,
+    users: (userId: string) => `/api/Permissions/users/${userId}`,
+    me: '/api/Permissions/me',
+  },
 };

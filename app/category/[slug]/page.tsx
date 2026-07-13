@@ -243,10 +243,32 @@ const breadcrumbs: BreadcrumbItem[] = [
   },
 ];
 
+  // Function to recursively get all unique brands from a category and its subcategories
+  const getAllBrands = (cat: any): any[] => {
+    if (!cat) return [];
+    const brandsMap = new Map();
+    const collect = (c: any) => {
+      if (c.brands && Array.isArray(c.brands)) {
+        c.brands.forEach((b: any) => {
+          if (!brandsMap.has(b.id)) {
+            brandsMap.set(b.id, b);
+          }
+        });
+      }
+      if (c.subCategories && Array.isArray(c.subCategories)) {
+        c.subCategories.forEach(collect);
+      }
+    };
+    collect(cat);
+    return Array.from(brandsMap.values());
+  };
+
+  const allBrands = getAllBrands(category);
+
   // Map brand slugs (from URL) → brand IDs (for API)
   const brandSlugs = searchParamsResolved.brands?.split(",").filter(Boolean) ?? [];
   const resolvedBrandIds = brandSlugs.length > 0
-    ? (category.brands ?? [] as any[])
+    ? allBrands
         .filter((b: any) => brandSlugs.includes(b.slug))
         .map((b: any) => b.id)
         .join(",")
@@ -389,7 +411,7 @@ mainEntity: {
       totalPages={productsRes.data?.totalPages ?? 1}
       initialSortBy={searchParamsResolved.sortBy || "name"}
       initialSortDirection={searchParamsResolved.sortDirection || "asc"}
-      brands={category.brands ?? []}
+      brands={allBrands}
       vatRates={vatRatesRes.data || []}
       discount={discount}
     />

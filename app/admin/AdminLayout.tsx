@@ -67,92 +67,96 @@ import ErrorBoundary from "@/app/admin/_components/ErrorBoundary";
 import ScrollToTopButton from "./_components/ScrollToTopButton";
 import { useAdminLogoutShortcut } from "./_hooks/useAdminLogoutShortcut";
 import { useAuth } from "./_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 interface NavigationItem {
   name: string;
   href?: string;
   icon: any;
   children?: NavigationItem[];
+  permissionKey?: string;
 }
 
 // Navigation with clean group organization
 const navigation: NavigationItem[] = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, permissionKey: 'dashboard' },
   {
     name: 'Catalog',
     icon: Layers,
     children: [
-      { name: 'Products', href: '/admin/products', icon: Package },
-      { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
-      { name: 'Categories', href: '/admin/categories', icon: FolderTree },
-      { name: 'Brands', href: '/admin/brands', icon: Tag },
-      { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
-      { name: 'Pharmacy Q&A', href: '/admin/pharmacy-questions', icon: ClipboardList },
-      { name: 'Pharma Products', href: '/admin/pharma-products', icon: ShieldCheck },
+      { name: 'Products', href: '/admin/products', icon: Package, permissionKey: 'products' },
+      { name: 'Inventory', href: '/admin/inventory', icon: Warehouse, permissionKey: 'inventory' },
+      { name: 'Categories', href: '/admin/categories', icon: FolderTree, permissionKey: 'categories' },
+      { name: 'Brands', href: '/admin/brands', icon: Tag, permissionKey: 'brands' },
+      { name: 'Product Reviews', href: '/admin/productReview', icon: Star, permissionKey: 'reviews' },
+      { name: 'Pharmacy Q&A', href: '/admin/pharmacy-questions', icon: ClipboardList, permissionKey: 'pharmacy' },
+      { name: 'Pharma Products', href: '/admin/pharma-products', icon: ShieldCheck, permissionKey: 'pharmacy' },
     ],
   },
   {
     name: 'Sales',
     icon: TrendingUp,
     children: [
-      { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
-      { name: 'Payments', href: '/admin/payments', icon: CreditCard },
-      { name: 'Customers', href: '/admin/customers', icon: Users },
-      { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
+      { name: 'Orders', href: '/admin/orders', icon: ShoppingCart, permissionKey: 'orders' },
+      { name: 'Payments', href: '/admin/payments', icon: CreditCard, permissionKey: 'orders' }, // Map to orders or another relevant key
+      { name: 'Customers', href: '/admin/customers', icon: Users, permissionKey: 'customers' },
+      { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen, permissionKey: 'subscriptions' },
     ],
   },
   {
     name: 'Marketing',
     icon: Gift,
     children: [
-      { name: 'Discounts', href: '/admin/discounts', icon: Percent },
-      { name: 'Newsletter', href: '/admin/newsletter', icon: Mail },
-      { name: 'Loyalty Points', href: '/admin/loyalty-points', icon: Coins },
-      { name: 'Loyalty Config', href: '/admin/loyalty-config', icon: Sliders },
+      { name: 'Discounts', href: '/admin/discounts', icon: Percent, permissionKey: 'discounts' },
+      { name: 'Newsletter', href: '/admin/newsletter', icon: Mail, permissionKey: 'newsletter' },
+      { name: 'Loyalty Points', href: '/admin/loyalty-points', icon: Coins, permissionKey: 'loyalty' },
+      { name: 'Loyalty Config', href: '/admin/loyalty-config', icon: Sliders, permissionKey: 'loyalty' },
     ],
   },
   {
     name: 'Shipping',
     icon: Truck,
     children: [
-      { name: 'Shipping Settings', href: '/admin/shipping', icon: Settings },
-      { name: 'Delivery Strips', href: '/admin/DeliveryStrip', icon: PackageOpen },
+      { name: 'Shipping Settings', href: '/admin/shipping', icon: Settings, permissionKey: 'shipping' },
+      { name: 'Delivery Strips', href: '/admin/DeliveryStrip', icon: PackageOpen, permissionKey: 'shipping' },
     ],
   },
   {
     name: 'Finance',
     icon: Receipt,
     children: [
-      { name: 'VAT Rates', href: '/admin/vatRates', icon: PoundSterling },
+      { name: 'VAT Rates', href: '/admin/vatRates', icon: PoundSterling, permissionKey: 'settings' }, // mapped to settings for now
     ],
   },
-  { name: 'Import / Export', href: '/admin/import-export', icon: FileSpreadsheet },
+  { name: 'Import / Export', href: '/admin/import-export', icon: FileSpreadsheet, permissionKey: 'products' }, // mapped to products
   {
     name: 'Content',
     icon: FileText,
     children: [
-      { name: 'Banners', href: '/admin/banners', icon: ImageIcon },
-      { name: 'Homepage Preview', href: '/admin/HomepagePreview', icon: Monitor },
-      { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban },
-      { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText },
-      { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare },
-      { name: 'Contacts', href: '/admin/contact', icon: Mail },
+      { name: 'Banners', href: '/admin/banners', icon: ImageIcon, permissionKey: 'banners' },
+      { name: 'Homepage Preview', href: '/admin/HomepagePreview', icon: Monitor, permissionKey: 'banners' },
+      { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban, permissionKey: 'blogs' },
+      { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText, permissionKey: 'blogs' },
+      { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare, permissionKey: 'blogs' },
+      { name: 'Contacts', href: '/admin/contact', icon: Mail, permissionKey: 'contact' },
     ],
   },
   {
     name: 'Staff Management',
     icon: Users,
     children: [
-      { name: 'Staff', href: '/admin/staff', icon: User },
-      { name: 'Staff Roles', href: '/admin/staff-roles', icon: ShieldCheck },
+      { name: 'Staff', href: '/admin/staff', icon: User, permissionKey: 'staff' },
+      { name: 'Staff Roles', href: '/admin/staff-roles', icon: ShieldCheck, permissionKey: 'staff' },
+      { name: 'Permissions', href: '/admin/permissions', icon: LockKeyhole, permissionKey: 'staff' },
     ],
   },
   {
     name: 'System',
     icon: Shield,
     children: [
-      { name: 'Activity Logs', href: '/admin/ActivityLogs', icon: Activity },
-      { name: 'Settings', href: '/admin/settings', icon: Settings },
+      { name: 'Activity Logs', href: '/admin/ActivityLogs', icon: Activity, permissionKey: 'activitylogs' },
+      { name: 'Settings', href: '/admin/settings', icon: Settings, permissionKey: 'settings' },
     ],
   },
 ];
@@ -164,6 +168,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: isAuthenticated,
+  });
+
+  const permissions = permissionsResponse?.data?.data || {};
+
+  const filteredNavigation = navigation
+    .map((item) => {
+      if (item.children) {
+        const filteredChildren = item.children.filter((child) => {
+          if (!child.permissionKey) return true;
+          return permissions[child.permissionKey]?.view === true;
+        });
+
+        if (filteredChildren.length === 0) return null;
+        return { ...item, children: filteredChildren };
+      }
+
+      if (item.permissionKey) {
+        if (permissions[item.permissionKey]?.view !== true) return null;
+      }
+
+      return item;
+    })
+    .filter(Boolean) as NavigationItem[];
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [isHovering, setIsHovering] = useState(false);
@@ -202,6 +234,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       currentPath.startsWith(navHref + '/')
     );
   };
+
+  const checkAccess = () => {
+    if (!permissions || Object.keys(permissions).length === 0) return true;
+    
+    let activeKey: string | undefined = undefined;
+    for (const item of navigation) {
+      if (item.children) {
+        const child = item.children.find(c => c.href && isActiveRoute(c.href, pathname));
+        if (child) {
+          activeKey = child.permissionKey;
+          break;
+        }
+      } else if (item.href && isActiveRoute(item.href, pathname)) {
+        activeKey = item.permissionKey;
+        break;
+      }
+    }
+
+    if (activeKey && permissions[activeKey]) {
+      return permissions[activeKey].view === true;
+    }
+    return true;
+  };
+
+  const hasAccess = checkAccess();
 
   const isParentActive = (children?: NavigationItem[]) => {
     if (!children) return false;
@@ -314,36 +371,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     };
   }, [profileDropdownOpen]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
 
-    const checkAndRefresh = async () => {
-      if (authService.isTokenExpiringSoon(10)) {
-        console.log("⚠️ Token expiring soon, refreshing...");
-
-        const refreshed = await authService.refreshToken();
-
-        if (refreshed) {
-          toast.success("🔄 Session Extended -> Your session has been automatically renewed for 1 hour", {
-            position: "top-center",
-            autoClose: 5000,
-          });
-
-          console.log("✅ Token refreshed successfully at", new Date().toLocaleTimeString());
-        } else {
-          toast.error("⏰ Session Expired -> Please login again to continue", {
-            position: "top-center",
-            autoClose: 5000,
-          });
-          router.replace("/login");
-        }
-      }
-    };
-
-    checkAndRefresh();
-    const interval = setInterval(checkAndRefresh, 2 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [router, toast, isAuthenticated]);
 
   useEffect(() => {
     navigation.forEach((item) => {
@@ -354,6 +382,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   const userEmail = user?.email || 'admin@ecom.com';
+  const userRole = user?.role || 'Admin';
   const userName = user?.firstName && user?.lastName
     ? `${user.firstName} ${user.lastName}`.trim()
     : user?.firstName || user?.lastName || 'Admin User';
@@ -468,7 +497,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* NAVIGATION */}
             <nav className={cn("flex-1 space-y-0.5 overflow-y-auto custom-scrollbar py-2", isSidebarExpanded ? "px-1.5" : "px-1")}>
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
                 const isExpanded = expandedMenus[item.name];
                 const isParentItemActive = hasChildren && isParentActive(item.children);
@@ -663,6 +692,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     )}>
                       {userEmail}
                     </p>
+                    <p className={cn(
+                      "text-[10px] font-medium tracking-wider uppercase mt-0.5 transition-colors duration-150",
+                      isLight ? "text-slate-400" : "text-slate-500"
+                    )}>
+                      {userRole}
+                    </p>
                   </div>
                   <button
                     onClick={handleLogout}
@@ -735,7 +770,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
 
             <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto custom-scrollbar">
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
                 const isExpanded = expandedMenus[item.name];
                 const isParentItemActive = hasChildren && isParentActive(item.children);
@@ -907,6 +942,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   )}>
                     {userEmail}
                   </p>
+                  <p className={cn(
+                    "text-[10px] font-medium tracking-wider uppercase mt-0.5 transition-colors duration-150",
+                    isLight ? "text-slate-400" : "text-slate-500"
+                  )}>
+                    {userRole}
+                  </p>
                 </div>
                 <button
                   onClick={handleLogout}
@@ -1058,21 +1099,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg", isLight ? "bg-[#5E7B5A] shadow-[#5E7B5A]/30 border border-white/10" : "bg-[#445D41] shadow-[#445D41]/30")}>
                           {userInitial}
                         </div>
-                        <div className="text-left">
-                          <p className={cn(
+                        <div className="text-left flex flex-col">
+                          <span className={cn(
                             "text-sm font-semibold leading-tight transition-colors duration-150",
                             isLight ? "text-slate-900" : "text-slate-800 dark:text-white"
                           )}>
                             {userName}
-                          </p>
+                          </span>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-150"></div>
-                            <p className={cn(
+                            <span className={cn(
                               "text-xs transition-colors duration-150",
                               isLight ? "text-slate-500" : "text-slate-400 dark:text-gray-500"
                             )}>
                               Online
-                            </p>
+                            </span>
                           </div>
                         </div>
                         <ChevronDown
@@ -1087,7 +1128,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       {/* Dropdown Menu */}
                       {profileDropdownOpen && (
                         <div className={cn(
-                          "absolute right-0 mt-2 w-56 border rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 profile-dropdown-menu",
+                          "absolute right-0 mt-2 w-56 border rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-[9999] profile-dropdown-menu",
                           isLight
                             ? "bg-white border-[#445D41]/20"
                             : "bg-slate-900 dark:bg-gray-900 border-slate-800 dark:border-gray-800"
@@ -1098,6 +1139,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                             </p>
                             <p className={cn("text-xs mt-0.5", isLight ? "text-gray-500" : "text-slate-500 dark:text-gray-500")}>
                               {userEmail}
+                            </p>
+                            <p className={cn("text-[10px] font-medium tracking-wider uppercase mt-0.5", isLight ? "text-slate-400" : "text-slate-500")}>
+                              {userRole}
                             </p>
                           </div>
 
@@ -1147,7 +1191,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               isLight ? "bg-slate-100" : "bg-slate-100 dark:bg-slate-950"
             )}>
               <div className="transition-all duration-150">
-                {children}
+                {!hasAccess ? (
+                  <div className="flex flex-col items-center justify-center h-[70vh] text-center px-4">
+                    <Shield className="h-16 w-16 text-red-500 mb-4 opacity-80" />
+                    <h2 className={cn("text-2xl font-bold mb-2", isLight ? "text-slate-900" : "text-white")}>Access Denied</h2>
+                    <p className={cn("text-base max-w-md", isLight ? "text-slate-600" : "text-slate-400")}>
+                      You don't have access to this page. Please contact your administrator to request access.
+                    </p>
+                  </div>
+                ) : (
+                  children
+                )}
                 <ScrollToTopButton />
               </div>
             </main>

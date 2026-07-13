@@ -219,6 +219,7 @@ interface Product {
   displayStockAvailability?: boolean;
   displayStockQuantity?: boolean;
   isPharmaProduct?: boolean;
+  pharmaApprovedAt?: string;
   fakeSaleCount?: number;
   saleCount?: number;
 }
@@ -598,6 +599,33 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       [title]: !prev[title]
     }));
   }, []);
+
+  const [hasPharmacyQuestions, setHasPharmacyQuestions] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (product.isPharmaProduct && product.id) {
+      setHasPharmacyQuestions(null); // Reset before fetching
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Products/${product.id}/pharmacy-form`)
+        .then(async res => {
+          if (res.status === 404) return { success: true, data: { questions: [] } };
+          if (!res.ok) throw new Error("API failed");
+          const text = await res.text();
+          if (!text) return { success: true, data: { questions: [] } };
+          return JSON.parse(text);
+        })
+        .then(json => {
+          if (json.success && json.data && Array.isArray(json.data.questions) && json.data.questions.length > 0) {
+            setHasPharmacyQuestions(true);
+          } else {
+            setHasPharmacyQuestions(false);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching pharmacy form:", err);
+          setHasPharmacyQuestions(false);
+        });
+    }
+  }, [product.id, product.isPharmaProduct]);
   // 🔥 Coupon Available (but not applied)
   const hasCouponAvailable = useMemo(() => {
     if (!product.assignedDiscounts) return false;
@@ -2449,7 +2477,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               {/* Brand */}
               {product.brandName && (
                 <p className="text-sm text-gray-600">
-                  by <span className="font-semibold text-[#445D41]">{product.brandName}</span>
+                  by <Link href={`/brands/${product.brandName.toLowerCase().replace(/\s+/g, '-')}`} className="font-semibold text-[#445D41] hover:underline cursor-pointer">{product.brandName}</Link>
                 </p>
               )}
               {/* Rating + Reviews */}
@@ -3311,30 +3339,47 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               <div className="text-[13px] text-gray-800 font-medium space-y-1">
                 <p>Checked for accuracy by: <span className="text-[#445D41] font-bold">Surabhi Kumari</span></p>
                 <p>Role: <span className="text-[#445D41] font-bold">Pharmacist</span></p>
-                <p>Date checked: <span className="text-[#445D41] font-bold">
-                  {product.publishedAt ? new Date(product.publishedAt).toLocaleDateString("en-GB") : 'N/A'}
-                </span></p>
+                {(product.pharmaApprovedAt || product.publishedAt) && (
+                  <p>Date checked: <span className="text-[#445D41] font-bold">
+                    {new Date(product.pharmaApprovedAt || product.publishedAt).toLocaleDateString("en-GB")}
+                  </span></p>
+                )}
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Pharmacy Info */}
-            <div className="flex items-start gap-2 border border-gray-200 rounded-lg p-4 bg-gray-50 shadow-sm w-full h-full">
-              <img src="/pharmacy-logo-v2.png" alt="Pharmacy Logo" className="w-12 h-12 object-contain flex-shrink-0 mt-1" />
-              <div>
-                <h3 className="text-base font-bold text-gray-800 mb-0.5">Pharmacy Medicine</h3>
-                <p className="text-[13px] text-gray-700 font-medium leading-snug">
-                  This is a Pharmacy Medicine, therefore you'll need to answer a few short questions so our pharmacy team can ensure this product is right for you.
+            {/* RIGHT COLUMN: Pharmacy Info OR Packaging Note depending on questions */}
+            {hasPharmacyQuestions !== false ? (
+              <div className="flex items-start gap-2 border border-gray-200 rounded-lg p-4 bg-gray-50 shadow-sm w-full h-full">
+                <img src="/pharmacy-logo-v2.png" alt="Pharmacy Logo" className="w-12 h-12 object-contain flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="text-base font-bold text-gray-800 mb-0.5">Pharmacy Medicine</h3>
+                  <p className="text-[13px] text-gray-700 font-medium leading-snug">
+                    This is a Pharmacy Medicine, therefore you'll need to answer a few short questions so our pharmacy team can ensure this product is right for you.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 rounded-lg border border-amber-100 bg-amber-100/60 p-4 shadow-sm w-full h-full">
+                <Info className="mt-0.5 h-5 w-5 text-amber-500 flex-shrink-0" />
+                <p className="text-md text-slate-600 leading-6">
+                  <span className="font-bold text-slate-900">Please note :</span>{" "}
+                  Product packaging may vary from the image shown.
                 </p>
               </div>
-            </div>
+            )}
 
-            {/* Pharma packaging note — Spans full width below the two columns */}
-            <div className="md:col-span-2">
-              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900">
-                <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-                <span><strong>Please note:</strong> Product packaging may vary from the image shown.</span>
+            {/* Pharma packaging note — Spans full width below ONLY if questions exist */}
+            {hasPharmacyQuestions !== false && (
+              <div className="md:col-span-2">
+                <div className="flex items-start gap-3 rounded-lg border border-amber-100 bg-amber-100/60 px-4 py-2">
+                  <Info className="mt-0.5 h-5 w-5 text-amber-500 flex-shrink-0" />
+                  <p className="text-md text-slate-600 leading-6">
+                    <span className="font-bold text-slate-900">Please note :</span>{" "}
+                    Product packaging may vary from the image shown.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

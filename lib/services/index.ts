@@ -12,4 +12,4 @@ export * from './blogComments';
 export * from './contact';
 export * from './orderCancellationRequests';
 export * from './GoogleMerchant';
-
+export * from './permissions';

@@ -21,6 +21,9 @@ import ConfirmDialog from "../_components/ConfirmDialog";
 import { getImageUrl } from "../_utils/formatUtils";
 import { getSelectStyles } from "../_utils/styles";
 import { useTheme } from "@/app/admin/_context/theme-provider";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 import React from "react";
 
 
@@ -81,6 +84,15 @@ export default function InventoryPage() {
   const { theme } = useTheme();
   const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { user } = useAuth();
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const inventoryPerms = myPermissions['inventory'] || { view: false, create: false, edit: false, delete: false };
 
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -638,11 +650,15 @@ export default function InventoryPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => router.push("/admin/products")} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 text-emerald-400 rounded-lg font-semibold transition-all"><ShoppingCart className="w-3.5 h-3.5" />Go to Products</button>
-          <button onClick={downloadAllProducts} disabled={downloadAllLoading} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg font-semibold transition-all">
-            {downloadAllLoading ? <RefreshCcw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            {downloadAllLoading ? "Downloading..." : "Download All Products"}
-          </button>
-          <button onClick={() => setImportOpen(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all"><Upload className="w-3.5 h-3.5" />Update Inventory</button>
+          {inventoryPerms.delete && (
+            <button onClick={downloadAllProducts} disabled={downloadAllLoading} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg font-semibold transition-all">
+              {downloadAllLoading ? <RefreshCcw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              {downloadAllLoading ? "Downloading..." : "Download All Products"}
+            </button>
+          )}
+          {inventoryPerms.create && (
+            <button onClick={() => setImportOpen(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all"><Upload className="w-3.5 h-3.5" />Update Inventory</button>
+          )}
         </div>
       </div>
 
@@ -859,7 +875,7 @@ export default function InventoryPage() {
                            </>
                         )}
                       </td>
-                      <td className="p-2.5 text-center">{changed ? <button disabled={priceInvalid} onClick={() => updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice, newOldPrice: p.newOldPrice }])} className={`p-2 rounded-lg transition-colors ${priceInvalid ? "bg-slate-800 text-slate-600 cursor-not-allowed border-slate-700" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"}`} title={priceInvalid ? "Old Price must be > New Price" : "Save Changes"}><Save className="h-4 w-4" /></button> : <span className="text-slate-800">—</span>}</td>
+                      <td className="p-2.5 text-center">{changed && inventoryPerms.edit ? <button disabled={priceInvalid} onClick={() => updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice, newOldPrice: p.newOldPrice }])} className={`p-2 rounded-lg transition-colors ${priceInvalid ? "bg-slate-800 text-slate-600 cursor-not-allowed border-slate-700" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"}`} title={priceInvalid ? "Old Price must be > New Price" : "Save Changes"}><Save className="h-4 w-4" /></button> : <span className="text-slate-800">—</span>}</td>
                     </tr>
                     {expandedRows.has(p.id) && p.variants?.map((v) => {
                       const vChanged = v.newStock !== v.stockQuantity || v.newPrice !== v.price || v.newOldPrice !== (v.oldPrice ?? 0);
@@ -912,7 +928,7 @@ export default function InventoryPage() {
                               </div>
                             )}
                           </td>
-                          <td className="p-2.5 text-center">{vChanged ? <button disabled={vPriceInvalid} onClick={() => updateInventory([{ productId: p.id, variantId: v.variantId, newStock: v.newStock, newPrice: v.newPrice, newOldPrice: v.newOldPrice }])} className={`p-2 rounded-lg transition-colors ${vPriceInvalid ? "bg-slate-800 text-slate-600 cursor-not-allowed border-slate-700" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"}`} title={vPriceInvalid ? "Old Price must be > New Price" : "Save Changes"}><Save className="h-4 w-4" /></button> : <span className="text-slate-800">—</span>}</td>
+                          <td className="p-2.5 text-center">{vChanged && inventoryPerms.edit ? <button disabled={vPriceInvalid} onClick={() => updateInventory([{ productId: p.id, variantId: v.variantId, newStock: v.newStock, newPrice: v.newPrice, newOldPrice: v.newOldPrice }])} className={`p-2 rounded-lg transition-colors ${vPriceInvalid ? "bg-slate-800 text-slate-600 cursor-not-allowed border-slate-700" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"}`} title={vPriceInvalid ? "Old Price must be > New Price" : "Save Changes"}><Save className="h-4 w-4" /></button> : <span className="text-slate-800">—</span>}</td>
                         </tr>
                       );
                     })}
@@ -939,7 +955,7 @@ export default function InventoryPage() {
         )}
       </div>
 
-      {changedProducts.length > 0 && (
+      {changedProducts.length > 0 && inventoryPerms.edit && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4">
           <div className="bg-slate-900/95 backdrop-blur-xl border border-amber-500/30 rounded-xl px-5 py-3 flex items-center justify-between gap-4 shadow-2xl">
             <div>

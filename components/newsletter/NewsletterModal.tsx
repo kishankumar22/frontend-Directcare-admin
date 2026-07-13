@@ -16,37 +16,37 @@ export default function NewsletterModal({
   success?: string | null;
 }) {
 
-const [email, setEmail] = useState("");
-const [loading, setLoading] = useState(false);
-const [localError, setLocalError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-const handleSubmit = async () => {
-  if (!email.trim()) {
-    setLocalError("Please enter your email");
-    return;
-  }
+  const handleSubmit = async () => {
+    if (!email.trim()) {
+      setLocalError("Please enter your email");
+      return;
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailRegex.test(email)) {
-    setLocalError("Please enter a valid email address");
-    return;
-  }
+    if (!emailRegex.test(email)) {
+      setLocalError("Please enter a valid email address");
+      return;
+    }
 
-  // 🔥 EXTRA CHECK (NO DOUBLE DOT)
-  if (email.includes("..")) {
-    setLocalError("Email cannot contain consecutive dots");
-    return;
-  }
+    // 🔥 EXTRA CHECK (NO DOUBLE DOT)
+    if (email.includes("..")) {
+      setLocalError("Email cannot contain consecutive dots");
+      return;
+    }
 
-  setLocalError(null);
+    setLocalError(null);
 
-  setLoading(true);
-  await onSubmit(email);
-  setLoading(false);
-};
+    setLoading(true);
+    await onSubmit(email);
+    setLoading(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[999]">
@@ -61,29 +61,29 @@ const handleSubmit = async () => {
         <input
           type="email"
           placeholder="Enter your email"
-           className=" w-full px-4 py-2 mb-4 rounded-md text-sm border border-[#445D41] focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-[#445D41] "
+          className=" w-full px-4 py-2 mb-4 rounded-md text-sm border border-[#445D41] focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-[#445D41] "
           value={email}
-         onChange={(e) => {
-  setEmail(e.target.value);
-  setLocalError(null);
-}}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setLocalError(null);
+          }}
         />
-{(localError || error) && (
-  <p className="text-sm text-red-600 mb-2 text-center">
-    {localError || error}
-  </p>
-)}
+        {(localError || error) && (
+          <p className="text-sm text-red-600 mb-2 text-center">
+            {localError || error}
+          </p>
+        )}
 
-{success && (
-  <p className="text-sm text-green-600 mb-2 text-center">
-    {success}
-  </p>
-)}
-       <button
-  onClick={handleSubmit}
-  disabled={loading || !!success}
-  className="w-full bg-[#445D41] text-white py-2 rounded-md hover:bg-black transition disabled:opacity-60"
->
+        {success && (
+          <p className="text-sm text-green-600 mb-2 text-center">
+            {success}
+          </p>
+        )}
+        <button
+          onClick={handleSubmit}
+          disabled={loading || !!success}
+          className="w-full bg-[#445D41] text-white py-2 rounded-md hover:bg-black transition disabled:opacity-60"
+        >
 
           {loading ? "Submitting..." : "Subscribe"}
         </button>
