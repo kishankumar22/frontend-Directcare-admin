@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, ShoppingCart, ChevronLeft, ChevronRight, BadgePercent, Zap, BellRing, Heart, CircleOff, PackageX, Award, Badge, Coins, AwardIcon } from "lucide-react";
+import { Star, StarHalf, ShoppingCart, ChevronLeft, ChevronRight, BadgePercent, Zap, BellRing, Heart, CircleOff, PackageX, Award, Badge, Coins, AwardIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Navigation, Pagination } from "swiper/modules";
@@ -647,9 +647,23 @@ export default function FeaturedProductsSlider({
                     <div className="flex items-center gap-1 min-h-[20px] mb-0 flex-nowrap overflow-hidden">
 
                       {/* ⭐ Rating badge */}
-                      <div className="flex items-center bg-green-600 text-white px-1 py-0.5 rounded text-[10px] font-semibold flex-shrink-0">
-                        <span>{product.averageRating?.toFixed(1)}</span>
-                        <Star className="h-2.5 w-2.5 ml-0.5 fill-white text-white" />
+                      <div className="flex items-center flex-shrink-0">
+                        {(() => {
+                          const rating = product.averageRating ?? 0;
+                          return Array.from({ length: 5 }, (_, i) => {
+                            const starIndex = i + 1;
+                            if (rating >= starIndex) {
+                              return <Star key={i} className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />;
+                            } else if (rating >= starIndex - 0.75) {
+                              return <StarHalf key={i} className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />;
+                            } else {
+                              return <Star key={i} className="h-2.5 w-2.5 text-gray-300" />;
+                            }
+                          });
+                        })()}
+                        <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
+                          {(product.averageRating ?? 0).toFixed(1)}
+                        </span>
                       </div>
 
                       {/* Review Count */}
@@ -658,12 +672,12 @@ export default function FeaturedProductsSlider({
                       </span>
 
                       {/* Loyalty */}
-                      {loyaltyPoints && (
+                      {/* {loyaltyPoints && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-green-700 bg-green-50 border border-green-200 px-0.5 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
                           <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
                           Earn {loyaltyPoints} pts
                         </span>
-                      )}
+                      )} */}
 
                     </div>
 

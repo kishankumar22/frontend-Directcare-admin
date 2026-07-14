@@ -41,11 +41,15 @@ import {
   Ban,
   Loader2,
   PackageX,
+  Info
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { Customer, CustomerQueryParams, customersService, CustomerStats } from "@/lib/services/customers";
 import { staffService, StaffRole } from "@/lib/services/staff";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getImageUrl  } from "../_utils/formatUtils";
@@ -83,6 +87,15 @@ const getPaymentColor = (status: string) => {
 
 export default function CustomersPage() {
   const toast = useToast();
+  const { user } = useAuth();
+  
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const customerPerms = myPermissions['customers'] || { view: false, create: false, edit: false, delete: false };
 
   // ✅ State Management
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -499,18 +512,32 @@ const modalTier = selectedCustomer
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-semibold text-white">Customer Management</h1>
-          <p className="text-[12px] text-slate-500 mt-0.5">Manage and analyze your customer base</p>
+          <p className="text-[12px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+            Manage and analyze your customer base
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• View Details / View Orders: Requires View permission
+• Export: Requires View permission
+• Assign Role: Requires Edit permission
+• Status Toggle (Active/Inactive): Requires Edit permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative" ref={exportMenuRef}>
-            <button
-               onClick={handleExportCurrentPage}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-[12px] transition-all"
-               title='Export Current Page'
-           >
-              <Download className="h-3.5 w-3.5" />
-              Export            
-            </button>
+            {customerPerms.view && (
+              <button
+                 onClick={handleExportCurrentPage}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-[12px] transition-all"
+                 title='Export Current Page'
+             >
+                <Download className="h-3.5 w-3.5" />
+                Export            
+              </button>
+            )}
        
           </div>
         </div>
@@ -712,7 +739,7 @@ const modalTier = selectedCustomer
                         </span>
                       </td>
                       <td className="py-2 px-2 text-center">
-                        <button onClick={() => setToggleConfirm(customer)}>{getStatusBadge(customer.isActive)}</button>
+                        <button onClick={() => customerPerms.edit ? setToggleConfirm(customer) : toast.error("You do not have permission to update customer status")}>{getStatusBadge(customer.isActive)}</button>
                       </td>
                       <td className="py-2 px-2">
                         <div className="flex items-center gap-1">
@@ -722,23 +749,29 @@ const modalTier = selectedCustomer
                       </td>
                       <td className="py-2 px-2">
                         <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => { setSelectedCustomer(customer); setIsModalOpen(true); }} className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md">
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => { setSelectedOrderCustomer(customer); setIsOrderModalOpen(true); }} className="p-1 text-green-400 hover:bg-green-500/10 rounded-md">
-                            <ShoppingBag className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setSelectedNewRole(customer.role || "Customer");
-                              setIsRoleModalOpen(true);
-                            }}
-                            className="p-1 text-blue-400 hover:bg-blue-500/10 rounded-md"
-                            title="Assign Role"
-                          >
-                            <UserCheck className="h-4 w-4" />
-                          </button>
+                          {customerPerms.view && (
+                            <>
+                              <button onClick={() => { setSelectedCustomer(customer); setIsModalOpen(true); }} className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md">
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button onClick={() => { setSelectedOrderCustomer(customer); setIsOrderModalOpen(true); }} className="p-1 text-green-400 hover:bg-green-500/10 rounded-md">
+                                <ShoppingBag className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                          {customerPerms.edit && (
+                            <button
+                              onClick={() => {
+                                setSelectedCustomer(customer);
+                                setSelectedNewRole(customer.role || "Customer");
+                                setIsRoleModalOpen(true);
+                              }}
+                              className="p-1 text-blue-400 hover:bg-blue-500/10 rounded-md"
+                              title="Assign Role"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -765,9 +798,11 @@ const modalTier = selectedCustomer
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Bulk actions: export selected customers.</p>
                 </div>
                 <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
-                <button onClick={handleExportSelected} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700">
-                  <Download className="h-4 w-4" /> Export ({selectedCustomers.length})
-                </button>
+                {customerPerms.view && (
+                  <button onClick={handleExportSelected} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700">
+                    <Download className="h-4 w-4" /> Export ({selectedCustomers.length})
+                  </button>
+                )}
                 <button onClick={() => setSelectedCustomers([])} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm rounded-lg transition-all border border-slate-200 dark:border-transparent">Clear</button>
               </div>
             </div>

@@ -76,8 +76,8 @@ async function getProducts(
   const {
     page = "1",
     pageSize = "20",
-    sortBy = "name",
-    sortDirection = "asc",
+    sortBy = "default",
+    sortDirection = "default",
     price,
     minRating,
     discountIds,
@@ -86,9 +86,10 @@ async function getProducts(
   const query = new URLSearchParams({
     page,
     pageSize,
-    sortBy,
-    sortDirection,
   });
+
+  if (sortBy && sortBy !== "default") query.set("sortBy", sortBy);
+  if (sortDirection && sortDirection !== "default") query.set("sortDirection", sortDirection);
 
   if (categorySlug) query.set("categorySlug", categorySlug);
   if (brandIds)     query.set("brandIds", brandIds);
@@ -409,8 +410,8 @@ mainEntity: {
       currentPage={productsRes.data?.page ?? 1}
       pageSize={productsRes.data?.pageSize ?? 20}
       totalPages={productsRes.data?.totalPages ?? 1}
-      initialSortBy={searchParamsResolved.sortBy || "name"}
-      initialSortDirection={searchParamsResolved.sortDirection || "asc"}
+      initialSortBy={searchParamsResolved.sortBy || "default"}
+      initialSortDirection={searchParamsResolved.sortDirection || "default"}
       brands={allBrands}
       vatRates={vatRatesRes.data || []}
       discount={discount}

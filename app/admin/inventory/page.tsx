@@ -9,6 +9,7 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
+  Info
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { productsService } from "@/lib/services";
@@ -662,7 +663,18 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <p className="text-xs text-slate-400 mt-1">Update stock & prices · {totalCount.toLocaleString()} products</p>
+      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+        Update stock & prices &middot; {totalCount.toLocaleString()} products
+        {user?.role?.toLowerCase() === 'admin' && (
+          <span title={`Button Visibility:
+• Save / Save All: Requires Edit permission
+• Download All Products: Requires Delete permission
+• Update Inventory: Requires Create permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+            <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+          </span>
+        )}
+      </p>
 
       <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl px-2 py-2">
         <div className="flex flex-wrap items-center gap-3">

@@ -11,6 +11,9 @@ import {
 import { useToast } from '../_components/CustomToast';
 import { API_BASE_URL } from '@/lib/api-config';
 import GoogleMerchantSettings from './GoogleMerchantSettings';
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1045,6 +1048,16 @@ const handleToggleStatus = async () => {
 
 export default function SettingsPage() {
   const toast = useToast();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const settingsPerms = myPermissions['settings'] || { view: false, create: false, edit: false, delete: false };
+
   const [activeTab, setActiveTab] = useState('general');
   const [settings, setSettings] = useState<StoreSettingsDto>(DEFAULT);
   const [loading, setLoading] = useState(true);
@@ -1093,7 +1106,16 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white">Settings</h1>
-            <p className="text-xs text-slate-400">Configure your store, payments, and admin panel</p>
+            <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+              Configure your store, payments, and admin panel
+              {user?.role?.toLowerCase() === 'admin' && (
+                <span title={`Button Visibility:
+• Save Changes: Requires Edit permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                  <Info className="h-3.5 w-3.5 text-slate-500 hover:text-slate-300 cursor-help transition-colors" />
+                </span>
+              )}
+            </p>
           </div>
         </div>
         {settings.updatedBy && (
@@ -1158,7 +1180,7 @@ export default function SettingsPage() {
       )}
 
       {/* Sticky save bar — not shown for Store Locations (has its own CRUD) */}
-      {!loading && !error && activeTab !== 'store-locations' && activeTab !== 'google-merchant' && (
+      {!loading && !error && activeTab !== 'store-locations' && activeTab !== 'google-merchant' && settingsPerms.edit && (
         <div className="sticky bottom-4 flex justify-end pointer-events-none">
           <div className="bg-slate-900/90 backdrop-blur border border-slate-700/60 rounded-xl px-4 py-3 flex items-center gap-3 shadow-xl pointer-events-auto">
             <span className="text-xs text-slate-400 hidden sm:block">Saved to database</span>

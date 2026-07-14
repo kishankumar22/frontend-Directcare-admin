@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/app/admin/_components/CustomToast';
 import { useDebounce } from '@/app/admin/_hooks/useDebounce';
@@ -9,9 +9,21 @@ import { staffService, type StaffRole } from '@/lib/services/staff';
 import { BulkSelectionBar, exportRolesToXlsx, RoleConfirmDialogs, RoleFilters, RoleFormModal, RoleTable, RoleViewModal, type RoleAction } from './RoleComponents';
 
 import { getBackendMessage } from '@/app/admin/_utils/errorUtils';
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 export default function StaffRolesPage() {
   const toast = useToast();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const staffPerms = myPermissions['staff'] || { view: false, create: false, edit: false, delete: false };
   const router = useRouter();
   const toastRef = useRef(toast);
 
@@ -256,7 +268,19 @@ export default function StaffRolesPage() {
             </h1>
             <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{filtered.length} roles</div>
           </div>
-          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5">Create and manage roles </p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
+            Create and manage roles 
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• Create Role: Requires Create permission
+• View Role: Requires View permission
+• Edit Role: Requires Edit permission
+• Delete Role: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-help transition-colors" />
+              </span>
+            )}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -270,14 +294,16 @@ export default function StaffRolesPage() {
             Refresh
           </button>
 
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/40 transition-all"
-            type="button"
-          >
-            <Plus className="h-4 w-4" />
-            Create Role
-          </button>
+          {staffPerms.create && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/40 transition-all"
+              type="button"
+            >
+              <Plus className="h-4 w-4" />
+              Create Role
+            </button>
+          )}
 
           <button
             type="button"
@@ -310,6 +336,7 @@ export default function StaffRolesPage() {
         sortField={sortField}
         sortOrder={sortOrder}
         onSort={handleSort}
+        permissions={staffPerms}
       />
 
       <RoleFormModal

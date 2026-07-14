@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle, ExternalLink, Info } from "lucide-react";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -1309,7 +1309,20 @@ useEffect(() => {
     <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
       Categories Management
     </h1>
-    <p className="text-[12px] text-slate-500">Manage product categories</p>
+    <p className="text-[12px] text-slate-500 flex items-center gap-1.5">
+      Manage product categories
+      {user?.role?.toLowerCase() === 'admin' && (
+        <span title={`Button Visibility:
+• Add Category / Add Subcategory: Requires Create permission
+• View: Requires View permission
+• Edit / Manage FAQs: Requires Edit permission
+• Delete / Restore: Requires Delete permission
+• Status Toggle (Active/Inactive): Requires Edit permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+          <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+        </span>
+      )}
+    </p>
   </div>
 
   {/* Actions */}

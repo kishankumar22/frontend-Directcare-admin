@@ -67,6 +67,7 @@ import {
 } from '@/lib/services/OrderEdit';
 import RefundHistorySection from '../RefundHistorySection';
 import EditHistorySection from '../EditHistorySection';
+import AdminOrderComments from '../AdminOrderComments';
 import RefundModals from '../RefundModals';
 import PharmacyVerificationModal from '../PharmacyVerificationModal';
 import { API_BASE_URL } from '@/lib/api';
@@ -2590,6 +2591,10 @@ export default function OrderDetailPage() {
           </p>
         </div>
       )}
+
+      {/* ✅ NEW: Admin Comments */}
+      <AdminOrderComments orderId={order.id} />
+
       {/* Modals */}
       <OrderEditModal
         isOpen={editModalOpen}

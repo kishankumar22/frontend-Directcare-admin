@@ -33,11 +33,15 @@ import {
   Shield,
   Settings,
   AlertTriangle,
+  Info as InfoIcon,
 } from "lucide-react";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { getSelectStyles } from "@/app/admin/_utils/styles";
 import { useTheme } from "@/app/admin/_context/theme-provider";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 import {
   activityLogService,
   ActivityLog,
@@ -237,6 +241,16 @@ function ConfirmationModal({
 export default function ActivityLogsPage() {
   const toast = useToast();
   const { theme } = useTheme();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const activityLogsPerms = myPermissions['activitylogs'] || { view: false, create: false, edit: false, delete: false };
+
   const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
 
   // ✅ State Management
@@ -886,7 +900,17 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-600 via-cyan-600 to-pink-600 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text text-transparent">
             Activity Logs
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-0.5">Monitor and track all system activities</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+            Monitor and track all system activities
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• Export/View: Requires View permission
+• Delete/Clear All: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                <InfoIcon className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-help transition-colors" />
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Button Group: Export + Clear All */}
@@ -950,7 +974,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           </div>
 
           {/* Delete Selected Button */}
-          {selectedLogs.length > 0 && (
+          {selectedLogs.length > 0 && activityLogsPerms.delete && (
             <button
               onClick={handleDeleteSelected}
               title="Delete selected logs"
@@ -962,14 +986,16 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           )}
 
           {/* Clear All Button */}
+          {activityLogsPerms.delete && (
           <button
             onClick={handleClearAllLogs}
             title="Clear all activity logs"
             className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-orange-500/50 transition-all"
           >
             <RotateCcw className="h-4 w-4" />
-            <span className="text-sm">Clear All</span>
+            <span className="text-sm">Clear All Logs</span>
           </button>
+          )}
         </div>
       </div>
 
@@ -1472,23 +1498,28 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
                     {/* Actions */}
                     <td className="py-2.5 px-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedLog(log);
-                            setIsModalOpen(true);
-                          }}
-                          className="p-1.5 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSingleLog(log)}
-                          className="p-1.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-all"
-                          title="Delete Log"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {activityLogsPerms.view && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLog(log);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 rounded-lg transition-all"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
+                        {activityLogsPerms.delete && (
+                          <button
+                            onClick={() => handleDeleteSingleLog(log)}
+                            className="p-1.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-all"
+                            title="Delete Log"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1528,6 +1559,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
           {/* EXPORT */}
+          {activityLogsPerms.view && (
           <button
             onClick={handleExportSelected}
             className="inline-flex items-center gap-2 rounded-lg 
@@ -1537,8 +1569,10 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
             <Download className="h-4 w-4" />
             Export ({selectedLogs.length})
           </button>
+          )}
 
           {/* DELETE */}
+          {activityLogsPerms.delete && (
           <button
             onClick={handleDeleteSelected}
             className="inline-flex items-center gap-2 rounded-lg 
@@ -1548,6 +1582,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
             <Trash2 className="h-4 w-4" />
             Delete
           </button>
+          )}
 
           {/* CLEAR */}
           <button

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Truck, Plus, Edit, Trash2, X, Check, AlertTriangle, MapPin,
-  PackageCheck, Clock, PoundSterling, Zap, ShoppingBag, AlertCircle, Eye,
-} from "lucide-react";
+import { PackageCheck, MapPin, Plus, Edit, Trash2, Eye, X, Check, Truck, Globe, Clock, Banknote, ShieldAlert, ArrowRight, ToggleLeft, ToggleRight, Info, ShoppingBag, AlertTriangle, PoundSterling, AlertCircle, Zap } from "lucide-react";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import { useToast } from "@/app/admin/_components/CustomToast";
 
@@ -46,12 +46,33 @@ const inp = "w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-l
 
 export default function ShippingPage() {
   const [tab, setTab] = useState<"delivery" | "postcodes">("delivery");
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const shippingPerms = myPermissions['shipping'] || { view: false, create: false, edit: false, delete: false };
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">Shipping</h1>
-          <p className="text-slate-500 text-xs mt-0.5">Manage delivery options and postcode rules</p>
+          <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1.5">
+            Manage delivery options and postcode rules
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• Add/Create: Requires Create permission
+• View Details: Requires View permission
+• Edit: Requires Edit permission
+• Delete: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+              </span>
+            )}
+          </p>
         </div>
       </div>
 
@@ -64,12 +85,12 @@ export default function ShippingPage() {
         ))}
       </div>
 
-      {tab === "delivery" ? <DeliveryTab /> : <PostcodeTab />}
+      {tab === "delivery" ? <DeliveryTab perms={shippingPerms} /> : <PostcodeTab perms={shippingPerms} />}
     </div>
   );
 }
 
-function DeliveryTab() {
+function DeliveryTab({ perms }: { perms: any }) {
   const toast = useToast();
   const [options, setOptions] = useState<DeliveryOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,9 +162,11 @@ function DeliveryTab() {
       <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/50">
           <p className="text-slate-400 text-xs">{options.length} option{options.length !== 1 ? "s" : ""}</p>
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
-            <Plus className="w-3.5 h-3.5" /> Add Option
-          </button>
+          {perms.create && (
+            <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
+              <Plus className="w-3.5 h-3.5" /> Add Option
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -175,9 +198,9 @@ function DeliveryTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <button onClick={() => setViewing(opt)} className="p-1 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded transition-all" title="View"><Eye className="w-3 h-3" /></button>
-                  <button onClick={() => openEdit(opt)} className="p-1 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-all" title="Edit"><Edit className="w-3 h-3" /></button>
-                  <button onClick={() => remove(opt.id, opt.displayName)} className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all" title="Delete"><Trash2 className="w-3 h-3" /></button>
+                  {perms.view && <button onClick={() => setViewing(opt)} className="p-1 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded transition-all" title="View"><Eye className="w-3 h-3" /></button>}
+                  {perms.edit && <button onClick={() => openEdit(opt)} className="p-1 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-all" title="Edit"><Edit className="w-3 h-3" /></button>}
+                  {perms.delete && <button onClick={() => remove(opt.id, opt.displayName)} className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all" title="Delete"><Trash2 className="w-3 h-3" /></button>}
                 </div>
               </div>
             ))}
@@ -219,9 +242,11 @@ function DeliveryTab() {
             </div>
             <div className="flex gap-2 px-4 py-3 border-t border-slate-800">
               <button onClick={() => setViewing(null)} className="flex-1 px-3 py-1.5 border border-slate-700 text-slate-400 text-xs font-medium rounded-lg hover:bg-slate-800 hover:text-white transition-all">Close</button>
-              <button onClick={() => { openEdit(viewing); setViewing(null); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-xs font-semibold rounded-lg transition-all">
-                <Edit className="w-3 h-3" /> Edit
-              </button>
+              {perms.edit && (
+                <button onClick={() => { openEdit(viewing); setViewing(null); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-xs font-semibold rounded-lg transition-all">
+                  <Edit className="w-3 h-3" /> Edit
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -292,7 +317,7 @@ function DeliveryTab() {
   );
 }
 
-function PostcodeTab() {
+function PostcodeTab({ perms }: { perms: any }) {
   const toast = useToast();
   const [rules, setRules] = useState<PostcodeRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -366,9 +391,11 @@ function PostcodeTab() {
               </button>
             ))}
           </div>
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
-            <Plus className="w-3.5 h-3.5" /> Add Rule
-          </button>
+          {perms.create && (
+            <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
+              <Plus className="w-3.5 h-3.5" /> Add Rule
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -396,9 +423,9 @@ function PostcodeTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <button onClick={() => setViewing(rule)} className="p-1 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded transition-all" title="View"><Eye className="w-3 h-3" /></button>
-                  <button onClick={() => openEdit(rule)} className="p-1 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-all" title="Edit"><Edit className="w-3 h-3" /></button>
-                  <button onClick={() => remove(rule.id, rule.postcodePattern)} className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all" title="Delete"><Trash2 className="w-3 h-3" /></button>
+                  {perms.view && <button onClick={() => setViewing(rule)} className="p-1 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded transition-all" title="View"><Eye className="w-3 h-3" /></button>}
+                  {perms.edit && <button onClick={() => openEdit(rule)} className="p-1 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-all" title="Edit"><Edit className="w-3 h-3" /></button>}
+                  {perms.delete && <button onClick={() => remove(rule.id, rule.postcodePattern)} className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-all" title="Delete"><Trash2 className="w-3 h-3" /></button>}
                 </div>
               </div>
             ))}
@@ -441,9 +468,11 @@ function PostcodeTab() {
             </div>
             <div className="flex gap-2 px-4 py-3 border-t border-slate-800">
               <button onClick={() => setViewing(null)} className="flex-1 px-3 py-1.5 border border-slate-700 text-slate-400 text-xs font-medium rounded-lg hover:bg-slate-800 hover:text-white transition-all">Close</button>
-              <button onClick={() => { openEdit(viewing); setViewing(null); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-xs font-semibold rounded-lg transition-all">
-                <Edit className="w-3 h-3" /> Edit
-              </button>
+              {perms.edit && (
+                <button onClick={() => { openEdit(viewing); setViewing(null); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-xs font-semibold rounded-lg transition-all">
+                  <Edit className="w-3 h-3" /> Edit
+                </button>
+              )}
             </div>
           </div>
         </div>

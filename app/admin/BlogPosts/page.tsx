@@ -7,12 +7,17 @@ import {
   Star, MessageSquare, RotateCcw, FolderTree, ChevronLeft,
   ChevronRight, TrendingUp, BookOpen, Users, BarChart2,
   CheckCircle, Clock, X,
+  Info,
 } from "lucide-react";
 
 import { BlogPost, blogPostsService, BlogCategory } from "@/lib/services/blogPosts";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { getImageUrl } from "../_utils/formatUtils";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
+
 
 
 
@@ -29,6 +34,15 @@ const getAllComments = (comments: any[]): any[] => {
 export default function BlogPostsPage() {
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const blogsPerms = myPermissions['blogs'] || { view: false, create: false, edit: false, delete: false };
 
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<BlogCategory[]>([]);
@@ -135,7 +149,19 @@ export default function BlogPostsPage() {
           <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Blog Posts
           </h1>
-          <p className="text-slate-500 text-xs mt-0.5">{stats.total} posts · {stats.published} published · {stats.drafts} drafts</p>
+          <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1.5">
+            {stats.total} posts • {stats.published} published • {stats.drafts} drafts
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• New Post: Requires Create permission
+• View Post: Requires View permission
+• Edit Post: Requires Edit permission
+• Delete / Restore Post: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => router.push("/admin/comments")}
@@ -146,10 +172,12 @@ export default function BlogPostsPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/15 border border-violet-500/30 text-violet-400 hover:bg-violet-500/25 text-xs font-semibold rounded-lg transition-all">
             <FolderTree className="w-3.5 h-3.5" />Go to Blog Category Page
           </button>
-          <button onClick={() => router.push("/admin/BlogPosts/create")}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
-            <Plus className="w-3.5 h-3.5" /> New Post
-          </button>
+          {blogsPerms.create && (
+            <button onClick={() => router.push("/admin/BlogPosts/create")}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
+              <Plus className="w-3.5 h-3.5" /> New Post
+            </button>
+          )}
         </div>
       </div>
 
@@ -407,32 +435,42 @@ export default function BlogPostsPage() {
                     <div className="flex items-center gap-0.5">
                       {!post.isDeleted ? (
                         <>
-                          <a
-  href={`/blog/${post.slug}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  className="inline-flex p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
-  title="View"
->
-  <Eye className="w-3.5 h-3.5" />
-</a>
-                          <button
-                            onClick={() => router.push(`/admin/BlogPosts/edit/${post.id}`)}
-                            className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all" title="Edit">
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setConfirm({ id: post.id, title: post.title, action: "delete" })}
-                            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Delete">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {blogsPerms.view && (
+                            <a
+                              href={`https://www.direct-care.co.uk/blogs/${post.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
+                              title="View"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                          {blogsPerms.edit && (
+                            <button
+                              onClick={() => router.push(`/admin/BlogPosts/edit/${post.id}`)}
+                              className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all" title="Edit">
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {blogsPerms.delete && (
+                            <button
+                              onClick={() => setConfirm({ id: post.id, title: post.title, action: "delete" })}
+                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Delete">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </>
                       ) : (
-                        <button
-                          onClick={() => setConfirm({ id: post.id, title: post.title, action: "restore" })}
-                          className="flex items-center gap-1 px-2 py-1 text-green-400 hover:bg-green-500/10 border border-green-500/20 rounded-lg text-[10px] font-medium transition-all">
-                          <RotateCcw className="w-3 h-3" /> Restore
-                        </button>
+                        <>
+                          {blogsPerms.delete && (
+                            <button
+                              onClick={() => setConfirm({ id: post.id, title: post.title, action: "restore" })}
+                              className="flex items-center gap-1 px-2 py-1 text-green-400 hover:bg-green-500/10 border border-green-500/20 rounded-lg text-[10px] font-medium transition-all">
+                              <RotateCcw className="w-3 h-3" /> Restore
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

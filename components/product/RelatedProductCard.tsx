@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import QuantitySelector from "@/components/shared/QuantitySelector";
-import { Star, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart } from "lucide-react";
+import { Star, StarHalf, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart } from "lucide-react";
 
 import { useWishlist } from "@/context/WishlistContext";
 import {
@@ -485,9 +485,23 @@ systemDiscountAmount:
       {/* RATING + REVIEW + LOYALTY — single compact row */}
 <div className="flex items-center gap-1 min-h-[20px] mb-2 flex-nowrap overflow-hidden">
 
-  <div className="flex items-center bg-green-600 text-white px-1 py-0.5 rounded text-[10px] font-semibold flex-shrink-0">
-    <span>{product.averageRating?.toFixed(1)}</span>
-    <Star className="h-2.5 w-2.5 ml-0.5 fill-white text-white" />
+  <div className="flex items-center flex-shrink-0">
+    {(() => {
+      const rating = product.averageRating ?? 0;
+      return Array.from({ length: 5 }, (_, i) => {
+        const starIndex = i + 1;
+        if (rating >= starIndex) {
+          return <Star key={i} className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />;
+        } else if (rating >= starIndex - 0.75) {
+          return <StarHalf key={i} className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />;
+        } else {
+          return <Star key={i} className="h-2.5 w-2.5 text-gray-300" />;
+        }
+      });
+    })()}
+    <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
+      {(product.averageRating ?? 0).toFixed(1)}
+    </span>
   </div>
 
   <span className="text-[10px] text-gray-500 flex-shrink-0">
@@ -500,12 +514,12 @@ systemDiscountAmount:
     </span>
   )}
 
-  {getLoyaltyPoints() > 0 && (
+  {/* {getLoyaltyPoints() > 0 && (
     <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
       <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
       Earn {getLoyaltyPoints()} pts
     </span>
-  )}
+  )} */}
 
 </div>
 

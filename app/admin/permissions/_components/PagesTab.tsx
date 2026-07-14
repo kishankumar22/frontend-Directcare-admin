@@ -29,31 +29,31 @@ export function PagesTab() {
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-md bg-card">
+      <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#1e293b] shadow-sm">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Page Name</TableHead>
-              <TableHead>Group</TableHead>
-              <TableHead>Permission Key</TableHead>
+          <TableHeader className="bg-slate-50 dark:bg-[#1e293b] border-b border-slate-200 dark:border-slate-800">
+            <TableRow className="hover:bg-transparent border-0">
+              <TableHead className="font-bold text-slate-500 dark:text-slate-400 text-xs tracking-wider h-10 uppercase px-4">Page Name</TableHead>
+              <TableHead className="font-bold text-slate-500 dark:text-slate-400 text-xs tracking-wider h-10 uppercase px-4">Group</TableHead>
+              <TableHead className="font-bold text-slate-500 dark:text-slate-400 text-xs tracking-wider h-10 uppercase px-4">Permission Key</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {pages.length > 0 ? (
-              pages.map((page) => (
-                <TableRow key={page.id}>
-                  <TableCell className="font-medium">{page.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="bg-muted/50">{page.group}</Badge>
+              pages.map((page: any) => (
+                <TableRow key={page.id} className="border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                  <TableCell className="font-semibold text-slate-800 dark:text-slate-200 py-3 px-4">{page.name}</TableCell>
+                  <TableCell className="py-3 px-4">
+                    <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700">{page.group}</Badge>
                   </TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-muted p-1 rounded font-mono text-muted-foreground">{page.key}</code>
+                  <TableCell className="py-3 px-4">
+                    <code className="text-[11px] bg-slate-50 dark:bg-[#0f172a] p-1 px-2 rounded-md font-mono text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-800">{page.key}</code>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                <TableCell colSpan={3} className="text-center py-12 text-slate-500">
                   No pages found.
                 </TableCell>
               </TableRow>

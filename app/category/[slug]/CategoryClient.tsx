@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { getDiscountBadge, getDiscountedPrice, } from "@/app/lib/discountHelpers";
-import GenderBadge from "@/components/shared/GenderBadge";
+
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import ProductCard from "@/components/ProductCard";
@@ -165,9 +165,9 @@ export default function CategoryClient({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const isFetchingRef = useRef(false);
   const fetchCbRef = useRef<() => void>(() => { });
-  const [sortBy, setSortBy] = useState((initialSortBy ?? "name").toLowerCase());
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
-    initialSortDirection as "asc" | "desc"
+  const [sortBy, setSortBy] = useState((initialSortBy ?? "default").toLowerCase());
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | "default">(
+    initialSortDirection as "asc" | "desc" | "default"
   );
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>(() => {
@@ -470,8 +470,8 @@ export default function CategoryClient({
       const query = new URLSearchParams();
       query.set("page", String(page + 1));
       query.set("pageSize", String(pageSize));
-      query.set("sortBy", sortBy);
-      query.set("sortDirection", sortDirection);
+      if (sortBy !== "default") query.set("sortBy", sortBy);
+      if (sortDirection !== "default") query.set("sortDirection", sortDirection);
 
       // subCategorySlug (comma-separated) → categorySlug, else main slug
       const subSlug = searchParams.get("subCategorySlug");
@@ -585,11 +585,11 @@ const handleSortChange = useCallback((value: string) => {
   const [newSortBy, newDirection] = value.split("-");
 
   setSortBy(newSortBy);
-  setSortDirection(newDirection as "asc" | "desc");
+  setSortDirection(newDirection as "asc" | "desc" | "default");
 
   updateServerFilters({
-    sortBy: newSortBy,
-    sortDirection: newDirection,
+    sortBy: newSortBy === "default" ? "" : newSortBy,
+    sortDirection: newDirection === "default" ? "" : newDirection,
   });
 }, [updateServerFilters]);
   const [showPharmaModal, setShowPharmaModal] = useState(false);
@@ -845,6 +845,7 @@ const handleSortChange = useCallback((value: string) => {
               onChange={(e) => handleSortChange(e.target.value)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
             >
+              <option value="default-default">Default Sorting</option>
               <option value="name-asc">A-Z</option>
               <option value="name-desc">Z-A</option>
               <option value="price-asc">Low-High</option>

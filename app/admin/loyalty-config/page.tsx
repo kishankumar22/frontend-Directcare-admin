@@ -31,9 +31,21 @@ import {
   calculateRedemptionValue,
   getTierName 
 } from '@/lib/services/loyaltyConfig';
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 export default function LoyaltyConfigPage() {
   const toast = useToast();
+  const { user } = useAuth();
+  
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const loyaltyPerms = myPermissions['loyalty'] || { view: false, create: false, edit: false, delete: false };
 
   // STATE MANAGEMENT
   const [config, setConfig] = useState<LoyaltyConfig | null>(null);
@@ -225,24 +237,6 @@ export default function LoyaltyConfigPage() {
     );
   }
 
-  if (!config) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <p className="text-slate-400 text-lg">Failed to load loyalty configuration</p>
-          <button
-            onClick={fetchConfig}
-            className="mt-4 px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-all flex items-center gap-2 mx-auto"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // MAIN RENDER
   return (
     <div className="space-y-3">
@@ -253,29 +247,60 @@ export default function LoyaltyConfigPage() {
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Loyalty Program Configuration
           </h1>
-          <p className="text-slate-400 text-sm mt-0.5">
+          <p className="text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
             Manage reward points, redemption rates, and tier systems
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• Create Configuration: Requires Create permission
+• Edit Configuration: Requires Edit permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                <Info className="h-4 w-4 text-slate-500 hover:text-slate-300 cursor-help transition-colors" />
+              </span>
+            )}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleEdit}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
-          >
-            <Edit className="h-4 w-4" />
-            Edit Configuration
-          </button>
-
-          <button
-            onClick={handleCreate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/40 transition-all"
-          >
-            <Save className="h-4 w-4" />
-            Create Configuration
-          </button>
+          {loyaltyPerms.edit && config && (
+            <button
+              onClick={handleEdit}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Configuration
+            </button>
+          )}
         </div>
       </div>
+
+      {!config ? (
+        <div className="flex flex-col items-center justify-center py-24 bg-slate-900/50 rounded-2xl border border-slate-800">
+          <AlertCircle className="h-16 w-16 text-slate-500 mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">No Configuration Found</h2>
+          <p className="text-slate-400 text-sm mb-6 max-w-md text-center">
+            There is currently no loyalty program configuration active in the system. You can create one to enable rewards for your customers.
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchConfig}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </button>
+            {loyaltyPerms.create && (
+              <button
+                onClick={handleCreate}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg transition-all flex items-center gap-2 font-semibold shadow-lg hover:shadow-emerald-500/40"
+              >
+                <Save className="h-4 w-4" />
+                Create Configuration
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
 
       {/* STATUS CARD */}
       <div className={`p-3 rounded-xl border-2 ${
@@ -645,8 +670,10 @@ export default function LoyaltyConfigPage() {
           </div>
         )}
       </div>
+      </>
+      )}
 
-      {/* ✅ EDIT MODAL WITH NaN FIX + DIGIT RESTRICTIONS */}
+      {/* o. EDIT MODAL WITH NaN FIX + DIGIT RESTRICTIONS */}
       {isModalOpen && editedConfig && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
@@ -718,7 +745,7 @@ export default function LoyaltyConfigPage() {
                       max="99999"
                       step="0.1"
                       maxLength={5}
-                      value={editedConfig.pointsPerPound ?? ''}
+                      value={editedConfig.pointsPerPound || ''}
                       onChange={(e) => {
                         const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                         if (e.target.value.length <= 5) {
@@ -758,7 +785,7 @@ export default function LoyaltyConfigPage() {
                       max="999999"
                       step="0.01"
                       maxLength={6}
-                      value={editedConfig.minimumOrderAmountForPoints ?? ''}
+                      value={editedConfig.minimumOrderAmountForPoints || ''}
                       onChange={(e) => {
                         const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
                         if (e.target.value.length <= 6) {
@@ -834,7 +861,7 @@ export default function LoyaltyConfigPage() {
         type="number"
         min="1"
         max="999999"
-        value={editedConfig.redemptionRate ?? ''}
+        value={editedConfig.redemptionRate || ''}
         onChange={(e) => {
           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
           setEditedConfig({ ...editedConfig, redemptionRate: value });
@@ -863,7 +890,7 @@ export default function LoyaltyConfigPage() {
         type="number"
         min="0"
         max="999999"
-        value={editedConfig.minimumRedemptionPoints ?? ''}
+        value={editedConfig.minimumRedemptionPoints || ''}
         onChange={(e) => {
           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
           setEditedConfig({ ...editedConfig, minimumRedemptionPoints: value });
@@ -894,7 +921,7 @@ export default function LoyaltyConfigPage() {
         type="number"
         min="0"
         max="100"
-        value={editedConfig.maxRedemptionPercentOfOrder ?? ''}
+        value={editedConfig.maxRedemptionPercentOfOrder || ''}
         onChange={(e) => {
           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
           setEditedConfig({ ...editedConfig, maxRedemptionPercentOfOrder: value });
@@ -923,7 +950,7 @@ export default function LoyaltyConfigPage() {
         type="number"
         min="100"
         max="999999"
-        value={editedConfig.maxPointsPerRedemption ?? ''}
+        value={editedConfig.maxPointsPerRedemption || ''}
         onChange={(e) => {
           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
           setEditedConfig({ ...editedConfig, maxPointsPerRedemption: value });
@@ -999,7 +1026,7 @@ export default function LoyaltyConfigPage() {
                         min="0"
                         max="999999"
                         maxLength={6}
-                        value={editedConfig.silverTierThreshold ?? ''}
+                        value={editedConfig.silverTierThreshold || ''}
                         onChange={(e) => {
                           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
                           if (e.target.value.length <= 6) {
@@ -1041,7 +1068,7 @@ export default function LoyaltyConfigPage() {
                         min="0"
                         max="999999"
                         maxLength={6}
-                        value={editedConfig.goldTierThreshold ?? ''}
+                        value={editedConfig.goldTierThreshold || ''}
                         onChange={(e) => {
                           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
                           if (e.target.value.length <= 6) {
@@ -1102,7 +1129,7 @@ export default function LoyaltyConfigPage() {
                         min="0"
                         max="99999"
                         maxLength={5}
-                        value={editedConfig.firstOrderBonusPoints ?? ''}
+                        value={editedConfig.firstOrderBonusPoints || ''}
                         onChange={(e) => {
                           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
                           if (e.target.value.length <= 5) {
@@ -1145,7 +1172,7 @@ export default function LoyaltyConfigPage() {
             min="0"
             max="99999"
             maxLength={5}
-            value={editedConfig.reviewBonusPoints ?? ''}
+            value={editedConfig.reviewBonusPoints || ''}
             onChange={(e) => {
               const value = e.target.value === '' ? 0 : parseInt(e.target.value);
               if (e.target.value.length <= 5) {
@@ -1169,7 +1196,7 @@ export default function LoyaltyConfigPage() {
             min="1"
             max="99"
             maxLength={2}
-            value={editedConfig.maxReviewBonusPerProduct ?? ''}
+            value={editedConfig.maxReviewBonusPerProduct || ''}
             onChange={(e) => {
               const value = e.target.value === '' ? 1 : parseInt(e.target.value);
               if (e.target.value.length <= 2) {
@@ -1212,7 +1239,7 @@ export default function LoyaltyConfigPage() {
                         min="0"
                         max="99999"
                         maxLength={5}
-                        value={editedConfig.referralBonusPoints ?? ''}
+                        value={editedConfig.referralBonusPoints || ''}
                         onChange={(e) => {
                           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
                           if (e.target.value.length <= 5) {
@@ -1262,7 +1289,7 @@ export default function LoyaltyConfigPage() {
                         min="1"
                         max="999"
                         maxLength={3}
-                        value={editedConfig.pointsExpiryMonths ?? ''}
+                        value={editedConfig.pointsExpiryMonths || ''}
                         onChange={(e) => {
                           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
                           if (e.target.value.length <= 3) {
@@ -1301,7 +1328,7 @@ export default function LoyaltyConfigPage() {
                         min="1"
                         max="99"
                         maxLength={2}
-                        value={editedConfig.expiryWarningDays ?? ''}
+                        value={editedConfig.expiryWarningDays || ''}
                         onChange={(e) => {
                           const value = e.target.value === '' ? 0 : parseInt(e.target.value);
                           if (e.target.value.length <= 2) {

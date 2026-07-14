@@ -57,7 +57,8 @@ export const AuthProvider = ({
                 .join('')
             );
             const payload = JSON.parse(jsonPayload);
-            roleFromToken = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role || "";
+            const rawRole = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role || "";
+            roleFromToken = Array.isArray(rawRole) ? rawRole.join(', ') : String(rawRole);
 
             // Token expiry check — if the JWT is expired, treat as logged out so the
             // AdminLayout guard redirects to /login (instead of appearing "stuck").

@@ -44,6 +44,7 @@ import {
   Loader2,
   Copy,
   Check,
+  Info
 } from 'lucide-react';
 import {
   orderService,
@@ -73,6 +74,9 @@ import {
 import { formatLocalDateTime, formatNumber, getImageUrl } from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
 import ImagePreviewModal from '../_components/ImagePreviewModal';
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 import { scrollCls } from '../_utils/styles';
 
 // ✅ Get Available Actions based on Order Status (matching backend rules)
@@ -125,6 +129,15 @@ const getAvailableActions = (order: Order) => {
 export default function OrdersListPage() {
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
+  
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const orderPerms = myPermissions['orders'] || { view: false, create: false, edit: false, delete: false };
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [deliveryOptions, setDeliveryOptions] = useState<any[]>([]);
@@ -831,8 +844,18 @@ export default function OrdersListPage() {
             <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
               Order Management
             </h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Manage and track customer orders efficiently
+            <p className="text-slate-400 text-sm mt-1 flex items-center gap-1.5">
+              Manage customer orders
+              {user?.role?.toLowerCase() === 'admin' && (
+                <span title={`Button Visibility:
+• Export: Requires View permission
+• Manage Order (Edit): Requires Edit permission
+• Delete: Requires Delete permission
+• Cancellation Actions: Requires Edit permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                  <Info className="h-4 w-4 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+                </span>
+              )}
             </p>
           </div>
 
@@ -928,15 +951,17 @@ export default function OrdersListPage() {
                     )}
 
                     {/* EXPORT */}
-                    <button
-                      onClick={handleBulkExport}
-                      className="px-4 py-2 text-sm font-medium 
-              bg-blue-600 hover:bg-blue-700 
-              text-white rounded-lg flex items-center gap-2 transition-all"
-                    >
-                      <Download className="w-4 h-4" />
-                      Export ({selectedOrders.length})
-                    </button>
+                    {orderPerms.view && (
+                      <button
+                        onClick={handleBulkExport}
+                        className="px-4 py-2 text-sm font-medium 
+                bg-blue-600 hover:bg-blue-700 
+                text-white rounded-lg flex items-center gap-2 transition-all"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export ({selectedOrders.length})
+                      </button>
+                    )}
 
                     {/* CLEAR */}
                     <button
@@ -1759,7 +1784,7 @@ export default function OrdersListPage() {
                             </span>
                           )}
 
-                          {order.status === "CancellationRequested" && pendingCancellationRequest && (
+                          {order.status === "CancellationRequested" && pendingCancellationRequest && orderPerms.edit && (
                             <div className="mt-1">
                               <CancellationActionButtons
                                 compact
@@ -1804,17 +1829,19 @@ export default function OrdersListPage() {
                       <td className="py-3 px-3 relative">
                         <div className="flex items-center justify-center gap-1.5">
 
-                          <button
-                            onClick={() => router.push(`/admin/orders/${order.id}`)}
-                            className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 border border-transparent hover:border-cyan-200 dark:hover:border-cyan-500/20 rounded-lg transition-all"
-                            title="Manage order"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
+                          {orderPerms.edit && (
+                            <button
+                              onClick={() => router.push(`/admin/orders/${order.id}`)}
+                              className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 border border-transparent hover:border-cyan-200 dark:hover:border-cyan-500/20 rounded-lg transition-all"
+                              title="Manage order"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          )}
 
                           {/* Hard-delete is shown ONLY when the payment is still Pending. Mirrors the
                     server-side rule so admins don't see a button that would always 409. */}
-                          {['Pending', 'Failed'].includes(order.paymentStatus || '') && (
+                          {orderPerms.delete && ['Pending', 'Failed'].includes(order.paymentStatus || '') && (
                             <button
                               onClick={() => openHardDeleteModal(order)}
                               className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 border border-transparent hover:border-red-200 dark:hover:border-red-500/20 rounded-lg transition-all"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink, Tag, Monitor, Smartphone } from "lucide-react";
+import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink, Tag, Monitor, Smartphone, Info } from "lucide-react";
  
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -9,9 +9,21 @@ import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Banner, bannersService, BannerStats } from "@/lib/services";
 import { extractFilename, formatDate, getImageUrl } from "../_utils/formatUtils";
 import { getBackendMessage } from "@/app/admin/_utils/errorUtils";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 export default function ManageBanners() {
   const toast = useToast();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const bannersPerms = myPermissions['banners'] || { view: false, create: false, edit: false, delete: false };
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -668,21 +680,33 @@ const handleSubmit = async (e: React.FormEvent) => {
     <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-650 via-cyan-650 to-pink-650 dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 bg-clip-text   ">
       Banner Management
     </h1>
-    <p className="text-[12px] text-slate-500 dark:text-slate-400">
-    Manage promotional banners for your store. 
+    <p className="text-[12px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+      Manage promotional banners for your store. 
+      {user?.role?.toLowerCase() === 'admin' && (
+        <span title={`Button Visibility:
+• Add Banner: Requires Create permission
+• View Banner: Requires View permission
+• Edit Banner / Status  : Requires Edit permission
+• Delete / Restore Banner: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+          <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-help transition-colors" />
+        </span>
+      )}
     </p>
   </div>
 
-  <button
-    onClick={() => {
-      resetForm();
-      setShowModal(true);
-    }}
-    className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md flex items-center gap-1.5 hover:opacity-90"
-  >
-    <Plus className="h-3 w-3" />
-    Add Banner 
-  </button>
+  {bannersPerms.create && (
+    <button
+      onClick={() => {
+        resetForm();
+        setShowModal(true);
+      }}
+      className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md flex items-center gap-1.5 hover:opacity-90"
+    >
+      <Plus className="h-3 w-3" />
+      Add Banner 
+    </button>
+  )}
 </div>
 
 
@@ -990,7 +1014,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <div className="flex flex-col items-center gap-1">
 
                   <button
-                    onClick={() => setStatusConfirm(banner)}
+                    onClick={() => {
+                      if (!bannersPerms.edit) {
+                        toast.error("You do not have permission to  update  this banner .");
+                        return;
+                      }
+                      setStatusConfirm(banner);
+                    }}
                     className={`px-2 py-0.5 text-[10px] rounded-md ${
                       banner.isActive
                         ? "bg-green-55 dark:bg-green-500/10 bg-green-50 text-green-750 dark:text-green-400"
@@ -1039,36 +1069,48 @@ const handleSubmit = async (e: React.FormEvent) => {
               <td className="py-2 px-3 text-center">
                 <div className="flex justify-center gap-1.5">
 
-                  <button
-                    onClick={() => setViewingBanner(banner)}
-                    className="p-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 rounded-md transition"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </button>
+                  {bannersPerms.view && (
+                    <button
+                      onClick={() => setViewingBanner(banner)}
+                      className="p-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 rounded-md transition"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() => handleEdit(banner)}
-                    className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 rounded-md transition"
-                  >
-                    <Edit className="h-3.5 w-3.5" />
-                  </button>
+                  {bannersPerms.edit && (
+                    <button
+                      onClick={() => handleEdit(banner)}
+                      className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 rounded-md transition"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </button>
+                  )}
 
                   {banner.isDeleted ? (
-                    <button
-                      onClick={() => handleRestore(banner.id)}
-                      className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-md transition"
-                    >
-                      <CheckCircle className="h-3.5 w-3.5" />
-                    </button>
+                    <>
+                      {bannersPerms.delete && (
+                        <button
+                          onClick={() => handleRestore(banner.id)}
+                          className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-md transition"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </>
                   ) : (
-                    <button
-                      onClick={() =>
-                        setDeleteConfirm({ id: banner.id, title: banner.title })
-                      }
-                      className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-55 dark:hover:bg-red-500/10 rounded-md transition"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <>
+                      {bannersPerms.delete && (
+                        <button
+                          onClick={() =>
+                            setDeleteConfirm({ id: banner.id, title: banner.title })
+                          }
+                          className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-55 dark:hover:bg-red-500/10 rounded-md transition"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </>
                   )}
 
                 </div>

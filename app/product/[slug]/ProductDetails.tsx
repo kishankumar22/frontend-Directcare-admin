@@ -1414,7 +1414,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   const fetchRelatedProducts = async (categoryId: string) => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Products?categoryId=${categoryId}&sortBy=price&sortDirection=asc&stockStatus=InStock&isPublished=true&pageSize=22`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Products?categoryId=${categoryId}&stockStatus=InStock&isPublished=true&pageSize=22`,
         {
           next: { revalidate: 60 }
         }

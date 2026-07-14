@@ -58,7 +58,7 @@ export default function Footer() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-0 md:gap-6">
             
             {/* Help & Support - 2 cols on lg */}
-            <div className="lg:col-span-2 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
+            <div className="lg:col-span-3 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
               <button
                 className="w-full flex items-center justify-between md:justify-start group py-2 md:py-0"
                 onClick={() => toggle("help")}
@@ -110,7 +110,7 @@ export default function Footer() {
             </div>
 
             {/* About Us - 2 cols on lg */}
-            <div className="lg:col-span-2 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
+            <div className="lg:col-span-3 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
               <button
                 className="w-full flex items-center justify-between md:justify-start group py-2 md:py-0"
                 onClick={() => toggle("about")}
@@ -158,7 +158,7 @@ export default function Footer() {
             </div>
 
             {/* Our Services - 2 cols on lg */}
-            <div className="lg:col-span-2 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
+            <div className="lg:col-span-3 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
               <button
                 className="w-full flex items-center justify-between md:justify-start group py-2 md:py-0"
                 onClick={() => toggle("services")}
@@ -202,7 +202,7 @@ export default function Footer() {
             </div>
 
             {/* Online Pharmacy Information - LARGER SECTION (4 cols on lg) */}
-            <div className="lg:col-span-3 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
+            {/* <div className="lg:col-span-3 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">
               <button
                 className="w-full flex items-center justify-between md:justify-start group py-2 md:py-0"
                 onClick={() => toggle("information")}
@@ -254,7 +254,8 @@ export default function Footer() {
                   </div>
                 </dl>
               </div>
-            </div>
+            </div> */}
+
 
             {/* Subscribe & Connect - 3 cols on lg */}
             <div className="lg:col-span-3 border-b border-white/20 md:border-b-0 pb-4 mb-2 md:pb-0 md:mb-0">

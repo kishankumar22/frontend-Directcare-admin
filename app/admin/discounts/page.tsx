@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, X, ExternalLink, FolderTree, Clock3, } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, X, ExternalLink, FolderTree, Clock3, Info } from "lucide-react";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import {
   Discount,
@@ -19,6 +19,9 @@ import ImagePreviewModal from "../_components/ImagePreviewModal";
 import { getBackendMessage} from "@/app/admin/_utils/errorUtils";
 import { getSelectStyles } from "../_utils/styles";
 import { useTheme } from "@/app/admin/_context/theme-provider";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 
 const extractProducts = (res: any): Product[] => {
   if (Array.isArray(res)) return res;
@@ -151,6 +154,16 @@ const processCategoryData = (categories: any[]): SelectOption[] => {
 // ========== MAIN COMPONENT ==========
 export default function DiscountsPage() {
   const toast = useToast();
+  const { user } = useAuth();
+  
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const discountPerms = myPermissions['discounts'] || { view: false, create: false, edit: false, delete: false };
+
   const { theme } = useTheme();
   const customSelectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
 
@@ -1018,21 +1031,33 @@ const filteredDiscounts = discounts.filter((discount) => {
     <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
       Discount Management
     </h1>
-    <p className="text-[11px] text-slate-500">
+    <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
       Manage your store discounts
+      {user?.role?.toLowerCase() === 'admin' && (
+        <span title={`Button Visibility:
+• Add Discount: Requires Create permission
+• View Usage History: Requires View permission
+• Edit: Requires Edit permission
+• Delete / Restore: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+          <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+        </span>
+      )}
     </p>
   </div>
 
-  <button
-    onClick={() => {
-      resetForm();
-      setShowModal(true);
-    }}
-    className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5"
-  >
-    <Plus className="h-3 w-3" />
-    Add Discount
-  </button>
+  {discountPerms.create && (
+    <button
+      onClick={() => {
+        resetForm();
+        setShowModal(true);
+      }}
+      className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5"
+    >
+      <Plus className="h-3 w-3" />
+      Add Discount
+    </button>
+  )}
 </div>
 
 
@@ -1827,50 +1852,60 @@ const filteredDiscounts = discounts.filter((discount) => {
           <Eye className="h-3.5 w-3.5" />
         </button>
 
-        <button
-          onClick={() => handleViewUsageHistory(discount)}
-          className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"
-        >
-          <History className="h-3.5 w-3.5" />
-        </button>
+        {discountPerms.view && (
+          <button
+            onClick={() => handleViewUsageHistory(discount)}
+            className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"
+          >
+            <History className="h-3.5 w-3.5" />
+          </button>
+        )}
 
-        <button
-          onClick={() => handleEdit(discount)}
-          className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded"
-        >
-          <Edit className="h-3.5 w-3.5" />
-        </button>
+        {discountPerms.edit && (
+          <button
+            onClick={() => handleEdit(discount)}
+            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded"
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </button>
+        )}
 
-        <button
-          onClick={() =>
-            setDeleteConfirm({
-              id: discount.id,
-              name: discount.name,
-            })
-          }
-          className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {discountPerms.delete && (
+          <button
+            onClick={() =>
+              setDeleteConfirm({
+                id: discount.id,
+                name: discount.name,
+              })
+            }
+            className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </>
     )}
 
     {/* DELETED DISCOUNTS */}
     {discount.isDeleted && (
       <>
-        <button
-          onClick={() => handleViewUsageHistory(discount)}
-          className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"
-        >
-          <History className="h-3.5 w-3.5" />
-        </button>
+        {discountPerms.view && (
+          <button
+            onClick={() => handleViewUsageHistory(discount)}
+            className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"
+          >
+            <History className="h-3.5 w-3.5" />
+          </button>
+        )}
 
-        <button
-          onClick={() => setRestoreConfirm(discount)}
-          className="p-1.5 text-green-400 hover:bg-green-500/10 rounded"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-        </button>
+        {discountPerms.delete && (
+          <button
+            onClick={() => setRestoreConfirm(discount)}
+            className="p-1.5 text-green-400 hover:bg-green-500/10 rounded"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        )}
       </>
     )}
 

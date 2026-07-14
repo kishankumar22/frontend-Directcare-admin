@@ -122,6 +122,7 @@ export const RoleTable = React.memo(function RoleTable({
   sortField,
   sortOrder,
   onSort,
+  permissions,
 }: {
   items: StaffRole[];
   loading: boolean;
@@ -133,6 +134,7 @@ export const RoleTable = React.memo(function RoleTable({
   sortField: 'name' | 'users' | 'system' | null;
   sortOrder: 'asc' | 'desc';
   onSort: (field: 'name' | 'users' | 'system') => void;
+  permissions: { view: boolean; create: boolean; edit: boolean; delete: boolean };
 }) {
   const allVisibleSelected = useMemo(() => {
     if (items.length === 0) return false;
@@ -232,38 +234,44 @@ export const RoleTable = React.memo(function RoleTable({
                       const isProtected = isAdminRole || row.isSystem;
                       return (
                     <div className="flex items-center justify-end gap-2">
-                      <IconButton title="View" onClick={() => onAction({ type: 'view', item: row })}>
-                        <Eye className="h-4 w-4" />
-                      </IconButton>
-                      <IconButton
-                        title={isProtected ? 'Protected role' : 'Edit'}
-                        onClick={() => onAction({ type: 'edit', item: row })}
-                        disabledReason={
-                          isAdminRole
-                            ? 'Admin role cannot be edited'
-                            : row.isSystem
-                              ? 'System roles cannot be edited'
-                              : undefined
-                        }
-                        onDisabledClick={onDisabled}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </IconButton>
-                      <IconButton
-                        title={isProtected ? 'Protected role' : 'Delete'}
-                        variant="danger"
-                        onClick={() => onAction({ type: 'delete', item: row })}
-                        disabledReason={
-                          isAdminRole
-                            ? 'Admin role cannot be deleted'
-                            : row.isSystem
-                              ? 'System roles cannot be deleted'
-                              : undefined
-                        }
-                        onDisabledClick={onDisabled}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </IconButton>
+                      {permissions.view && (
+                        <IconButton title="View" onClick={() => onAction({ type: 'view', item: row })}>
+                          <Eye className="h-4 w-4" />
+                        </IconButton>
+                      )}
+                      {permissions.edit && (
+                        <IconButton
+                          title={isProtected ? 'Protected role' : 'Edit'}
+                          onClick={() => onAction({ type: 'edit', item: row })}
+                          disabledReason={
+                            isAdminRole
+                              ? 'Admin role cannot be edited'
+                              : row.isSystem
+                                ? 'System roles cannot be edited'
+                                : undefined
+                          }
+                          onDisabledClick={onDisabled}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </IconButton>
+                      )}
+                      {permissions.delete && (
+                        <IconButton
+                          title={isProtected ? 'Protected role' : 'Delete'}
+                          variant="danger"
+                          onClick={() => onAction({ type: 'delete', item: row })}
+                          disabledReason={
+                            isAdminRole
+                              ? 'Admin role cannot be deleted'
+                              : row.isSystem
+                                ? 'System roles cannot be deleted'
+                                : undefined
+                          }
+                          onDisabledClick={onDisabled}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </IconButton>
+                      )}
                     </div>
                       );
                     })()}

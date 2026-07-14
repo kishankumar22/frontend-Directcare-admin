@@ -5,11 +5,7 @@
   import {
     Package,CheckCircle,
     X,
-    Search,
-  
-    Eye,
-
-    AlertCircle,
+    Search,Eye,AlertCircle,
 
     Pause,
     Play,
@@ -23,10 +19,14 @@
     SkipForward,
 
     RefreshCw,
+    Info
   } from "lucide-react";
   import { useToast } from "@/app/admin/_components/CustomToast";
   import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
   import { subscriptionsService, Subscription } from "@/lib/services/subscriptions";
+  import { useAuth } from "@/app/admin/_context/auth-context";
+  import { useQuery } from "@tanstack/react-query";
+  import { permissionsService } from "@/lib/services/permissions";
 
 import { formatDate, getImageUrl } from "../_utils/formatUtils";
 import ImagePreviewModal from "../_components/ImagePreviewModal";
@@ -41,6 +41,15 @@ import ImagePreviewModal from "../_components/ImagePreviewModal";
   export default function SubscriptionsPage() {
     const router = useRouter();
     const toast = useToast();
+    const { user } = useAuth();
+    
+    const { data: permissionsResponse } = useQuery({
+      queryKey: ['myPermissions'],
+      queryFn: () => permissionsService.getMyPermissions(),
+      enabled: !!user,
+    });
+    const myPermissions = permissionsResponse?.data?.data || {};
+    const subscriptionPerms = myPermissions['subscriptions'] || { view: false, create: false, edit: false, delete: false };
 
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -411,8 +420,17 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:bg-gradient-to-r dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400 dark:bg-clip-text dark:text-transparent">
           Subscriptions Management
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5 flex items-center gap-1.5">
           Manage and monitor customer subscriptions
+          {user?.role?.toLowerCase() === 'admin' && (
+            <span title={`Button Visibility:
+• View Details: Requires View permission
+• Pause / Play / Skip: Requires Edit permission
+• Cancel Subscription: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+              <Info className="h-4 w-4 text-slate-400 hover:text-slate-200 cursor-help transition-colors" />
+            </span>
+          )}
         </p>
       </div>
 
@@ -716,7 +734,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
                 <div className="flex justify-center gap-1">
 
     {/* ACTIVE */}
-    {subscription.status === "Active" && (
+    {subscription.status === "Active" && subscriptionPerms.edit && (
       <>
         <button
           onClick={() => setPausingSubscription(subscription)}
@@ -735,7 +753,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
     )}
 
     {/* PAUSED */}
-    {subscription.status === "Paused" && (
+    {subscription.status === "Paused" && subscriptionPerms.edit && (
       <button
         onClick={() => setResumingSubscription(subscription)}
         className="p-1.5 text-green-400 hover:bg-green-500/10 rounded"
@@ -745,7 +763,7 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
     )}
 
     {/* ✅ CANCEL (ONLY ACTIVE + PAUSED) */}
-    {(subscription.status === "Active" || subscription.status === "Paused") && (
+    {(subscription.status === "Active" || subscription.status === "Paused") && subscriptionPerms.delete && (
       <button
         onClick={() => setCancellingSubscription(subscription)}
         className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"
@@ -754,13 +772,15 @@ const [previewImage, setPreviewImage] = useState<string | null>(null);
       </button>
     )}
 
-    {/* ALWAYS AVAILABLE */}
-    <button
-      onClick={() => setViewingSubscription(subscription)}
-      className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded"
-    >
-      <Eye className="h-3.5 w-3.5" />
-    </button>
+    {/* ALWAYS AVAILABLE (View) */}
+    {subscriptionPerms.view && (
+      <button
+        onClick={() => setViewingSubscription(subscription)}
+        className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded"
+      >
+        <Eye className="h-3.5 w-3.5" />
+      </button>
+    )}
 
   </div>
                 </td>

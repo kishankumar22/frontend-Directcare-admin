@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2, HelpCircle, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2, HelpCircle, ExternalLink, Info } from "lucide-react";
 import { useMemo, useCallback } from "react";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -366,8 +366,19 @@ const goToPage = useCallback((page: number) => {
     <h1 className="text-2xl font-semibold text-white">
       Brand Management
     </h1>
-    <p className="text-[12px] text-slate-300">
+    <p className="text-[12px] text-slate-300 flex items-center gap-1.5">
       Manage your product brands
+      {user?.role?.toLowerCase() === 'admin' && (
+        <span title={`Button Visibility:
+• Add Brand / Manage FAQs: Requires Create permission
+• View: Requires View permission
+• Edit: Requires Edit permission
+• Delete / Restore: Requires Delete permission
+• Status Toggle (Active/Inactive): Requires Edit permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+          <Info className="h-3.5 w-3.5 text-slate-300 hover:text-white cursor-help transition-colors" />
+        </span>
+      )}
     </p>
   </div>
 

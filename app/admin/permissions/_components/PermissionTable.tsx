@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, Eye, Plus, Edit2, Trash2 } from 'lucide-react';
 
 
 export interface PermissionRowData {
@@ -24,9 +24,10 @@ interface PermissionTableProps {
   isSaving: boolean;
   onSave: (updatedData: PermissionRowData[]) => void;
   renderHeader?: (props: { isDirty: boolean; handleSave: () => void; changedCount: number }) => React.ReactNode;
+  readOnly?: boolean;
 }
 
-export function PermissionTable({ data, isLoading, isSaving, onSave, renderHeader }: PermissionTableProps) {
+export function PermissionTable({ data, isLoading, isSaving, onSave, renderHeader, readOnly = false }: PermissionTableProps) {
   const [localData, setLocalData] = useState<PermissionRowData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -36,6 +37,7 @@ export function PermissionTable({ data, isLoading, isSaving, onSave, renderHeade
   }, [data]);
 
   const handleCheckboxChange = (rowIndex: number, field: keyof PermissionRowData, value: boolean) => {
+    if (readOnly) return;
     const newData = [...localData];
     newData[rowIndex] = { ...newData[rowIndex], [field]: value };
     setLocalData(newData);
@@ -43,11 +45,13 @@ export function PermissionTable({ data, isLoading, isSaving, onSave, renderHeade
   };
 
   const handleSelectAll = (field: keyof PermissionRowData, value: boolean) => {
+    if (readOnly) return;
     setLocalData(prev => prev.map(row => ({ ...row, [field]: value })));
     setIsDirty(true);
   };
 
   const handleRowSelectAll = (rowIndex: number, value: boolean) => {
+    if (readOnly) return;
     const newData = [...localData];
     newData[rowIndex] = {
       ...newData[rowIndex],
@@ -84,7 +88,7 @@ export function PermissionTable({ data, isLoading, isSaving, onSave, renderHeade
   return (
     <div className="space-y-4">
       {renderHeader && (
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur py-2 border-b">
+        <div className="sticky top-0 z-10 bg-slate-50/95 dark:bg-[#0f172a]/95 backdrop-blur pb-3 mb-2 border-b border-slate-200 dark:border-slate-800">
           {renderHeader({ isDirty, handleSave, changedCount })}
         </div>
       )}
@@ -99,106 +103,122 @@ export function PermissionTable({ data, isLoading, isSaving, onSave, renderHeade
         </div>
       ) : (
         <>
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#0f172a] shadow-sm">
+          <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#1e293b] shadow-sm">
             <Table>
-              <TableHeader className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+              <TableHeader className="bg-slate-50 dark:bg-[#1e293b] border-b border-slate-200 dark:border-slate-800">
                 <TableRow className="hover:bg-transparent border-0">
-                  <TableHead className="w-[220px] font-bold text-slate-700 dark:text-slate-300 h-12">
-                    Page Name
+                  <TableHead className="w-[220px] font-bold text-slate-500 dark:text-slate-400 text-[10px] tracking-wider h-10 uppercase px-3">
+                    PAGE
                   </TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-12">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={localData.length > 0 && localData.every(row => row.canView)}
-                        onCheckedChange={(checked) => handleSelectAll('canView', !!checked)}
-                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
-                      />
-                      <span>View</span>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-10 px-3">
+                    <div className="flex flex-col space-y-1">
+                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                        <Eye className="w-3.5 h-3.5" /> <span>View</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] text-slate-500 font-normal">
+                        <button onClick={() => handleSelectAll('canView', true)} className="hover:text-emerald-600 dark:hover:text-emerald-400">all</button>
+                        <button onClick={() => handleSelectAll('canView', false)} className="hover:text-slate-700 dark:hover:text-slate-300">none</button>
+                      </div>
                     </div>
                   </TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-12">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={localData.length > 0 && localData.every(row => row.canCreate)}
-                        onCheckedChange={(checked) => handleSelectAll('canCreate', !!checked)}
-                        className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
-                      />
-                      <span>Create</span>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-10 px-3">
+                    <div className="flex flex-col space-y-1">
+                      <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
+                        <Plus className="w-3.5 h-3.5" /> <span>Create</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] text-slate-500 font-normal">
+                        <button onClick={() => handleSelectAll('canCreate', true)} className="hover:text-purple-600 dark:hover:text-purple-400">all</button>
+                        <button onClick={() => handleSelectAll('canCreate', false)} className="hover:text-slate-700 dark:hover:text-slate-300">none</button>
+                      </div>
                     </div>
                   </TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-12">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={localData.length > 0 && localData.every(row => row.canEdit)}
-                        onCheckedChange={(checked) => handleSelectAll('canEdit', !!checked)}
-                        className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
-                      />
-                      <span>Edit</span>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-10 px-3">
+                    <div className="flex flex-col space-y-1">
+                      <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                        <Edit2 className="w-3.5 h-3.5" /> <span>Edit</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] text-slate-500 font-normal">
+                        <button onClick={() => handleSelectAll('canEdit', true)} className="hover:text-amber-600 dark:hover:text-amber-400">all</button>
+                        <button onClick={() => handleSelectAll('canEdit', false)} className="hover:text-slate-700 dark:hover:text-slate-300">none</button>
+                      </div>
                     </div>
                   </TableHead>
-                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-12">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={localData.length > 0 && localData.every(row => row.canDelete)}
-                        onCheckedChange={(checked) => handleSelectAll('canDelete', !!checked)}
-                        className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
-                      />
-                      <span>Delete</span>
+                  <TableHead className="font-bold text-slate-700 dark:text-slate-300 h-10 px-3">
+                    <div className="flex flex-col space-y-1">
+                      <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                        <Trash2 className="w-3.5 h-3.5" /> <span>Delete</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] text-slate-500 font-normal">
+                        <button onClick={() => handleSelectAll('canDelete', true)} className="hover:text-rose-600 dark:hover:text-rose-400">all</button>
+                        <button onClick={() => handleSelectAll('canDelete', false)} className="hover:text-slate-700 dark:hover:text-slate-300">none</button>
+                      </div>
                     </div>
                   </TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {Object.entries(groupedData).map(([group, rows]) => (
                   <React.Fragment key={group}>
-                    <TableRow className="bg-slate-100/50 dark:bg-slate-800/40 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800">
-                      <TableCell colSpan={5} className="font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider py-2">
-                        {group}
+                    <TableRow className="bg-slate-50 dark:bg-[#1e293b] hover:bg-slate-50 dark:hover:bg-[#1e293b] border-b border-slate-200 dark:border-slate-800">
+                      <TableCell colSpan={6} className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-3 bg-emerald-500 rounded-full"></div>
+                          <span className="font-bold text-slate-500 dark:text-slate-400 uppercase text-[9px] tracking-widest">{group}</span>
+                        </div>
                       </TableCell>
                     </TableRow>
-                    {rows.map((row) => (
-                      <TableRow key={row.key} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                        <TableCell className="font-medium text-slate-700 dark:text-slate-300 py-3">
-                          <div className="flex items-center space-x-3">
-                            <Checkbox
-                              checked={row.canView && row.canCreate && row.canEdit && row.canDelete}
-                              onCheckedChange={(checked) => handleRowSelectAll(row.originalIndex, !!checked)}
-                              className="data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
-                              title={`Select all for ${row.name}`}
-                            />
-                            <span>{row.name}</span>
-                          </div>
+                    {rows.map((row) => {
+                      const isAllChecked = row.canView && row.canCreate && row.canEdit && row.canDelete;
+                      return (
+                      <TableRow key={row.key} className="border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <TableCell className="font-semibold text-slate-800 dark:text-slate-200 py-2.5 px-3 text-sm">
+                          {row.name}
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-2.5 px-3">
                           <Checkbox
                             checked={row.canView}
                             onCheckedChange={(checked) => handleCheckboxChange(row.originalIndex, 'canView', !!checked)}
-                            className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
+                            disabled={readOnly}
+                            className={`w-4 h-4 rounded-[3px] border-emerald-500/50 data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white dark:data-[state=checked]:text-[#1e293b] data-[state=checked]:border-emerald-500 ${readOnly ? 'cursor-not-allowed opacity-50' : ''}`}
                           />
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-2.5 px-3">
                           <Checkbox
                             checked={row.canCreate}
                             onCheckedChange={(checked) => handleCheckboxChange(row.originalIndex, 'canCreate', !!checked)}
-                            className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
+                            disabled={readOnly}
+                            className={`w-4 h-4 rounded-[3px] border-purple-500/50 data-[state=checked]:bg-purple-500 data-[state=checked]:text-white dark:data-[state=checked]:text-[#1e293b] data-[state=checked]:border-purple-500 ${readOnly ? 'cursor-not-allowed opacity-50' : ''}`}
                           />
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-2.5 px-3">
                           <Checkbox
                             checked={row.canEdit}
                             onCheckedChange={(checked) => handleCheckboxChange(row.originalIndex, 'canEdit', !!checked)}
-                            className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
+                            disabled={readOnly}
+                            className={`w-4 h-4 rounded-[3px] border-amber-500/50 data-[state=checked]:bg-amber-500 data-[state=checked]:text-white dark:data-[state=checked]:text-[#1e293b] data-[state=checked]:border-amber-500 ${readOnly ? 'cursor-not-allowed opacity-50' : ''}`}
                           />
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-2.5 px-3">
                           <Checkbox
                             checked={row.canDelete}
                             onCheckedChange={(checked) => handleCheckboxChange(row.originalIndex, 'canDelete', !!checked)}
-                            className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 data-[state=checked]:text-white border-slate-300 dark:border-slate-600"
+                            disabled={readOnly}
+                            className={`w-4 h-4 rounded-[3px] border-rose-500/50 data-[state=checked]:bg-rose-500 data-[state=checked]:text-white dark:data-[state=checked]:text-[#1e293b] data-[state=checked]:border-rose-500 ${readOnly ? 'cursor-not-allowed opacity-50' : ''}`}
                           />
                         </TableCell>
+                        <TableCell className="py-2.5 px-3 text-right">
+                          <button
+                            onClick={() => handleRowSelectAll(row.originalIndex, !isAllChecked)}
+                            disabled={readOnly}
+                            className="text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                          >
+                            Toggle
+                          </button>
+                        </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </React.Fragment>
                 ))}
               </TableBody>

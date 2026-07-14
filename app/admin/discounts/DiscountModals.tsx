@@ -2476,7 +2476,7 @@ useEffect(() => {
                 <History className="h-4 w-4" />
                 Usage History
               </button>
-              <button
+              {/* <button
                 onClick={() => {
                   setViewingDiscount(null);
                   handleEdit(viewingDiscount);
@@ -2485,7 +2485,7 @@ useEffect(() => {
               >
                 <Edit className="h-4 w-4" />
                 Edit Discount
-              </button>
+              </button> */}
               <button
                 onClick={() => setViewingDiscount(null)}
                 className="px-6 py-3 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition-all font-bold text-sm"

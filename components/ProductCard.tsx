@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Star, BadgePercent, AwardIcon, PackageX, Heart } from "lucide-react";
+import { ShoppingCart, Star, StarHalf, BadgePercent, AwardIcon, PackageX, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -428,7 +428,22 @@ export default function ProductCard({
         {/* RATING + REVIEW + LOYALTY — single compact row */}
 <div className="flex items-center gap-1 mb-1 flex-nowrap overflow-hidden">
   <div className="flex items-center flex-shrink-0">
-    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+    {(() => {
+      const rating = product.averageRating ?? 0;
+      return Array.from({ length: 5 }, (_, i) => {
+        const starIndex = i + 1;
+        if (rating >= starIndex) {
+          // Full star
+          return <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />;
+        } else if (rating >= starIndex - 0.75) {
+          // Half star (0.25 - 0.74 of the star)
+          return <StarHalf key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />;
+        } else {
+          // Empty star
+          return <Star key={i} className="h-3 w-3 text-gray-300" />;
+        }
+      });
+    })()}
     <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
       {(product.averageRating ?? 0).toFixed(1)}
     </span>
@@ -444,12 +459,12 @@ export default function ProductCard({
     </span>
   )}
 
-  {loyaltyPoints && (
+  {/* {loyaltyPoints && (
     <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
       <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
       Earn {loyaltyPoints} pts
     </span>
-  )}
+  )} */}
 </div>
 
         {/* PRICE */}

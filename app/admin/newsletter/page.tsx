@@ -3,15 +3,28 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, Mail, CheckCircle, XCircle, FilterX, ChevronLeft, ChevronRight, AlertCircle, Loader2, UserPlus, Download, ChevronDown, FileSpreadsheet, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Search, Mail, CheckCircle, XCircle, FilterX, ChevronLeft, ChevronRight, AlertCircle, Loader2, UserPlus, Download, ChevronDown, FileSpreadsheet, ChevronsLeft, ChevronsRight, Info } from "lucide-react";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { newsletterService, NewsletterSubscription, NewsletterStats } from "@/lib/services/newsletter";
 import * as XLSX from 'xlsx';
 import { formatDate } from "../_utils/formatUtils";
 import { useDebounce } from "../_hooks/useDebounce";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
+
 export default function NewsletterPage() {
   const toast = useToast();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const newsletterPerms = myPermissions['newsletter'] || { view: false, create: false, edit: false, delete: false };
   const [subscriptions, setSubscriptions] = useState<NewsletterSubscription[]>([]);
   const [allSubscriptions, setAllSubscriptions] = useState<NewsletterSubscription[]>([]);
   const [searchInput, setSearchInput] = useState("");
@@ -377,8 +390,16 @@ export default function NewsletterPage() {
           <h1 className="text-2xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Newsletter Management
           </h1>
-          <p className="text-[11px] text-sm text-slate-400">
+          <p className="text-[11px] text-sm text-slate-400 flex items-center gap-1.5 mt-0.5">
             Manage subscriptions
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• Reactivate (Inactive) / Unsubscribe: Requires Edit permission
+• Export: Visible to all users with View access
+Note: Buttons will be hidden or disabled if you lack the required permission.`}>
+                <Info className="h-3.5 w-3.5 text-slate-500 hover:text-slate-300 cursor-help transition-colors" />
+              </span>
+            )}
           </p>
         </div>
 
@@ -664,7 +685,13 @@ export default function NewsletterPage() {
     </span>
   ) : (
     <button
-      onClick={() => setSubscribeConfirm(subscription.email)}
+      onClick={() => {
+        if (!newsletterPerms.edit) {
+          toast.error("You do not have permission to edit subscriptions.");
+          return;
+        }
+        setSubscribeConfirm(subscription.email);
+      }}
       title="Click to Activate"
       className="px-2.5 py-1 rounded-md text-[10px] font-semibold border bg-red-500/10 border-red-500/30 text-red-400 hover:bg-green-500/10 hover:border-green-500/40 hover:text-green-400 transition-all whitespace-nowrap"
     >
@@ -684,7 +711,13 @@ export default function NewsletterPage() {
                     <td className="py-2 px-3 text-center">
   {subscription.isActive ? (
     <button
-      onClick={() => setUnsubscribeConfirm(subscription.email)}
+      onClick={() => {
+        if (!newsletterPerms.edit) {
+          toast.error("You do not have permission to edit subscriptions.");
+          return;
+        }
+        setUnsubscribeConfirm(subscription.email);
+      }}
       className="px-2 py-1 text-[10px] font-medium bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 transition-colors whitespace-nowrap"
     >
       Unsubscribe

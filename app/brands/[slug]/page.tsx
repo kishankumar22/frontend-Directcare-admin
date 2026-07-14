@@ -98,8 +98,8 @@ async function getProductsByBrand(
   const {
     page = "1",
     pageSize = "20",
-    sortBy = "name",
-    sortDirection = "asc",
+    sortBy = "default",
+    sortDirection = "default",
     price,
     minRating,
   } = searchParams;
@@ -107,12 +107,13 @@ async function getProductsByBrand(
   const query = new URLSearchParams({
     page,
     pageSize,
-    sortBy,
-    sortDirection,
     isPublished: "true",
     isActive: "true",
     isDeleted: "false",
   });
+
+  if (sortBy && sortBy !== "default") query.set("sortBy", sortBy);
+  if (sortDirection && sortDirection !== "default") query.set("sortDirection", sortDirection);
 
   // ✅ BRAND FILTER (IMPORTANT)
   query.set("brandId", brand.id);
@@ -137,11 +138,16 @@ async function getProductsByBrand(
   return res.json();
 }
 
-export default async function BrandPage({ params }: BrandPageProps) {
+export default async function BrandPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<SearchParams>;
+}) {
   // ✅ NEXT 15 FIX
   const { slug } = await params;
-
- const searchParamsResolved = {} as SearchParams;
+  const searchParamsResolved = await searchParams;
 
 const productsRes = await getProductsByBrand(
   slug,
@@ -199,6 +205,9 @@ const faqs =
       brandSlug={slug}
       initialItems={productsRes?.data?.items ?? []}
       totalPages={productsRes?.data?.totalPages ?? 1}
+      currentPage={productsRes?.data?.page ?? 1}
+      initialSortBy={searchParamsResolved.sortBy || "default"}
+      initialSortDirection={searchParamsResolved.sortDirection || "default"}
     />
   </>
 );

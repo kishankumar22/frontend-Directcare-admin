@@ -16,8 +16,12 @@ import {
   Trash2,
   UserRound,
   XCircle,
+  Info,
 } from "lucide-react";
 import { useToast } from "@/app/admin/_components/CustomToast";
+import { useAuth } from "@/app/admin/_context/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { permissionsService } from "@/lib/services/permissions";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import ContactModals, { ContactReplyFormState } from "./ContactModals";
 import {
@@ -98,6 +102,15 @@ const getUserName = () => {
 
 export default function ContactPage() {
   const toast = useToast();
+  const { user } = useAuth();
+
+  const { data: permissionsResponse } = useQuery({
+    queryKey: ['myPermissions'],
+    queryFn: () => permissionsService.getMyPermissions(),
+    enabled: !!user,
+  });
+  const myPermissions = permissionsResponse?.data?.data || {};
+  const contactPerms = myPermissions['contact'] || { view: false, create: false, edit: false, delete: false };
 
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [meta, setMeta] = useState<ContactListData>(emptyMeta);
@@ -300,8 +313,17 @@ export default function ContactPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Contact Requests</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-300">
+          <p className="text-xs text-slate-500 dark:text-slate-300 flex items-center gap-1.5 mt-0.5">
             Customer enquiries, replies, assignment notes, and delete actions.
+            {user?.role?.toLowerCase() === 'admin' && (
+              <span title={`Button Visibility:
+• View Contact: Requires View permission
+• Reply to Contact: Requires Edit permission
+• Delete Contact: Requires Delete permission
+Note: Buttons will be hidden if you lack the required permission.`}>
+                <Info className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-help transition-colors" />
+              </span>
+            )}
           </p>
         </div>
 
@@ -546,26 +568,32 @@ export default function ContactPage() {
           <td className="px-3 py-2">
             <div className="flex items-center justify-center gap-1">
 
-              <button
-                onClick={() => setViewingContact(contact)}
-                className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-300"
-              >
-                <Eye className="h-3.5 w-3.5" />
-              </button>
+              {contactPerms.view && (
+                <button
+                  onClick={() => setViewingContact(contact)}
+                  className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-300"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+              )}
 
-              <button
-                onClick={() => openReplyModal(contact)}
-                className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-violet-300"
-              >
-                <MessageCircleReply className="h-3.5 w-3.5" />
-              </button>
+              {contactPerms.edit && (
+                <button
+                  onClick={() => openReplyModal(contact)}
+                  className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-violet-300"
+                >
+                  <MessageCircleReply className="h-3.5 w-3.5" />
+                </button>
+              )}
 
-              <button
-                onClick={() => setDeleteTarget(contact)}
-                className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-300"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {contactPerms.delete && (
+                <button
+                  onClick={() => setDeleteTarget(contact)}
+                  className="rounded-lg border border-slate-300 dark:border-slate-700 p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-300"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
 
             </div>
           </td>

@@ -8,6 +8,7 @@ import { Search, SlidersHorizontal, Star, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 20;
 
@@ -15,14 +16,22 @@ interface BrandsClientProps {
   brandSlug: string;
   initialItems: any[];
   totalPages: number;
+  currentPage?: number;
+  initialSortBy?: string;
+  initialSortDirection?: string;
 }
 
 export default function BrandsClient({
   brandSlug,
   initialItems,
   totalPages,
+  currentPage = 1,
+  initialSortBy = "default",
+  initialSortDirection = "default",
 }: BrandsClientProps) {
   const vatRates = useVatRates();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [products, setProducts] = useState<any[]>(initialItems);
   const [page, setPage] = useState(1);
@@ -34,8 +43,8 @@ const fetchCbRef = useRef<() => void>(() => {});
 const loadMoreRef = useRef<HTMLDivElement | null>(null);
 useEffect(() => {
   setProducts(initialItems ?? []);
-  setPage(1);
-  setHasMore(totalPages > 1);
+  setPage(currentPage);
+  setHasMore(totalPages > currentPage);
   setHasInitializedPrice(false);
 }, [initialItems, totalPages]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -49,25 +58,41 @@ const [brandLoading, setBrandLoading] = useState(false);
 const [showFilters, setShowFilters] = useState(false);
 const activeFilterCount =
   selectedCategories.length + (minRating > 0 ? 1 : 0);
- const [sortBy, setSortBy] = useState<string>("default");
-const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+ const [sortBy, setSortBy] = useState<string>(initialSortBy);
+const [sortDirection, setSortDirection] = useState<"asc" | "desc" | "default">(initialSortDirection as any);
+
+const updateServerFilters = useCallback(
+  (updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+    router.push(`/brands/${brandSlug}?${params.toString()}`, { scroll: false });
+  },
+  [router, searchParams, brandSlug]
+);
 
 const handleSortChange = (value: string) => {
-  if (value === "default") {
-    setSortBy("default");
-    setSortDirection("asc");
-    return;
+  let newSortBy = "default";
+  let newDirection = "default";
+
+  if (value !== "default") {
+    const [by, dir] = value.split("-");
+    newSortBy = by;
+    newDirection = by === "rating" ? "desc" : dir;
   }
 
-  const [by, dir] = value.split("-");
+  setSortBy(newSortBy);
+  setSortDirection(newDirection as any);
 
-  setSortBy(by);
-
-  if (by === "rating") {
-    setSortDirection("desc"); // 🔥 always high → low
-  } else {
-    setSortDirection(dir as "asc" | "desc");
-  }
+  updateServerFilters({
+    sortBy: newSortBy === "default" ? "" : newSortBy,
+    sortDirection: newDirection === "default" ? "" : newDirection,
+  });
 };
 
   const categories = useMemo(() => {
@@ -228,9 +253,17 @@ const fetchMoreProducts = useCallback(async () => {
 
   try {
     const nextPage = page + 1;
+    const queryParams = new URLSearchParams({
+      page: nextPage.toString(),
+      pageSize: PAGE_SIZE.toString(),
+      isPublished: "true"
+    });
+
+    if (sortBy !== "default") queryParams.set("sortBy", sortBy);
+    if (sortDirection !== "default") queryParams.set("sortDirection", sortDirection);
 
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-brand/${brandSlug}?page=${nextPage}&pageSize=${PAGE_SIZE}&sortDirection=${sortDirection}&isPublished=true`
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-brand/${brandSlug}?${queryParams.toString()}`
     );
 
     const data = await res.json();
@@ -244,7 +277,7 @@ const fetchMoreProducts = useCallback(async () => {
     isFetchingRef.current = false;
     setIsLoadingMore(false);
   }
-}, [page, hasMore, brandSlug, sortDirection]);
+}, [page, hasMore, brandSlug, sortBy, sortDirection]);
 
 useEffect(() => {
   fetchCbRef.current = fetchMoreProducts;
