@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 // Helper component for 3-way toggle
 function ThreeWayToggle({ value, onChange }: { value: 'inherit' | 'allow' | 'deny', onChange: (val: any) => void }) {
   return (
-    <div className="flex bg-slate-100 dark:bg-[#0f172a] rounded overflow-hidden border border-slate-200 dark:border-slate-800 text-[10px] font-medium h-7 w-fit shrink-0">
+    <div className="flex bg-slate-100 dark:bg-slate-900 rounded overflow-hidden border border-slate-200 dark:border-slate-800 text-[10px] font-medium h-7 w-fit shrink-0">
       <button 
         onClick={() => onChange('inherit')} 
         className={`px-2 flex items-center gap-1 transition-colors ${value === 'inherit' ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'}`}
@@ -64,9 +64,11 @@ export function UsersTab() {
 
   useEffect(() => {
     if (users.length > 0 && !selectedUserId) {
-      setSelectedUserId(users[0].id);
+      const loggedId = user?.id;
+      const defaultUser = users.find((u: any) => u.id === loggedId) || users[0];
+      setSelectedUserId(defaultUser.id);
     }
-  }, [users, selectedUserId]);
+  }, [users, selectedUserId, user]);
 
   // Fetch permissions for selected user
   const { data: permissionsResponse, isLoading: isLoadingPermissions } = useQuery({
@@ -95,7 +97,7 @@ export function UsersTab() {
       setLocalOverrides({});
       setIsDirty(false);
     }
-  }, [permissions, selectedUserId]);
+  }, [permissionsResponse?.data?.data, selectedUserId]);
 
   const handleToggle = (pageId: string, action: string, value: 'inherit' | 'allow' | 'deny') => {
     setLocalOverrides(prev => ({
@@ -146,7 +148,7 @@ export function UsersTab() {
   return (
     <div className="flex flex-col md:flex-row gap-4 h-[calc(100vh-14rem)]">
       {/* Sidebar - User List */}
-      <div className="w-full md:w-72 flex flex-col bg-white dark:bg-[#1e293b] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shrink-0">
+      <div className="w-full md:w-72 flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shrink-0">
         <div className="p-3 border-b border-slate-200 dark:border-slate-800">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
@@ -155,7 +157,7 @@ export function UsersTab() {
               placeholder="Search staff..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50"
             />
           </div>
         </div>
@@ -169,7 +171,7 @@ export function UsersTab() {
               <button
                 key={u.id}
                 onClick={() => setSelectedUserId(u.id)}
-                className={`w-full flex items-center gap-3 p-2.5 text-left transition-colors border-l-2 ${isActive ? 'bg-slate-50 dark:bg-[#0f172a] border-emerald-500' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center gap-3 p-2.5 text-left transition-colors border-l-2 ${isActive ? 'bg-slate-50 dark:bg-slate-900 border-emerald-500' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
               >
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isActive ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                   {initials}
@@ -187,7 +189,7 @@ export function UsersTab() {
       </div>
 
       {/* Main Content - Permissions Matrix */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-[#1e293b] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden min-w-0">
+      <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden min-w-0">
         {!selectedUser ? (
           <div className="flex-1 flex items-center justify-center text-slate-500">
             Select a user from the sidebar to manage overrides.
@@ -221,7 +223,7 @@ export function UsersTab() {
                  <div className="flex justify-center p-8 text-slate-500">No permissions available.</div>
               ) : (
                 <table className="w-full text-left border-collapse min-w-[700px]">
-                  <thead className="bg-slate-50 dark:bg-[#1e293b] sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
+                  <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="px-3 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase w-[160px]">PAGE</th>
                       <th className="px-3 py-2.5 font-bold text-slate-700 dark:text-slate-300">
@@ -242,7 +244,7 @@ export function UsersTab() {
                   <tbody>
                     {Object.entries(groupedData).map(([group, rows]: [string, any]) => (
                       <React.Fragment key={group}>
-                        <tr className="bg-slate-50 dark:bg-[#1e293b] border-b border-slate-200 dark:border-slate-800">
+                        <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
                           <td colSpan={6} className="px-3 py-2.5">
                             <div className="flex items-center gap-2">
                               <div className="w-1 h-3 bg-emerald-500 rounded-full"></div>
@@ -255,15 +257,27 @@ export function UsersTab() {
                           
                           // Display colored dots for effective permissions
                           const renderDots = () => {
-                             return (
-                               <div className="flex items-center justify-center gap-1.5">
-                                 <div className={`w-2 h-2 rounded-full ${row.effective?.view ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
-                                 <div className={`w-2 h-2 rounded-full ${row.effective?.create ? 'bg-purple-500' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
-                                 <div className={`w-2 h-2 rounded-full ${row.effective?.edit ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
-                                 <div className={`w-2 h-2 rounded-full ${row.effective?.delete ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
-                               </div>
-                             );
-                          }
+                            return (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <div
+                                  className={`w-2 h-2 rounded-full ${row.effective?.view ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                  title={row.effective?.view ? 'View: Allowed' : 'View: Denied'}
+                                ></div>
+                                <div
+                                  className={`w-2 h-2 rounded-full ${row.effective?.create ? 'bg-purple-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                  title={row.effective?.create ? 'Create: Allowed' : 'Create: Denied'}
+                                ></div>
+                                <div
+                                  className={`w-2 h-2 rounded-full ${row.effective?.edit ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                  title={row.effective?.edit ? 'Edit: Allowed' : 'Edit: Denied'}
+                                ></div>
+                                <div
+                                  className={`w-2 h-2 rounded-full ${row.effective?.delete ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                  title={row.effective?.delete ? 'Delete: Allowed' : 'Delete: Denied'}
+                                ></div>
+                              </div>
+                            );
+                          };
 
                           return (
                             <tr key={row.pageId} className="border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">

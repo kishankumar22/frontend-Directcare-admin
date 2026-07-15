@@ -89,21 +89,32 @@ export default function SearchClient({
   }, [products]);
 
   // Dynamically compute brands from search results
-  const brands = useMemo(() => {
-    const map = new Map<string, any>();
-    products.forEach((p) => {
-      p.brands?.forEach((b: any) => {
-        if (!map.has(b.brandId)) {
-          map.set(b.brandId, {
-            id: b.brandId,
-            name: b.brandName,
-          });
-        }
-      });
-    });
-    return Array.from(map.values());
-  }, [products]);
+const brands = useMemo(() => {
+  const map = new Map();
 
+  const filteredProducts =
+    selectedCategories.length === 0
+      ? products
+      : products.filter((p) => {
+          const ids = p.categories?.map((c: any) => c.categoryId) ?? [];
+          return ids.some((id: string) => selectedCategories.includes(id));
+        });
+
+  filteredProducts.forEach((p) => {
+    p.brands?.forEach((b: any) => {
+      if (!map.has(b.brandId)) {
+        map.set(b.brandId, {
+          id: b.brandId,
+          name: b.brandName,
+        });
+      }
+    });
+  });
+
+  return Array.from(map.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}, [products, selectedCategories]);
   useEffect(() => {
     if (!products || products.length === 0) return;
 
@@ -432,7 +443,7 @@ export default function SearchClient({
           <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar">
             <Card className="shadow-sm">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between pb-3 border-b mb-3">
+                <div className="flex items-center justify-between pb-3 border-b mb-3 sticky top-0 bg-white z-20">
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal className="h-4 w-4 text-[#445D41]" />
                     <h2 className="font-semibold text-sm text-gray-900">Filters</h2>
@@ -454,26 +465,28 @@ export default function SearchClient({
                       Category
                     </h3>
                     <div className="max-h-52 overflow-y-auto pr-1 custom-scrollbar space-y-1.5">
-                      {categories.map((cat) => (
-                        <label
-                          key={cat.id}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
-                        >
-                          <input
-                            type="checkbox"
-                            className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
-                            checked={selectedCategories.includes(cat.id)}
-                            onChange={(e) =>
-                              setSelectedCategories(
-                                e.target.checked
-                                  ? [...selectedCategories, cat.id]
-                                  : selectedCategories.filter((c) => c !== cat.id)
-                              )
-                            }
-                          />
-                          <span className="text-xs text-gray-700 truncate">{cat.name}</span>
-                        </label>
-                      ))}
+                      {categories
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((cat) => (
+                          <label
+                            key={cat.id}
+                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
+                              checked={selectedCategories.includes(cat.id)}
+                              onChange={(e) =>
+                                setSelectedCategories(
+                                  e.target.checked
+                                    ? [...selectedCategories, cat.id]
+                                    : selectedCategories.filter((c) => c !== cat.id)
+                                )
+                              }
+                            />
+                            <span className="text-xs text-gray-700 truncate">{cat.name}</span>
+                          </label>
+                        ))}
                     </div>
                   </div>
                 )}

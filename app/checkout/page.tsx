@@ -1177,51 +1177,81 @@ const validateAndBuildPayload = async (): Promise<any | null> => {
   setFieldErrors({});
   const errors: any = {};
 
+  // Email validation
   if (!billingEmail.trim()) {
     errors.billingEmail = "Email is required";
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail)) {
     errors.billingEmail = "Enter a valid email address";
   }
-  if (!billingFirstName.trim()) errors.billingFirstName = "First name is required";  
-  if (!billingPhone.trim()) errors.billingPhone = "Phone number is required";
-  if (deliveryMethod === "HomeDelivery") {
-    if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
-    if (!(billingPostalCode ?? "").trim()) errors.billingPostalCode = "Postcode is required";
-     // ✅ ADD THESE TWO LINES
-  if (!billingCity.trim())
-    errors.billingCity = "City is required";
 
-  if (!billingCountry.trim())
-    errors.billingCountry = "Country is required";
-  // ✅ SHIPPING VALIDATION (same as billing)
-if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
- // ✅ ADD THIS
-  if (!shippingFirstName.trim())
-    errors.shippingFirstName = "Shipping first name is required";
-  if (!shippingPhone.trim())
-  errors.shippingPhone = "Shipping phone number is required";
-  if (!shippingAddress1.trim())
-    errors.shippingAddress1 = "Shipping address line 1 is required";
-
-  if (!shippingPostalCode.trim())
-    errors.shippingPostalCode = "Shipping postcode is required";
-
-  if (!shippingCity.trim())
-    errors.shippingCity = "Shipping city is required";
-
-  if (!shippingCountry.trim())
-    errors.shippingCountry = "Shipping country is required";
-}
-
+  // First name validation
+  if (!billingFirstName.trim()) {
+    errors.billingFirstName = "First name is required";
   }
+
+  // ✅ Billing Phone validation - Combined (Fixed)
+  if (!billingPhone.trim()) {
+    errors.billingPhone = "Phone number is required";
+  } else if (billingPhone.trim().length !== 10) {
+    errors.billingPhone = "Phone number must be exactly 10 digits";
+  }
+
+  // ✅ Shipping Phone validation (when not same as billing) - Fixed
+  if (!shippingSameAsBilling) {
+    if (!shippingPhone.trim()) {
+      errors.shippingPhone = "Shipping phone number is required";
+    } else if (shippingPhone.trim().length !== 10) {
+      errors.shippingPhone = "Shipping phone number must be exactly 10 digits";
+    }
+  }
+
+  // HomeDelivery validation
+  if (deliveryMethod === "HomeDelivery") {
+    if (!billingAddress1.trim()) {
+      errors.billingAddress1 = "Address line 1 is required";
+    }
+    if (!(billingPostalCode ?? "").trim()) {
+      errors.billingPostalCode = "Postcode is required";
+    }
+    if (!billingCity.trim()) {
+      errors.billingCity = "City is required";
+    }
+    if (!billingCountry.trim()) {
+      errors.billingCountry = "Country is required";
+    }
+
+    // Shipping fields validation (when not same as billing)
+    if (!shippingSameAsBilling) {
+      if (!shippingFirstName.trim()) {
+        errors.shippingFirstName = "Shipping first name is required";
+      }
+      // ✅ Remove duplicate shipping phone validation (already handled above)
+      if (!shippingAddress1.trim()) {
+        errors.shippingAddress1 = "Shipping address line 1 is required";
+      }
+      if (!shippingPostalCode.trim()) {
+        errors.shippingPostalCode = "Shipping postcode is required";
+      }
+      if (!shippingCity.trim()) {
+        errors.shippingCity = "Shipping city is required";
+      }
+      if (!shippingCountry.trim()) {
+        errors.shippingCountry = "Shipping country is required";
+      }
+    }
+  }
+
+  // Click & Collect validation
   if (deliveryMethod === "ClickAndCollect" && !selectedStoreId) {
-  errors.selectedStore = "Please select a store";
-}
+    errors.selectedStore = "Please select a store";
+  }
+
   if (Object.keys(errors).length > 0) {
     setFieldErrors(errors);
     setError("Please fill all required fields");
     return null;
   }
+
   // Build a canonical frequency string the backend understands:
   // numeric interval → "every-30-days"; named → "weekly"/"monthly" as-is.
   const toCanonicalFrequency = (freq: any, period: any): string => {
@@ -1264,20 +1294,15 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
           }),
         });
         if (resp.ok) {
-        const text = await resp.text();
-
-let json: any = null;
-
-if (text) {
-  try {
-    json = JSON.parse(text);
-  } catch (e) {
-    console.error(
-      "Failed to parse subscription JSON:",
-      e
-    );
-  }
-}
+          const text = await resp.text();
+          let json: any = null;
+          if (text) {
+            try {
+              json = JSON.parse(text);
+            } catch (e) {
+              console.error("Failed to parse subscription JSON:", e);
+            }
+          }
           if (json?.data?.id) subscriptionMap[item.id] = json.data.id;
         }
       } catch {
@@ -1286,19 +1311,20 @@ if (text) {
       }
     }
   }
+
   const payload = {
     ...buildOrderPayload(),
     orderItems: checkoutItems.map((c) => ({
       productId: c.productId ?? c.id,
       productVariantId: c.variantId ?? null,
       quantity: c.quantity,
-     unitPrice: c.priceBeforeDiscount ?? c.price ?? c.finalPrice,
+      unitPrice: c.priceBeforeDiscount ?? c.price ?? c.finalPrice,
       subscriptionId: subscriptionMap[c.id] ?? null,
       frequency: c.frequency,
     })),
   };
 
-return payload;           // COD flow ke liye
+  return payload; // COD flow ke liye
 };
  
 const onPaymentSuccess = (createdOrder: any) => {
@@ -1557,8 +1583,8 @@ onChange={(e) => setShippingAddressQuery(e.target.value)}
               setShippingCountry(country);
 
              setShowShippingSuggestions(false);
-setShippingAddressSuggestions([]);
-setShippingAddressQuery("");
+              setShippingAddressSuggestions([]);
+              setShippingAddressQuery("");
             } catch (err) {
               console.error("Shipping address lookup error", err);
             }

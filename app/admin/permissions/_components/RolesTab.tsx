@@ -72,7 +72,7 @@ export function RolesTab() {
   });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PermissionTable
         data={permissions as PermissionRowData[]}
         isLoading={isLoadingPermissions}
@@ -80,53 +80,61 @@ export function RolesTab() {
         onSave={(data) => updateMutation.mutate(data)}
         readOnly={isSuperAdmin}
         renderHeader={({ isDirty, handleSave, changedCount }) => (
-          <div className="flex flex-col space-y-3">
-            {/* Roles List */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-              {roles.map((role: any) => (
-                <button
-                  key={role.id}
-                  onClick={() => setSelectedRole(role.name)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap border transition-all ${selectedRole === role.name ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-500/20' : 'bg-white dark:bg-[#1e293b] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'}`}
-                >
-                  {role.name === 'SuperAdmin' && <ShieldAlert className={`w-3 h-3 ${selectedRole === role.name ? 'text-white' : 'text-amber-500 dark:text-amber-400'}`} />}
-                  {role.name}
-                  <span className={`px-1 py-0.5 rounded text-[9px] font-bold leading-none ${selectedRole === role.name ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                    {role.usersCount || 15}
-                  </span>
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-col space-y-3 p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shadow-sm">
+  {/* Roles List */}
+  <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
+    {roles.map((role: any) => (
+      <button
+        key={role.id}
+        onClick={() => setSelectedRole(role.name)}
+        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap border transition-all duration-200
+          ${selectedRole === role.name
+            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-300 dark:hover:bg-slate-600 hover:text-slate-900 dark:hover:text-slate-200'}
+        `}
+        aria-pressed={selectedRole === role.name}
+      >
+        {role.name === 'SuperAdmin' && <ShieldAlert className={`w-3.5 h-3.5 ${selectedRole === role.name ? 'text-white' : 'text-amber-500 dark:text-amber-400'}`} />}
+        {role.name}
+        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${selectedRole === role.name ? 'bg-white/20 text-white' : 'bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400'}`}
+        >
+          {role.usersCount || 15}
+        </span>
+      </button>
+    ))}
+  </div>
 
-            {/* Table Header Controls */}
-            {selectedRole && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  Editing <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{selectedRole}</span>
-                  {isSuperAdmin && (
-                    <span className="ml-1.5 text-amber-500 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Read Only</span>
-                  )}
-                </div>
-                {!isSuperAdmin && (
-                  <div className="flex items-center gap-3">
-                    {isDirty ? (
-                      <span className="text-xs text-amber-600 dark:text-amber-500 font-medium">Unsaved changes {changedCount > 0 ? `(${changedCount})` : ''}</span>
-                    ) : (
-                      <span className="text-xs text-emerald-600/70 dark:text-emerald-500/70">Saved — applies to all users in this role.</span>
-                    )}
-                    <Button 
-                      onClick={handleSave} 
-                      disabled={!isDirty || updateMutation.isPending}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 shadow-sm shadow-emerald-500/20 h-7 px-3 rounded text-[11px] font-medium"
-                    >
-                      {updateMutation.isPending ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Save className="mr-1.5 h-3 w-3" />}
-                      Save changes
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+  {/* Table Header Controls */}
+  {selectedRole && (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-md">
+      <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+        Editing <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{selectedRole}</span>
+        {isSuperAdmin && (
+          <span className="ml-1 text-amber-500 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Read Only</span>
+        )}
+      </div>
+      {!isSuperAdmin && (
+        <div className="flex items-center gap-3">
+          {isDirty ? (
+            <span className="text-xs text-amber-600 dark:text-amber-500 font-medium bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md">
+              Unsaved changes {changedCount > 0 ? `(${changedCount})` : ''}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400 dark:text-slate-500">Saved — applies to all users in this role.</span>
+          )}
+          <Button
+            onClick={handleSave}
+            disabled={!isDirty || updateMutation.isPending}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm h-8 px-4 rounded-md text-xs font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          >
+            {updateMutation.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-2 h-3.5 w-3.5" />}
+            Save changes
+          </Button>
+        </div>
+      )}
+    </div>
+  )}
+</div>
         )}
       />
     </div>

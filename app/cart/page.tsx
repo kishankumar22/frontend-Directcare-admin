@@ -978,7 +978,7 @@ export default function CartPage() {
 
                               if (newQty > stock) {
                                 if (!maxToastMap[itemId]) {
-                                  toast.error(`Only ${stock} items available in stock`);
+                                  toast.error(`You can add only ${stock} Quantity in your cart.`);
                                   setMaxToastMap((prev) => ({ ...prev, [itemId]: true }));
                                 }
                                 return;

@@ -491,7 +491,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
     // Cart Limits
     orderMinimumQuantity: '1',      // ✅ Changed from minCartQuantity
-    orderMaximumQuantity: '10',     // ✅ Changed from maxCartQuantity
+    orderMaximumQuantity: '1000',     // ✅ Changed from maxCartQuantity
     allowedQuantities: '',
     allowAddingOnlyExistingAttributeCombinations: false,
     notReturnable: false,
@@ -3028,7 +3028,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
       if (hasRange) {
         const minCartQty = parseInt(formData.orderMinimumQuantity) || 1;
-        const maxCartQty = parseInt(formData.orderMaximumQuantity) || 10;
+        const maxCartQty = parseInt(formData.orderMaximumQuantity) || 1000;
 
         if (minCartQty < 1) {
           toast.error('❌ Minimum cart quantity must be at least 1');
@@ -3706,7 +3706,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           parseInt(formData.orderMinimumQuantity) || 1;
 
         cleanedCartData.orderMaximumQuantity =
-          parseInt(formData.orderMaximumQuantity) || 10;
+          parseInt(formData.orderMaximumQuantity) || 1000;
       }
       // unlimited mode → sab null
       // else unlimited → sab null
@@ -7175,7 +7175,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                             ...prev,
                             allowedQuantities: '',
                             orderMinimumQuantity: prev.orderMinimumQuantity || '1',
-                            orderMaximumQuantity: prev.orderMaximumQuantity || '10'
+                            orderMaximumQuantity: prev.orderMaximumQuantity || '1000'
                           }));
                         }}
                         className="w-4 h-4 text-violet-500 focus:ring-violet-500"
@@ -7249,7 +7249,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                           value={formData.orderMaximumQuantity}
                           onChange={handleChange}
                           min={formData.orderMinimumQuantity || '1'}
-                          placeholder="100"
+                          placeholder="1000"
                           className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white"
                         />
                       </div>

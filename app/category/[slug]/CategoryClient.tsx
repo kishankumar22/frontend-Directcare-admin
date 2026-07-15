@@ -188,10 +188,20 @@ export default function CategoryClient({
 
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
-  const availableBrands = useMemo(
-    () => brands.filter((b) => b.productCount !== 0),
-    [brands]
-  );
+ const availableBrands = useMemo(() => {
+  const map = new Map();
+
+  products.forEach((product) => {
+    product.brands?.forEach((brand) => {
+      map.set(brand.brandId, {
+        id: brand.brandId,
+        name: brand.brandName,
+      });
+    });
+  });
+
+  return Array.from(map.values());
+}, [products]);
 
   const flattenSubCategories = (cat: Category | null): Category[] => {
     if (!cat) return [];
@@ -212,7 +222,7 @@ export default function CategoryClient({
   const allSubCategories = flattenSubCategories(category);
 
   // ---------- Compute slider bounds (min/max track) from all loaded products ----------
-  // NOTE: priceRange (user selection) is NEVER touched here.
+
   // It is derived from URL on every render (see committedRange below).
   useEffect(() => {
     if (!products || products.length === 0) return;
@@ -919,51 +929,41 @@ const handleSortChange = useCallback((value: string) => {
               Subcategories
             </h3>
             <div className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
-              {allSubCategories
-                .filter((sub) => sub.productCount > 0)
-                .map((sub) => (
-                  <label
-                    key={sub.id}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
-                  >
-                    <input
-                      type="checkbox"
-                      className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
-                      checked={selectedSubCategories.includes(sub.id)}
-                      onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
-                    />
-                    <span className="text-xs text-gray-700 truncate">{sub.name}</span>
-                  </label>
-                ))}
+            {allSubCategories
+              .filter((sub) => sub.productCount > 0)
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((sub) => (
+                <label
+                  key={sub.id}
+                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
+                >
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
+                    checked={selectedSubCategories.includes(sub.id)}
+                    onChange={(e) => handleSubCategoryChange(sub, e.target.checked)}
+                  />
+                  <span className="text-xs text-gray-700 truncate">{sub.name}</span>
+                </label>
+              ))}
             </div>
           </div>
         )}
 
         {/* Brand Filter */}
         <div className="mb-4 pb-4 border-b border-gray-200">
-          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
-            Brand
-          </h3>
+          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Brand</h3>
           <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
-            {availableBrands.map((brand) => (
-              <label
-                key={brand.id}
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group"
-                title={brand.name}
-              >
-                <input
-                  type="checkbox"
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
-                  checked={selectedBrands.includes(brand.id)}
-                  onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
-                />
-                <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">
-                    {brand.name}
-                  </span>
-                </div>
-              </label>
-            ))}
+            {availableBrands
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((brand) => (
+                <label key={brand.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group" title={brand.name}>
+                  <input type="checkbox" className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0" checked={selectedBrands.includes(brand.id)} onChange={(e) => handleBrandChange(brand.id, e.target.checked)} />
+                  <div className="flex items-center justify-between flex-1 min-w-0">
+                    <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">{brand.name}</span>
+                  </div>
+                </label>
+              ))}
           </div>
         </div>
 

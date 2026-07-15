@@ -101,7 +101,7 @@ const [hasShownMaxToast, setHasShownMaxToast] = useState(false);
   // 🔥 STOCK LIMIT
   if (quantity >= maxStock) {
     if (!hasShownMaxToast) {
-      toast.error(`Only ${maxStock} items available in stock`);
+      toast.error(`You can add only ${maxStock} quantity in your cart.`);
       setHasShownMaxToast(true);
     }
     return;

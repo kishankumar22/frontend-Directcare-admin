@@ -592,9 +592,8 @@ export default function AddProductPage() {
     productAvailabilityRange: '',
 
     // Cart Limits
-    // Cart Limits
     orderMinimumQuantity: '1',      //   NEW (matches API)
-    orderMaximumQuantity: '10',     //   NEW (matches API)
+    orderMaximumQuantity: '1000',   //   NEW (matches API)
     allowedQuantities: '',
 
     allowAddingOnlyExistingAttributeCombinations: false,
@@ -1418,26 +1417,7 @@ export default function AddProductPage() {
           }
         }
 
-        const existingVariantSkus: string[] = [];
-        for (const variant of productVariants) {
-          const skuToCheck = variant.sku?.trim();
-          if (!skuToCheck) continue;
 
-          const summary = await productsService.searchSummary({ sku: skuToCheck });
-          if (summary.data?.data?.skuFound) {
-            existingVariantSkus.push(skuToCheck);
-          }
-        }
-
-        if (existingVariantSkus.length > 0) {
-          toast.error(`The following variant SKUs already exist: ${existingVariantSkus.join(", ")}`, {
-            autoClose: 10000,
-          });
-          target.removeAttribute("data-submitting");
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
 
       }
 
@@ -1679,7 +1659,7 @@ export default function AddProductPage() {
           parseInt(formData.orderMinimumQuantity || "1") || 1;
 
         cleanedCartData.orderMaximumQuantity =
-          parseInt(formData.orderMaximumQuantity || "10") || 10;
+          parseInt(formData.orderMaximumQuantity || "1000") || 1000;
       }
       // =============================
       // VALIDATE MIN MAX QUANTITY
@@ -4850,7 +4830,7 @@ export default function AddProductPage() {
                               ...prev,
                               allowedQuantities: '',
                               orderMinimumQuantity: prev.orderMinimumQuantity || '1',
-                              orderMaximumQuantity: prev.orderMaximumQuantity || '10'
+                              orderMaximumQuantity: prev.orderMaximumQuantity || '1000'
                             }));
                           }}
                           className="w-4 h-4 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
@@ -4943,7 +4923,7 @@ export default function AddProductPage() {
                             value={formData.orderMaximumQuantity}
                             onChange={handleChange}
                             min={formData.orderMinimumQuantity || '1'}
-                            placeholder="100"
+                            placeholder="1000"
                             className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
                           />
                         </div>

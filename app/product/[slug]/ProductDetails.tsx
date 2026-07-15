@@ -1596,7 +1596,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
     if (existingCartQty + normalQty > stockQty) {
       toast.error(
-        `Only ${stockQty - existingCartQty} items left in stock`
+        `You can add only  ${stockQty - existingCartQty} item in your cart`
       );
       return;
     }
@@ -2996,7 +2996,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                   return;
                                 }
                                 if (num > limit) {
-                                  toast.error(`only ${limit} quantity left in stock `);
+                                  toast.error(`you can add only  ${limit} item in your cart `);
                                   setNormalQty(limit);
                                   return;
                                 }
@@ -3030,7 +3030,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                   product.orderMaximumQuantity ?? maxStock;
                                 const limit = Math.min(maxQty, maxStock);
                                 if (normalQty >= limit) {
-                                  toast.error(`only ${limit} quantity left in stock`);
+                                  toast.error(`You can add only ${limit} Quantity in your cart.`);
                                   return;
                                 }
                                 setNormalQty(normalQty + 1);
