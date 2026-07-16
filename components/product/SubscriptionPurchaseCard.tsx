@@ -224,7 +224,8 @@ image: selectedVariant?.imageUrl
           <span className="text-xs font-bold text-gray-400 line-through">
             £{(selectedVariant?.price ?? product.price).toFixed(2)}
           </span>
-          {vatRate !== null && (
+        
+          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
               {vatRate}% VAT
             </span>

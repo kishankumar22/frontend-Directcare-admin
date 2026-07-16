@@ -89,21 +89,29 @@ const getFinalPrice = (item: any) => {
   }, [products]);
 
   // Categories / Brands from loaded products
-  const categories = useMemo(() => {
-    const map = new Map<string, any>();
-    products.forEach(p => p.categories?.forEach((c: any) => {
-      if (!map.has(c.categoryId)) map.set(c.categoryId, { id: c.categoryId, name: c.categoryName });
-    }));
-    return Array.from(map.values());
-  }, [products]);
+// Categories - A-Z Sort
+const categories = useMemo(() => {
+  const map = new Map<string, any>();
+  products.forEach(p => p.categories?.forEach((c: any) => {
+    if (!map.has(c.categoryId)) map.set(c.categoryId, { id: c.categoryId, name: c.categoryName });
+  }));
+  // ✅ SORT A-Z by name
+  return Array.from(map.values()).sort((a, b) => 
+    a.name.localeCompare(b.name)
+  );
+}, [products]);
 
-  const brands = useMemo(() => {
-    const map = new Map<string, any>();
-    products.forEach(p => p.brands?.forEach((b: any) => {
-      if (!map.has(b.brandId)) map.set(b.brandId, { id: b.brandId, name: b.brandName });
-    }));
-    return Array.from(map.values());
-  }, [products]);
+// Brands - A-Z Sort
+const brands = useMemo(() => {
+  const map = new Map<string, any>();
+  products.forEach(p => p.brands?.forEach((b: any) => {
+    if (!map.has(b.brandId)) map.set(b.brandId, { id: b.brandId, name: b.brandName });
+  }));
+  // ✅ SORT A-Z by name
+  return Array.from(map.values()).sort((a, b) => 
+    a.name.localeCompare(b.name)
+  );
+}, [products]);
 
   // Filter + flatten + sort
   const flattenedProducts = useMemo(() => {
@@ -223,52 +231,123 @@ const handleSortChange = (value: string) => {
           </button>
         </div>
       </div>
-      <div className="px-4 pb-4 lg:px-6 space-y-6 overflow-y-auto flex-1">
-        {categories.length > 0 && (
-          <div>
-            <h3 className="font-bold text-sm text-gray-900 mb-3">Category</h3>
-            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-              {categories.map(cat => (
-                <label key={cat.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition">
-                  <input type="checkbox" className="w-4 h-4 text-[#445D41]"
-                    checked={selectedCategories.includes(cat.id)}
-                    onChange={e => setSelectedCategories(e.target.checked ? [...selectedCategories, cat.id] : selectedCategories.filter(c => c !== cat.id))} />
-                  <span className="text-sm text-gray-700 truncate">{cat.name}</span>
-                </label>
-              ))}
+     <div className="px-4 pb-4 lg:px-6 space-y-6 overflow-y-auto flex-1">
+  {/* Category Filter */}
+  {categories.length > 0 && (
+    <div className="mb-4 pb-4 border-b border-gray-200">
+      <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+        Category
+      </h3>
+      <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+        {categories.map((cat) => (
+          <label
+            key={cat.id}
+            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group"
+            title={cat.name}
+          >
+            <input
+              type="checkbox"
+              className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 focus:ring-[#445D41] flex-shrink-0"
+              checked={selectedCategories.includes(cat.id)}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedCategories([...selectedCategories, cat.id]);
+                } else {
+                  setSelectedCategories(selectedCategories.filter((c) => c !== cat.id));
+                }
+              }}
+            />
+            <div className="flex items-center justify-between flex-1 min-w-0">
+              <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">
+                {cat.name}
+              </span>
             </div>
-          </div>
-        )}
-        {brands.length > 0 && (
-          <div>
-            <h3 className="font-bold text-sm text-gray-900 mb-3">Brand</h3>
-            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-              {brands.map(brand => (
-                <label key={brand.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition">
-                  <input type="checkbox" className="w-4 h-4 text-[#445D41]"
-                    checked={selectedBrands.includes(brand.id)}
-                    onChange={e => setSelectedBrands(e.target.checked ? [...selectedBrands, brand.id] : selectedBrands.filter(b => b !== brand.id))} />
-                  <span className="text-sm text-gray-700">{brand.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-        <div>
-          <h3 className="font-bold text-sm text-gray-900 mb-4">Price Range</h3>
-          {minPrice < maxPrice && <PremiumPriceSlider value={priceRange} min={minPrice} max={maxPrice} onChange={v => setPriceRange(v)} />}
-        </div>
-        <div>
-          <h3 className="font-bold text-sm text-gray-900 mb-3">Minimum Rating</h3>
-          {[4, 3, 2, 1, 0].map(rating => (
-            <label key={rating} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
-              <input type="radio" className="w-4 h-4 text-[#445D41]" checked={minRating === rating} onChange={() => setMinRating(rating)} />
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm text-gray-700">{rating > 0 ? `${rating}+ Stars` : "All Ratings"}</span>
-            </label>
-          ))}
-        </div>
+          </label>
+        ))}
       </div>
+    </div>
+  )}
+
+  {/* Brand Filter */}
+  {brands.length > 0 && (
+    <div className="mb-4 pb-4 border-b border-gray-200">
+      <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+        Brand
+      </h3>
+      <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+        {brands.map((brand) => (
+          <label
+            key={brand.id}
+            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group"
+            title={brand.name}
+          >
+            <input
+              type="checkbox"
+              className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 focus:ring-[#445D41] flex-shrink-0"
+              checked={selectedBrands.includes(brand.id)}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedBrands([...selectedBrands, brand.id]);
+                } else {
+                  setSelectedBrands(selectedBrands.filter((b) => b !== brand.id));
+                }
+              }}
+            />
+            <div className="flex items-center justify-between flex-1 min-w-0">
+              <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">
+                {brand.name}
+              </span>
+            </div>
+          </label>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {/* Price Range */}
+  <div className="mb-4 pb-4 border-b border-gray-200">
+    <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-3">
+      Price Range
+    </h3>
+    {minPrice < maxPrice && (
+      <PremiumPriceSlider
+        value={priceRange}
+        min={minPrice}
+        max={maxPrice}
+        onChange={(v) => setPriceRange(v)}
+      />
+    )}
+  </div>
+
+  {/* Minimum Rating */}
+  <div className="mb-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+    <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
+      Minimum Rating
+    </h3>
+    <div className="space-y-1.5">
+      {[4, 3, 2, 1, 0].map((rating) => (
+        <label
+          key={rating}
+          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group"
+        >
+          <input
+            type="radio"
+            name="rating"
+            className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 focus:ring-[#445D41] flex-shrink-0"
+            checked={minRating === rating}
+            onChange={() => setMinRating(rating)}
+          />
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+            <span className="text-xs text-gray-700">
+              {rating > 0 ? `${rating}+ Stars` : "All Ratings"}
+            </span>
+          </div>
+        </label>
+      ))}
+    </div>
+  </div>
+</div>
       <div className="lg:hidden px-4 pb-4 pt-2 border-t mt-auto">
         <button onClick={() => setShowFilters(false)} className="w-full py-3 bg-[#445D41] text-white rounded-lg font-semibold text-sm">
           Show Results ({flattenedProducts.length})

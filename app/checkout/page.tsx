@@ -1124,14 +1124,14 @@ if (!isAuthenticated && hasPharmaProduct) {
     return {
       deliveryMethod,  // ADD THIS LINE
       collectionStoreId:
-  deliveryMethod === "ClickAndCollect"
-    ? selectedStoreId
-    : null,    
-   paymentMethod: "Card",
+          deliveryMethod === "ClickAndCollect"
+          ? selectedStoreId
+          : null,    
+      paymentMethod: "Card",
       customerEmail: billingEmail,
       customerPhone: `+44${billingPhone}`,
       billingPhone: `+44${billingPhone}`, 
-  shippingPhone: `+44${shippingSameAsBilling ? billingPhone : shippingPhone}`,
+      shippingPhone: `+44${shippingSameAsBilling ? billingPhone : shippingPhone}`,
       isGuestOrder: !isAuthenticated,
       userId: isAuthenticated ? user?.id : null,
        pharmacySessionId,
@@ -2268,7 +2268,7 @@ const isNextDay =
   className="mt-0.5"
 />
 
-    <span>I agree to the <Link href="/terms" className="text-blue-600 underline">Terms & Conditions</Link></span>
+    <span>I agree to the <Link href="/terms-and-conditions" className="text-blue-600 underline">Terms & Conditions</Link></span>
   </label>
   <label className="flex items-start gap-2 text-xs text-gray-700">
     <input type="checkbox" checked={subscribeNewsletter} onChange={(e) => setSubscribeNewsletter(e.target.checked)} className="mt-0.5" />

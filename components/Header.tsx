@@ -167,7 +167,18 @@ export default function Header({
         );
         const json = await res.json();
 
-        const products = json?.data?.items || [];
+         let products = json?.data?.items || [];
+
+         products = products.filter((product: any) => {
+      // Agar pharma product nahi hai → show karo
+      if (!product.isPharmaProduct) return true;
+      
+      // Agar pharma product hai → sirf APPROVED aur PUBLISHED show karo
+      return (
+        product.pharmaApprovalStatus === "Approved" &&
+        product.isPublished === true
+      );
+    });
 
         setResults(products);
 

@@ -83,14 +83,17 @@ export default function ProductCard({
 
   const finalPrice = getDiscountedPrice(product, basePrice);
   const discountBadge = getDiscountBadge(product);
-  const currentDisplayType =
-    defaultVariant?.displayDiscountType ??
-    product.displayDiscountType ??
-    "None";
+  // Determine which discount type to display: prioritize variant's setting if present
+ // ✅ NEW (Correct - ProductDetails jaisa):
+const currentDisplayType = 
+  (product.productType === "variable" && defaultVariant?.compareAtPrice && defaultVariant.compareAtPrice > defaultVariant.price ? "OldPrice" : undefined) ??
+  defaultVariant?.displayDiscountType ??
+  product.displayDiscountType ??
+  "None";
 
- const oldPriceValue = defaultVariant
-  ? defaultVariant.compareAtPrice
-  : product.oldPrice;
+  const oldPriceValue = defaultVariant
+    ? defaultVariant.compareAtPrice
+    : product.oldPrice;
 
   const oldPriceData =
     currentDisplayType === "OldPrice"
@@ -312,10 +315,10 @@ export default function ProductCard({
           {!discountBadge && hasActiveCoupon && (
             <div className="absolute top-2 right-2 z-20">
               <div className="relative bg-gradient-to-br from-red-50 to-red-100 text-red-800 text-[9px] md:text-[10px] font-semibold px-2 py-1 rounded-md shadow-lg rotate-[-6deg] border border-red-200 leading-tight max-w-[96px] md:max-w-[96px]">
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[9px] md:text-[10px] font-semibold">🎟 COUPON</span>
-                    <span className="text-[8px] md:text-[9px] opacity-90">Available</span>
-                  </div>
+                <div className="flex flex-col items-center text-center">
+                  <span className="text-[9px] md:text-[10px] font-semibold">🎟 COUPON</span>
+                  <span className="text-[8px] md:text-[9px] opacity-90">Available</span>
+                </div>
 
                 {/* decorative hole */}
                 <span className="absolute -top-1 left-3 w-2 h-2 bg-white border border-red-200 rounded-full shadow-inner"></span>
@@ -378,24 +381,21 @@ export default function ProductCard({
                 toast.success("Product added to wishlist!");
               }
             }}
-            className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
-              (currentDisplayType === "System" && discountBadge) ||
-              (currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData) ||
-              (!discountBadge && hasActiveCoupon)
+            className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${(currentDisplayType === "System" && discountBadge) ||
+                (currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData) ||
+                (!discountBadge && hasActiveCoupon)
                 ? "top-14"
                 : "top-2"
-            } ${
-              isInWishlist(defaultVariant?.id ?? product.id)
+              } ${isInWishlist(defaultVariant?.id ?? product.id)
                 ? "bg-red-50 border-red-200"
                 : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
-            }`}
+              }`}
           >
             <Heart
-              className={`h-5 w-5   transition-colors ${
-                isInWishlist(defaultVariant?.id ?? product.id)
+              className={`h-5 w-5   transition-colors ${isInWishlist(defaultVariant?.id ?? product.id)
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400 hover:text-red-400"
-              }`}
+                }`}
             />
           </button>
           {/* VAT Relief — bottom left on image */}
@@ -426,71 +426,71 @@ export default function ProductCard({
         </Link>
 
         {/* RATING + REVIEW + LOYALTY — single compact row */}
-<div className="flex items-center gap-1 mb-1 flex-nowrap overflow-hidden">
-  <div className="flex items-center flex-shrink-0">
-    {(() => {
-      const rating = product.averageRating ?? 0;
-      return Array.from({ length: 5 }, (_, i) => {
-        const starIndex = i + 1;
-        if (rating >= starIndex) {
-          // Full star
-          return <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />;
-        } else if (rating >= starIndex - 0.75) {
-          // Half star (0.25 - 0.74 of the star)
-          return <StarHalf key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />;
-        } else {
-          // Empty star
-          return <Star key={i} className="h-3 w-3 text-gray-300" />;
-        }
-      });
-    })()}
-    <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
-      {(product.averageRating ?? 0).toFixed(1)}
-    </span>
-  </div>
+        <div className="flex items-center gap-1 mb-1 flex-nowrap overflow-hidden">
+          <div className="flex items-center flex-shrink-0">
+            {(() => {
+              const rating = product.averageRating ?? 0;
+              return Array.from({ length: 5 }, (_, i) => {
+                const starIndex = i + 1;
+                if (rating >= starIndex) {
+                  // Full star
+                  return <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />;
+                } else if (rating >= starIndex - 0.75) {
+                  // Half star (0.25 - 0.74 of the star)
+                  return <StarHalf key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />;
+                } else {
+                  // Empty star
+                  return <Star key={i} className="h-3 w-3 text-gray-300" />;
+                }
+              });
+            })()}
+            <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
+              {(product.averageRating ?? 0).toFixed(1)}
+            </span>
+          </div>
 
-  <span className="text-[10px] text-gray-500 flex-shrink-0">
-    ({product.reviewCount || 0})
-  </span>
+          <span className="text-[10px] text-gray-500 flex-shrink-0">
+            ({product.reviewCount || 0})
+          </span>
 
-  {product.nextDayDeliveryFree && (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap">
-      Next Day Free
-    </span>
-  )}
+          {product.nextDayDeliveryFree && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap">
+              Next Day Free
+            </span>
+          )}
 
-  {/* {loyaltyPoints && (
+          {/* {loyaltyPoints && (
     <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
       <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
       Earn {loyaltyPoints} pts
     </span>
   )} */}
-</div>
+        </div>
 
         {/* PRICE */}
-<div className="flex items-center gap-0.5 mb-1">
-  <span className="text-[15px] md:text-xl font-bold text-[#445D41] leading-none">
-    £{(currentDisplayType === "System" ? finalPrice : basePrice).toFixed(2)}
-  </span>
+        <div className="flex items-center gap-0.5 mb-1">
+          <span className="text-[15px] md:text-xl font-bold text-[#445D41] leading-none">
+            £{(currentDisplayType === "System" ? finalPrice : basePrice).toFixed(2)}
+          </span>
 
-  {currentDisplayType === "System" && discountBadge && (
-    <span className="text-[12px] md:text-sm text-gray-400 line-through leading-none">
-      £{basePrice.toFixed(2)}
-    </span>
-  )}
+          {currentDisplayType === "System" && discountBadge && (
+            <span className="text-[12px] md:text-sm text-gray-400 line-through leading-none">
+              £{basePrice.toFixed(2)}
+            </span>
+          )}
 
-  {currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData && (
-    <span className="text-[12px] md:text-sm text-gray-400 line-through leading-none">
-      £{oldPriceData.oldPrice.toFixed(2)}
-    </span>
-  )}
+          {currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData && (
+            <span className="text-[12px] md:text-sm text-gray-400 line-through leading-none">
+              £{oldPriceData.oldPrice.toFixed(2)}
+            </span>
+          )}
 
-  {vatRate !== null && vatRate > 0 && (
-    <span className="text-[10px] md:text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-[2px] rounded-md whitespace-nowrap leading-none">
-      ({vatRate}% VAT)
-    </span>
-  )}
-</div>
+          {vatRate !== null && vatRate > 0 && (
+            <span className="text-[10px] md:text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-[2px] rounded-md whitespace-nowrap leading-none">
+              ({vatRate}% VAT)
+            </span>
+          )}
+        </div>
 
         {/* ADD TO CART */}
         <Button

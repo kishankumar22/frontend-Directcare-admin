@@ -114,38 +114,50 @@ const flattenedProducts = useMemo(() => {
     setSortDirection(dir as "asc" | "desc");
   };
 
-  // Categories
-  const categories = useMemo(() => {
-    const map = new Map<string, any>();
-    products.forEach((p) => {
-      p.categories?.forEach((c: any) => {
-        if (!map.has(c.categoryId)) {
-          map.set(c.categoryId, {
-            id: c.categoryId,
-            name: c.categoryName,
-          });
-        }
-      });
+// Categories - A-Z Sort
+// Add console log to debug
+const categories = useMemo(() => {
+  console.log("Products in categories:", products); // 🔍 Check products
+  
+  const map = new Map<string, any>();
+  products.forEach((p) => {
+    console.log("Product categories:", p.categories); // 🔍 Check each product's categories
+    p.categories?.forEach((c: any) => {
+      if (!map.has(c.categoryId)) {
+        map.set(c.categoryId, {
+          id: c.categoryId,
+          name: c.categoryName,
+        });
+      }
     });
-    return Array.from(map.values());
-  }, [products]);
+  });
+  
+  const result = Array.from(map.values()).sort((a, b) => 
+    a.name.localeCompare(b.name)
+  );
+  
+  console.log("Sorted categories:", result); // 🔍 Final result
+  return result;
+}, [products]);
 
-  // Brands
-  const brands = useMemo(() => {
-    const map = new Map<string, any>();
-    products.forEach((p) => {
-      p.brands?.forEach((b: any) => {
-        if (!map.has(b.brandId)) {
-          map.set(b.brandId, {
-            id: b.brandId,
-            name: b.brandName,
-          });
-        }
-      });
+// Brands - A-Z Sort
+const brands = useMemo(() => {
+  const map = new Map<string, any>();
+  products.forEach((p) => {
+    p.brands?.forEach((b: any) => {
+      if (!map.has(b.brandId)) {
+        map.set(b.brandId, {
+          id: b.brandId,
+          name: b.brandName,
+        });
+      }
     });
-    return Array.from(map.values());
-  }, [products]);
-
+  });
+  // ✅ SORT A-Z by name
+  return Array.from(map.values()).sort((a, b) => 
+    a.name.localeCompare(b.name)
+  );
+}, [products]);
   // Price range derive
 useEffect(() => {
   if (!products || products.length === 0) return;

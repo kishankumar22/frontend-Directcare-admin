@@ -180,31 +180,45 @@ export default function OrdersListPage() {
     orderNumber: o.orderNumber,
   }));
 
-  const setRange = (days: number) => {
-    const today = new Date();
+const setRange = (days: number) => {
+  const today = new Date();
 
-    const startDate = new Date();
-    const endDate = new Date();
+  const startDate = new Date();
+  const endDate = new Date();
 
-    if (days === 0) {
-      // Today only
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      startDate.setDate(today.getDate() - (days - 1));
-      startDate.setHours(0, 0, 0, 0);
-    }
+  if (days === 0) {
+    // Today
+    startDate.setHours(0, 0, 0, 0);
+
+    endDate.setFullYear(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+    endDate.setHours(23, 59, 59, 999);
+  } else if (days === 1) {
+    // Yesterday
+    startDate.setDate(today.getDate() - 1);
+    startDate.setHours(0, 0, 0, 0);
+
+    endDate.setDate(today.getDate() - 1);
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    // Last 15 Days / Last 30 Days
+    startDate.setDate(today.getDate() - (days - 1));
+    startDate.setHours(0, 0, 0, 0);
 
     endDate.setHours(23, 59, 59, 999);
+  }
 
+  setFilters((prev) => ({
+    ...prev,
+    fromDate: formatLocalDateTime(startDate),
+    toDate: formatLocalDateTime(endDate),
+  }));
 
-    setFilters(prev => ({
-      ...prev,
-      fromDate: formatLocalDateTime(startDate),
-      toDate: formatLocalDateTime(endDate),
-    }));
-
-    setShowDatePicker(false);
-  };
+  setShowDatePicker(false);
+};
   const allSameStatus =
     selectedOrderObjects.length > 0 &&
     selectedOrderObjects.every(
@@ -649,7 +663,7 @@ export default function OrdersListPage() {
 
 
   const getDateRangeLabel = () => {
-    if (!filters.fromDate && !filters.toDate) return 'Select Date Range';
+    if (!filters.fromDate && !filters.toDate) return 'Date Range';
     const formatDateLabel = (dateStr: string) => {
       if (!dateStr) return '';
       return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -1114,13 +1128,13 @@ Note: Buttons will be hidden if you lack the required permission.`}>
       </div>
 
       {/* FILTERS */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-2 space-y-3">
+      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-1 space-y-1">
 
         {/* ✅ SINGLE ROW - ALL FILTERS INLINE */}
         <div className="flex flex-wrap items-center gap-1 w-full">
 
           {/* SEARCH - Flexible width */}
-          <div className="relative flex-1 min-w-[220px]">
+          <div className="relative flex-1 min-w-[170px]">
 
             {/* ICON */}
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
@@ -1160,8 +1174,8 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                 isGuestOrder: e.target.value,
               }))
             }
-            className={`px-2 py-2 rounded-lg text-xs border min-w-[100px]
-    ${filters.isGuestOrder !== ""
+            className={`px-1 py-2 rounded-lg text-xs border min-w-[80px]
+                  ${filters.isGuestOrder !== ""
                 ? "text-white border-violet-500 bg-violet-500/10"
                 : "text-slate-300 border-slate-700 bg-gray-800"
               }`}
@@ -1186,7 +1200,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                 status: e.target.value,
               }))
             }
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 max-w-[150px]
+            className={`px-1 py-2 rounded-lg text-xs text-white border bg-slate-800 max-w-[120px]
         ${filters.status ? "border-blue-500 bg-blue-500/10" : "border-slate-700 bg-slate-800"}`}
           >
             <option value="">Order Status:All </option>
@@ -1213,7 +1227,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                 paymentMethod: e.target.value,
               }))
             }
-            className={`px-3 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[20px]
+            className={`px-1 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[10px]
         ${filters.paymentMethod ? "border-amber-500 bg-amber-500/10" : "border-slate-700"}`}
           >
             <option value="">Payment method:All</option>
@@ -1235,7 +1249,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                 paymentStatus: e.target.value,
               }))
             }
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+            className={`px-1 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[100px]
         ${filters.paymentStatus ? "border-green-500 bg-green-500/10" : "border-slate-700"}`}
           >
             <option value="">Payment Status:All</option>
@@ -1266,7 +1280,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                 }));
               }
             }}
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+            className={`px-1 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[70px]
         ${(filters.shippingMethodName || filters.isClickAndCollect === "true") ? "border-fuchsia-500 bg-slate-500/10" : "border-slate-700"}`}
           >
             <option value="">Shipping Method: All</option>
@@ -1295,7 +1309,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                 isPharmaProduct: e.target.value,
               }))
             }
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+            className={`px-1 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[80px]
         ${filters.isPharmaProduct ? "border-rose-500 bg-rose-500/10" : "border-slate-700"}`}
           >
             <option value="">Product Type</option>
@@ -1313,7 +1327,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                 pharmacyVerificationStatus: e.target.value === "" ? "" : e.target.value as PharmacyVerificationStatus,
               }))
             }
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[110px]
+            className={`px-1 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[70px]
         ${filters.pharmacyVerificationStatus ? "border-purple-500 bg-purple-500/10" : "border-slate-700"}`}
           >
             <option value="">Pharma Status:All</option>
@@ -1330,17 +1344,18 @@ Note: Buttons will be hidden if you lack the required permission.`}>
               setFilters((prev) => ({ ...prev, source: e.target.value }))
             }
             title="Filter by how the order arrived (organic vs paid ads)"
-            className={`px-2 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[120px]
+            className={`px-1 py-2 rounded-lg text-xs text-white border bg-slate-800 min-w-[100px]
         ${filters.source ? "border-emerald-500 bg-emerald-500/10" : "border-slate-700"}`}
           >
             <option value="">Source: All</option>
             <option value="paid">Paid / Ads</option>
             <option value="organic">Organic</option>
             <option value="direct">Direct</option>
+            {/* <option value="Referral">Referral </option> */}
           </select>
 
           {/* DATE RANGE */}
-          <div className="relative min-w-[130px]" ref={datePickerRef}>
+          <div className="relative min-w-[80px]" ref={datePickerRef}>
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
               className={`w-full pl-9 pr-8 py-2 rounded-lg text-sm text-left
@@ -1374,7 +1389,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                   onClick={() => setShowDatePicker(false)}
                 />
 
-                <div className="absolute top-full left-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-3 z-[110] min-w-[240px]">
+                <div className="absolute top-full right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-3 z-[110] min-w-[240px]">
 
                   {/* FROM DATE */}
                   <div className="mb-3">
@@ -1385,12 +1400,14 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                     <input
                       type="date"
                       value={filters.fromDate?.split("T")[0] || ""}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          fromDate: `${e.target.value}T00:00:00`,
-                        }))
-                      }
+                     onChange={(e) => {
+                      const value = e.target.value;
+
+                      setFilters((prev) => ({
+                        ...prev,
+                        fromDate: value ? `${value}T00:00:00` : "",
+                      }));
+                      }}
                       max={
                         filters.toDate?.split("T")[0] ||
                         new Date().toISOString().split("T")[0]
@@ -1408,12 +1425,13 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                     <input
                       type="date"
                       value={filters.toDate?.split("T")[0] || ""}
-                      onChange={(e) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          toDate: `${e.target.value}T23:59:59.999`,
-                        }))
-                      }
+                      onChange={(e) => {
+                      const value = e.target.value;
+                      setFilters((prev) => ({
+                        ...prev,
+                        toDate: value ? `${value}T23:59:59.999` : "",
+                      }));
+                      }}
                       min={filters.fromDate?.split("T")[0] || ""}
                       max={new Date().toISOString().split("T")[0]}
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
@@ -1421,54 +1439,37 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                   </div>
 
                   {/* QUICK BUTTONS */}
-                  <div className="grid grid-cols-5 gap-2 pt-2 border-t border-slate-700">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700">
 
-                    {/* 1 Day */}
-                    <button
-                      onClick={() => setRange(0)}
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-emerald-400 rounded-lg text-xs font-semibold"
-                      title="Today"
-                    >
-                      1D
-                    </button>
+  <button
+    onClick={() => setRange(0)}
+    className="h-12 rounded-lg bg-slate-700 hover:bg-slate-600 text-emerald-400 text-sm font-semibold transition-colors"
+  >
+    Today
+  </button>
 
-                    {/* 1 Week */}
-                    <button
-                      onClick={() => setRange(7)}
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-cyan-400 rounded-lg text-xs font-semibold"
-                      title="Last 1 Week"
-                    >
-                      1W
-                    </button>
+  <button
+    onClick={() => setRange(1)}
+    className="h-12 rounded-lg bg-slate-700 hover:bg-slate-600 text-cyan-400 text-sm font-semibold transition-colors"
+  >
+    Yesterday
+  </button>
 
-                    {/* 2 Week */}
-                    <button
-                      onClick={() => setRange(14)}
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-violet-400 rounded-lg text-xs font-semibold"
-                      title="Last 2 Weeks"
-                    >
-                      2W
-                    </button>
+  <button
+    onClick={() => setRange(15)}
+    className="h-12 rounded-lg bg-slate-700 hover:bg-slate-600 text-violet-400 text-sm font-semibold transition-colors"
+  >
+    Last 15 Days
+  </button>
 
-                    {/* 3 Week */}
-                    <button
-                      onClick={() => setRange(21)}
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-amber-400 rounded-lg text-xs font-semibold"
-                      title="Last 3 Weeks"
-                    >
-                      3W
-                    </button>
+  <button
+    onClick={() => setRange(30)}
+    className="h-12 rounded-lg bg-slate-700 hover:bg-slate-600 text-pink-400 text-sm font-semibold transition-colors"
+  >
+    Last 30 Days
+  </button>
 
-                    {/* 4 Week */}
-                    <button
-                      onClick={() => setRange(28)}
-                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-pink-400 rounded-lg text-xs font-semibold"
-                      title="Last 4 Weeks"
-                    >
-                      4W
-                    </button>
-
-                  </div>
+</div>
                 </div>
               </>
             )}
@@ -1477,7 +1478,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
             <button
               onClick={clearFilters}
               title="Clear Filters"
-              className="px-2 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-all whitespace-nowrap"
+              className="px-1 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-all whitespace-nowrap"
             >
               <X className="w-4 h-4 " />
             </button>

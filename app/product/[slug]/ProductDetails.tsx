@@ -602,6 +602,44 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
 
   const [hasPharmacyQuestions, setHasPharmacyQuestions] = useState<boolean | null>(null);
 
+  // /app/lib/discountHelpers.ts
+
+/**
+ * Get the slug for the discount offer page
+ * Returns the slug from the first active discount, or null if no discount
+ */
+ function getDiscountSlug(product: any): string | null {
+  if (!product?.assignedDiscounts || product.assignedDiscounts.length === 0) {
+    return null;
+  }
+
+  const now = new Date();
+
+  // Find the first active discount
+  const activeDiscount = product.assignedDiscounts.find((d: any) => {
+    if (!d.isActive) return false;
+    
+    // Check if discount is active based on dates
+    if (d.startDate && now < new Date(d.startDate)) return false;
+    if (d.endDate && now > new Date(d.endDate)) return false;
+    
+    return true;
+  });
+
+  if (!activeDiscount) return null;
+
+  // Generate slug from discount name
+  // e.g., "Mega Monthly Sale" → "mega-monthly-sale"
+  const slug = activeDiscount.name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .trim();
+
+  return slug || null;
+}
+
+
   useEffect(() => {
     if (product.isPharmaProduct && product.id) {
       setHasPharmacyQuestions(null); // Reset before fetching
@@ -2573,6 +2611,25 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                     VAT Relief
                   </div>
                 )}
+
+{/* 🔥 QUALIFY ITEMS BUTTON - Updated Colors */}
+{(() => {
+  const discountSlug = getDiscountSlug(product);
+  if (!discountSlug) return null;
+  
+  return (
+    <div className="flex items-center gap-2">
+      <Link
+        href={`/offers/${discountSlug}`}
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#445D41] hover:bg-black text-white text-xs font-medium transition-all duration-200 group shadow-sm hover:shadow-md"
+      >
+        <BadgePercent className="h-3.5 w-3.5 text-white/90 group-hover:scale-110 transition-transform" />
+        <span>Qualify Items</span>
+        <ChevronRight className="h-3.5 w-3.5 text-white/70 group-hover:translate-x-0.5 transition-transform" />
+      </Link>
+    </div>
+  );
+})()}
                 {/* Unisex */}
                 <GenderBadge
                   gender={product.gender}
@@ -2658,7 +2715,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 {product.variants?.[0]?.option1Name && (
                   <div className="flex flex-wrap items-center gap-3 mb-4">
                     <p className="text-sm font-semibold">
-                      {product.variants?.[0]?.option1Name}
+                      {product.variants?.[0]?.option1Name} :
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {[
@@ -2686,7 +2743,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 {product.variants?.[0]?.option2Name && (
                   <div className="flex flex-wrap items-center gap-3 mb-4">
                     <p className="text-sm font-semibold">
-                      {product.variants?.[0]?.option2Name}
+                      {product.variants?.[0]?.option2Name} :
                     </p>
 
                     <div className="flex flex-wrap gap-2">
@@ -2713,7 +2770,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 {product.variants?.some(v => v.option3Name && v.option3Value) && (
                   <div className="flex flex-wrap items-center gap-3 mb-4">
                     <p className="text-sm font-semibold">
-                      {product.variants?.[0]?.option3Name}
+                      {product.variants?.[0]?.option3Name} :
                     </p>
 
                     <div className="flex flex-wrap gap-2">

@@ -143,20 +143,69 @@ export default function AdminOrderComments({ orderId }: Props) {
                 onChange={(e) => setNewComment(e.target.value)}
                 className="min-h-[50px] max-h-[50px] flex-1 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-md resize-none text-sm text-gray-900 dark:text-slate-100 focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder:text-gray-400 dark:placeholder:text-slate-500"
               />
-              <Button 
-                onClick={handleAddComment} 
-                disabled={!newComment.trim() || isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md px-4 h-[50px] shrink-0 text-sm flex items-center justify-center gap-2 w-full sm:w-auto transition-all"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    <span className="whitespace-nowrap">Post Comment</span>
-                  </>
-                )}
-              </Button>
+            <button
+  type="button"
+  onClick={handleAddComment}
+  disabled={!newComment.trim() || isSubmitting}
+  className={`
+    h-[50px]
+    min-w-[190px]
+    px-5
+    rounded-md
+    flex
+    items-center
+    justify-center
+    gap-2
+    text-sm
+    font-medium
+    shrink-0
+    w-full
+    sm:w-auto
+    transition-all
+    duration-200
+    text-white
+
+    ${
+      !newComment.trim() || isSubmitting
+        ? `
+          cursor-not-allowed
+          bg-slate-200
+          text-white
+          border border-slate-300
+          
+
+          dark:bg-slate-700
+          dark:text-white
+          dark:border-slate-600
+        `
+        : `
+          bg-blue-600
+          hover:bg-blue-700
+          text-white
+
+          dark:bg-blue-500
+          dark:hover:bg-blue-600
+          dark:text-white
+        `
+    }
+
+  `}
+  title='Add  order comment '
+>
+  {isSubmitting ? (
+    <>
+      <Loader2 className="h-4 w-4 animate-spin" />
+      <span>Posting...</span>
+    </>
+  ) : (
+    <>
+      <Send className="h-4 w-4" />
+      <span className="whitespace-nowrap  text-white">
+        Post Comment
+      </span>
+    </>
+  )}
+</button>
             </div>
           </div>
         </div>

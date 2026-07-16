@@ -605,7 +605,7 @@ export default function PharmaProductPage() {
       Pending: { label: "Pending", cls: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30" },
       Approved: { label: "Approved", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" },
       Rejected: { label: "Rejected", cls: "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30" },
-      NotRequired: { label: "N/A", cls: "bg-slate-600/20 text-slate-500 border border-slate-700" },
+  NotRequired: { label: "Not Required", cls: "bg-slate-600/20 text-slate-500 border border-slate-700" }, // 🔥 Change this
     };
     const s = map[status] || map.NotRequired;
     return (

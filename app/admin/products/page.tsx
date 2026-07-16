@@ -2755,32 +2755,53 @@ Updated: ${product.updatedAt || "N/A"} by ${product.updatedBy || "N/A"}`}
                               }`}>
                               {/* <h6> Variants</h6> */}
                               <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left">
-                                  <thead>
-                                    <tr className={`border-b ${theme === "dark" ? "border-slate-800 text-slate-400" : "border-slate-200 text-slate-600"}`}>
-                                      <th className="py-1 px-2 font-semibold text-left w-[200px]">Variant</th>
-                                      <th className="py-1 px-2 font-semibold text-left w-[220px]">SKU</th>
-                                      <th className="py-1 px-2 font-semibold text-left w-[100px]">Price</th>
-                                      <th className="py-1 px-2 font-semibold text-left">Stock</th>
-                                    </tr>
-                                  </thead>
+                               <table className="w-full text-xs table-fixed">
+                                 <thead>
+  <tr
+    className={`border-b ${
+      theme === "dark"
+        ? "border-slate-800 text-slate-400"
+        : "border-slate-200 text-slate-600"
+    }`}
+  >
+    <th className="py-2 px-3 text-left w-[42%] font-semibold">Variant</th>
+    <th className="py-2 px-3 text-left w-[18%] font-semibold">SKU</th>
+    <th className="py-2 px-3 text-left w-[12%] font-semibold">Price</th>
+    <th className="py-2 px-3 text-left w-[28%] font-semibold">Stock</th>
+  </tr>
+</thead>
                                   <tbody className={`divide-y ${theme === "dark" ? "divide-slate-900" : "divide-slate-100"}`}>
-                                    {(product.variants || []).map((v: any) => {
+                                   {[...(product.variants || [])]
+                                                .sort((a, b) => {
+                                                  if (a.isDefault === b.isDefault) return 0;
+                                                  return a.isDefault ? -1 : 1;
+                                                })
+                                                .map((v: any) => {
                                       const variantQty = v.stockQuantity ?? 0;
                                       const isOutOfStock = variantQty === 0;
 
                                       return (
-                                        <tr key={v.id} className={theme === "dark" ? "hover:bg-slate-900/60" : "hover:bg-slate-50"}>
-                                          <td className={`py-1.5 px-2 font-medium ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                              <span>{v.name}</span>
-                                              {v.isDefault && (
-                                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
-                                                  Default
-                                                </span>
-                                              )}
-                                            </div>
-                                          </td>
+                                       <tr
+  key={v.id}
+  className={`transition-colors ${
+    theme === "dark"
+      ? "hover:bg-slate-900/40"
+      : "hover:bg-slate-50"
+  }`}
+>
+                                       <td className="px-3 py-3">
+  <div className="flex items-center gap-2">
+    <span className="truncate font-medium">
+      {v.name}
+    </span>
+
+    {v.isDefault && (
+      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-violet-500/10 text-violet-400 border border-violet-500/20">
+        Default
+      </span>
+    )}
+  </div>
+</td>
                                           <td className="py-1.5 px-2 text-left font-mono">
                                             <span
                                               onClick={(e) => {
@@ -2799,17 +2820,23 @@ Updated: ${product.updatedAt || "N/A"} by ${product.updatedBy || "N/A"}`}
                                               {copiedId === v.id ? "Copied ✓" : (v.sku || "-")}
                                             </span>
                                           </td>
-                                          <td className={`py-1.5 px-2 text-left font-semibold ${theme === "dark" ? "text-white" : "text-slate-800"}`}>
-                                            £{(v.price ?? 0).toFixed(2)}
-                                          </td>
+                                          <td className="px-3 py-3 font-semibold whitespace-nowrap">
+    £{v.price?.toFixed(2)}
+</td>
                                           <td className="py-1.5 px-2 text-left">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${isOutOfStock
-                                                ? "bg-red-500/15 text-red-500 dark:text-red-400 border-red-500/30"
-                                                : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                                              }`}>
-                                              <span className="w-1 h-1 rounded-full bg-current" />
-                                              {isOutOfStock ? "Out of Stock" : `In Stock (${variantQty})`}
-                                            </span>
+                                          <span
+  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${
+    isOutOfStock
+      ? "bg-red-500/10 text-red-400"
+      : "bg-emerald-500/10 text-emerald-400"
+  }`}
+>
+    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+
+    {isOutOfStock
+      ? "Out of Stock"
+      : `In Stock (${variantQty})`}
+</span>
                                           </td>
                                         </tr>
                                       );

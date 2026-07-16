@@ -338,31 +338,33 @@ if (isAuthenticated && user) {
       Checkout securely using just your email address.
     </p>
 
-   <form
-  className="mt-4 space-y-2"
-  onSubmit={(e) => {
-    e.preventDefault();
-    handleGuestContinue();
-  }}
->
-  <label className="text-sm font-medium text-gray-700">
-    Email address *
-  </label>
+    <form
+      className="mt-4 space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleGuestContinue();
+      }}
+      autoComplete="off"
+    >
+      <label className="text-sm font-medium text-gray-700">
+        Email address *
+      </label>
 
-  <Input
-    type="email"
-    placeholder="you@example.com"
-    value={email}
-    onChange={(e) => {
-      setEmail(e.target.value);
-      if (emailError) setEmailError("");
-    }}
-    className={clsx(
-      "h-11 px-3 bg-white border-gray-300 rounded-lg",
-      emailError && "border-red-500 ring-2 ring-red-200",
-      shake && "animate-shake"
-    )}
-  />
+      <Input
+        type="email"
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (emailError) setEmailError("");
+        }}
+        className={clsx(
+          "h-11 px-3 bg-white border-gray-300 rounded-lg",
+          emailError && "border-red-500 ring-2 ring-red-200",
+          shake && "animate-shake"
+        )}
+        autoComplete="off"
+      />
 
   {emailError && (
     <p className="text-red-600 text-xs mt-1">{emailError}</p>
@@ -393,7 +395,7 @@ if (isAuthenticated && user) {
 
             {/* LOGIN */}
             <TabsContent value="login">
-              <form className="space-y-4" onSubmit={handleLogin}>
+              <form className="space-y-4" onSubmit={handleLogin} autoComplete="off">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Email</label>
                   <Input
@@ -402,6 +404,7 @@ if (isAuthenticated && user) {
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     className="h-11 border-gray-300 rounded-lg"
+                    autoComplete="off"
                   />
                 </div>
 
@@ -414,6 +417,7 @@ if (isAuthenticated && user) {
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       className="h-11 pr-10 border-gray-300 rounded-lg"
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
