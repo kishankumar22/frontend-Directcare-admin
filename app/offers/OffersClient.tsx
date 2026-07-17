@@ -115,13 +115,9 @@ const flattenedProducts = useMemo(() => {
   };
 
 // Categories - A-Z Sort
-// Add console log to debug
 const categories = useMemo(() => {
-  console.log("Products in categories:", products); // 🔍 Check products
-  
   const map = new Map<string, any>();
   products.forEach((p) => {
-    console.log("Product categories:", p.categories); // 🔍 Check each product's categories
     p.categories?.forEach((c: any) => {
       if (!map.has(c.categoryId)) {
         map.set(c.categoryId, {
@@ -131,13 +127,10 @@ const categories = useMemo(() => {
       }
     });
   });
-  
-  const result = Array.from(map.values()).sort((a, b) => 
+  // ✅ SORT A-Z by name
+  return Array.from(map.values()).sort((a, b) => 
     a.name.localeCompare(b.name)
   );
-  
-  console.log("Sorted categories:", result); // 🔍 Final result
-  return result;
 }, [products]);
 
 // Brands - A-Z Sort

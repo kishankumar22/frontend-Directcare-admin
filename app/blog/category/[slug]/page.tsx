@@ -6,14 +6,13 @@ const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 
 function absoluteUrl(path?: string | null) {
   if (!path) return null;
   if (path.startsWith("http")) return path;
-  return `${API_BASE.replace(/\/$/, "")}${
-    path.startsWith("/") ? path : `/${path}`
-  }`;
+  return `${API_BASE.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`
+    }`;
 }
 
 async function fetchJSON(url: string) {
   try {
-    const res = await fetch(url, { next: { revalidate: 60 } }); 
+    const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) {
       console.warn(`Failed to fetch ${url}: ${res.status}`);
       return { success: false, data: [] };
@@ -46,42 +45,42 @@ export async function generateMetadata({
       };
     }
 
- return {
-  title: category.metaTitle || `${category.name} Blog UK | Direct Care`,
+    return {
+      title: category.metaTitle || `${category.name} Blog UK | Direct Care`,
 
-  description:
-    category.metaDescription ||
-    `Explore ${category.name} related health articles, medicine guides, and wellness tips in the UK.`,
+      description:
+        category.metaDescription ||
+        `Explore ${category.name} related health articles, medicine guides, and wellness tips in the UK.`,
 
-  alternates: {
-    canonical: `https://www.direct-care.co.uk/blog/category/${category.slug}`,
-  },
+      alternates: {
+        canonical: `https://test.direct-care.co.uk/blog/category/${category.slug}`,
+      },
 
-  openGraph: {
-    title: category.metaTitle || `${category.name} Blog UK`,
-    description:
-      category.metaDescription ||
-      `Browse ${category.name} health articles and guides.`,
-    url: `https://www.direct-care.co.uk/blog/category/${category.slug}`,
-    type: "website",
+      openGraph: {
+        title: category.metaTitle || `${category.name} Blog UK`,
+        description:
+          category.metaDescription ||
+          `Browse ${category.name} health articles and guides.`,
+        url: `https://test.direct-care.co.uk/blog/category/${category.slug}`,
+        type: "website",
 
-    images: category.imageUrl
-      ? [
-          {
-            url: absoluteUrl(category.imageUrl),
-            width: 1200,
-            height: 630,
-            alt: category.name,
-          },
-        ]
-      : [],
-  },
+        images: category.imageUrl
+          ? [
+            {
+              url: absoluteUrl(category.imageUrl),
+              width: 1200,
+              height: 630,
+              alt: category.name,
+            },
+          ]
+          : [],
+      },
 
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+      robots: {
+        index: true,
+        follow: true,
+      },
+    };
   } catch {
     return {
       title: "Category",
@@ -115,19 +114,19 @@ export default async function BlogCategoryPage({
     return (
       <main className="min-h-screen bg-gray-50 p-6">
         <script
-  type="application/ld+json"
-  dangerouslySetInnerHTML={{
-    __html: JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      name: category.name,
-      description:
-        category.metaDescription ||
-        `Articles related to ${category.name}`,
-      url: `https://www.direct-care.co.uk/blog/category/${category.slug}`,
-    }),
-  }}
-/>
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "CollectionPage",
+              name: category.name,
+              description:
+                category.metaDescription ||
+                `Articles related to ${category.name}`,
+              url: `https://test.direct-care.co.uk/blog/category/${category.slug}`,
+            }),
+          }}
+        />
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-semibold">Category not found</h1>
           <p className="text-gray-600 mt-2">
@@ -205,7 +204,7 @@ export default async function BlogCategoryPage({
                   absoluteUrl(post.featuredImageUrl) ??
                   "/placeholder-article.png"
                 }
-               alt={`${post.title} ${category.name} article`}
+                alt={`${post.title} ${category.name} article`}
                 className="w-full h-44 object-contain rounded-lg mb-4"
                 loading="lazy"
               />

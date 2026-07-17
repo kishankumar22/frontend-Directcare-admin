@@ -45,14 +45,14 @@ export async function generateMetadata({
         "Read the full article for more details.",
 
       alternates: {
-        canonical: `https://www.direct-care.co.uk/blog/${post.slug}`,
+        canonical: `https://test.direct-care.co.uk/blog/${post.slug}`,
       },
 
       openGraph: {
         title: post.metaTitle || post.title,
         description:
           post.metaDescription || post.bodyOverview,
-        url: `https://www.direct-care.co.uk/blog/${post.slug}`,
+        url: `https://test.direct-care.co.uk/blog/${post.slug}`,
         type: "article",
 
         images: post.featuredImageUrl
@@ -197,7 +197,7 @@ export default async function BlogDetailPage({
             dateModified: post.updatedAt || post.publishedAt,
             mainEntityOfPage: {
               "@type": "WebPage",
-              "@id": `https://www.direct-care.co.uk/blog/${post.slug}`,
+              "@id": `https://test.direct-care.co.uk/blog/${post.slug}`,
             },
           }),
         }}

@@ -2922,16 +2922,14 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 Buy Now
                               </Button>
                             )}
-                            {purchaseType === "one" && !backorderState.canBuy && !backorderState.showNotify && (
-                              <Button disabled className="py-2 px-3 rounded-xl bg-red-400 cursor-not-allowed opacity-70 text-white text-sm">
-                                Out of Stock
-                              </Button>
-                            )}
-                            {purchaseType === "one" && backorderState.showNotify && (
-                              <Button variant="outline" className="py-2 px-3 rounded-xl border-yellow-500 text-yellow-700 hover:bg-yellow-50 text-sm" onClick={() => setShowNotifyModal(true)}>
-                                Notify me
-                              </Button>
-                            )}
+                         {purchaseType === "one" && !backorderState.canBuy && (
+  <Button
+    onClick={() => setShowNotifyModal(true)}
+    className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
+  >
+    Notify Me
+  </Button>
+)}
                           </div>
 
                         </CardContent>
@@ -3189,6 +3187,14 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 Notify me when available
                               </Button>
                             )}
+                            {purchaseType === "one" && !backorderState.canBuy && (
+  <Button
+    onClick={() => setShowNotifyModal(true)}
+    className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
+  >
+    Notify Me
+  </Button>
+)}
                           </div>
 
                         </div>

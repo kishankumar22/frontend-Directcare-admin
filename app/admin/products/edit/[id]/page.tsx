@@ -3535,12 +3535,16 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         }
 
         // Check if variant SKU matches product SKU
-        if (variant.sku.trim().toUpperCase() === formData.sku.trim().toUpperCase()) {
-          toast.error(`Variant SKU "${variant.sku}" cannot be the same as main product SKU`, {
-            autoClose: 8000
-          });
-          return null;
-        }
+   // Check if variant SKU matches product SKU (ONLY FOR VARIABLE PRODUCTS)
+if (
+  formData.productType === "variable" &&  // ✅ Only for variable products
+  variant.sku.trim().toUpperCase() === formData.sku.trim().toUpperCase()
+) {
+  toast.error(`Variant SKU "${variant.sku}" cannot be the same as main product SKU`, {
+    autoClose: 8000
+  });
+  return null;
+}
 
         // Price validation
         // const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;

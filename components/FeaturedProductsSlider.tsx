@@ -725,264 +725,247 @@ export default function FeaturedProductsSlider({
                     </div>
 
                     {/* ACTION BUTTONS */}
-                    <div className="mt-auto flex items-center gap-1 md:gap-2 pt-1.5">
+          {/* ACTION BUTTONS */}
+<div className="mt-auto flex items-center gap-1 md:gap-2 pt-1.5">
 
-                      {/* ⭐ CASE: IN STOCK OR CAN BUY */}
-                      {backorderState.canBuy && (
-                        <>
-                          {/* ADD TO CART */}
-                          <Button
-                            disabled={product.disableBuyButton === true}
-                            onClick={() => {
-                              if (product.disableBuyButton) return;
-                              // 🔥 PHARMA PRODUCT GUARD
-                              if (product.isPharmaProduct) {
-                                setPharmaModal({
-                                  product,
-                                  variant: defaultVariant,
-                                  action: "ADD_TO_CART",
-                                  basePrice,
-                                  finalPrice,
-                                  discountAmount,
-                                  cardSlug,
-                                });
-                                return;
-                              }
+  {/* ⭐ CASE: IN STOCK OR CAN BUY */}
+  {backorderState.canBuy && (
+    <>
+      {/* ADD TO CART */}
+      <Button
+        disabled={product.disableBuyButton === true}
+        onClick={() => {
+          if (product.disableBuyButton) return;
+          // 🔥 PHARMA PRODUCT GUARD
+          if (product.isPharmaProduct) {
+            setPharmaModal({
+              product,
+              variant: defaultVariant,
+              action: "ADD_TO_CART",
+              basePrice,
+              finalPrice,
+              discountAmount,
+              cardSlug,
+            });
+            return;
+          }
 
 
-                              const defaultVarId = defaultVariant?.id ?? null;
+          const defaultVarId = defaultVariant?.id ?? null;
 
-                              const existingCartQty = cart
-                                .filter(
-                                  (c) =>
-                                    c.productId === product.id &&
-                                    (c.variantId ?? null) === defaultVarId
-                                )
-                                .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+          const existingCartQty = cart
+            .filter(
+              (c) =>
+                c.productId === product.id &&
+                (c.variantId ?? null) === defaultVarId
+            )
+            .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
 
-                              const stockQty =
-                                defaultVariant?.stockQuantity ??
-                                (product as any).stockQuantity ??
-                                0;
+          const stockQty =
+            defaultVariant?.stockQuantity ??
+            (product as any).stockQuantity ??
+            0;
 
-                              const finalQty = getInitialQty(product);
+          const finalQty = getInitialQty(product);
 
-                              const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
+          const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
 
-                              // 🔥 MAX ORDER CHECK
-                              if (existingCartQty + finalQty > maxQty) {
-                                toast.error(`Maximum order quantity is ${maxQty}`);
-                                return;
-                              }
+          // 🔥 MAX ORDER CHECK
+          if (existingCartQty + finalQty > maxQty) {
+            toast.error(`Maximum order quantity is ${maxQty}`);
+            return;
+          }
 
-                              // 🔥 STOCK PROTECTION
-                              if (existingCartQty + finalQty > stockQty) {
-                                toast.error(
-                                  `Only ${stockQty - existingCartQty} items left in stock`
-                                );
-                                return;
-                              }
+          // 🔥 STOCK PROTECTION
+          if (existingCartQty + finalQty > stockQty) {
+            toast.error(
+              `Only ${stockQty - existingCartQty} items left in stock`
+            );
+            return;
+          }
 
-                              addToCart({
-                                id: defaultVariant ? `${defaultVariant.id}-one` : product.id,
-                                type: "one-time",
-                                productId: product.id,
-                                name: product.productType === "variable" && defaultVariant
-                                  ? `${product.name} (${[
-                                    defaultVariant.option1Value,
-                                    (defaultVariant as any)?.option2Value,
-                                    (defaultVariant as any)?.option3Value,
-                                  ]
-                                    .filter(Boolean)
-                                    .join(", ")})`
-                                  : product.name,
-                                price: finalPrice,
-                                priceBeforeDiscount: basePrice,
-                                finalPrice: finalPrice,
-                                oldPrice:
-                                  (defaultVariant as any)?.compareAtPrice ?? defaultVariant?.oldPrice ??
-                                  oldPriceValue ??
-                                  (product as any).compareAtPrice ?? product.oldPrice ??
-                                  undefined,
-                                displayDiscountType:
-                                  defaultVariant?.displayDiscountType ??
-                                  product.displayDiscountType ??
-                                  "None",
+          addToCart({
+            id: defaultVariant ? `${defaultVariant.id}-one` : product.id,
+            type: "one-time",
+            productId: product.id,
+            name: product.productType === "variable" && defaultVariant
+              ? `${product.name} (${[
+                defaultVariant.option1Value,
+                (defaultVariant as any)?.option2Value,
+                (defaultVariant as any)?.option3Value,
+              ]
+                .filter(Boolean)
+                .join(", ")})`
+              : product.name,
+            price: finalPrice,
+            priceBeforeDiscount: basePrice,
+            finalPrice: finalPrice,
+            oldPrice:
+              (defaultVariant as any)?.compareAtPrice ?? defaultVariant?.oldPrice ??
+              oldPriceValue ??
+              (product as any).compareAtPrice ?? product.oldPrice ??
+              undefined,
+            displayDiscountType:
+              defaultVariant?.displayDiscountType ??
+              product.displayDiscountType ??
+              "None",
 
-                                hasSystemDiscount:
-                                  defaultVariant?.hasSystemDiscount ??
-                                  product.hasSystemDiscount ??
-                                  false,
+            hasSystemDiscount:
+              defaultVariant?.hasSystemDiscount ??
+              product.hasSystemDiscount ??
+              false,
 
-                                systemDiscountAmount:
-                                  defaultVariant?.systemDiscountAmount ??
-                                  product.systemDiscountAmount ??
-                                  0,
-                                discountAmount:
-                                  (
-                                    defaultVariant?.displayDiscountType ??
-                                    product.displayDiscountType
-                                  ) === "System"
-                                    ? discountAmount
-                                    : 0,
-                                quantity: finalQty,
-                                // ✅ ADD THESE 👇
-                                vatRate: vatRate,
-                                vatIncluded: vatRate !== null,
-                                image: getProductDisplayImage(product, defaultVariant),
-                                sku: defaultVariant?.sku ?? product.sku,
-                                shipSeparately: product.shipSeparately,
-                                nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
-                                // 🔥🔥🔥 MAIN FIX
-                                nextDayDeliveryFree:
-                                  (product as any).nextDayDeliveryFree ?? false,
-                                sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
-                                variantId: defaultVariant?.id ?? null,
-                                slug: cardSlug,
-                                variantOptions: {
-                                  option1: defaultVariant?.option1Value ?? null,
-                                  option2: (defaultVariant as any)?.option2Value ?? null,
-                                  option3: (defaultVariant as any)?.option3Value ?? null,
-                                },
-                                productData: JSON.parse(JSON.stringify(product)),
-                              });
+            systemDiscountAmount:
+              defaultVariant?.systemDiscountAmount ??
+              product.systemDiscountAmount ??
+              0,
+            discountAmount:
+              (
+                defaultVariant?.displayDiscountType ??
+                product.displayDiscountType
+              ) === "System"
+                ? discountAmount
+                : 0,
+            quantity: finalQty,
+            // ✅ ADD THESE 👇
+            vatRate: vatRate,
+            vatIncluded: vatRate !== null,
+            image: getProductDisplayImage(product, defaultVariant),
+            sku: defaultVariant?.sku ?? product.sku,
+            shipSeparately: product.shipSeparately,
+            nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+            // 🔥🔥🔥 MAIN FIX
+            nextDayDeliveryFree:
+              (product as any).nextDayDeliveryFree ?? false,
+            sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
+            variantId: defaultVariant?.id ?? null,
+            slug: cardSlug,
+            variantOptions: {
+              option1: defaultVariant?.option1Value ?? null,
+              option2: (defaultVariant as any)?.option2Value ?? null,
+              option3: (defaultVariant as any)?.option3Value ?? null,
+            },
+            productData: JSON.parse(JSON.stringify(product)),
+          });
 
-                              trackAddToCart({
-                                productId: product.id,
-                                name: product.name,
-                                sku: defaultVariant?.sku ?? product.sku,
-                                finalPrice,
-                                price: finalPrice,
-                                quantity: finalQty,
-                                categories: (product as any).categories,
-                                variantId: defaultVariant?.id ?? null,
-                                variantOptions: {
-                                  option1: defaultVariant?.option1Value ?? null,
-                                  option2: (defaultVariant as any)?.option2Value ?? null,
-                                  option3: (defaultVariant as any)?.option3Value ?? null,
-                                },
-                              });
+          trackAddToCart({
+            productId: product.id,
+            name: product.name,
+            sku: defaultVariant?.sku ?? product.sku,
+            finalPrice,
+            price: finalPrice,
+            quantity: finalQty,
+            categories: (product as any).categories,
+            variantId: defaultVariant?.id ?? null,
+            variantOptions: {
+              option1: defaultVariant?.option1Value ?? null,
+              option2: (defaultVariant as any)?.option2Value ?? null,
+              option3: (defaultVariant as any)?.option3Value ?? null,
+            },
+          });
 
-                              if (shouldShowMinWarning(product)) {
-                                toast.warning(
-                                  `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
-                                );
-                              } else {
-                                toast.success(
-                                  <div className="flex items-center justify-between gap-3">
-                                    <span className="text-sm font-medium">
-                                      {product.name} added to cart!
-                                    </span>
+          if (shouldShowMinWarning(product)) {
+            toast.warning(
+              `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
+            );
+          } else {
+            toast.success(
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">
+                  {product.name} added to cart!
+                </span>
 
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toast.clearAll();
-                                        router.push("/cart");
-                                      }}
-                                      className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
-                                    >
-                                      Cart→
-                                    </button>
-                                  </div>
-                                );
-                              }
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toast.clearAll();
+                    router.push("/cart");
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
+                >
+                  Cart→
+                </button>
+              </div>
+            );
+          }
 
-                            }}
+        }}
 
-                            className="flex-[0.47] md:flex-1 text-[9px] md:text-sm py-1.5 md:py-2 whitespace-nowrap flex items-center justify-center gap-1 md:gap-2
-    bg-[#445D41] hover:bg-black text-white
-    disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            <ShoppingCart className="h-3 w-3 md:h-4 md:w-4" />
-                            Add
-                          </Button>
+        className="flex-[0.47] md:flex-1 text-[9px] md:text-sm py-1.5 md:py-2 whitespace-nowrap flex items-center justify-center gap-1 md:gap-2
+bg-[#445D41] hover:bg-black text-white
+disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <ShoppingCart className="h-3 w-3 md:h-4 md:w-4" />
+        Add
+      </Button>
 
-                          {/* BUY NOW */}
-                          <Button
-                            disabled={product.disableBuyButton === true}
-                            onClick={() => {
-                              if (product.disableBuyButton) return;
+      {/* BUY NOW */}
+      <Button
+        disabled={product.disableBuyButton === true}
+        onClick={() => {
+          if (product.disableBuyButton) return;
 
-                              // 🔥 PHARMA PRODUCT GUARD
-                              if (product.isPharmaProduct) {
-                                setPharmaModal({
-                                  product,
-                                  variant: defaultVariant,
-                                  action: "BUY_NOW",
-                                  basePrice,
-                                  finalPrice,
-                                  discountAmount,
-                                  cardSlug,
-                                });
-                                return;
-                              }
-                              handleBuyNow(
-                                product,
-                                defaultVariant,
-                                basePrice,
-                                finalPrice,
-                                discountAmount,
-                                cardSlug
-                              );
-                            }}
-                            className="flex-[0.47] md:flex-1 text-[9px] md:text-sm py-1.5 md:py-2 whitespace-nowrap flex items-center justify-center gap-1 md:gap-2
-    bg-black border border-[#445D41] text-white hover:bg-[#445D41]
-    disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            <Zap className="h-3 w-3 md:h-4 md:w-4" />
-                            Buy
-                          </Button>
-                        </>
-                      )}
+          // 🔥 PHARMA PRODUCT GUARD
+          if (product.isPharmaProduct) {
+            setPharmaModal({
+              product,
+              variant: defaultVariant,
+              action: "BUY_NOW",
+              basePrice,
+              finalPrice,
+              discountAmount,
+              cardSlug,
+            });
+            return;
+          }
+          handleBuyNow(
+            product,
+            defaultVariant,
+            basePrice,
+            finalPrice,
+            discountAmount,
+            cardSlug
+          );
+        }}
+        className="flex-[0.47] md:flex-1 text-[9px] md:text-sm py-1.5 md:py-2 whitespace-nowrap flex items-center justify-center gap-1 md:gap-2
+bg-black border border-[#445D41] text-white hover:bg-[#445D41]
+disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <Zap className="h-3 w-3 md:h-4 md:w-4" />
+        Buy
+      </Button>
+    </>
+  )}
 
-                      {/* ⭐ CASE: BACKORDER NOTIFY MODE */}
-                      {backorderState.showNotify && (
-                        <>
-                          {/* ADD TO CART KE JAGAH NOTIFY */}
-                          <Button
-                            variant="outline"
-                            className="w-full text-xs md:text-xs border border-green-500 text-green-700 hover:bg-green-50"
-                            onClick={() =>
-                              setNotifyProduct({
-                                productId: product.id,
-                                variantId: defaultVariant?.id ?? null,
-                              })
-                            }
-                          >
-                            <BellRing className="h-3 w-3" />
-                            Notify me
-                          </Button>
-
-                          {/* BUY NOW DISABLED */}
-                          <Button
-                            disabled
-                            className="w-full text-xs md:text-sm rounded-lg py-2 bg-red-700 text-white cursor-not-allowed"
-                          >
-                            <PackageX className="h-4 w-4" />
-                            Stock!
-                          </Button>
-                        </>
-                      )}
-
-                      {/* ⭐ CASE: PURE OUT OF STOCK (NO BACKORDER) */}
-                      {!backorderState.canBuy && !backorderState.showNotify && (
-                        <>
-                          {/* ADD TO CART DISABLED WITH TEXT */}
-                          <Button
-                            disabled
-                            className="w-full text-xs md:text-sm rounded-lg py-2 bg-red-500 cursor-not-allowed text-white"
-                          >
-                            <PackageX className="h-4 w-4" />
-                            Out of stock
-                          </Button>
-
-                          {/* BUY NOW DISABLED */}
-
-                        </>
-                      )}
-
-                    </div>
+  {/* ⭐ CASE: OUT OF STOCK - Only Notify Me (Full Width) */}
+  {!backorderState.canBuy && (
+    <Button
+      onClick={() => {
+        // 🔥 PHARMA PRODUCT GUARD - Pharma products can also be out of stock
+        if (product.isPharmaProduct) {
+          setPharmaModal({
+            product,
+            variant: defaultVariant,
+            action: "ADD_TO_CART",
+            basePrice,
+            finalPrice,
+            discountAmount,
+            cardSlug,
+          });
+          return;
+        }
+        setNotifyProduct({
+          productId: product.id,
+          variantId: defaultVariant?.id ?? null,
+        });
+      }}
+      className="w-full text-xs md:text-sm py-1.5 md:py-2 rounded-lg bg-[#445D41] hover:bg-black text-white font-semibold flex items-center justify-center gap-2"
+    >
+      <BellRing className="h-3 w-3 md:h-4 md:w-4" />
+      Notify Me
+    </Button>
+  )}
+</div>
 
 
                   </div>

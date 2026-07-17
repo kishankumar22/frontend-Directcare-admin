@@ -7,7 +7,7 @@ import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import QuantitySelector from "@/components/shared/QuantitySelector";
 import { Star, StarHalf, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart } from "lucide-react";
-
+import { createPortal } from "react-dom";
 import { useWishlist } from "@/context/WishlistContext";
 import {
   getDiscountBadge,
@@ -26,6 +26,7 @@ import { useRef } from "react";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useRouter } from "next/navigation";
 import { trackAddToCart } from "@/lib/analytics";
+import BackInStockModal from "../backorder/BackInStockModal";
 
 const getRelatedProductImage = (
   product: any,
@@ -73,6 +74,8 @@ const [qty, setQty] = useState(minQty);
   const [stockError, setStockError] = useState<string | null>(null);
 const toast = useToast();
  const router = useRouter();
+ const [showNotifyModal, setShowNotifyModal] = useState(false);
+   const [mounted, setMounted] = useState(false);
  const { toggleWishlist, isInWishlist } = useWishlist();
   const defaultVariant =
     product.variants?.find((v: any) => v.isDefault) ??
@@ -105,6 +108,11 @@ const oldPriceData =
         false
       )
     : null;
+
+      useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 // ---------- Active Coupon Indicator ----------
 const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
   if (!d.isActive) return false;
@@ -555,30 +563,39 @@ systemDiscountAmount:
       </div>
 
 
-      {/* QUANTITY + BUTTON — same row, pushed to bottom */}
-      <div className="flex items-center gap-1 pt-2">
-        <div className="flex-shrink-0 -ml-1 [&_input]:w-7 [&_button]:px-1.5">
-          <QuantitySelector
-            quantity={qty}
-            setQuantity={setQty}
-            maxStock={stock}
-            stockError={stockError}
-            setStockError={setStockError}
-          />
-        </div>
-
-        <Button
-          disabled={stock === 0 || product.disableBuyButton === true}
-          onClick={handleAddToCart}
-          className={`flex-1 h-[30px] text-[9px] px-1 rounded-lg font-semibold ${
-            stock === 0
-              ? "bg-red-500 text-white cursor-not-allowed"
-              : "bg-[#445D41] hover:bg-black text-white"
-          }`}
-        >
-          {stock === 0 ? "Out of Stock" : "Add to Cart"}
-        </Button>
+{/* QUANTITY + BUTTON — same row, pushed to bottom */}
+<div className="flex items-center gap-1 pt-2">
+  {stock > 0 ? (
+    // ✅ IN STOCK - Show Quantity + Add to Cart
+    <>
+      <div className="flex-shrink-0 -ml-1 [&_input]:w-7 [&_button]:px-1.5">
+        <QuantitySelector
+          quantity={qty}
+          setQuantity={setQty}
+          maxStock={stock}
+          stockError={stockError}
+          setStockError={setStockError}
+        />
       </div>
+
+      <Button
+        disabled={product.disableBuyButton === true}
+        onClick={handleAddToCart}
+        className="flex-1 h-[30px] text-[9px] px-1 rounded-lg font-semibold bg-[#445D41] hover:bg-black text-white"
+      >
+        Add to Cart
+      </Button>
+    </>
+  ) : (
+    // ✅ OUT OF STOCK - Show Notify Me (full width, no quantity)
+    <Button
+      onClick={() => setShowNotifyModal(true)}
+      className="w-full h-[30px] text-[9px] px-1 rounded-lg font-semibold bg-[#445D41] hover:bg-black text-white"
+    >
+      Notify Me
+    </Button>
+  )}
+</div>
 
 
 {showPharmaModal && (
@@ -612,6 +629,17 @@ systemDiscountAmount:
 
   />
 )}
+
+{/* Add BackInStockModal at bottom */}
+  {mounted && showNotifyModal && createPortal(
+        <BackInStockModal
+          open={showNotifyModal}
+          productId={product.id}
+          variantId={defaultVariant?.id ?? null}
+          onClose={() => setShowNotifyModal(false)}
+        />,
+        document.body
+      )}
 
        </CardContent>
   </Card>

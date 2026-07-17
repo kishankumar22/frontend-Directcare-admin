@@ -451,7 +451,16 @@ export default function CategoryClient({
     : ratingB - ratingA;
 }
 
-      return 0;
+      // ✅ DEFAULT SORT: rank each variant card by ITS OWN sale count (variant-level),
+      // then by name. This keeps low-selling variants of a product from riding to the top
+      // alongside a high-selling sibling variant.
+      const saleA = a.variantForCard?.saleCount ?? a.productData.saleCount ?? 0;
+      const saleB = b.variantForCard?.saleCount ?? b.productData.saleCount ?? 0;
+      if (saleA !== saleB) return saleB - saleA;
+
+      const dNameA = (a.cardSlug ?? a.productData.name ?? "").toLowerCase();
+      const dNameB = (b.cardSlug ?? b.productData.name ?? "").toLowerCase();
+      return dNameA.localeCompare(dNameB);
     });
 
     return sorted;

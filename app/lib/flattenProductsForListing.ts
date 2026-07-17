@@ -5,32 +5,36 @@ export interface FlattenedProduct {
   cardSlug: string;
 }
 
-export function flattenProductsForListing(products: any[]): FlattenedProduct[] {
-  const flattened: FlattenedProduct[] = [];
+export function flattenProductsForListing(products: any[]) {
+  const result: any[] = [];
 
   products.forEach((product) => {
-    if (
-      product.visibleIndividually &&
-      product.productType === "variable" &&
-      product.variants?.length
-    ) {
-      product.variants.forEach((variant: any) => {
-        if (!variant.isActive) return;
+    // ✅ Add mainImageUrl to productData
+    const productData = {
+      ...product,
+      // 🔥 Convert mainImageUrl to images array if not present
+      images: product.images || (product.mainImageUrl ? [{ imageUrl: product.mainImageUrl, isMain: true }] : []),
+      mainImageUrl: product.mainImageUrl, // ✅ Keep for fallback
+    };
 
-        flattened.push({
-          productData: product,
+    // If product has variants, flatten them
+    if (product.variants && product.variants.length > 0) {
+      product.variants.forEach((variant: any) => {
+        result.push({
+          productData,
           variantForCard: variant,
-          cardSlug: variant.slug,
+          cardSlug: variant.slug || product.slug,
         });
       });
     } else {
-      flattened.push({
-        productData: product,
+      // Single product (no variants)
+      result.push({
+        productData,
         variantForCard: null,
         cardSlug: product.slug,
       });
     }
   });
 
-  return flattened;
+  return result;
 }

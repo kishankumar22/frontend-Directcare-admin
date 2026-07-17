@@ -151,6 +151,10 @@ export interface PartialRefundRequest {
   adminNotes?: string | null;
   sendCustomerNotification?: boolean;
   currentUser?: string;
+  // Item-wise (product-wise) refund. When provided, backend computes the amount
+  // from these items and restores their stock if restoreInventory is true.
+  items?: { orderItemId: string; quantity: number }[];
+  restoreInventory?: boolean;
 }
 
 /**

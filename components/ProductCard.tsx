@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Star, StarHalf, BadgePercent, AwardIcon, PackageX, Heart } from "lucide-react";
+import { ShoppingCart, Star, StarHalf, BadgePercent, AwardIcon, PackageX, Heart, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -17,6 +17,7 @@ import { useState, useRef } from "react";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useRouter } from "next/navigation";
 import { trackAddToCart } from "@/lib/analytics";
+import BackInStockModal from "./backorder/BackInStockModal";
 export default function ProductCard({
   product,
   vatRates,
@@ -33,7 +34,8 @@ export default function ProductCard({
   const { addToCart, cart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const [showPharmaModal, setShowPharmaModal] = useState(false);
-
+// Add with other useState declarations
+const [showNotifyModal, setShowNotifyModal] = useState(false);
   // 🔁 resume add after modal
   const pharmaApprovedRef = useRef(false);
 
@@ -492,24 +494,28 @@ const currentDisplayType =
           )}
         </div>
 
-        {/* ADD TO CART */}
-        <Button
-          onClick={handleAddToCart}
-          disabled={stock === 0 || product.disableBuyButton === true}
-          className={`mt-1 w-full
-    ${stock === 0
-              ? "bg-red-700 text-white cursor-not-allowed"
-              : "bg-[#445D41] hover:bg-[#334a2c] text-white"
-            }`}
-        >
-          {stock > 0 ? (
-            <ShoppingCart className="mr-2 h-4 w-4" />
-          ) : (
-            <PackageX className="mr-2 h-4 w-4" />
-          )}
-
-          {stock > 0 ? "Add to Cart" : "Out of Stock"}
-        </Button>
+{/* ADD TO CART + NOTIFY ME */}
+<div className="flex gap-2 mt-1">
+  {stock > 0 ? (
+    <Button
+      onClick={handleAddToCart}
+      disabled={product.disableBuyButton === true}
+      className="flex-1 bg-[#445D41] hover:bg-[#334a2c] text-white"
+    >
+      <ShoppingCart className="mr-2 h-4 w-4" />
+      Add to Cart
+    </Button>
+  ) : (
+    // ✅ OUT OF STOCK → Show "Notify Me" (full width)
+<Button
+  onClick={() => setShowNotifyModal(true)}
+  className="group flex-1 border-2 border-[#445D41] bg-white text-[#445D41] hover:bg-[#445D41] hover:text-white transition-all duration-300"
+>
+  <Bell className="mr-2 h-4 w-4" />
+  Notify Me
+</Button>
+  )}
+</div>
 
       </div>
       {showPharmaModal && (
@@ -538,7 +544,15 @@ const currentDisplayType =
           }}
         />
       )}
-
+{/* Add after PharmaQuestionsModal */}
+{showNotifyModal && (
+  <BackInStockModal
+    open={showNotifyModal}
+    productId={product.id}
+    variantId={defaultVariant?.id ?? null}
+    onClose={() => setShowNotifyModal(false)}
+  />
+)}
     </div>
 
   );

@@ -13,12 +13,14 @@ import {
   BadgePercent,
   Receipt,
   Truck,
+  PackageOpen,
 } from 'lucide-react';
 import { RefundHistory, RefundReason, orderEditService } from '@/lib/services/OrderEdit';
 import { Order, formatCurrency } from '@/lib/services/orders';
 import ConfirmDialog from '../_components/ConfirmDialog';
 
-type RefundTab = 'full' | 'partial' | 'shipping';
+type RefundTab = 'full' | 'partial' | 'item' | 'shipping';
+type RefundItemSelection = { orderItemId: string; quantity: number };
 
 interface RefundModalsProps {
   order: Order;
@@ -33,6 +35,7 @@ interface RefundModalsProps {
   onClose: () => void;
   onFullRefund: (reason: RefundReason, notes: string) => void;
   onPartialRefund: (amount: number, reason: RefundReason, notes: string) => void;
+  onItemRefund: (items: RefundItemSelection[], restoreInventory: boolean, reason: RefundReason, notes: string) => void;
   onShippingRefund: (notes: string) => void;
 }
 
@@ -48,6 +51,12 @@ const TAB_CONFIG: Record<RefundTab, { label: string; icon: React.ReactNode; colo
     icon: <BadgePercent className="h-3.5 w-3.5" />,
     color: 'text-orange-400',
     ring: 'ring-orange-500/60',
+  },
+  item: {
+    label: 'By Item',
+    icon: <PackageOpen className="h-3.5 w-3.5" />,
+    color: 'text-violet-400',
+    ring: 'ring-violet-500/60',
   },
   shipping: {
     label: 'Shipping Only',
@@ -70,6 +79,7 @@ export default function UnifiedRefundModal({
   onClose,
   onFullRefund,
   onPartialRefund,
+  onItemRefund,
   onShippingRefund,
 }: RefundModalsProps) {
   const [activeTab, setActiveTab] = useState<RefundTab>(defaultTab);
@@ -77,6 +87,24 @@ export default function UnifiedRefundModal({
   const [notes, setNotes] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [partialAmount, setPartialAmount] = useState<number>(0);
+  // Item-wise refund state: orderItemId → quantity to refund (0 = not selected)
+  const [itemQtys, setItemQtys] = useState<Record<string, number>>({});
+  const [restoreInventory, setRestoreInventory] = useState(true);
+
+  const orderItems = order.orderItems ?? [];
+
+  // Per-unit net price for an item line (mirrors backend: TotalPrice split per unit).
+  const perUnit = (it: (typeof orderItems)[number]) =>
+    it.quantity > 0 ? it.totalPrice / it.quantity : it.totalPrice;
+
+  const itemRefundAmount = Number(
+    orderItems
+      .reduce((sum, it) => sum + perUnit(it) * (itemQtys[it.id] || 0), 0)
+      .toFixed(2)
+  );
+  const selectedItems: RefundItemSelection[] = orderItems
+    .filter((it) => (itemQtys[it.id] || 0) > 0)
+    .map((it) => ({ orderItemId: it.id, quantity: itemQtys[it.id] }));
 
   const refundedAmount = refundHistory?.totalRefunded ?? 0;
   const remainingRefundable = Math.max(0, paidAmountCap - refundedAmount);
@@ -92,6 +120,8 @@ useEffect(() => {
       setReason(RefundReason.CustomerRequest);
       setNotes('');
       setPartialAmount(0);
+      setItemQtys({});
+      setRestoreInventory(true);
     }
   }, [isOpen, defaultTab]);
 
@@ -100,6 +130,7 @@ useEffect(() => {
   const availableTabs: RefundTab[] = [
     ...(canFullRefund ? (['full'] as RefundTab[]) : []),
     ...(canPartialRefund ? (['partial'] as RefundTab[]) : []),
+    ...(canPartialRefund && orderItems.length > 0 ? (['item'] as RefundTab[]) : []),
     ...(canShippingRefund ? (['shipping'] as RefundTab[]) : []),
   ];
 
@@ -110,11 +141,13 @@ useEffect(() => {
 const handleConfirmRefund = () => {
   if (activeTab === 'full') onFullRefund(reason, notes);
   else if (activeTab === 'partial') onPartialRefund(partialAmount, reason, notes);
+  else if (activeTab === 'item') onItemRefund(selectedItems, restoreInventory, reason, notes);
   else if (activeTab === 'shipping') onShippingRefund(notes);
 };
   const isSubmitDisabled = (() => {
     if (processingRefund || !notes.trim()) return true;
     if (activeTab === 'partial' && partialAmount <= 0) return true;
+    if (activeTab === 'item' && (selectedItems.length === 0 || itemRefundAmount <= 0 || itemRefundAmount > remainingRefundable)) return true;
     return false;
   })();
 
@@ -170,7 +203,7 @@ const handleConfirmRefund = () => {
               return (
                 <button
                   key={tab}
-                  onClick={() => { setActiveTab(tab); setNotes(''); setPartialAmount(0); }}
+                  onClick={() => { setActiveTab(tab); setNotes(''); setPartialAmount(0); setItemQtys({}); }}
                   disabled={processingRefund}
                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-semibold transition-all ${
                     isActive
@@ -270,6 +303,93 @@ const handleConfirmRefund = () => {
             </div>
           )}
 
+          {/* BY ITEM tab */}
+          {activeTab === 'item' && (
+            <div className="space-y-4">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {orderItems.map((it) => {
+                  const qty = itemQtys[it.id] || 0;
+                  const selected = qty > 0;
+                  return (
+                    <div
+                      key={it.id}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ${
+                        selected ? 'border-violet-500/50 bg-violet-500/10' : 'border-slate-700 bg-slate-900/40'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={processingRefund}
+                        onChange={(e) =>
+                          setItemQtys((prev) => ({ ...prev, [it.id]: e.target.checked ? it.quantity : 0 }))
+                        }
+                        className="h-4 w-4 accent-violet-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">{it.productName}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {formatCurrency(perUnit(it), order.currency)} each · ordered {it.quantity}
+                        </p>
+                      </div>
+                      {/* Quantity stepper */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={processingRefund || !selected || qty <= 1}
+                          onClick={() => setItemQtys((prev) => ({ ...prev, [it.id]: Math.max(1, qty - 1) }))}
+                          className="w-6 h-6 rounded-md bg-slate-700 text-slate-200 disabled:opacity-30"
+                        >
+                          −
+                        </button>
+                        <span className="w-6 text-center text-sm text-white">{qty}</span>
+                        <button
+                          type="button"
+                          disabled={processingRefund || !selected || qty >= it.quantity}
+                          onClick={() => setItemQtys((prev) => ({ ...prev, [it.id]: Math.min(it.quantity, qty + 1) }))}
+                          className="w-6 h-6 rounded-md bg-slate-700 text-slate-200 disabled:opacity-30"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="w-16 text-right text-sm font-semibold text-violet-300">
+                        {selected ? formatCurrency(perUnit(it) * qty, order.currency) : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between bg-violet-500/10 border border-violet-500/20 rounded-xl px-4 py-3">
+                <span className="text-sm text-slate-300">Amount to refund</span>
+                <span className="text-lg font-bold text-violet-300">
+                  {formatCurrency(itemRefundAmount, order.currency)}
+                </span>
+              </div>
+
+              {itemRefundAmount > remainingRefundable && (
+                <p className="text-xs text-red-400">
+                  Selected items exceed the available refundable amount ({formatCurrency(remainingRefundable, order.currency)}).
+                </p>
+              )}
+
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={restoreInventory}
+                  disabled={processingRefund}
+                  onChange={(e) => setRestoreInventory(e.target.checked)}
+                  className="h-4 w-4 accent-violet-500"
+                />
+                <span className="text-sm text-slate-300">Restore stock for these items</span>
+              </label>
+
+              <ReasonField reason={reason} setReason={setReason} processingRefund={processingRefund} ringClass="focus:ring-violet-500/60 focus:border-violet-500/60" />
+              <NotesField notes={notes} setNotes={setNotes} processingRefund={processingRefund} placeholder="Reason for refunding these items..." ringClass="focus:ring-violet-500/60 focus:border-violet-500/60" />
+              <WarningBox lines={['Only the selected items will be refunded', restoreInventory ? 'Stock will be restored for these items' : 'Stock will NOT be restored', 'This action cannot be undone']} />
+            </div>
+          )}
+
           {/* SHIPPING tab */}
           {activeTab === 'shipping' && (
             <div className="space-y-4">
@@ -296,12 +416,19 @@ const handleConfirmRefund = () => {
                   {formatCurrency(partialAmount, order.currency)}
                 </p>
               </div>
+            ) : activeTab === 'item' && itemRefundAmount > 0 ? (
+              <div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Refunding {selectedItems.length} item(s)</p>
+                <p className="text-lg font-bold text-violet-400 leading-tight">
+                  {formatCurrency(itemRefundAmount, order.currency)}
+                </p>
+              </div>
             ) : activeTab === 'full' ? (
               <p className="text-sm text-slate-400">Full order refund</p>
             ) : activeTab === 'shipping' ? (
               <p className="text-sm text-slate-400">Shipping only</p>
             ) : (
-              <p className="text-sm text-slate-500">Enter amount above</p>
+              <p className="text-sm text-slate-500">{activeTab === 'item' ? 'Select items above' : 'Enter amount above'}</p>
             )}
           </div>
           <div className="flex gap-2.5">
@@ -320,6 +447,8 @@ const handleConfirmRefund = () => {
                   ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-red-900/30 text-white'
                   : activeTab === 'partial'
                   ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-900/30 text-white'
+                  : activeTab === 'item'
+                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-violet-900/30 text-white'
                   : 'bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 shadow-cyan-900/30 text-white'
               }`}
             >
@@ -337,6 +466,11 @@ const handleConfirmRefund = () => {
                 <>
                   <BadgePercent className="h-4 w-4" />
                   {partialAmount > 0 ? `Refund ${formatCurrency(partialAmount, order.currency)}` : 'Confirm Refund'}
+                </>
+              ) : activeTab === 'item' ? (
+                <>
+                  <PackageOpen className="h-4 w-4" />
+                  {itemRefundAmount > 0 ? `Refund ${formatCurrency(itemRefundAmount, order.currency)}` : 'Select items'}
                 </>
               ) : (
                 <>
@@ -359,6 +493,8 @@ const handleConfirmRefund = () => {
       ? "Confirm Full Refund"
       : activeTab === 'partial'
       ? "Confirm Partial Refund"
+      : activeTab === 'item'
+      ? "Confirm Item Refund"
       : "Confirm Shipping Refund"
   }
   message={
@@ -366,6 +502,8 @@ const handleConfirmRefund = () => {
       ? "Full refund will be issued. This action is irreversible and money will be returned to the customer."
       : activeTab === 'partial'
       ? `You are about to refund ${formatCurrency(partialAmount, order.currency)}. This cannot be undone.`
+      : activeTab === 'item'
+      ? `You are about to refund ${selectedItems.length} item(s) for ${formatCurrency(itemRefundAmount, order.currency)}${restoreInventory ? ' and restore their stock' : ''}. This cannot be undone.`
       : "Shipping charges will be refunded only. This action cannot be undone."
   }
   confirmText="Yes, Refund"
@@ -374,6 +512,8 @@ const handleConfirmRefund = () => {
       ? "text-red-400"
       : activeTab === 'partial'
       ? "text-orange-400"
+      : activeTab === 'item'
+      ? "text-violet-400"
       : "text-cyan-400"
   }
   confirmButtonStyle={
@@ -381,6 +521,8 @@ const handleConfirmRefund = () => {
       ? "bg-red-600 hover:bg-red-700"
       : activeTab === 'partial'
       ? "bg-orange-500 hover:bg-orange-600"
+      : activeTab === 'item'
+      ? "bg-violet-600 hover:bg-violet-700"
       : "bg-cyan-600 hover:bg-cyan-700"
   }
 />

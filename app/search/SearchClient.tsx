@@ -66,17 +66,19 @@ export default function SearchClient({
     setSortBy(by);
 
     if (by === "rating") {
-      setSortDirection("desc"); // always high -> low
+      setSortDirection("desc");
     } else {
       setSortDirection(dir as "asc" | "desc");
     }
   };
 
-  // Dynamically compute categories from search results
+  // ✅ DYNAMIC CATEGORIES FROM SEARCH RESULTS
   const categories = useMemo(() => {
     const map = new Map<string, any>();
     products.forEach((p) => {
-      p.categories?.forEach((c: any) => {
+      // Handle both product and variant results
+      const cats = p.categories || p.productData?.categories || [];
+      cats.forEach((c: any) => {
         if (!map.has(c.categoryId)) {
           map.set(c.categoryId, {
             id: c.categoryId,
@@ -85,36 +87,42 @@ export default function SearchClient({
         }
       });
     });
-    return Array.from(map.values());
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
   }, [products]);
 
-  // Dynamically compute brands from search results
-const brands = useMemo(() => {
-  const map = new Map();
+  // ✅ DYNAMIC BRANDS FROM SEARCH RESULTS
+  const brands = useMemo(() => {
+    const map = new Map();
 
-  const filteredProducts =
-    selectedCategories.length === 0
-      ? products
-      : products.filter((p) => {
-          const ids = p.categories?.map((c: any) => c.categoryId) ?? [];
-          return ids.some((id: string) => selectedCategories.includes(id));
-        });
+    const filteredProducts =
+      selectedCategories.length === 0
+        ? products
+        : products.filter((p) => {
+            const cats = p.categories || p.productData?.categories || [];
+            const ids = cats.map((c: any) => c.categoryId);
+            return ids.some((id: string) => selectedCategories.includes(id));
+          });
 
-  filteredProducts.forEach((p) => {
-    p.brands?.forEach((b: any) => {
-      if (!map.has(b.brandId)) {
-        map.set(b.brandId, {
-          id: b.brandId,
-          name: b.brandName,
-        });
-      }
+    filteredProducts.forEach((p) => {
+      const brandsList = p.brands || p.productData?.brands || [];
+      brandsList.forEach((b: any) => {
+        if (!map.has(b.brandId)) {
+          map.set(b.brandId, {
+            id: b.brandId,
+            name: b.brandName,
+          });
+        }
+      });
     });
-  });
 
-  return Array.from(map.values()).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-}, [products, selectedCategories]);
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [products, selectedCategories]);
+
+  // ✅ PRICE RANGE INIT
   useEffect(() => {
     if (!products || products.length === 0) return;
 
@@ -135,22 +143,19 @@ const brands = useMemo(() => {
     const min = Math.floor(Math.min(...prices));
     const max = Math.ceil(Math.max(...prices));
 
-    // Update boundaries to accommodate new products
     setMinPrice((prev) => (hasInitializedPrice ? Math.min(prev, min) : min));
     setMaxPrice((prev) => (hasInitializedPrice ? Math.max(prev, max) : max));
 
-    // Only set the selection range ONCE (on initial load)
     if (!hasInitializedPrice) {
       setPriceRange([min, max]);
       setHasInitializedPrice(true);
     }
   }, [products, hasInitializedPrice]);
 
+  // ✅ FLATTEN + FILTER + SORT
   const flattenedProducts = useMemo(() => {
-    // 1. Flatten all products into individual variant cards
     const allCards = flattenProductsForListing(products);
 
-    // 2. Apply filters to the individual cards
     const filtered = allCards.filter((item) => {
       const product = item.productData;
       const variant = item.variantForCard;
@@ -162,14 +167,16 @@ const brands = useMemo(() => {
 
       // Category filter
       if (selectedCategories.length > 0) {
-        const ids = product.categories?.map((c: any) => c.categoryId) ?? [];
+        const cats = product.categories || [];
+        const ids = cats.map((c: any) => c.categoryId);
         if (!ids.some((id: string) => selectedCategories.includes(id)))
           return false;
       }
 
       // Brand filter
       if (selectedBrands.length > 0) {
-        const ids = product.brands?.map((b: any) => b.brandId) ?? [];
+        const brandsList = product.brands || [];
+        const ids = brandsList.map((b: any) => b.brandId);
         if (!ids.some((id: string) => selectedBrands.includes(id)))
           return false;
       }
@@ -184,7 +191,7 @@ const brands = useMemo(() => {
       return true;
     });
 
-    // 3. De-duplicate
+    // De-duplicate
     const seen = new Set<string>();
     const unique = filtered.filter((item: any) => {
       const key = `${item.productData.id}-${item.variantForCard?.id ?? "parent"}`;
@@ -193,9 +200,8 @@ const brands = useMemo(() => {
       return true;
     });
 
-    // 4. Sort the filtered cards
+    // Sort
     const sorted = [...unique].sort((a, b) => {
-      // STOCK PRIORITY
       const stockA = a.variantForCard?.stockQuantity ?? a.productData?.stockQuantity ?? 0;
       const stockB = b.variantForCard?.stockQuantity ?? b.productData?.stockQuantity ?? 0;
       const isOutA = stockA <= 0;
@@ -203,14 +209,12 @@ const brands = useMemo(() => {
 
       if (isOutA !== isOutB) return isOutA ? 1 : -1;
 
-      // TOP RATED
       if (sortBy === "rating") {
         const ratingA = a.productData.averageRating ?? 0;
         const ratingB = b.productData.averageRating ?? 0;
         return ratingB - ratingA;
       }
 
-      // PRICE SORT
       if (sortBy === "price") {
         const priceA =
           typeof a.variantForCard?.price === "number" && a.variantForCard.price > 0
@@ -230,6 +234,7 @@ const brands = useMemo(() => {
     return sorted;
   }, [products, selectedCategories, selectedBrands, priceRange, minRating, sortBy, sortDirection]);
 
+  // ✅ FETCH MORE - USING QUICK SEARCH API
   const fetchMoreProducts = useCallback(async () => {
     if (isFetchingRef.current || !hasMore) return;
 
@@ -239,22 +244,27 @@ const brands = useMemo(() => {
     try {
       const nextPage = page + 1;
 
+      // 🔥 USE QUICK SEARCH API
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Products?page=${nextPage}&pageSize=${PAGE_SIZE}&searchTerm=${encodeURIComponent(query)}&sortDirection=${sortDirection}&isPublished=true&isActive=true&isDeleted=false`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Products/quick-search?query=${encodeURIComponent(query)}&limit=${PAGE_SIZE}&page=${nextPage}`
       );
 
       const data = await res.json();
 
-      setProducts((prev) => [...prev, ...(data.data?.items ?? [])]);
-      setPage(nextPage);
-      setHasMore(nextPage < data.data?.totalPages);
+      if (data?.success && Array.isArray(data.data)) {
+        setProducts((prev) => [...prev, ...data.data]);
+        setPage(nextPage);
+        setHasMore(data.data.length === PAGE_SIZE);
+      } else {
+        setHasMore(false);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       isFetchingRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [page, hasMore, query, sortDirection]);
+  }, [page, hasMore, query]);
 
   useEffect(() => {
     fetchCbRef.current = fetchMoreProducts;
@@ -391,9 +401,8 @@ const brands = useMemo(() => {
           </div>
         )}
 
-        {/* TOP BAR – Breadcrumb + Sort */}
+        {/* TOP BAR */}
         <div className="flex items-center justify-between gap-2 mb-2 lg:mb-3">
-          {/* Mobile Filter Button */}
           <button
             onClick={() => setShowFilters(true)}
             className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 active:bg-gray-50"
@@ -407,7 +416,6 @@ const brands = useMemo(() => {
             )}
           </button>
 
-          {/* Breadcrumb */}
           <nav className="hidden md:flex items-center flex-wrap gap-1 text-sm text-gray-600">
             <a href="/" className="hover:text-[#445D41] transition-colors">
               Home
@@ -418,7 +426,6 @@ const brands = useMemo(() => {
             </span>
           </nav>
 
-          {/* Sort */}
           <div className="flex items-center gap-2 min-w-0">
             {anyFilterApplied && (
               <span className="text-[10px] sm:text-xs md:text-sm text-gray-500 whitespace-nowrap truncate animate-in fade-in duration-300">
@@ -465,28 +472,26 @@ const brands = useMemo(() => {
                       Category
                     </h3>
                     <div className="max-h-52 overflow-y-auto pr-1 custom-scrollbar space-y-1.5">
-                      {categories
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((cat) => (
-                          <label
-                            key={cat.id}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
-                          >
-                            <input
-                              type="checkbox"
-                              className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
-                              checked={selectedCategories.includes(cat.id)}
-                              onChange={(e) =>
-                                setSelectedCategories(
-                                  e.target.checked
-                                    ? [...selectedCategories, cat.id]
-                                    : selectedCategories.filter((c) => c !== cat.id)
-                                )
-                              }
-                            />
-                            <span className="text-xs text-gray-700 truncate">{cat.name}</span>
-                          </label>
-                        ))}
+                      {categories.map((cat) => (
+                        <label
+                          key={cat.id}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
+                        >
+                          <input
+                            type="checkbox"
+                            className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
+                            checked={selectedCategories.includes(cat.id)}
+                            onChange={(e) =>
+                              setSelectedCategories(
+                                e.target.checked
+                                  ? [...selectedCategories, cat.id]
+                                  : selectedCategories.filter((c) => c !== cat.id)
+                              )
+                            }
+                          />
+                          <span className="text-xs text-gray-700 truncate">{cat.name}</span>
+                        </label>
+                      ))}
                     </div>
                   </div>
                 )}

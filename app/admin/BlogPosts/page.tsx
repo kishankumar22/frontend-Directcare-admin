@@ -366,46 +366,46 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                           alt=""
                           className="w-8 h-8 rounded-lg object-cover border border-slate-700 flex-shrink-0 cursor-pointer hover:ring-1 hover:ring-violet-500"
                           onClick={() => setPreviewImg(thumb)}
-                       onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+                          onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/30 to-pink-500/30 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
                           <FileText className="w-3.5 h-3.5 text-violet-400" />
                         </div>
                       )}
-                    <div className="min-w-0">
-  {!post.isDeleted ? (
-    <a
-      href={`/blog/${post.slug}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block text-white text-xs font-semibold truncate cursor-pointer hover:text-violet-400 transition-colors"
-      title={post.title}
-    >
-      {post.title}
-      {post.showOnHomePage && (
-        <span className="ml-1.5 text-[9px] text-pink-400">★</span>
-      )}
-    </a>
-  ) : (
-    <p
-      className="text-white text-xs font-semibold truncate cursor-not-allowed opacity-60"
-      title={post.title}
-    >
-      {post.title}
-      <span className="ml-1.5 text-[9px] text-orange-400 font-normal">
-        (Deleted)
-      </span>
-      {post.showOnHomePage && (
-        <span className="ml-1.5 text-[9px] text-pink-400">★</span>
-      )}
-    </p>
-  )}
+                      <div className="min-w-0">
+                        {!post.isDeleted ? (
+                          <a
+                            href={`/blog/${post.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-white text-xs font-semibold truncate cursor-pointer hover:text-violet-400 transition-colors"
+                            title={post.title}
+                          >
+                            {post.title}
+                            {post.showOnHomePage && (
+                              <span className="ml-1.5 text-[9px] text-pink-400">★</span>
+                            )}
+                          </a>
+                        ) : (
+                          <p
+                            className="text-white text-xs font-semibold truncate cursor-not-allowed opacity-60"
+                            title={post.title}
+                          >
+                            {post.title}
+                            <span className="ml-1.5 text-[9px] text-orange-400 font-normal">
+                              (Deleted)
+                            </span>
+                            {post.showOnHomePage && (
+                              <span className="ml-1.5 text-[9px] text-pink-400">★</span>
+                            )}
+                          </p>
+                        )}
 
-  <p className="text-[10px] text-slate-500 truncate font-mono">
-    {post.slug}
-  </p>
-</div>
+                        <p className="text-[10px] text-slate-500 truncate font-mono">
+                          {post.slug}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Category */}
@@ -437,7 +437,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                         <>
                           {blogsPerms.view && (
                             <a
-                              href={`https://www.direct-care.co.uk/blogs/${post.slug}`}
+                              href={`https://test.direct-care.co.uk/blogs/${post.slug}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
@@ -513,7 +513,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
       {previewImg && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewImg(null)}>
           <div className="relative max-w-2xl">
-            <img src={previewImg} alt="" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" onError={(e) => (e.currentTarget.src = "/placeholder.png")}/>
+            <img src={previewImg} alt="" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" onError={(e) => (e.currentTarget.src = "/placeholder.png")} />
             <button onClick={() => setPreviewImg(null)} className="absolute top-3 right-3 p-1.5 bg-slate-900/80 text-white rounded-lg hover:bg-slate-800">
               <X className="w-4 h-4" />
             </button>

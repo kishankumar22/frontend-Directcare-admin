@@ -1169,6 +1169,56 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleItemRefund = async (
+    items: { orderItemId: string; quantity: number }[],
+    restoreInventory: boolean,
+    reason: RefundReason,
+    notes: string
+  ) => {
+    if (!items?.length) {
+      toast.error('Please select at least one item to refund');
+      return;
+    }
+    if (!notes?.trim()) {
+      toast.error('Please provide refund notes');
+      return;
+    }
+    if (!order) return;
+
+    try {
+      setProcessingRefund(true);
+
+      const result = await orderEditService.processPartialRefund({
+        orderId,
+        refundAmount: 0, // backend computes from items
+        items,
+        restoreInventory,
+        reason,
+        reasonDetails: orderEditService.getRefundReasonLabel(reason),
+        adminNotes: notes,
+        sendCustomerNotification: true,
+        currentUser,
+      });
+
+      if (!result?.success) {
+        throw new Error(result?.message || 'Refund failed');
+      }
+
+      toast.success(result.message || 'Item refund processed successfully');
+      setShowRefundModal(false);
+      await refreshAllOrderData();
+    } catch (error: any) {
+      const backendMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.errors?.[0] ||
+        error?.message ||
+        'Failed to process item refund';
+      toast.error(backendMessage);
+    } finally {
+      setProcessingRefund(false);
+    }
+  };
+
   const handlePaymentSubmit = async (data: any) => {
     if (!order) return;
 
@@ -2651,6 +2701,7 @@ export default function OrderDetailPage() {
         onClose={() => setShowRefundModal(false)}
         onFullRefund={(reason, notes) => handleFullRefund(notes, reason)}
         onPartialRefund={(amount, reason, notes) => handlePartialRefund(amount, reason, notes)}
+        onItemRefund={(items, restoreInventory, reason, notes) => handleItemRefund(items, restoreInventory, reason, notes)}
         onShippingRefund={(notes) => handleShippingRefund(notes)}
       />
 
