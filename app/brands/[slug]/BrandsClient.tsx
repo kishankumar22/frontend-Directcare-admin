@@ -107,7 +107,9 @@ const handleSortChange = (value: string) => {
         }
       });
     });
-    return Array.from(map.values());
+   return Array.from(map.values()).sort((a, b) =>
+  a.name.localeCompare(b.name)
+);
   }, [products]);
 
 useEffect(() => {

@@ -170,7 +170,7 @@ export default function CategoryOffersSlider({
               const imageUrl =
                 discount.desktopBannerImageUrl || discount.mobileBannerImageUrl;
               const href = discount.slug ? `/offers/${discount.slug}` : "/offers";
-              const comment = stripHtml(discount.adminComment);
+              const comment = stripHtml(discount.adminComment ?? "").replace(/&amp;/g, "&");
               const productCount = getDisplayProductCount(
                 discount,
                 visibleDiscounts

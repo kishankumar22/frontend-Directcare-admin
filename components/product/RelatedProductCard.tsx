@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import QuantitySelector from "@/components/shared/QuantitySelector";
-import { Star, StarHalf, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart } from "lucide-react";
+import { Star, StarHalf, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart, Bell } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useWishlist } from "@/context/WishlistContext";
 import {
@@ -590,8 +590,9 @@ systemDiscountAmount:
     // ✅ OUT OF STOCK - Show Notify Me (full width, no quantity)
     <Button
       onClick={() => setShowNotifyModal(true)}
-      className="w-full h-[30px] text-[9px] px-1 rounded-lg font-semibold bg-[#445D41] hover:bg-black text-white"
+      className="group flex-1 border-2 border-[#445D41] bg-white text-[#445D41] hover:bg-[#445D41] hover:text-white transition-all duration-300"
     >
+        <Bell className="mr-2 h-4 w-4" />
       Notify Me
     </Button>
   )}

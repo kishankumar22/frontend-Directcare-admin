@@ -437,7 +437,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                         <>
                           {blogsPerms.view && (
                             <a
-                              href={`https://test.direct-care.co.uk/blogs/${post.slug}`}
+                              href={`https://api.direct-care.co.uk/blogs/${post.slug}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"

@@ -148,7 +148,8 @@ function DiscountCard({ discount: d }: { discount: Discount }) {
   const isExpiringSoon = daysLeft !== null && daysLeft <= 3;
   const bannerUrl = d.desktopBannerImageUrl || d.mobileBannerImageUrl;
   const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
-  const adminComment = stripHtml(d.adminComment);
+  
+ const adminComment = stripHtml(d.adminComment ?? "").replace(/&amp;/g, "&");
 
   const isProductLevel = d.discountType === "AssignedToProducts" || d.discountType === "AssignedToCategories" || d.discountType === "UpToPercentage";
   const href = isProductLevel && d.slug ? `/offers/${d.slug}` : "#";

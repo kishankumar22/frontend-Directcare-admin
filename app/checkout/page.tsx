@@ -1412,7 +1412,20 @@ if (!checkoutItems || checkoutItems.length === 0) {
     <input
       type="tel"
       value={billingPhone}
-      onChange={(e) => { const cleaned = e.target.value.replace(/\D/g, ""); setBillingPhone(cleaned); clearFieldError("billingPhone"); }}
+    onChange={(e) => {
+  const cleaned = e.target.value.replace(/\D/g, "");
+  setBillingPhone(cleaned);
+
+  setFieldErrors((prev) => ({
+    ...prev,
+    billingPhone:
+      cleaned.length === 0
+        ? "Phone number is required"
+        : cleaned.length < 10
+        ? "10 digits are required"
+        : "",
+  }));
+}}
       placeholder="7xxxxxxxxx"
       className="w-full border border-gray-300 p-1.5 text-sm rounded-r focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
       maxLength={10}
@@ -1428,7 +1441,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
     className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
   />
 </div>
-<div className="flex flex-col space-y-0.5 col-span-2 relative z-[40]">
+{/* <div className="flex flex-col space-y-0.5 col-span-2 relative z-[40]">
   <label className="text-xs font-medium text-gray-700">Search address or postcode</label>
   <input
     type="text"
@@ -1444,7 +1457,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
       ))}
     </div>
   )}
-</div>
+</div> */}
 <div className="flex flex-col space-y-0.5 col-span-2">
   <label className="text-xs font-medium text-gray-700">Address line 1 *</label>
   <input
@@ -1616,10 +1629,19 @@ onChange={(e) => setShippingAddressQuery(e.target.value)}
       type="tel"
       value={shippingPhone}
       onChange={(e) => {
-        const cleaned = e.target.value.replace(/\D/g, "");
-        setShippingPhone(cleaned);
-        clearFieldError("shippingPhone");
-      }}
+  const cleaned = e.target.value.replace(/\D/g, "");
+  setShippingPhone(cleaned);
+
+  setFieldErrors((prev) => ({
+    ...prev,
+    shippingPhone:
+      cleaned.length === 0
+        ? "Phone number is required"
+        : cleaned.length < 10
+        ? "10 digits are required"
+        : "",
+  }));
+}}
       placeholder="7xxxxxxxxx"
       className="w-full border border-gray-300 p-1.5 text-sm rounded-r focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
       maxLength={10}

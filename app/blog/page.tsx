@@ -6,21 +6,21 @@ import * as LucideIcons from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://test.direct-care.co.uk"),
+  metadataBase: new URL("https://api.direct-care.co.uk"),
 
   title: "Health & Wellness Blog UK | Direct Care",
   description:
     "Explore expert health tips, medicine guides, and wellness advice from Direct Care UK.",
 
   alternates: {
-    canonical: "https://test.direct-care.co.uk/blog",
+    canonical: "https://api.direct-care.co.uk/blog",
   },
 
   openGraph: {
     title: "Direct Care Blog UK",
     description:
       "Health tips, medicine guides, and wellness advice.",
-    url: "https://test.direct-care.co.uk/blog",
+    url: "https://api.direct-care.co.uk/blog",
     locale: "en_GB",
     type: "website",
   },
@@ -260,7 +260,7 @@ export default async function BlogPage() {
             "@context": "https://schema.org",
             "@type": "Blog",
             name: "Direct Care Blog",
-            url: "https://test.direct-care.co.uk/blog",
+            url: "https://api.direct-care.co.uk/blog",
             description:
               "Health tips, medicine guides, and wellness articles from Direct Care UK.",
           }),

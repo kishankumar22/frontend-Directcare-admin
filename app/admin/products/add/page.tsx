@@ -13,7 +13,7 @@ import { MultiCategorySelector } from "../MultiCategorySelector";
 import RelatedProductsSelector from "../RelatedProductsSelector";
 import ProductVariantsManager from "../ProductVariantsManager";
 import PharmacyQuestionAssignModal from "../PharmacyQuestionAssignModal";
-import PharmaQuestionChoiceModal from "../_components/PharmaQuestionChoiceModal";
+
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../ProductNameInput";
 import SKUInput from "../SKUInput";
@@ -45,8 +45,7 @@ export default function AddProductPage() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [showPharmacyModal, setShowPharmacyModal] = useState(false);
   const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
-  const [pharmaWithQuestions, setPharmaWithQuestions] = useState<boolean>(true);
-  const [showPharmaChoiceModal, setShowPharmaChoiceModal] = useState<boolean>(false);
+
 
   const [nameError, setNameError] = useState(false);
   const [skuError, setSkuError] = useState(false);
@@ -1377,19 +1376,7 @@ export default function AddProductPage() {
           return;
         }
 
-        // 5.3 Check Variant SKU Matches Product SKU
-        for (const variant of productVariants) {
-          if (variant.sku.toUpperCase() === formData.sku.toUpperCase()) {
-            toast.error(`Variant "${variant.name}" SKU cannot be same as main product SKU`, {
-              autoClose: 8000,
-            });
-            target.removeAttribute("data-submitting");
-            setIsSubmitting(false);
-            setSubmitProgress(null);
-            return;
-          }
-        }
-
+ 
         if (formData.productType === "variable") {
           // 👇 YAHAN ADD KARO
           const defaultVariants = productVariants.filter(
@@ -1493,7 +1480,6 @@ export default function AddProductPage() {
 
       if (
         formData.isPharmaProduct &&
-        pharmaWithQuestions &&
         (!pharmacyQuestions || pharmacyQuestions.length === 0)
       ) {
         toast.error(
@@ -2935,7 +2921,7 @@ export default function AddProductPage() {
       const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
       const ALLOWED_TYPES = ['image/webp', 'image/avif'];
 
-      console.log(`  Found ${createdVariants.length} variants in response`);
+      console.log(`Found ${createdVariants.length} variants in response`);
 
       // UPLOAD PROCESS
       const uploadPromises = productVariants.map(async (localVariant) => {
@@ -4115,21 +4101,16 @@ export default function AddProductPage() {
                           type="checkbox"
                           name="isPharmaProduct"
                           checked={formData.isPharmaProduct}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
+                      onChange={(e) => {
+  handleChange(e);
 
-                            handleChange(e);
-
-                            if (checked) {
-                              // Open choice modal when enabled
-                              setShowPharmaChoiceModal(true);
-                            } else {
-                              // Reset pharmacy questions when disabled
-                              setPharmacyQuestions([]);
-                              setPharmaWithQuestions(true);
-                              setShowPharmacyModal(false);
-                            }
-                          }}
+  if (e.target.checked) {
+    setShowPharmacyModal(true);
+  } else {
+    setPharmacyQuestions([]);
+    setShowPharmacyModal(false);
+  }
+}}
                           className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
                         />
 
@@ -4145,37 +4126,22 @@ export default function AddProductPage() {
 
 
                       {/* RIGHT SIDE BUTTON */}
-                      {formData.isPharmaProduct && (
-                        pharmaWithQuestions ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowPharmacyModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 
+                {formData.isPharmaProduct && (
+  <button
+    type="button"
+    onClick={() => setShowPharmacyModal(true)}
+         className="flex items-center gap-2 px-4 py-2 
           bg-violet-500/10 border border-violet-500/50 
           text-violet-400 rounded-lg hover:bg-violet-500/20 
           transition-all text-sm font-semibold"
-                          >
-                            Configure Questions
+  >
+    Configure Questions
 
-                            {pharmacyQuestions.length > 0 && (
-                              <span className="px-2 py-0.5 bg-violet-500/20 text-violet-200 rounded-full text-xs font-semibold">
-                                {pharmacyQuestions.length}
-                              </span>
-                            )}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setShowPharmaChoiceModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 
-          bg-cyan-500/10 border border-cyan-500/50 
-          text-cyan-400 rounded-lg hover:bg-cyan-500/20 
-          transition-all text-sm font-semibold"
-                          >
-                            Without Questions (Click to change)
-                          </button>
-                        )
-                      )}
+    {pharmacyQuestions.length > 0 && (
+      <span>{pharmacyQuestions.length}</span>
+    )}
+  </button>
+)}
 
                     </div>
 
@@ -5654,13 +5620,39 @@ export default function AddProductPage() {
                 {/* ========== PICTURES SECTION ========== */}
                 <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Product Images  <span className="text-red-500">*</span></h3>
-                      <p className="text-sm text-red-500">
-                        Upload product images (WebP or Avif). Recommended size under 300 KB, maximum 500 KB per image.
-                        Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
-                      </p>
-                    </div>
+                   <div>
+  <h3 className="text-lg font-semibold text-white">
+    Product Images <span className="text-red-500">*</span>
+  </h3>
+
+  <p className="mt-2 text-sm text-gray-300 leading-6 flex flex-wrap items-center gap-2">
+    Upload product images in
+
+   <span className="inline-flex items-center rounded-md bg-cyan-100 text-cyan-800 border border-cyan-300 px-2.5 py-1 text-sm font-semibold">
+  WebP
+</span>
+
+<span className="inline-flex items-center rounded-md bg-violet-100 text-violet-800 border border-violet-300 px-2.5 py-1 text-sm font-semibold">
+  AVIF
+</span>
+
+<span className="inline-flex items-center rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 text-sm font-semibold">
+  Recommended &lt; 300 KB
+</span>
+
+<span className="inline-flex items-center rounded-md bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-1 text-sm font-semibold">
+  Max 500 KB
+</span>
+
+<span className="inline-flex items-center rounded-md bg-blue-100 text-blue-800 border border-blue-300 px-2.5 py-1 text-sm font-semibold">
+  1500 × 1500 px
+</span>
+
+<span className="inline-flex items-center rounded-md bg-pink-100 text-pink-800 border border-pink-300 px-2.5 py-1 text-sm font-semibold">
+  Up to 10 Images
+</span>
+  </p>
+</div>
                   </div>
 
                   {/* Direct Upload Button */}
@@ -5978,25 +5970,7 @@ export default function AddProductPage() {
         onSave={(selections) => setPharmacyQuestions(selections)}
       />
 
-      {/* PHARMACY QUESTION CHOICE MODAL */}
-      <PharmaQuestionChoiceModal
-        isOpen={showPharmaChoiceModal}
-        onSelect={(withQuestions) => {
-          setPharmaWithQuestions(withQuestions);
-          setShowPharmaChoiceModal(false);
-          if (withQuestions) {
-            setShowPharmacyModal(true);
-          } else {
-            setPharmacyQuestions([]);
-          }
-        }}
-        onCancel={() => {
-          setFormData((prev) => ({ ...prev, isPharmaProduct: false }));
-          setPharmacyQuestions([]);
-          setPharmaWithQuestions(true);
-          setShowPharmaChoiceModal(false);
-        }}
-      />
+
 
 
 

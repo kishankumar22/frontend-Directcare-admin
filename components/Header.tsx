@@ -169,6 +169,8 @@ useEffect(() => {
       
       const json = await res.json();
       let products = json?.data || [];
+      // Sirf variant results show karo
+products = products.filter((product: any) => product.isVariantResult === true);
 
       // ✅ Sirf PHARMA FILTER (necessary)
       products = products.filter((product: any) => {

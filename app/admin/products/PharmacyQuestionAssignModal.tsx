@@ -8,7 +8,7 @@ import {
   AssignProductPharmacyQuestionDto,
   pharmacyQuestionsService,
 } from "@/lib/services/PharmacyQuestions";
-import PharmacyQuestionFormModal from "@/app/admin/pharmacy-questions/PharmacyQuestionFormModal";
+import PharmacyQuestionFormModal from "../pharmacy-questions/PharmacyQuestionFormModal";
 
 interface PharmacyQuestionAssignModalProps {
   isOpen: boolean;

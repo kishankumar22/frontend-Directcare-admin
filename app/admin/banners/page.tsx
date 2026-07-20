@@ -126,19 +126,35 @@ function getBannerStatus(banner: any): BannerStatus {
   });
 
 
-  const handleImageFileChange = (file: File) => {
-    setImageFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-    toast.success("Desktop image selected! Will be replaced on save.");
-  };
+const ALLOWED_TYPES = ["image/webp"];
 
-  const handleMobileImageFileChange = (file: File) => {
-    setMobileImageFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setMobileImagePreview(previewUrl);
-    toast.success("Mobile image selected! Will be replaced on save.");
-  };
+const handleImageFileChange = (file: File) => {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    toast.error("Only WebP (.webp) images are allowed.");
+    return;
+  }
+
+  setImageFile(file);
+  const previewUrl = URL.createObjectURL(file);
+  setImagePreview(previewUrl);
+
+  toast.success("Desktop image selected!");
+};
+
+
+
+const handleMobileImageFileChange = (file: File) => {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    toast.error("Only WebP (.webp) images are allowed.");
+    return;
+  }
+
+  setMobileImageFile(file);
+  const previewUrl = URL.createObjectURL(file);
+  setMobileImagePreview(previewUrl);
+
+  toast.success("Mobile image selected!");
+};
 
 const fetchBanners = async () => {
   try {
@@ -1428,7 +1444,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                           Change Image
                           <input
                             type="file"
-                            accept="image/*"
+                              accept=".webp,image/webp"
                             disabled={!formData.title}
                             className="hidden"
                             onChange={(e) => {
@@ -1483,12 +1499,12 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                             )}
                           </p>
                           {formData.title && (
-                            <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                            <p className="text-xs text-slate-500">WebP (.webp) only • Max 1MB</p>
                           )}
                         </div>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept=".webp,image/webp"
                           disabled={!formData.title}
                           className="hidden"
                           onChange={(e) => {
@@ -1549,7 +1565,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                           Change
                           <input
                             type="file"
-                            accept="image/*"
+                           accept=".webp,image/webp"
                             className="hidden"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
@@ -1581,11 +1597,11 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                           <p className="text-sm text-slate-500">
                             <span className="font-semibold">Click to upload</span> mobile image
                           </p>
-                          <p className="text-xs text-slate-500 mt-1">Recommended: 768×400px or similar portrait/narrow ratio</p>
+                         <p className="text-xs text-slate-500">WebP (.webp) only • Max 1MB</p>
                         </div>
                         <input
                           type="file"
-                          accept="image/*"
+                        accept=".webp,image/webp"
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];

@@ -196,7 +196,7 @@ async function getBrands(baseUrl: string) {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://test.direct-care.co.uk"),
+  metadataBase: new URL("https://api.direct-care.co.uk"),
 
   title: "Direct Care UK - Shop Beauty, Health, Incontinence Items & More",
 
@@ -215,7 +215,7 @@ export const metadata: Metadata = {
     title: "Direct Care UK - Healthcare & Personal Care Online",
     description:
       "Order medicines and healthcare products online in the UK with fast delivery and trusted brands.",
-    url: "https://test.direct-care.co.uk",
+    url: "https://api.direct-care.co.uk",
     siteName: "Direct Care",
     locale: "en_GB", // ✅ VERY IMPORTANT
     type: "website",
@@ -227,7 +227,7 @@ export const metadata: Metadata = {
   },
 
   alternates: {
-    canonical: "https://test.direct-care.co.uk",
+    canonical: "https://api.direct-care.co.uk",
   },
 };
 // ✅ MAIN PAGE
@@ -279,7 +279,7 @@ export default async function Home() {
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "Direct Care",
-            url: "https://test.direct-care.co.uk",
+            url: "https://api.direct-care.co.uk",
             address: {
               "@type": "PostalAddress",
               addressCountry: "GB",
@@ -297,11 +297,11 @@ export default async function Home() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebSite",
-            url: "https://test.direct-care.co.uk",
+            url: "https://api.direct-care.co.uk",
             name: "Direct Care",
             potentialAction: {
               "@type": "SearchAction",
-              target: "https://test.direct-care.co.uk/search?q={search_term_string}",
+              target: "https://api.direct-care.co.uk/search?q={search_term_string}",
               "query-input": "required name=search_term_string",
             },
           }),

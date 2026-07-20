@@ -52,6 +52,7 @@ export default function HomeBannerSlider({
           const mobileSrc = banner.mobileImageUrl
             ? (banner.mobileImageUrl.startsWith("http") ? banner.mobileImageUrl : `${baseUrl}${banner.mobileImageUrl}`)
             : null;
+            
 
           const pictureEl = (
             <picture className="block w-full">

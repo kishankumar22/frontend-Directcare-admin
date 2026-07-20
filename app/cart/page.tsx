@@ -47,7 +47,7 @@ export default function CartPage() {
 
     setIsCheckingStock(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://test.direct-care.co.uk";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.direct-care.co.uk";
 
       const stockChecks = await Promise.all(
         inStockItems.map(async (item) => {

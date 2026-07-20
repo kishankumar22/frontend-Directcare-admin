@@ -22,7 +22,7 @@ import RequestTakeoverModal from "../../RequestTakeoverModal";
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
-import PharmaQuestionChoiceModal from "../../_components/PharmaQuestionChoiceModal";
+
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
@@ -57,13 +57,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [initialFormData, setInitialFormData] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
+const [simpleProductsLoaded, setSimpleProductsLoaded] = useState(false);
 
   const [showPharmacyModal, setShowPharmacyModal] = useState(false);
   const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
-  const [pharmaWithQuestions, setPharmaWithQuestions] = useState<boolean>(true);
-  const [showPharmaChoiceModal, setShowPharmaChoiceModal] = useState<boolean>(false);
-
+  
   // ================================
   // ✅ LOADING STATE (Add after other useState)
   // ================================
@@ -283,6 +281,48 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+const extractProducts = (response: any): any[] => {
+  const data = response?.data?.data || response?.data || {};
+  return data.items || (Array.isArray(data) ? data : []);
+};
+
+const loadSimpleProducts = async () => {
+  if (simpleProductsLoaded) return;
+
+  try {
+    const response = await productsService.getSimpleProducts();
+
+    const items = extractProducts(response);
+
+    const simpleProductsList = items
+      .filter((p: any) => p.id !== productId)
+      .map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        isPharmaProduct: p.isPharmaProduct,
+        price: typeof p.price === "number" ? p.price.toFixed(2) : "0.00",
+        stockQuantity: p.stockQuantity || 0,
+      }));
+
+    setSimpleProducts(simpleProductsList);
+    setSimpleProductsLoaded(true);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+
+const openGroupedModal = () => {
+  setIsGroupedModalOpen(true);
+
+  if (
+    formData.productType === "grouped" &&
+    !simpleProductsLoaded
+  ) {
+    loadSimpleProducts();
+  }
+};
   // ✅ Extract YouTube Video ID from URL
   const getYouTubeVideoId = (url: string): string | null => {
     if (!url) return null;
@@ -716,24 +756,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       setQuantityMode('unlimited');
     }
   }, [formData]);
-  useEffect(() => {
-    if (!isGroupedModalOpen) return;
 
-    const loadSimpleProducts = async () => {
-      try {
-        const response = await productsService.getSimpleProducts();
-
-        const items = response?.data?.data || [];
-
-        setSimpleProducts(items);
-
-      } catch (e) {
-        console.error(e);
-      }
-    };
-
-    loadSimpleProducts();
-  }, [isGroupedModalOpen]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
@@ -789,17 +812,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         const productResponse = await productsService.getById(productId);
 
         // ✅ Fetch all other data in parallel (ALL SERVICE-BASED)
-        const [
-          brandsResponse,
-          categoriesResponse,
-          simpleProductsResponse,
-          incompatibilitiesResponse
-        ] = await Promise.allSettled([
-          brandsService.getAll({ includeInactive: true }),
-          categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
-          productsService.getSimpleProducts(),
-          productsService.getIncompatibilities(productId)
-        ]);
+    const [
+  brandsResponse,
+  categoriesResponse,
+  incompatibilitiesResponse
+] = await Promise.allSettled([
+  brandsService.getAll({ includeInactive: true }),
+  categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
+  productsService.getIncompatibilities(productId)
+]);
 
         const brandsData =
           brandsResponse.status === "fulfilled" &&
@@ -830,32 +851,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           const data = response?.data?.data || response?.data || {};
           return data.items || (Array.isArray(data) ? data : []);
         };
-
-        // ✅ Process SIMPLE products from service
-        if (simpleProductsResponse.status === 'fulfilled') {
-          const simpleItems = extractProducts(simpleProductsResponse.value);
-
-          if (simpleItems.length > 0) {
-            // Filter out current product but keep all products to show name/SKU of existing incompatibilities
-            const simpleProductsList = simpleItems
-              .filter((p: any) => p.id !== productId)
-              .map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                sku: p.sku,
-                isPharmaProduct: p.isPharmaProduct,
-                price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-                stockQuantity: p.stockQuantity || 0
-              }));
-
-            setSimpleProducts(simpleProductsList);
-            console.log('✅ Simple products loaded:', simpleProductsList.length);
-          } else {
-            console.warn('⚠️ Simple products endpoint returned no data');
-            setSimpleProducts([]);
-          }
-        }
-
         // ✅ Process Incompatibilities
         if (incompatibilitiesResponse.status === 'fulfilled') {
           const incompatData = incompatibilitiesResponse.value.data?.data || incompatibilitiesResponse.value.data || [];
@@ -1324,7 +1319,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               isRequired: pq.isRequired,
               displayOrder: pq.displayOrder,
             })));
-            setPharmaWithQuestions(pharmaData.length > 0);
             console.log('✅ Pharmacy questions loaded:', pharmaData.length);
           } catch (pharmaError) {
             console.error('Error loading pharmacy questions:', pharmaError);
@@ -3534,17 +3528,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           return null;
         }
 
-        // Check if variant SKU matches product SKU
-   // Check if variant SKU matches product SKU (ONLY FOR VARIABLE PRODUCTS)
-if (
-  formData.productType === "variable" &&  // ✅ Only for variable products
-  variant.sku.trim().toUpperCase() === formData.sku.trim().toUpperCase()
-) {
-  toast.error(`Variant SKU "${variant.sku}" cannot be the same as main product SKU`, {
-    autoClose: 8000
-  });
-  return null;
-}
+
 
         // Price validation
         // const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;
@@ -3640,7 +3624,6 @@ if (
       // ═══════════════════════════════════════════════════════════════════════
       if (
         formData.isPharmaProduct &&
-        pharmaWithQuestions &&
         (!pharmacyQuestions || pharmacyQuestions.length === 0)
       ) {
         toast.error(
@@ -3658,7 +3641,7 @@ if (
       //   target.removeAttribute('data-submitting');
       //   setIsSubmitting(false);
       //   setSubmitProgress(null);
-      //   return;
+      //   returs n;
       // }
 
       if (formData.productImages.length > 10) {
@@ -4030,18 +4013,24 @@ if (
             toast.warning('⚠️ Product saved, but incompatibilities could not be updated.');
           }
 
-          // Save/Clear pharmacy questions
-          try {
-            console.log('🚀 Saving pharmacy questions...');
-            const finalQuestions = (formData.isPharmaProduct && pharmaWithQuestions) ? pharmacyQuestions : [];
-            await pharmacyQuestionsService.assignProductQuestions(productId, {
-              questions: finalQuestions
-            });
-            console.log('✅ Pharmacy questions saved');
-          } catch (pharmaError) {
-            console.error('❌ Failed to save pharmacy questions:', pharmaError);
-            toast.warning('⚠️ Product saved, but pharmacy questions could not be updated.');
-          }
+      
+// Save/Clear pharmacy questions
+try {
+  console.log("🚀 Saving pharmacy questions...");
+
+  await pharmacyQuestionsService.assignProductQuestions(productId, {
+    questions: formData.isPharmaProduct
+      ? pharmacyQuestions
+      : [],
+  });
+
+  console.log("✅ Pharmacy questions saved");
+} catch (pharmaError) {
+  console.error("❌ Failed to save pharmacy questions:", pharmaError);
+  toast.warning(
+    "⚠️ Product saved, but pharmacy questions could not be updated."
+  );
+}
 
           toast.success(
             isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
@@ -5622,12 +5611,12 @@ if (
                         {formData.productType === "grouped" && (
                           <button
                             type="button"
-                            onClick={() => setIsGroupedModalOpen(true)}
+                           onClick={openGroupedModal}
                             title="Edit grouped product configuration"
                             className="flex items-center gap-2 px-3 py-2.5
-               bg-violet-500/10 hover:bg-violet-500/20
-               border border-violet-500/30 hover:border-violet-500/50
-               text-violet-400 rounded-xl transition-all"
+                                        bg-violet-500/10 hover:bg-violet-500/20
+                                        border border-violet-500/30 hover:border-violet-500/50
+                                        text-violet-400 rounded-xl transition-all"
                           >
                             {/* Linked Count */}
                             {selectedGroupedProducts.length > 0 && (
@@ -6219,20 +6208,16 @@ if (
                         type="checkbox"
                         name="isPharmaProduct"
                         checked={formData.isPharmaProduct}
-                        onChange={(e) => {
-                          const isChecked = e.target.checked;
+                     onChange={(e) => {
+  handleChange(e);
 
-                          handleChange(e);
-
-                          // Open choice modal only when switching false → true
-                          if (isChecked && !formData.isPharmaProduct) {
-                            setShowPharmaChoiceModal(true);
-                          } else if (!isChecked) {
-                            setPharmacyQuestions([]);
-                            setPharmaWithQuestions(true);
-                            setShowPharmacyModal(false);
-                          }
-                        }}
+  if (e.target.checked) {
+    setShowPharmacyModal(true);
+  } else {
+    setPharmacyQuestions([]);
+    setShowPharmacyModal(false);
+  }
+}}
                         className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
                       />
 
@@ -6248,37 +6233,24 @@ if (
 
 
                     {/* RIGHT SIDE */}
-                    {formData.isPharmaProduct && (
-                      pharmaWithQuestions ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowPharmacyModal(true)}
-                          className="flex items-center gap-2 px-4 py-2 
-          bg-violet-500/10 border border-violet-500/40 
-          text-violet-300 rounded-lg hover:bg-violet-500/20 
-          transition-all text-sm font-semibold"
-                        >
-                          Configure Questions
+          {formData.isPharmaProduct && (
+  <button
+    type="button"
+    onClick={() => setShowPharmacyModal(true)}
+    className="flex items-center gap-2 px-4 py-2 
+      bg-violet-500/10 border border-violet-500/40 
+      text-violet-300 rounded-lg hover:bg-violet-500/20 
+      transition-all text-sm font-semibold"
+  >
+    Configure Questions
 
-                          {pharmacyQuestions.length > 0 && (
-                            <span className="px-2 py-0.5 bg-violet-500/30 text-violet-200 rounded-full text-xs font-semibold">
-                              {pharmacyQuestions.length}
-                            </span>
-                          )}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setShowPharmaChoiceModal(true)}
-                          className="flex items-center gap-2 px-4 py-2 
-          bg-cyan-500/10 border border-cyan-500/50 
-          text-cyan-400 rounded-lg hover:bg-cyan-500/20 
-          transition-all text-sm font-semibold"
-                        >
-                          Without Questions (Click to change)
-                        </button>
-                      )
-                    )}
+    {pharmacyQuestions.length > 0 && (
+      <span className="px-2 py-0.5 bg-violet-500/30 text-violet-200 rounded-full text-xs font-semibold">
+        {pharmacyQuestions.length}
+      </span>
+    )}
+  </button>
+)}
 
                   </div>
 
@@ -7881,14 +7853,39 @@ if (
             <TabsContent value="media" className="space-y-3 mt-2">
               {/* ========== PICTURES SECTION ========== */}
               <div className="space-y-3 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Product Images <span className="text-red-500">*</span></h3>
-                  <p className="text-xs text-red-400">
-                    Upload product images (WebP or Avif). Recommended size under 300 KB, maximum 500 KB per image.
-                    Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
-                  </p>
+                                  <div>
+  <h3 className="text-lg font-semibold text-white">
+    Product Images <span className="text-red-500">*</span>
+  </h3>
 
-                </div>
+  <p className="mt-2 text-sm text-gray-300 leading-6 flex flex-wrap items-center gap-2">
+    Upload product images in
+
+   <span className="inline-flex items-center rounded-md bg-cyan-100 text-cyan-800 border border-cyan-300 px-2.5 py-1 text-sm font-semibold">
+  WebP
+</span>
+
+<span className="inline-flex items-center rounded-md bg-violet-100 text-violet-800 border border-violet-300 px-2.5 py-1 text-sm font-semibold">
+  AVIF
+</span>
+
+<span className="inline-flex items-center rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 text-sm font-semibold">
+  Recommended &lt; 300 KB
+</span>
+
+<span className="inline-flex items-center rounded-md bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-1 text-sm font-semibold">
+  Max 500 KB
+</span>
+
+<span className="inline-flex items-center rounded-md bg-blue-100 text-blue-800 border border-blue-300 px-2.5 py-1 text-sm font-semibold">
+  1500 × 1500 px
+</span>
+
+<span className="inline-flex items-center rounded-md bg-pink-100 text-pink-800 border border-pink-300 px-2.5 py-1 text-sm font-semibold">
+  Up to 10 Images
+</span>
+  </p>
+</div>
 
                 <input
                   ref={fileInputRef}
@@ -8218,26 +8215,7 @@ if (
         onSave={(selections) => setPharmacyQuestions(selections)}
       />
 
-      {/* PHARMACY QUESTION CHOICE MODAL */}
-      <PharmaQuestionChoiceModal
-        isOpen={showPharmaChoiceModal}
-        onSelect={(withQuestions) => {
-          setPharmaWithQuestions(withQuestions);
-          setShowPharmaChoiceModal(false);
-          if (withQuestions) {
-            setShowPharmacyModal(true);
-          } else {
-            setPharmacyQuestions([]);
-          }
-        }}
-        onCancel={() => {
-          setFormData((prev) => ({ ...prev, isPharmaProduct: false }));
-          setPharmacyQuestions([]);
-          setPharmaWithQuestions(true);
-          setShowPharmaChoiceModal(false);
-        }}
-      />
-
+ 
       {/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}
       <ProductLockModal
         isOpen={isLockModalOpen}
