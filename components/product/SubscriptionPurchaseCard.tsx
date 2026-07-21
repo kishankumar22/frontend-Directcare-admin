@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import QuantitySelector from "@/components/shared/QuantitySelector";
-import { AwardIcon } from "lucide-react";
+import { AwardIcon, Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
 interface Props {
   product: any;
@@ -24,6 +24,7 @@ interface Props {
     showNotify: boolean;
     label: string;
   };
+  setShowNotifyModal: (val: boolean) => void;
 }
 
 export default function SubscriptionPurchaseCard({
@@ -37,7 +38,7 @@ export default function SubscriptionPurchaseCard({
   setStockError,
    vatRate,
    backorderState,
-
+   setShowNotifyModal,
 }: Props) {
 
   const { addToCart } = useCart();
@@ -340,16 +341,19 @@ image: selectedVariant?.imageUrl
         )}
 
         {selectedPurchaseType === "subscription" && !backorderState.canBuy && (
-          <Button
-            disabled
-            className="w-full py-2 rounded-xl text-sm font-semibold bg-red-400 cursor-not-allowed opacity-70"
-          >
-            Subscription unavailable
-          </Button>
+          <div className="flex flex-col xl:flex-row gap-2 w-full mt-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowNotifyModal(true)}
+              className="group py-2 px-4 rounded-xl border border-[#445D41] text-[#445D41] text-sm font-semibold hover:bg-[#445D41] hover:text-white transition-all duration-300 whitespace-nowrap"
+            >
+              <Bell className="mr-2 h-4 w-4" />
+              Notify Me
+            </Button>
+          </div>
         )}
       </div>
     </div>
-
       </CardContent>
     </Card>
   );

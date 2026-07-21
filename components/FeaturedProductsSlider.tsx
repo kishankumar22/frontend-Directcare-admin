@@ -107,10 +107,12 @@ export default function FeaturedProductsSlider({
   products,
   baseUrl,
   title = "Top Selling Products",
+  viewAllLink,
 }: {
   products: Product[];
   baseUrl: string;
   title?: string;
+  viewAllLink?: string;
 }) {
 
   const toast = useToast();
@@ -119,7 +121,12 @@ export default function FeaturedProductsSlider({
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const flattenedProducts = useMemo(() => {
-    return flattenProductsForListing(products);
+    const flattened = flattenProductsForListing(products);
+    return flattened.sort((a, b) => {
+      const orderA = a.productData?.displayOrder ?? 999999;
+      const orderB = b.productData?.displayOrder ?? 999999;
+      return orderA - orderB;
+    });
   }, [products]);
   const shouldShowNav = flattenedProducts.length > 4;
   const [notifyProduct, setNotifyProduct] = useState<{
@@ -291,9 +298,19 @@ export default function FeaturedProductsSlider({
   return (
     <div className="relative w-full bg-gray-50">
 
-      <h2 className="text-xl md:text-3xl font-bold mb-4 md:mb-8 text-gray-900 text-center">
-        {title}
-      </h2>
+      <div className="relative flex items-center justify-center mb-4 md:mb-8">
+        <h2 className="text-xl md:text-3xl font-bold text-gray-900 text-center">
+          {title}
+        </h2>
+        {viewAllLink && (
+          <Link
+            href={viewAllLink}
+            className="absolute right-0 bg-green-100/70 p-2  rounded-sm text-sm md:text-base font-semibold text-[#445D41] hover:underline"
+          >
+            View All &rarr;
+          </Link>
+        )}
+      </div>
       {shouldShowNav && (
         <button
           id="prevBtn"
@@ -939,31 +956,40 @@ disabled:opacity-60 disabled:cursor-not-allowed"
 
   {/* ⭐ CASE: OUT OF STOCK - Only Notify Me (Full Width) */}
   {!backorderState.canBuy && (
-    <Button
-      onClick={() => {
-        // 🔥 PHARMA PRODUCT GUARD - Pharma products can also be out of stock
-        if (product.isPharmaProduct) {
-          setPharmaModal({
-            product,
-            variant: defaultVariant,
-            action: "ADD_TO_CART",
-            basePrice,
-            finalPrice,
-            discountAmount,
-            cardSlug,
+    <>
+      <Button
+        disabled
+        className="flex-1 text-[10px] md:text-sm py-1.5 md:py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium cursor-not-allowed opacity-100"
+      >
+        Out of Stock
+      </Button>
+      <Button
+        variant="outline"
+        onClick={() => {
+          // 🔥 PHARMA PRODUCT GUARD
+          if (product.isPharmaProduct) {
+            setPharmaModal({
+              product,
+              variant: defaultVariant,
+              action: "ADD_TO_CART",
+              basePrice,
+              finalPrice,
+              discountAmount,
+              cardSlug,
+            });
+            return;
+          }
+          setNotifyProduct({
+            productId: product.id,
+            variantId: defaultVariant?.id ?? null,
           });
-          return;
-        }
-        setNotifyProduct({
-          productId: product.id,
-          variantId: defaultVariant?.id ?? null,
-        });
-      }}
-      className="w-full text-xs md:text-sm py-1.5 md:py-2 rounded-lg bg-[#445D41] hover:bg-black text-white font-semibold flex items-center justify-center gap-2"
-    >
-      <BellRing className="h-3 w-3 md:h-4 md:w-4" />
-      Notify Me
-    </Button>
+        }}
+        className="group px-2 md:px-4 text-[10px] md:text-sm py-1.5 md:py-2 rounded-lg border-[#445D41] text-[#445D41] font-medium hover:bg-[#445D41] hover:text-white transition-all duration-300"
+      >
+        <BellRing className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+        Notify Me
+      </Button>
+    </>
   )}
 </div>
 

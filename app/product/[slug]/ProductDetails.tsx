@@ -18,7 +18,7 @@ import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle, Info } from "lucide-react";
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle, Info, Bell } from "lucide-react";
 import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -2923,13 +2923,23 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </Button>
                             )}
                          {purchaseType === "one" && !backorderState.canBuy && (
-  <Button
-    onClick={() => setShowNotifyModal(true)}
-    className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
-  >
-    Notify Me
-  </Button>
-)}
+                            <>
+                              <Button
+                                disabled
+                                className="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold cursor-not-allowed opacity-100"
+                              >
+                                Out of Stock
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setShowNotifyModal(true)}
+                                className="group py-2 px-4 rounded-xl border border-[#445D41] text-[#445D41] text-sm font-semibold hover:bg-[#445D41] hover:text-white transition-all duration-300"
+                              >
+                                <Bell className="mr-2 h-4 w-4" />
+                                Notify Me
+                              </Button>
+                            </>
+                          )}
                           </div>
 
                         </CardContent>
@@ -2953,8 +2963,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                         setQuantity={setSubscriptionQty}
                         stockError={subscriptionStockError}
                         setStockError={setSubscriptionStockError}
-                        vatRate={vatRate}   // 🟢 Add this
-                        backorderState={backorderState}   // ⭐ REQUIRED
+                        vatRate={vatRate}
+                        backorderState={backorderState}
+                        setShowNotifyModal={setShowNotifyModal}
                       />
                     </div>
                   </div>

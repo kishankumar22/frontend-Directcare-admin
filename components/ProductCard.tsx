@@ -34,8 +34,8 @@ export default function ProductCard({
   const { addToCart, cart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const [showPharmaModal, setShowPharmaModal] = useState(false);
-// Add with other useState declarations
-const [showNotifyModal, setShowNotifyModal] = useState(false);
+  // Add with other useState declarations
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
   // 🔁 resume add after modal
   const pharmaApprovedRef = useRef(false);
 
@@ -86,12 +86,12 @@ const [showNotifyModal, setShowNotifyModal] = useState(false);
   const finalPrice = getDiscountedPrice(product, basePrice);
   const discountBadge = getDiscountBadge(product);
   // Determine which discount type to display: prioritize variant's setting if present
- // ✅ NEW (Correct - ProductDetails jaisa):
-const currentDisplayType = 
-  (product.productType === "variable" && defaultVariant?.compareAtPrice && defaultVariant.compareAtPrice > defaultVariant.price ? "OldPrice" : undefined) ??
-  defaultVariant?.displayDiscountType ??
-  product.displayDiscountType ??
-  "None";
+  // ✅ NEW (Correct - ProductDetails jaisa):
+  const currentDisplayType =
+    (product.productType === "variable" && defaultVariant?.compareAtPrice && defaultVariant.compareAtPrice > defaultVariant.price ? "OldPrice" : undefined) ??
+    defaultVariant?.displayDiscountType ??
+    product.displayDiscountType ??
+    "None";
 
   const oldPriceValue = defaultVariant
     ? defaultVariant.compareAtPrice
@@ -384,10 +384,10 @@ const currentDisplayType =
               }
             }}
             className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${(currentDisplayType === "System" && discountBadge) ||
-                (currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData) ||
-                (!discountBadge && hasActiveCoupon)
-                ? "top-14"
-                : "top-2"
+              (currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData) ||
+              (!discountBadge && hasActiveCoupon)
+              ? "top-14"
+              : "top-2"
               } ${isInWishlist(defaultVariant?.id ?? product.id)
                 ? "bg-red-50 border-red-200"
                 : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
@@ -395,8 +395,8 @@ const currentDisplayType =
           >
             <Heart
               className={`h-5 w-5   transition-colors ${isInWishlist(defaultVariant?.id ?? product.id)
-                  ? "fill-red-500 text-red-500"
-                  : "text-gray-400 hover:text-red-400"
+                ? "fill-red-500 text-red-500"
+                : "text-gray-400 hover:text-red-400"
                 }`}
             />
           </button>
@@ -494,28 +494,36 @@ const currentDisplayType =
           )}
         </div>
 
-{/* ADD TO CART + NOTIFY ME */}
-<div className="flex gap-2 mt-1">
-  {stock > 0 ? (
-    <Button
-      onClick={handleAddToCart}
-      disabled={product.disableBuyButton === true}
-      className="flex-1 bg-[#445D41] hover:bg-[#334a2c] text-white"
-    >
-      <ShoppingCart className="mr-2 h-4 w-4" />
-      Add to Cart
-    </Button>
-  ) : (
-    // ✅ OUT OF STOCK → Show "Notify Me" (full width)
-<Button
-  onClick={() => setShowNotifyModal(true)}
-  className="group flex-1 border-2 border-[#445D41] bg-white text-[#445D41] hover:bg-[#445D41] hover:text-white transition-all duration-300"
->
-  <Bell className="mr-2 h-4 w-4" />
-  Notify Me
-</Button>
-  )}
-</div>
+        {/* ADD TO CART + NOTIFY ME */}
+        <div className="flex gap-1.5 md:gap-2 mt-2 w-full">
+          {stock > 0 ? (
+            <Button
+              onClick={handleAddToCart}
+              disabled={product.disableBuyButton === true}
+              className="flex-1 bg-[#445D41] hover:bg-[#334a2c] text-white"
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Add to Cart
+            </Button>
+          ) : (
+            <>
+              <Button
+                disabled
+                className="w-1/2 h-8 md:h-10 px-1 text-[10px] md:text-sm bg-red-600 text-white font-semibold rounded-md cursor-not-allowed opacity-100 hover:bg-[#DF7B7B] shadow-none"
+              >
+                Out of Stock
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowNotifyModal(true)}
+                className="group w-1/2 h-8 md:h-10 px-1 text-[10px] md:text-sm border-[#445D41] text-[#445D41] font-semibold rounded-md hover:bg-[#445D41] hover:text-white transition-all duration-300 shadow-none"
+              >
+                <Bell className="mr-1 md:mr-1.5 h-3 w-3 md:h-4 md:w-4" />
+                Notify Me
+              </Button>
+            </>
+          )}
+        </div>
 
       </div>
       {showPharmaModal && (
@@ -544,15 +552,15 @@ const currentDisplayType =
           }}
         />
       )}
-{/* Add after PharmaQuestionsModal */}
-{showNotifyModal && (
-  <BackInStockModal
-    open={showNotifyModal}
-    productId={product.id}
-    variantId={defaultVariant?.id ?? null}
-    onClose={() => setShowNotifyModal(false)}
-  />
-)}
+      {/* Add after PharmaQuestionsModal */}
+      {showNotifyModal && (
+        <BackInStockModal
+          open={showNotifyModal}
+          productId={product.id}
+          variantId={defaultVariant?.id ?? null}
+          onClose={() => setShowNotifyModal(false)}
+        />
+      )}
     </div>
 
   );

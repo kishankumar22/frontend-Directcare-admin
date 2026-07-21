@@ -95,7 +95,7 @@ const basePrice =
 
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
-// 🔥 NEW: oldPrice fallback logic
+// 🔥 NEW: oldPrice fallback logicRecently Viewed Products
 const oldPriceValue =
   defaultVariant?.compareAtPrice ?? defaultVariant?.oldPrice ??
   product.compareAtPrice ?? product.oldPrice;
@@ -587,14 +587,22 @@ systemDiscountAmount:
       </Button>
     </>
   ) : (
-    // ✅ OUT OF STOCK - Show Notify Me (full width, no quantity)
-    <Button
-      onClick={() => setShowNotifyModal(true)}
-      className="group flex-1 border-2 border-[#445D41] bg-white text-[#445D41] hover:bg-[#445D41] hover:text-white transition-all duration-300"
-    >
-        <Bell className="mr-2 h-4 w-4" />
-      Notify Me
-    </Button>
+    <>
+      <Button
+        disabled
+        className="flex-1 h-[30px] text-[9px] px-1 rounded-lg bg-red-600 text-white font-medium cursor-not-allowed opacity-100 hover:bg-red-500"
+      >
+        Out of Stock
+      </Button>
+      <Button
+        variant="outline"
+        onClick={() => setShowNotifyModal(true)}
+        className="group h-[30px] text-[9px] px-2 rounded-lg border-[#445D41] text-[#445D41] font-medium hover:bg-[#445D41] hover:text-white transition-all duration-300"
+      >
+        <Bell className="mr-1 h-3 w-3" />
+        Notify Me
+      </Button>
+    </>
   )}
 </div>
 

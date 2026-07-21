@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import TrustpilotWidget from "./TrustpilotWidget";
 // import { useNewsletter } from "@/app/hooks/useNewsletter"; // Uncomment when hook is ready
 
 export default function Footer() {
@@ -389,6 +390,10 @@ export default function Footer() {
                       <Image src="/social/tiktok.svg" alt="TikTok" width={16} height={16} />
                     </a>
                   </div>
+
+              <div className="flex md:hidden mt-4 items-start justify-start flex-shrink-0 w-full">
+                <TrustpilotWidget className="w-full max-w-[270px] scale-[0.95] origin-left" />
+              </div>
                 </div>
               </div>
             </div>

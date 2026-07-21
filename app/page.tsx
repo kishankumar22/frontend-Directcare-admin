@@ -330,7 +330,7 @@ export default async function Home() {
         </section>
         {/* ===== PROMO BANNER ===== */}
         {seasonalBannerTop && (
-          <section className="w-full py-4 bg-white">
+          <section className="w-full max-w-[1920px] mx-auto py-4 bg-white">
             {(() => {
               const desktopSrc = `${baseUrl}${seasonalBannerTop.imageUrl}`;
               const mobileSrc = seasonalBannerTop.mobileImageUrl ? `${baseUrl}${seasonalBannerTop.mobileImageUrl}` : null;
@@ -399,7 +399,7 @@ export default async function Home() {
         </section>
 
         {seasonalBannerBelowNewArrivals && (
-          <section className="w-full py-4 bg-white">
+          <section className="w-full max-w-[1920px] mx-auto py-4 bg-white">
             {(() => {
               const desktopSrc = `${baseUrl}${seasonalBannerBelowNewArrivals.imageUrl}`;
               const mobileSrc = seasonalBannerBelowNewArrivals.mobileImageUrl
