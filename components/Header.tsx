@@ -12,13 +12,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { usePathname } from "next/navigation";
-
-import {
-  getDiscountBadge,
-  getDiscountedPrice,
-} from "@/app/lib/discountHelpers";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
-import { getOldPriceDiscount } from "@/utils/pricing";
+
 import TrustpilotWidget from "./TrustpilotWidget";
 const iconMap: Record<string, any> = {
   Zap: Zap,

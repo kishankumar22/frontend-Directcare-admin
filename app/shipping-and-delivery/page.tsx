@@ -79,7 +79,7 @@ export default function ShippingPage() {
           </div>
 
           <p className="text-sm black leading-relaxed">
-            Delivery is from Monday to Friday, except for bank holidays, and the products on https://api.direct-care.co.uk/ are delivered throughout the UK mainland and Northern Ireland, Isle of Man, Isle of Wight, and Scottish Highlands. Please note that the postcodes below do not qualify for next-day delivery:
+            Delivery is from Monday to Friday, except for bank holidays, and the products on https://test.direct-care.co.uk/ are delivered throughout the UK mainland and Northern Ireland, Isle of Man, Isle of Wight, and Scottish Highlands. Please note that the postcodes below do not qualify for next-day delivery:
           </p>
 
           <div className="text-xs black mt-3 max-h-60 overflow-y-auto leading-relaxed">

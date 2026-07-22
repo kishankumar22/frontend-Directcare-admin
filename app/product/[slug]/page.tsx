@@ -122,7 +122,7 @@ export async function generateMetadata({
     openGraph: {
       title: product.name,
       description: description || product.name,
-      url: `https://api.direct-care.co.uk/product/${product.slug}`,
+      url: `https://test.direct-care.co.uk/product/${product.slug}`,
       siteName: "Direct Care",
       images: imageUrl
         ? [
@@ -144,7 +144,7 @@ export async function generateMetadata({
     },
 
     alternates: {
-      canonical: `https://api.direct-care.co.uk/product/${product.slug}`,
+      canonical: `https://test.direct-care.co.uk/product/${product.slug}`,
     },
   };
 }
@@ -199,7 +199,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
             offers: {
               "@type": "Offer",
-              url: `https://api.direct-care.co.uk/product/${data.product.slug}`,
+              url: `https://test.direct-care.co.uk/product/${data.product.slug}`,
               priceCurrency: "GBP",
               price: offerPrice,
               availability:

@@ -61,6 +61,7 @@ const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
   const [showInfo, setShowInfo] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [imageResolution, setImageResolution] = useState<{width: number, height: number} | null>(null);
 
   const autoPlayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -225,6 +226,7 @@ const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
       setDragPosition({ x: 0, y: 0 });
       setShowInfo(false);
       setIsLoading(true);
+      setImageResolution(null);
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -352,8 +354,12 @@ const handleDownload = () => {
   // ==========================================
   // 🎨 HANDLE IMAGE LOAD
   // ==========================================
-  const handleImageLoad = () => {
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     setIsLoading(false);
+    setImageResolution({
+      width: e.currentTarget.naturalWidth,
+      height: e.currentTarget.naturalHeight
+    });
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -580,6 +586,11 @@ const handleDownload = () => {
                 {currentMedia.type === 'image' && (
                   <p>
                     <span className="text-slate-400">Rotation:</span> {rotation}°
+                  </p>
+                )}
+                {currentMedia.type === 'image' && imageResolution && (
+                  <p>
+                    <span className="text-slate-400">Resolution:</span> {imageResolution.width} × {imageResolution.height} px
                   </p>
                 )}
                 <p>
