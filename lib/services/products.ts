@@ -99,7 +99,11 @@ export interface ProductVariant {
   weight: number | null;
   stockQuantity: number;
   trackInventory: boolean;
-  
+
+  // Cart quantity limits (null = inherit from parent product)
+  orderMinimumQuantity?: number | null;
+  orderMaximumQuantity?: number | null;
+
   // NEW: Option values as array matching ProductOptions order
   optionValues: string[];           // ✅ ["Red", "L"] - IMPORTANT FOR OPTIONS SYSTEM
   
@@ -254,6 +258,9 @@ nextDayDeliveryCutoffTime?:string;
   minStockQuantity?: number;
   notifyAdminForQuantityBelow?: boolean;
   notifyQuantityBelow?: number;
+  // Set the moment effective stock first reached zero; null once restocked or never out of
+  // stock. Compute "days out of stock" as (now - outOfStockSince) on the frontend.
+  outOfStockSince?: string | null;
   loyaltyPointsEarnable?: number;
   subscriptionDiscountPercentage?: number;
   allowBackorder?: boolean;
@@ -439,6 +446,9 @@ export interface ProductQueryParams {
    // ✅ NEW
   stockStatus?: "InStock" | "LowStock" | "OutOfStock" | "NotTracked";
 
+  // Minimum number of days a product has been continuously out of stock
+  outOfStockDays?: number;
+
   // ✅ NEW
   isPharmaProduct?: boolean;
   pharmaApprovalStatus?: string; // NotRequired | Pending | Approved | Rejected
@@ -537,6 +547,9 @@ getAll: async (params?: ProductQueryParams) => {
 
   if (params?.stockStatus)
     queryParams.append("stockStatus", params.stockStatus);
+
+  if (params?.outOfStockDays)
+    queryParams.append("outOfStockDays", params.outOfStockDays.toString());
 
   if (params?.isPharmaProduct !== undefined)
     queryParams.append(

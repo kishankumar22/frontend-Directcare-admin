@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, Sparkles, TrendingUp, Users2, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/lib/services/auth";
-import { getBackendMessage } from "@/app/admin/_utils/errorUtils";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -25,8 +24,7 @@ export default function LoginPage() {
       const { data: result } = await authService.login(formData);
 
       if (!result?.accessToken && !result?.token) {
-        setError(getBackendMessage(result) || "Token not received from server");
-        setLoading(false);
+        setError("Token not received from server");
         return;
       }
 
@@ -75,7 +73,7 @@ export default function LoginPage() {
 
     } catch (err: any) {
       console.error("❌ Login error:", err);
-      setError(getBackendMessage(err) || "Invalid email or password");
+      setError(err.response?.data?.message || "Invalid email or password");
       setLoading(false);
     }
   };
@@ -132,7 +130,7 @@ export default function LoginPage() {
 
             <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
               Welcome to the<br />
-              <span className="text-[#445D41]">
+              <span className="bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
                 Future of Commerce
               </span>
             </h1>

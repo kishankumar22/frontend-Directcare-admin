@@ -22,7 +22,6 @@ import RequestTakeoverModal from "../../RequestTakeoverModal";
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
-
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
@@ -57,11 +56,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [initialFormData, setInitialFormData] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-const [simpleProductsLoaded, setSimpleProductsLoaded] = useState(false);
+
 
   const [showPharmacyModal, setShowPharmacyModal] = useState(false);
   const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
-  
+
   // ================================
   // ✅ LOADING STATE (Add after other useState)
   // ================================
@@ -281,48 +280,6 @@ const [simpleProductsLoaded, setSimpleProductsLoaded] = useState(false);
     }
   };
 
-const extractProducts = (response: any): any[] => {
-  const data = response?.data?.data || response?.data || {};
-  return data.items || (Array.isArray(data) ? data : []);
-};
-
-const loadSimpleProducts = async () => {
-  if (simpleProductsLoaded) return;
-
-  try {
-    const response = await productsService.getSimpleProducts();
-
-    const items = extractProducts(response);
-
-    const simpleProductsList = items
-      .filter((p: any) => p.id !== productId)
-      .map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        sku: p.sku,
-        isPharmaProduct: p.isPharmaProduct,
-        price: typeof p.price === "number" ? p.price.toFixed(2) : "0.00",
-        stockQuantity: p.stockQuantity || 0,
-      }));
-
-    setSimpleProducts(simpleProductsList);
-    setSimpleProductsLoaded(true);
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-
-const openGroupedModal = () => {
-  setIsGroupedModalOpen(true);
-
-  if (
-    formData.productType === "grouped" &&
-    !simpleProductsLoaded
-  ) {
-    loadSimpleProducts();
-  }
-};
   // ✅ Extract YouTube Video ID from URL
   const getYouTubeVideoId = (url: string): string | null => {
     if (!url) return null;
@@ -756,7 +713,24 @@ const openGroupedModal = () => {
       setQuantityMode('unlimited');
     }
   }, [formData]);
+  useEffect(() => {
+    if (!isGroupedModalOpen) return;
 
+    const loadSimpleProducts = async () => {
+      try {
+        const response = await productsService.getSimpleProducts();
+
+        const items = response?.data?.data || [];
+
+        setSimpleProducts(items);
+
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    loadSimpleProducts();
+  }, [isGroupedModalOpen]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
@@ -812,15 +786,17 @@ const openGroupedModal = () => {
         const productResponse = await productsService.getById(productId);
 
         // ✅ Fetch all other data in parallel (ALL SERVICE-BASED)
-    const [
-  brandsResponse,
-  categoriesResponse,
-  incompatibilitiesResponse
-] = await Promise.allSettled([
-  brandsService.getAll({ includeInactive: true }),
-  categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
-  productsService.getIncompatibilities(productId)
-]);
+        const [
+          brandsResponse,
+          categoriesResponse,
+          simpleProductsResponse,
+          incompatibilitiesResponse
+        ] = await Promise.allSettled([
+          brandsService.getAll({ includeInactive: true }),
+          categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
+          productsService.getSimpleProducts(),
+          productsService.getIncompatibilities(productId)
+        ]);
 
         const brandsData =
           brandsResponse.status === "fulfilled" &&
@@ -851,6 +827,32 @@ const openGroupedModal = () => {
           const data = response?.data?.data || response?.data || {};
           return data.items || (Array.isArray(data) ? data : []);
         };
+
+        // ✅ Process SIMPLE products from service
+        if (simpleProductsResponse.status === 'fulfilled') {
+          const simpleItems = extractProducts(simpleProductsResponse.value);
+
+          if (simpleItems.length > 0) {
+            // Filter out current product but keep all products to show name/SKU of existing incompatibilities
+            const simpleProductsList = simpleItems
+              .filter((p: any) => p.id !== productId)
+              .map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                sku: p.sku,
+                isPharmaProduct: p.isPharmaProduct,
+                price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+                stockQuantity: p.stockQuantity || 0
+              }));
+
+            setSimpleProducts(simpleProductsList);
+            console.log('✅ Simple products loaded:', simpleProductsList.length);
+          } else {
+            console.warn('⚠️ Simple products endpoint returned no data');
+            setSimpleProducts([]);
+          }
+        }
+
         // ✅ Process Incompatibilities
         if (incompatibilitiesResponse.status === 'fulfilled') {
           const incompatData = incompatibilitiesResponse.value.data?.data || incompatibilitiesResponse.value.data || [];
@@ -1266,6 +1268,8 @@ const openGroupedModal = () => {
               weight: variant.weight || null,
               stockQuantity: variant.stockQuantity || 0,
               trackInventory: variant.trackInventory ?? true,
+              orderMinimumQuantity: variant.orderMinimumQuantity ?? null,
+              orderMaximumQuantity: variant.orderMaximumQuantity ?? null,
               optionValues: optionValues,  // NEW: Option values as list
               option1Name: opt1Name,
               option1Value: opt1Value,
@@ -3528,15 +3532,16 @@ const openGroupedModal = () => {
           return null;
         }
 
+        // Variant-level min/max cart quantity validation
+        if (
+          variant.orderMinimumQuantity != null &&
+          variant.orderMaximumQuantity != null &&
+          variant.orderMaximumQuantity < variant.orderMinimumQuantity
+        ) {
+          toast.error(`Variant "${variant.name}": max quantity cannot be less than min quantity`);
+          return null;
+        }
 
-
-        // Price validation
-        // const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;
-        // if (variantPrice <= 0) {
-        //   toast.error(`Variant "${variant.name}" price must be greater than 0`);
-        //   return null; // ⬅ stop this variant
-
-        // }
 
         // ========== ✅ CLEAN VARIANT OPTIONS BEFORE BUILDING ==========
         const cleanedVariant = cleanVariantOptions(variant, firstVariant);
@@ -3564,6 +3569,8 @@ const openGroupedModal = () => {
             ? cleanedVariant.stockQuantity
             : parseInt(String(cleanedVariant.stockQuantity)) || 0,
           trackInventory: cleanedVariant.trackInventory ?? true,
+          orderMinimumQuantity: cleanedVariant.orderMinimumQuantity ?? null,
+          orderMaximumQuantity: cleanedVariant.orderMaximumQuantity ?? null,
 
           // NEW: Option values as comma-separated string for API
           optionValues: variant.optionValues && variant.optionValues.length > 0
@@ -3641,7 +3648,7 @@ const openGroupedModal = () => {
       //   target.removeAttribute('data-submitting');
       //   setIsSubmitting(false);
       //   setSubmitProgress(null);
-      //   returs n;
+      //   return;
       // }
 
       if (formData.productImages.length > 10) {
@@ -4013,24 +4020,18 @@ const openGroupedModal = () => {
             toast.warning('⚠️ Product saved, but incompatibilities could not be updated.');
           }
 
-      
-// Save/Clear pharmacy questions
-try {
-  console.log("🚀 Saving pharmacy questions...");
-
-  await pharmacyQuestionsService.assignProductQuestions(productId, {
-    questions: formData.isPharmaProduct
-      ? pharmacyQuestions
-      : [],
-  });
-
-  console.log("✅ Pharmacy questions saved");
-} catch (pharmaError) {
-  console.error("❌ Failed to save pharmacy questions:", pharmaError);
-  toast.warning(
-    "⚠️ Product saved, but pharmacy questions could not be updated."
-  );
-}
+          // Save/Clear pharmacy questions
+          try {
+            console.log('🚀 Saving pharmacy questions...');
+            const finalQuestions = formData.isPharmaProduct ? pharmacyQuestions : [];
+            await pharmacyQuestionsService.assignProductQuestions(productId, {
+              questions: finalQuestions
+            });
+            console.log('✅ Pharmacy questions saved');
+          } catch (pharmaError) {
+            console.error('❌ Failed to save pharmacy questions:', pharmaError);
+            toast.warning('⚠️ Product saved, but pharmacy questions could not be updated.');
+          }
 
           toast.success(
             isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
@@ -5611,12 +5612,12 @@ try {
                         {formData.productType === "grouped" && (
                           <button
                             type="button"
-                           onClick={openGroupedModal}
+                            onClick={() => setIsGroupedModalOpen(true)}
                             title="Edit grouped product configuration"
                             className="flex items-center gap-2 px-3 py-2.5
-                                        bg-violet-500/10 hover:bg-violet-500/20
-                                        border border-violet-500/30 hover:border-violet-500/50
-                                        text-violet-400 rounded-xl transition-all"
+               bg-violet-500/10 hover:bg-violet-500/20
+               border border-violet-500/30 hover:border-violet-500/50
+               text-violet-400 rounded-xl transition-all"
                           >
                             {/* Linked Count */}
                             {selectedGroupedProducts.length > 0 && (
@@ -5786,28 +5787,24 @@ try {
 
 
                       {/* Column 2 - Display Order */}
-                      <div
-                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all bg-slate-800/50 border border-slate-700"
-                      >
-                        <>
-                          <label
-                            htmlFor="displayOrder"
-                            className="text-sm font-medium text-slate-300 whitespace-nowrap"
-                          >
-                            Display Order
-                          </label>
+                      <div className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all bg-slate-800/50 border border-slate-700">
+                        <label
+                          htmlFor="displayOrder"
+                          className="text-sm font-medium text-slate-300 whitespace-nowrap"
+                        >
+                          Display Order
+                        </label>
 
-                          <input
-                            id="displayOrder"
-                            type="number"
-                            name="displayOrder"
-                            value={formData.displayOrder}
-                            onChange={handleChange}
-                            placeholder="1"
-                            min="0"
-                            className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                          />
-                        </>
+                        <input
+                          id="displayOrder"
+                          type="number"
+                          name="displayOrder"
+                          value={formData.displayOrder}
+                          onChange={handleChange}
+                          placeholder="1"
+                          min="0"
+                          className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                        />
                       </div>
 
                     </div>
@@ -6191,16 +6188,20 @@ try {
                         type="checkbox"
                         name="isPharmaProduct"
                         checked={formData.isPharmaProduct}
-                     onChange={(e) => {
-  handleChange(e);
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
 
-  if (e.target.checked) {
-    setShowPharmacyModal(true);
-  } else {
-    setPharmacyQuestions([]);
-    setShowPharmacyModal(false);
-  }
-}}
+                          handleChange(e);
+
+                          // Pharma products always require questions — open the
+                          // configurator directly instead of asking with/without.
+                          if (isChecked && !formData.isPharmaProduct) {
+                            setShowPharmacyModal(true);
+                          } else if (!isChecked) {
+                            setPharmacyQuestions([]);
+                            setShowPharmacyModal(false);
+                          }
+                        }}
                         className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
                       />
 
@@ -6216,24 +6217,24 @@ try {
 
 
                     {/* RIGHT SIDE */}
-          {formData.isPharmaProduct && (
-  <button
-    type="button"
-    onClick={() => setShowPharmacyModal(true)}
-    className="flex items-center gap-2 px-4 py-2 
-      bg-violet-500/10 border border-violet-500/40 
-      text-violet-300 rounded-lg hover:bg-violet-500/20 
-      transition-all text-sm font-semibold"
-  >
-    Configure Questions
+                    {formData.isPharmaProduct && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPharmacyModal(true)}
+                        className="flex items-center gap-2 px-4 py-2
+          bg-violet-500/10 border border-violet-500/40
+          text-violet-300 rounded-lg hover:bg-violet-500/20
+          transition-all text-sm font-semibold"
+                      >
+                        Configure Questions
 
-    {pharmacyQuestions.length > 0 && (
-      <span className="px-2 py-0.5 bg-violet-500/30 text-violet-200 rounded-full text-xs font-semibold">
-        {pharmacyQuestions.length}
-      </span>
-    )}
-  </button>
-)}
+                        {pharmacyQuestions.length > 0 && (
+                          <span className="px-2 py-0.5 bg-violet-500/30 text-violet-200 rounded-full text-xs font-semibold">
+                            {pharmacyQuestions.length}
+                          </span>
+                        )}
+                      </button>
+                    )}
 
                   </div>
 
@@ -7836,39 +7837,14 @@ try {
             <TabsContent value="media" className="space-y-3 mt-2">
               {/* ========== PICTURES SECTION ========== */}
               <div className="space-y-3 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                                  <div>
-  <h3 className="text-lg font-semibold text-white">
-    Product Images <span className="text-red-500">*</span>
-  </h3>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Product Images <span className="text-red-500">*</span></h3>
+                  <p className="text-xs text-red-400">
+                    Upload product images (WebP or Avif). Recommended size under 300 KB, maximum 500 KB per image.
+                    Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
+                  </p>
 
-  <p className="mt-2 text-sm text-gray-300 leading-6 flex flex-wrap items-center gap-2">
-    Upload product images in
-
-   <span className="inline-flex items-center rounded-md bg-cyan-100 text-cyan-800 border border-cyan-300 px-2.5 py-1 text-sm font-semibold">
-  WebP
-</span>
-
-<span className="inline-flex items-center rounded-md bg-violet-100 text-violet-800 border border-violet-300 px-2.5 py-1 text-sm font-semibold">
-  AVIF
-</span>
-
-<span className="inline-flex items-center rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 text-sm font-semibold">
-  Recommended &lt; 300 KB
-</span>
-
-<span className="inline-flex items-center rounded-md bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-1 text-sm font-semibold">
-  Max 500 KB
-</span>
-
-<span className="inline-flex items-center rounded-md bg-blue-100 text-blue-800 border border-blue-300 px-2.5 py-1 text-sm font-semibold">
-  1500 × 1500 px
-</span>
-
-<span className="inline-flex items-center rounded-md bg-pink-100 text-pink-800 border border-pink-300 px-2.5 py-1 text-sm font-semibold">
-  Up to 10 Images
-</span>
-  </p>
-</div>
+                </div>
 
                 <input
                   ref={fileInputRef}
@@ -8198,7 +8174,6 @@ try {
         onSave={(selections) => setPharmacyQuestions(selections)}
       />
 
- 
       {/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}
       <ProductLockModal
         isOpen={isLockModalOpen}

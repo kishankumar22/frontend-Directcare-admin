@@ -9,10 +9,18 @@ export const dynamic = 'force-dynamic';
 
 async function getProduct(slug: string) {
   try {
+    // ✅ GET TOKEN FROM COOKIE
+    const cookieStore = await cookies();
+    const token = cookieStore.get("authToken")?.value;
+
+    // Forward the token so the API can grant staff preview access too — without this,
+    // the backend always sees this SSR call as anonymous and applies the customer-safe
+    // (unpublished / pharma-pending hidden) filter even to a logged-in staff member.
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-slug/${slug}`,
       {
         cache: 'no-store',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }
     );
 
@@ -22,10 +30,6 @@ async function getProduct(slug: string) {
     if (!json.success) return null;
 
     const product = json.data;
-
-    // ✅ GET TOKEN FROM COOKIE
-    const cookieStore = await cookies();
-    const token = cookieStore.get("authToken")?.value;
 
     let isStaff = false;
 
@@ -122,7 +126,7 @@ export async function generateMetadata({
     openGraph: {
       title: product.name,
       description: description || product.name,
-      url: `https://test.direct-care.co.uk/product/${product.slug}`,
+      url: `https://api.direct-care.co.uk/product/${product.slug}`,
       siteName: "Direct Care",
       images: imageUrl
         ? [
@@ -144,7 +148,7 @@ export async function generateMetadata({
     },
 
     alternates: {
-      canonical: `https://test.direct-care.co.uk/product/${product.slug}`,
+      canonical: `https://api.direct-care.co.uk/product/${product.slug}`,
     },
   };
 }
@@ -199,7 +203,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
             offers: {
               "@type": "Offer",
-              url: `https://test.direct-care.co.uk/product/${data.product.slug}`,
+              url: `https://api.direct-care.co.uk/product/${data.product.slug}`,
               priceCurrency: "GBP",
               price: offerPrice,
               availability:

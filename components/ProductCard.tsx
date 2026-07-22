@@ -34,8 +34,8 @@ export default function ProductCard({
   const { addToCart, cart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const [showPharmaModal, setShowPharmaModal] = useState(false);
-  // Add with other useState declarations
-  const [showNotifyModal, setShowNotifyModal] = useState(false);
+// Add with other useState declarations
+const [showNotifyModal, setShowNotifyModal] = useState(false);
   // 🔁 resume add after modal
   const pharmaApprovedRef = useRef(false);
 
@@ -86,12 +86,12 @@ export default function ProductCard({
   const finalPrice = getDiscountedPrice(product, basePrice);
   const discountBadge = getDiscountBadge(product);
   // Determine which discount type to display: prioritize variant's setting if present
-  // ✅ NEW (Correct - ProductDetails jaisa):
-  const currentDisplayType =
-    (product.productType === "variable" && defaultVariant?.compareAtPrice && defaultVariant.compareAtPrice > defaultVariant.price ? "OldPrice" : undefined) ??
-    defaultVariant?.displayDiscountType ??
-    product.displayDiscountType ??
-    "None";
+ // ✅ NEW (Correct - ProductDetails jaisa):
+const currentDisplayType = 
+  (product.productType === "variable" && defaultVariant?.compareAtPrice && defaultVariant.compareAtPrice > defaultVariant.price ? "OldPrice" : undefined) ??
+  defaultVariant?.displayDiscountType ??
+  product.displayDiscountType ??
+  "None";
 
   const oldPriceValue = defaultVariant
     ? defaultVariant.compareAtPrice
@@ -150,8 +150,8 @@ export default function ProductCard({
 
     return true;
   };
-  const getInitialQty = (product: any) => {
-    return product.orderMinimumQuantity ?? 1;
+  const getInitialQty = (product: any, variant?: any) => {
+    return variant?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1;
   };
 
 
@@ -162,8 +162,9 @@ export default function ProductCard({
     if (!handlePharmaGuard()) return;
     const variantId = defaultVariant?.id ?? null;
 
-    const maxQty = product.orderMaximumQuantity ?? Infinity;
-    const finalQty = getInitialQty(product);
+    // Variant-level min/max override the product-level default when set.
+    const maxQty = defaultVariant?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? Infinity;
+    const finalQty = getInitialQty(product, defaultVariant);
 
 
     const existingCartQty = cart
@@ -227,29 +228,11 @@ export default function ProductCard({
     addToCart(cartItem);
     trackAddToCart({ ...cartItem, categories: product.productCategories ?? product.categories });
 
-    // ⭐ UX TOAST
-    if (product.orderMinimumQuantity > 1) {
+    // ⭐ UX: the header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+    // showing exactly what was just added — no separate toast needed for the success case.
+    if (finalQty > 1) {
       toast.warning(
-        `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
-      );
-    } else {
-      toast.success(
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">
-            {product.name} added to cart!
-          </span>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toast.clearAll();
-              router.push("/cart");
-            }}
-            className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
-          >
-            Cart→
-          </button>
-        </div>
+        `Minimum order quantity is ${finalQty}. Added ${finalQty} items to cart.`
       );
     }
 
@@ -373,8 +356,8 @@ export default function ProductCard({
                   product.stockQuantity ??
                   null,
                 productData: JSON.parse(JSON.stringify(product)),
-                orderMaximumQuantity: product.orderMaximumQuantity ?? null,
-                orderMinimumQuantity: product.orderMinimumQuantity ?? null,
+                orderMaximumQuantity: defaultVariant?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? null,
+                orderMinimumQuantity: defaultVariant?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? null,
               });
 
               if (inWishlist) {
@@ -384,10 +367,10 @@ export default function ProductCard({
               }
             }}
             className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${(currentDisplayType === "System" && discountBadge) ||
-              (currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData) ||
-              (!discountBadge && hasActiveCoupon)
-              ? "top-14"
-              : "top-2"
+                (currentDisplayType === "OldPrice" && !hasActiveCoupon && oldPriceData) ||
+                (!discountBadge && hasActiveCoupon)
+                ? "top-14"
+                : "top-2"
               } ${isInWishlist(defaultVariant?.id ?? product.id)
                 ? "bg-red-50 border-red-200"
                 : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
@@ -395,16 +378,15 @@ export default function ProductCard({
           >
             <Heart
               className={`h-5 w-5   transition-colors ${isInWishlist(defaultVariant?.id ?? product.id)
-                ? "fill-red-500 text-red-500"
-                : "text-gray-400 hover:text-red-400"
+                  ? "fill-red-500 text-red-500"
+                  : "text-gray-400 hover:text-red-400"
                 }`}
             />
           </button>
-          {/* VAT Relief — bottom left on image */}
-          {product.vatExempt && vatRate === 0 && (
-            <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
-              <BadgePercent className="h-2.5 w-2.5" />
-              VAT Relief
+          {/* Next Day Delivery Free — bottom left on image */}
+          {(product.nextDayDeliveryFree || defaultVariant?.nextDayDeliveryFree) && stock > 0 && (
+            <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap shadow-sm">
+              Next Day Delivery Free
             </span>
           )}
         </div>
@@ -455,9 +437,18 @@ export default function ProductCard({
             ({product.reviewCount || 0})
           </span>
 
-          {product.nextDayDeliveryFree && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap">
-              Next Day Free
+          {/* VAT Relief */}
+          {product.vatExempt && vatRate === 0 && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/80 border border-black/20 text-white text-[10px] font-bold whitespace-nowrap">
+              <BadgePercent className="h-2.5 w-2.5" />
+              VAT Relief
+            </span>
+          )}
+
+          {stock <= 0 && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold whitespace-nowrap">
+              <PackageX className="h-2.5 w-2.5" />
+              Out of Stock
             </span>
           )}
 
@@ -494,36 +485,28 @@ export default function ProductCard({
           )}
         </div>
 
-        {/* ADD TO CART + NOTIFY ME */}
-        <div className="flex gap-1.5 md:gap-2 mt-2 w-full">
-          {stock > 0 ? (
-            <Button
-              onClick={handleAddToCart}
-              disabled={product.disableBuyButton === true}
-              className="flex-1 bg-[#445D41] hover:bg-[#334a2c] text-white"
-            >
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              Add to Cart
-            </Button>
-          ) : (
-            <>
-              <Button
-                disabled
-                className="w-1/2 h-8 md:h-10 px-1 text-[10px] md:text-sm bg-red-600 text-white font-semibold rounded-md cursor-not-allowed opacity-100 hover:bg-[#DF7B7B] shadow-none"
-              >
-                Out of Stock
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowNotifyModal(true)}
-                className="group w-1/2 h-8 md:h-10 px-1 text-[10px] md:text-sm border-[#445D41] text-[#445D41] font-semibold rounded-md hover:bg-[#445D41] hover:text-white transition-all duration-300 shadow-none"
-              >
-                <Bell className="mr-1 md:mr-1.5 h-3 w-3 md:h-4 md:w-4" />
-                Notify Me
-              </Button>
-            </>
-          )}
-        </div>
+{/* ADD TO CART + NOTIFY ME */}
+<div className="flex gap-2 mt-1">
+  {stock > 0 ? (
+    <Button
+      onClick={handleAddToCart}
+      disabled={product.disableBuyButton === true}
+      className="flex-1 bg-[#445D41] hover:bg-[#334a2c] text-white"
+    >
+      <ShoppingCart className="mr-2 h-4 w-4" />
+      Add to Cart
+    </Button>
+  ) : (
+    // ✅ OUT OF STOCK → Show "Notify Me" (full width)
+<Button
+  onClick={() => setShowNotifyModal(true)}
+  className="group flex-1 border-2 border-[#445D41] bg-white text-[#445D41] hover:bg-[#445D41] hover:text-white transition-all duration-300"
+>
+  <Bell className="mr-2 h-4 w-4" />
+  Notify Me
+</Button>
+  )}
+</div>
 
       </div>
       {showPharmaModal && (
@@ -552,15 +535,15 @@ export default function ProductCard({
           }}
         />
       )}
-      {/* Add after PharmaQuestionsModal */}
-      {showNotifyModal && (
-        <BackInStockModal
-          open={showNotifyModal}
-          productId={product.id}
-          variantId={defaultVariant?.id ?? null}
-          onClose={() => setShowNotifyModal(false)}
-        />
-      )}
+{/* Add after PharmaQuestionsModal */}
+{showNotifyModal && (
+  <BackInStockModal
+    open={showNotifyModal}
+    productId={product.id}
+    variantId={defaultVariant?.id ?? null}
+    onClose={() => setShowNotifyModal(false)}
+  />
+)}
     </div>
 
   );

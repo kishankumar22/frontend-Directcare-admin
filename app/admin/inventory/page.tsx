@@ -108,6 +108,7 @@ export default function InventoryPage() {
   const [sampleLoading, setSampleLoading] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [productType, setSelectedProductType] = useState("all");
+  const [pharmaFilter, setPharmaFilter] = useState("all");
   const [downloadAllLoading, setDownloadAllLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -147,6 +148,7 @@ export default function InventoryPage() {
     setSearchTerm("");
     setSelectedStatus("all");
     setSelectedProductType("all");
+    setPharmaFilter("all");
     setSelectedCategory(null);
     setSelectedBrand(null);
     setCurrentPage(1);
@@ -188,6 +190,7 @@ export default function InventoryPage() {
       if (debouncedSearch?.trim()) params.searchTerm = debouncedSearch.trim();
       if (selectedStatus !== "all") params.stockStatus = selectedStatus;
       if (productType !== "all") params.productType = productType;
+      if (pharmaFilter !== "all") params.isPharmaProduct = pharmaFilter === "pharma";
       if (selectedCategory?.value) params.categoryId = selectedCategory.value;
       if (selectedBrand?.value) params.brandId = selectedBrand.value;
 
@@ -310,11 +313,11 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [currentPage, itemsPerPage, debouncedSearch, productType, selectedStatus, selectedCategory, selectedBrand]);
+  }, [currentPage, itemsPerPage, debouncedSearch, productType, pharmaFilter, selectedStatus, selectedCategory, selectedBrand]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, selectedStatus, productType, selectedCategory, selectedBrand]);
+  }, [debouncedSearch, selectedStatus, productType, pharmaFilter, selectedCategory, selectedBrand]);
 
   const fetchFilters = async () => {
     try {
@@ -611,7 +614,7 @@ export default function InventoryPage() {
     return pages;
   };
 
-  const hasActiveFilters = searchTerm.trim() !== "" || selectedStatus !== "all" || (selectedCategory && selectedCategory.value !== "all") || productType !== "all" || (selectedBrand && selectedBrand.value !== "all");
+  const hasActiveFilters = searchTerm.trim() !== "" || selectedStatus !== "all" || (selectedCategory && selectedCategory.value !== "all") || productType !== "all" || pharmaFilter !== "all" || (selectedBrand && selectedBrand.value !== "all");
   const outOfStock = products.filter(p => p.stockQuantity === 0).length;
   const lowStock = products.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
 
@@ -698,6 +701,13 @@ Note: Buttons will be hidden if you lack the required permission.`}>
               <option value="simple">Simple</option>
               <option value="variable">Variable</option>
               <option value="grouped">grouped</option>
+            </select>
+          </div>
+          <div className="w-36 flex-shrink-0">
+            <select value={pharmaFilter} onChange={(e) => setPharmaFilter(e.target.value)} className="w-full px-2 py-[9px] bg-slate-800 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500">
+              <option value="all">All Products</option>
+              <option value="normal">Normal Product</option>
+              <option value="pharma">Pharma Product</option>
             </select>
           </div>
           {hasActiveFilters && <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-semibold whitespace-nowrap"><FilterX className="w-3.5 h-3.5" />Clear</button>}

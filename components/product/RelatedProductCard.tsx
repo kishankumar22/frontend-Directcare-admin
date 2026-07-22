@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import QuantitySelector from "@/components/shared/QuantitySelector";
-import { Star, StarHalf, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart, Bell } from "lucide-react";
+import { Star, StarHalf, BadgePercent,ChevronLeft, ChevronRight, AwardIcon, Heart, Bell, PackageX } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useWishlist } from "@/context/WishlistContext";
 import {
@@ -69,7 +69,12 @@ const getRelatedProductImage = (
 
 export default function RelatedProductCard({ product, getImageUrl }: any) {
 const { addToCart, cart } = useCart();
- const minQty = product.orderMinimumQuantity ?? 1;
+  const defaultVariant =
+    product.variants?.find((v: any) => v.isDefault) ??
+    product.variants?.[0] ??
+    null;
+  // Variant-level min/max override the product-level default when set.
+  const minQty = defaultVariant?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1;
 const [qty, setQty] = useState(minQty);
   const [stockError, setStockError] = useState<string | null>(null);
 const toast = useToast();
@@ -77,10 +82,6 @@ const toast = useToast();
  const [showNotifyModal, setShowNotifyModal] = useState(false);
    const [mounted, setMounted] = useState(false);
  const { toggleWishlist, isInWishlist } = useWishlist();
-  const defaultVariant =
-    product.variants?.find((v: any) => v.isDefault) ??
-    product.variants?.[0] ??
-    null;
   const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
   useEffect(() => {
   if (qty < minQty) {
@@ -95,7 +96,7 @@ const basePrice =
 
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
-// 🔥 NEW: oldPrice fallback logicRecently Viewed Products
+// 🔥 NEW: oldPrice fallback logic
 const oldPriceValue =
   defaultVariant?.compareAtPrice ?? defaultVariant?.oldPrice ??
   product.compareAtPrice ?? product.oldPrice;
@@ -187,7 +188,7 @@ if (product.disableBuyButton) return;
     product.stockQuantity ??
     0;
 
-  const maxQty = product.orderMaximumQuantity ?? Infinity;
+  const maxQty = defaultVariant?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? Infinity;
   const allowedMaxQty = Math.min(stockQty, maxQty);
 
   if (qty < minQty) {
@@ -271,24 +272,8 @@ systemDiscountAmount:
     },
   });
 
- toast.success(
-  <div className="flex items-center justify-between gap-2">
-    <span className="text-sm font-medium">
-      {qty} × {product.name} added to cart!
-    </span>
-
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        toast.clearAll();
-        router.push("/cart");
-      }}
-      className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
-    >
-      Cart→
-    </button>
-  </div>
-);
+ // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+ // showing exactly what was just added — no separate toast needed here.
 };
 
 const wishlistId = defaultVariant?.id ?? product.id;
@@ -343,8 +328,8 @@ systemDiscountAmount:
 
     productData: JSON.parse(JSON.stringify(product)),
 
-    orderMaximumQuantity: product.orderMaximumQuantity ?? null,
-    orderMinimumQuantity: product.orderMinimumQuantity ?? null,
+    orderMaximumQuantity: defaultVariant?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? null,
+    orderMinimumQuantity: defaultVariant?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? null,
   });
 };
   return (
@@ -422,11 +407,10 @@ systemDiscountAmount:
     </div>
   </div>
 )}
-      {/* VAT Relief — bottom left on image */}
-      {product.vatExempt && vatRate === 0 && (
-        <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
-          <BadgePercent className="h-2.5 w-2.5" />
-          VAT Relief
+      {/* Next Day Delivery Free — bottom left on image */}
+      {(product.nextDayDeliveryFree || defaultVariant?.nextDayDeliveryFree) && stock > 0 && (
+        <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap shadow-sm backdrop-blur-sm">
+          Next Day Delivery Free
         </span>
       )}
 <button
@@ -516,9 +500,18 @@ systemDiscountAmount:
     ({product.reviewCount ?? 0})
   </span>
 
-  {product.nextDayDeliveryFree && (
-    <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 whitespace-nowrap flex-shrink-0">
-      Next Day Free
+  {/* VAT Relief */}
+  {product.vatExempt && vatRate === 0 && (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/80 border border-black/20 text-white text-[10px] font-bold whitespace-nowrap flex-shrink-0">
+      <BadgePercent className="h-2.5 w-2.5" />
+      VAT Relief
+    </span>
+  )}
+
+  {stock <= 0 && (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold whitespace-nowrap flex-shrink-0">
+      <PackageX className="h-2.5 w-2.5" />
+      Out of Stock
     </span>
   )}
 
@@ -587,22 +580,14 @@ systemDiscountAmount:
       </Button>
     </>
   ) : (
-    <>
-      <Button
-        disabled
-        className="flex-1 h-[30px] text-[9px] px-1 rounded-lg bg-red-600 text-white font-medium cursor-not-allowed opacity-100 hover:bg-red-500"
-      >
-        Out of Stock
-      </Button>
-      <Button
-        variant="outline"
-        onClick={() => setShowNotifyModal(true)}
-        className="group h-[30px] text-[9px] px-2 rounded-lg border-[#445D41] text-[#445D41] font-medium hover:bg-[#445D41] hover:text-white transition-all duration-300"
-      >
-        <Bell className="mr-1 h-3 w-3" />
-        Notify Me
-      </Button>
-    </>
+    // ✅ OUT OF STOCK - Show Notify Me (full width, no quantity)
+    <Button
+      onClick={() => setShowNotifyModal(true)}
+      className="group flex-1 border-2 border-[#445D41] bg-white text-[#445D41] hover:bg-[#445D41] hover:text-white transition-all duration-300"
+    >
+        <Bell className="mr-2 h-4 w-4" />
+      Notify Me
+    </Button>
   )}
 </div>
 

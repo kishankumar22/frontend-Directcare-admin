@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star, BadgePercent, GiftIcon, TruckElectric, FastForward, Zap, MapPin, Store, LucideBike, BikeIcon, Mouse, MousePointer, MousePointer2, MousePointerClickIcon } from "lucide-react";
 import MegaMenu from "./MegaMenu";
+import MiniCartDropdown from "./cart/MiniCartDropdown";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -12,8 +13,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { usePathname } from "next/navigation";
-import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
 
+import {
+  getDiscountBadge,
+  getDiscountedPrice,
+} from "@/app/lib/discountHelpers";
+import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
+import { getOldPriceDiscount } from "@/utils/pricing";
 import TrustpilotWidget from "./TrustpilotWidget";
 const iconMap: Record<string, any> = {
   Zap: Zap,
@@ -62,12 +68,16 @@ export default function Header({
   const lastScroll = useRef(0);
   const megaWrapperRef = useRef<HTMLDivElement>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [cartDropdownOpen, setCartDropdownOpen] = useState(false);
+  const cartDropdownDesktopRef = useRef<HTMLDivElement>(null);
+  const cartDropdownMobileRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const { cartCount, isInitialized } = useCart();
   const { wishlistCount } = useWishlist();
   const router = useRouter();
   const { isAuthenticated, user, logout } = useAuth();
-
+  
+  const userFullName = user ? user.fullName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "User" : "User";
 
   const handleAccountClick = () => {
     router.push("/account");
@@ -110,6 +120,7 @@ export default function Header({
     // Route change hua → MegaMenu band
     setHovered(false);
     setActiveCategory(null);
+    setCartDropdownOpen(false);
   }, [pathname]);
 
   const [currentMsg, setCurrentMsg] = useState(0);
@@ -164,8 +175,6 @@ useEffect(() => {
       
       const json = await res.json();
       let products = json?.data || [];
-      // Sirf variant results show karo
-products = products.filter((product: any) => product.isVariantResult === true);
 
       // ✅ Sirf PHARMA FILTER (necessary)
       products = products.filter((product: any) => {
@@ -208,6 +217,27 @@ products = products.filter((product: any) => product.isVariantResult === true);
     document.addEventListener("mousedown", handleClickOutside);
     return () =>
       document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close the mini-cart dropdown on outside click, and on route change.
+  useEffect(() => {
+    const handleClickOutsideCart = (e: MouseEvent) => {
+      const insideDesktop = cartDropdownDesktopRef.current?.contains(e.target as Node);
+      const insideMobile = cartDropdownMobileRef.current?.contains(e.target as Node);
+      if (!insideDesktop && !insideMobile) {
+        setCartDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutsideCart);
+    return () => document.removeEventListener("mousedown", handleClickOutsideCart);
+  }, []);
+
+  // Open the mini-cart whenever something is added to the cart (dispatched from
+  // CartContext.addToCart), instead of a separate toast notification.
+  useEffect(() => {
+    const handleCartOpen = () => setCartDropdownOpen(true);
+    window.addEventListener("cart:open", handleCartOpen);
+    return () => window.removeEventListener("cart:open", handleCartOpen);
   }, []);
 
 
@@ -386,7 +416,7 @@ products = products.filter((product: any) => product.isVariantResult === true);
           <div className="flex-1 md:hidden" />
 
           {/* RIGHT: Mobile Icons (search + wishlist + cart + account) */}
-          <div className="flex items-center gap-0.5 md:hidden flex-shrink-0">
+          <div className="relative flex items-center gap-0.5 md:hidden flex-shrink-0" ref={cartDropdownMobileRef}>
             <button
               onClick={() => setMobileSearchOpen((v) => !v)}
               aria-label="Search"
@@ -408,7 +438,10 @@ products = products.filter((product: any) => product.isVariantResult === true);
             </Link>
             <button
               className="relative text-gray-700 hover:text-green-800 transition p-1"
-              onClick={() => router.push("/cart")}
+              onClick={() => setCartDropdownOpen((v) => !v)}
+              aria-haspopup="true"
+              aria-expanded={cartDropdownOpen}
+              aria-label="Basket"
             >
               <ShoppingCart size={22} />
               {isInitialized && cartCount > 0 && (
@@ -417,6 +450,9 @@ products = products.filter((product: any) => product.isVariantResult === true);
                 </span>
               )}
             </button>
+            {cartDropdownOpen && (
+              <MiniCartDropdown onClose={() => setCartDropdownOpen(false)} />
+            )}
             {isAuthenticated && user ? (
               <button onClick={handleAccountClick} className="flex items-center gap-1 text-gray-700 p-1">
                 <div className="w-7 h-7 rounded-full bg-[#445D41] text-white flex items-center justify-center text-[11px] font-bold">
@@ -597,17 +633,25 @@ products = products.filter((product: any) => product.isVariantResult === true);
             </Link>
 
             {/* Cart */}
-            <Link
-              href="/cart"
-              className="relative flex items-center hover:text-green-800 transition"
-            >
-              <ShoppingCart size={22} className="block" />
-              {isInitialized && cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">
-                  {cartCount}
-                </span>
+            <div className="relative" ref={cartDropdownDesktopRef}>
+              <button
+                onClick={() => setCartDropdownOpen((v) => !v)}
+                className="relative flex items-center hover:text-green-800 transition"
+                aria-haspopup="true"
+                aria-expanded={cartDropdownOpen}
+                aria-label="Basket"
+              >
+                <ShoppingCart size={22} className="block" />
+                {isInitialized && cartCount > 0 && (
+                  <span className="absolute -top-0.5 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+              {cartDropdownOpen && (
+                <MiniCartDropdown onClose={() => setCartDropdownOpen(false)} />
               )}
-            </Link>
+            </div>
 
             {/* User / Login */}
             {isAuthenticated && user ? (
@@ -617,7 +661,7 @@ products = products.filter((product: any) => product.isVariantResult === true);
               >
                 <User size={20} className="block" />
                 <span className="text-sm font-medium text-gray-700">
-                  {user.fullName ?? "User"}
+                  {userFullName}
                 </span>
               </button>
             ) : (

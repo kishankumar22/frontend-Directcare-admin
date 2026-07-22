@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ export default function AccountClient() {
   const searchParams = useSearchParams();
   const fromCheckout = searchParams.get("from") === "checkout";
   const fromBuyNow = searchParams.get("from") === "buy-now";
-  const { cart } = useCart();
+  const { cart, sessionId } = useCart();
 const { login, register, isAuthenticated, user, isReady, checkAuth } = useAuth();
 
 
@@ -29,6 +29,13 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   // Guest Email
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+
+  // Returning guest — prefill the email they used last time instead of
+  // making them retype it on every checkout attempt.
+  useEffect(() => {
+    const saved = localStorage.getItem("guestEmail");
+    if (saved) setEmail(saved);
+  }, []);
 
   // Login
   const [loginEmail, setLoginEmail] = useState("");
@@ -134,6 +141,17 @@ const isValidPassword = (password: string) =>
     if (!validateEmail()) return;
 
     localStorage.setItem("guestEmail", email);
+
+    // Attach this email to the cart's items so an abandoned cart (added, never
+    // ordered) can be emailed a "you left something in your basket" reminder.
+    if (sessionId) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Cart/${sessionId}/email`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).catch(() => {});
+    }
+
     router.push("/checkout");
   };
 

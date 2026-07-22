@@ -107,12 +107,12 @@ export default function FeaturedProductsSlider({
   products,
   baseUrl,
   title = "Top Selling Products",
-  viewAllLink,
+  viewAllHref,
 }: {
   products: Product[];
   baseUrl: string;
   title?: string;
-  viewAllLink?: string;
+  viewAllHref?: string;
 }) {
 
   const toast = useToast();
@@ -121,12 +121,7 @@ export default function FeaturedProductsSlider({
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const flattenedProducts = useMemo(() => {
-    const flattened = flattenProductsForListing(products);
-    return flattened.sort((a, b) => {
-      const orderA = a.productData?.displayOrder ?? 999999;
-      const orderB = b.productData?.displayOrder ?? 999999;
-      return orderA - orderB;
-    });
+    return flattenProductsForListing(products);
   }, [products]);
   const shouldShowNav = flattenedProducts.length > 4;
   const [notifyProduct, setNotifyProduct] = useState<{
@@ -191,7 +186,7 @@ export default function FeaturedProductsSlider({
     discountAmount: number,
     cardSlug: string
   ) => {
-    const finalQty = getInitialQty(product);
+    const finalQty = getInitialQty(product, defaultVariant);
 
     // Use vatRate directly from API response
     const vatRate: number | null = (product as any).vatRate ?? null;
@@ -199,22 +194,9 @@ export default function FeaturedProductsSlider({
     const oldPriceValue =
       (defaultVariant as any)?.compareAtPrice ?? (defaultVariant as any)?.oldPrice ??
       (product as any).compareAtPrice ?? product.oldPrice;
-    const stockQty =
-      selected?.stockQuantity ??
-      (product as any).stockQuantity ??
-      0;
-
-    const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
-
-    // 🔥 STOCK CHECK
-    if (finalQty > stockQty) {
-      toast.error(`Only ${stockQty} items available`);
-      return;
-    }
-
-    // 🔥 MAX ORDER CHECK
-    if (finalQty > maxQty) {
-      toast.error(`Maximum order quantity is ${maxQty}`);
+    const validationError = getQuantityValidationError(product, selected, finalQty);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -267,9 +249,9 @@ export default function FeaturedProductsSlider({
       })
     );
 
-    if (shouldShowMinWarning(product)) {
+    if (shouldShowMinWarning(product, defaultVariant)) {
       toast.warning(
-        `Minimum order quantity is ${product.orderMinimumQuantity}. Proceeding with ${finalQty}.`
+        `Minimum order quantity is ${finalQty}. Proceeding with ${finalQty}.`
       );
     }
 
@@ -283,33 +265,55 @@ export default function FeaturedProductsSlider({
 
 
 
-  const getInitialQty = (product: any) => {
-    return product.orderMinimumQuantity ?? 1;
+  const getInitialQty = (product: any, variant?: any) => {
+    return variant?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1;
   };
 
-  const shouldShowMinWarning = (product: any) => {
-    return (
-      product.orderMinimumQuantity &&
-      product.orderMinimumQuantity > 1
-    );
+  const shouldShowMinWarning = (product: any, variant?: any) => {
+    const minQty = variant?.orderMinimumQuantity ?? product.orderMinimumQuantity;
+    return minQty && minQty > 1;
+  };
+
+  // Shared quantity/stock validation used by every Add to Cart / Buy Now path in this
+  // slider (plain card, pharma-modal confirm) — one place to fix instead of four.
+  // `existingQty` is the quantity already in the real cart for this exact
+  // product+variant — 0 for Buy Now, since it doesn't touch the cart at all.
+  const getQuantityValidationError = (
+    product: any,
+    variant: any,
+    qty: number,
+    existingQty: number = 0
+  ): string | null => {
+    const stockQty = variant?.stockQuantity ?? product.stockQuantity ?? 0;
+    const minQty = variant?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1;
+    const maxQty = variant?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? Infinity;
+
+    if (qty < minQty) return `Minimum order quantity is ${minQty}`;
+    if (existingQty + qty > maxQty) return `Maximum order quantity is ${maxQty}`;
+    if (existingQty + qty > stockQty) {
+      return existingQty > 0
+        ? `Only ${stockQty - existingQty} items left in stock`
+        : `Only ${stockQty} items available`;
+    }
+    return null;
   };
 
 
   return (
     <div className="relative w-full bg-gray-50">
 
-      <div className="relative flex items-center justify-center mb-4 md:mb-8">
+      <div className="relative mb-4 md:mb-8">
+        {viewAllHref && (
+          <Link
+            href={viewAllHref}
+            className="absolute right-0 top-1 text-xs md:text-base font-medium text-[#445D41] bg-green-50 border border-green-200 px-1 md:px-2 py-1 rounded hover:text-green-700 transition"
+          >
+            View All →
+          </Link>
+        )}
         <h2 className="text-xl md:text-3xl font-bold text-gray-900 text-center">
           {title}
         </h2>
-        {viewAllLink && (
-          <Link
-            href={viewAllLink}
-            className="absolute right-0 bg-green-100/70 p-2  rounded-sm text-sm md:text-base font-semibold text-[#445D41] hover:underline"
-          >
-            View All &rarr;
-          </Link>
-        )}
       </div>
       {shouldShowNav && (
         <button
@@ -486,13 +490,13 @@ export default function FeaturedProductsSlider({
                       />
 
 
-                      {/* VAT Relief — bottom left on image */}
-                      {(product.vatExempt || (product as any).vatRate === 0) && (
-                        <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
-                          <BadgePercent className="h-2.5 w-2.5" />
-                          VAT Relief
+                      {/* Next Day Delivery Free — bottom left on image */}
+                      {(product.nextDayDeliveryFree || defaultVariant?.nextDayDeliveryFree) && stock > 0 && (
+                        <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap shadow-sm backdrop-blur-sm">
+                          Next Day Delivery Free
                         </span>
                       )}
+
                       {/* Offer badge — top right, smaller */}
                       {product.displayDiscountType === "System" &&
                         discountBadge && (
@@ -604,9 +608,11 @@ export default function FeaturedProductsSlider({
                             // 🔥🔥🔥 MAIN FIX
                             productData: JSON.parse(JSON.stringify(product)),
 
-                            // 🔥 optional but useful
-                            orderMaximumQuantity: (product as any).orderMaximumQuantity ?? null,
-                            orderMinimumQuantity: (product as any).orderMinimumQuantity ?? null,
+                            // 🔥 optional but useful — variant-level limits override product-level when set.
+                            orderMaximumQuantity:
+                              (defaultVariant as any)?.orderMaximumQuantity ?? (product as any).orderMaximumQuantity ?? null,
+                            orderMinimumQuantity:
+                              (defaultVariant as any)?.orderMinimumQuantity ?? (product as any).orderMinimumQuantity ?? null,
                           });
                           if (inWishlist) {
                             toast.error("Product removed from wishlist");
@@ -687,6 +693,21 @@ export default function FeaturedProductsSlider({
                       <span className="text-[10px] text-gray-500 flex-shrink-0">
                         ({product.reviewCount ?? 0})
                       </span>
+
+                      {/* VAT Relief */}
+                      {product.vatExempt && vatRate === 0 && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/80 border border-black/20 text-white text-[10px] font-bold whitespace-nowrap flex-shrink-0">
+                          <BadgePercent className="h-2.5 w-2.5" />
+                          VAT Relief
+                        </span>
+                      )}
+
+                      {stock <= 0 && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold whitespace-nowrap flex-shrink-0">
+                          <PackageX className="h-2.5 w-2.5" />
+                          Out of Stock
+                        </span>
+                      )}
 
                       {/* Loyalty */}
                       {/* {loyaltyPoints && (
@@ -778,26 +799,11 @@ export default function FeaturedProductsSlider({
             )
             .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
 
-          const stockQty =
-            defaultVariant?.stockQuantity ??
-            (product as any).stockQuantity ??
-            0;
+          const finalQty = getInitialQty(product, defaultVariant);
 
-          const finalQty = getInitialQty(product);
-
-          const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
-
-          // 🔥 MAX ORDER CHECK
-          if (existingCartQty + finalQty > maxQty) {
-            toast.error(`Maximum order quantity is ${maxQty}`);
-            return;
-          }
-
-          // 🔥 STOCK PROTECTION
-          if (existingCartQty + finalQty > stockQty) {
-            toast.error(
-              `Only ${stockQty - existingCartQty} items left in stock`
-            );
+          const validationError = getQuantityValidationError(product, defaultVariant, finalQty, existingCartQty);
+          if (validationError) {
+            toast.error(validationError);
             return;
           }
 
@@ -881,28 +887,11 @@ export default function FeaturedProductsSlider({
             },
           });
 
-          if (shouldShowMinWarning(product)) {
+          // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+          // showing exactly what was just added — no separate toast needed for the success case.
+          if (shouldShowMinWarning(product, defaultVariant)) {
             toast.warning(
-              `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
-            );
-          } else {
-            toast.success(
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium">
-                  {product.name} added to cart!
-                </span>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toast.clearAll();
-                    router.push("/cart");
-                  }}
-                  className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
-                >
-                  Cart→
-                </button>
-              </div>
+              `Minimum order quantity is ${finalQty}. Added ${finalQty} items to cart.`
             );
           }
 
@@ -956,40 +945,31 @@ disabled:opacity-60 disabled:cursor-not-allowed"
 
   {/* ⭐ CASE: OUT OF STOCK - Only Notify Me (Full Width) */}
   {!backorderState.canBuy && (
-    <>
-      <Button
-        disabled
-        className="flex-1 text-[10px] md:text-sm py-1.5 md:py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium cursor-not-allowed opacity-100"
-      >
-        Out of Stock
-      </Button>
-      <Button
-        variant="outline"
-        onClick={() => {
-          // 🔥 PHARMA PRODUCT GUARD
-          if (product.isPharmaProduct) {
-            setPharmaModal({
-              product,
-              variant: defaultVariant,
-              action: "ADD_TO_CART",
-              basePrice,
-              finalPrice,
-              discountAmount,
-              cardSlug,
-            });
-            return;
-          }
-          setNotifyProduct({
-            productId: product.id,
-            variantId: defaultVariant?.id ?? null,
+    <Button
+      onClick={() => {
+        // 🔥 PHARMA PRODUCT GUARD - Pharma products can also be out of stock
+        if (product.isPharmaProduct) {
+          setPharmaModal({
+            product,
+            variant: defaultVariant,
+            action: "ADD_TO_CART",
+            basePrice,
+            finalPrice,
+            discountAmount,
+            cardSlug,
           });
-        }}
-        className="group px-2 md:px-4 text-[10px] md:text-sm py-1.5 md:py-2 rounded-lg border-[#445D41] text-[#445D41] font-medium hover:bg-[#445D41] hover:text-white transition-all duration-300"
-      >
-        <BellRing className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
-        Notify Me
-      </Button>
-    </>
+          return;
+        }
+        setNotifyProduct({
+          productId: product.id,
+          variantId: defaultVariant?.id ?? null,
+        });
+      }}
+      className="w-full text-xs md:text-sm py-1.5 md:py-2 rounded-lg bg-[#445D41] hover:bg-black text-white font-semibold flex items-center justify-center gap-2"
+    >
+      <BellRing className="h-3 w-3 md:h-4 md:w-4" />
+      Notify Me
+    </Button>
   )}
 </div>
 
@@ -1028,7 +1008,7 @@ disabled:opacity-60 disabled:cursor-not-allowed"
             } = pharmaModal;
 
             if (action === "ADD_TO_CART") {
-              const finalQty = getInitialQty(product);
+              const finalQty = getInitialQty(product, variant);
 
 
               const defaultVarId = variant?.id ?? null;
@@ -1041,22 +1021,9 @@ disabled:opacity-60 disabled:cursor-not-allowed"
                 )
                 .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
 
-              const stockQty =
-                variant?.stockQuantity ??
-                (product as any).stockQuantity ??
-                0;
-
-              const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
-
-              // 🔥 MAX ORDER CHECK
-              if (existingCartQty + finalQty > maxQty) {
-                toast.error(`Maximum order quantity is ${maxQty}`);
-                return;
-              }
-
-              // 🔥 STOCK CHECK
-              if (existingCartQty + finalQty > stockQty) {
-                toast.error(`Only ${stockQty - existingCartQty} items left in stock`);
+              const validationError = getQuantityValidationError(product, variant, finalQty, existingCartQty);
+              if (validationError) {
+                toast.error(validationError);
                 return;
               }
               // Use vatRate directly from API response
@@ -1102,46 +1069,13 @@ disabled:opacity-60 disabled:cursor-not-allowed"
                 productData: JSON.parse(JSON.stringify(product)),
               });
 
-              toast.success(
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium">
-                    {product.name} added to cart!
-                  </span>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toast.clearAll();
-                      router.push("/cart");
-                    }}
-                    className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
-                  >
-                    Cart→
-                  </button>
-                </div>
-              );
+              // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+              // showing exactly what was just added — no separate toast needed here.
             }
 
             if (action === "BUY_NOW") {
-              const stockQty =
-                variant?.stockQuantity ??
-                (product as any).stockQuantity ??
-                0;
-
-              const finalQty = getInitialQty(product);
-
-              const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
-
-              if (finalQty > stockQty) {
-                toast.error(`Only ${stockQty} items available`);
-                return;
-              }
-
-              if (finalQty > maxQty) {
-                toast.error(`Maximum order quantity is ${maxQty}`);
-                return;
-              }
-
+              // handleBuyNow runs the same shared quantity/stock validation itself
+              // (getQuantityValidationError) before proceeding — no need to duplicate it here.
               handleBuyNow(
                 product,
                 variant,

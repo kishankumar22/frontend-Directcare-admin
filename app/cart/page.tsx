@@ -47,7 +47,7 @@ export default function CartPage() {
 
     setIsCheckingStock(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://test.direct-care.co.uk";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.direct-care.co.uk";
 
       const stockChecks = await Promise.all(
         inStockItems.map(async (item) => {
@@ -616,6 +616,18 @@ export default function CartPage() {
     return 9999;
   };
 
+  // Variant-level min/max cart quantity override the product-level default when set.
+  const getItemVariant = (item: any) => {
+    if (item.productData?.productType === "variable" && item.variantId) {
+      return item.productData?.variants?.find((v: any) => v.id === item.variantId) ?? null;
+    }
+    return null;
+  };
+  const getItemMinQty = (item: any) =>
+    getItemVariant(item)?.orderMinimumQuantity ?? item.productData?.orderMinimumQuantity ?? 1;
+  const getItemMaxQty = (item: any) =>
+    getItemVariant(item)?.orderMaximumQuantity ?? item.productData?.orderMaximumQuantity ?? Infinity;
+
   // ================= BUNDLE HELPERS =================
   const isBundleParent = (item: any) => Boolean(item.isBundleParent && item.bundleId);
   const isBundleChild = (item: any) => Boolean(item.bundleParentId);
@@ -928,7 +940,7 @@ export default function CartPage() {
                             ) : (
                               <button
                                 onClick={() => {
-                                  const minQty = item.productData?.orderMinimumQuantity ?? 1;
+                                  const minQty = getItemMinQty(item);
                                   if ((item.quantity ?? 1) <= minQty) { toast.error(`Minimum order quantity is ${minQty}`); return; }
                                   const newQty = (item.quantity ?? 1) - 1;
                                   updateQuantity(item.id, newQty);
@@ -946,7 +958,7 @@ export default function CartPage() {
                                 if (val < 1) return;
 
                                 // 🔥 MAX ORDER QUANTITY CHECK
-                                const maxOrderQty = item.productData?.orderMaximumQuantity ?? Infinity;
+                                const maxOrderQty = getItemMaxQty(item);
                                 if (val > maxOrderQty) {
                                   toast.error(`Maximum order quantity is ${maxOrderQty}`);
                                   val = maxOrderQty;
@@ -979,10 +991,10 @@ export default function CartPage() {
                                 const stock = getItemStock(item);
 
                                 // 🔥 MAX ORDER QUANTITY CHECK (NEW)
-                                const maxOrderQty = item.productData?.orderMaximumQuantity ?? Infinity;
+                                const maxOrderQty = getItemMaxQty(item);
 
                                 // 🔥 MIN ORDER QUANTITY CHECK
-                                const minOrderQty = item.productData?.orderMinimumQuantity ?? 1;
+                                const minOrderQty = getItemMinQty(item);
 
                                 // ✅ Check MAX ORDER QUANTITY FIRST
                                 if (newQty > maxOrderQty) {

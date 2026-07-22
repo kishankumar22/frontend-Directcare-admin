@@ -90,6 +90,7 @@ interface FormattedProduct {
   notifyAdminForQuantityBelow: boolean;
   notifyQuantityBelow: number;
   allowBackorder: boolean;
+  outOfStockSince?: string | null;
 
   // Other flags
   markAsNew: boolean;
@@ -187,6 +188,7 @@ export default function ProductsPage() {
 
   // Second row filters
   const [statusFilter, setStatusFilter] = useState<SelectOption>({ value: "all", label: "All Stock Status" });
+  const [outOfStockDurationFilter, setOutOfStockDurationFilter] = useState<SelectOption>({ value: "all", label: "Out of Stock: Any Duration" });
   const [publishedFilter, setPublishedFilter] = useState<SelectOption>({ value: "all", label: "All Visibility" });
   const [deliveryFilter, setDeliveryFilter] = useState<SelectOption>({ value: "all", label: "All Delivery" });
   const [markAsNewFilter, setMarkAsNewFilter] = useState<SelectOption>({ value: "all", label: "Mark as New: All" });
@@ -229,6 +231,14 @@ export default function ProductsPage() {
     { value: "InStock", label: "In Stock" },
     { value: "LowStock", label: "Low Stock" },
     { value: "OutOfStock", label: "Out of Stock" },
+  ];
+
+  const outOfStockDurationOptions: SelectOption[] = [
+    { value: "all", label: "Out of Stock: Any Duration" },
+    { value: "7", label: "Out of Stock 7+ days" },
+    { value: "14", label: "Out of Stock 14+ days" },
+    { value: "30", label: "Out of Stock 30+ days" },
+    { value: "60", label: "Out of Stock 60+ days" },
   ];
 
   const pharmaOptions: SelectOption[] = [
@@ -511,6 +521,9 @@ export default function ProductsPage() {
       if (statusFilter.value !== "all") {
         params.stockStatus = statusFilter.value;
       }
+      if (outOfStockDurationFilter.value !== "all") {
+        params.outOfStockDays = Number(outOfStockDurationFilter.value);
+      }
 
       delete params.isDeleted;
       delete params.isActive;
@@ -746,6 +759,7 @@ export default function ProductsPage() {
             notifyAdminForQuantityBelow: p.notifyAdminForQuantityBelow ?? false,
             notifyQuantityBelow: p.notifyQuantityBelow ?? 0,
             allowBackorder: p.allowBackorder ?? false,
+            outOfStockSince: p.outOfStockSince ?? null,
             hasDiscount,
             discountLabel,
             discountTitle,
@@ -978,6 +992,7 @@ export default function ProductsPage() {
 
     vatFilter.value,
     statusFilter.value,
+    outOfStockDurationFilter.value,
     pharmaFilter.value,
     pharmaApprovalFilter.value,
 
@@ -992,6 +1007,7 @@ export default function ProductsPage() {
     setSelectedHomepage({ value: "all", label: "Homepage: All" });
     setSelectedType({ value: "all", label: "All Types" });
     setStatusFilter({ value: "all", label: "All Stock Status" });
+    setOutOfStockDurationFilter({ value: "all", label: "Out of Stock: Any Duration" });
     setPublishedFilter({ value: "all", label: "All Visibility" });
     setDeliveryFilter({ value: "all", label: "All Delivery" });
     setMarkAsNewFilter({ value: "all", label: "Mark as New: All" });
@@ -1020,6 +1036,7 @@ export default function ProductsPage() {
       selectedHomepage.value !== "all" ||
       selectedType.value !== "all" ||
       statusFilter.value !== "all" ||
+      outOfStockDurationFilter.value !== "all" ||
       publishedFilter.value !== "all" ||
       deliveryFilter.value !== "all" ||
       markAsNewFilter.value !== "all" ||
@@ -1042,6 +1059,7 @@ export default function ProductsPage() {
       selectedHomepage,
       selectedType,
       statusFilter,
+      outOfStockDurationFilter,
       publishedFilter,
       deliveryFilter,
       markAsNewFilter,
@@ -2076,7 +2094,7 @@ Note: If you don't have the required permission, the bulk action buttons will be
         {/* ✅ ROW 2 - COLLAPSIBLE FILTERS */}
         {showMoreFilters && (
           <div className="mt-1 pt-1 border-t border-slate-700">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-2">
               <select
                 value={statusFilter.value}
                 onChange={(e) => {
@@ -2089,6 +2107,25 @@ Note: If you don't have the required permission, the bulk action buttons will be
                   }`}
               >
                 {statusOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={outOfStockDurationFilter.value}
+                onChange={(e) => {
+                  const option = outOfStockDurationOptions.find(opt => opt.value === e.target.value);
+                  if (option) setOutOfStockDurationFilter(option);
+                }}
+                title="How long a product has been continuously out of stock"
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${outOfStockDurationFilter.value !== "all"
+                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                    : "border-slate-600"
+                  }`}
+              >
+                {outOfStockDurationOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
@@ -2557,6 +2594,13 @@ Note: If you don't have the required permission, the bulk action buttons will be
                               `Backorder: ${allowBackorder ? "Allowed" : "No"}`
                             ].join("\n");
 
+                            // outOfStockSince is maintained backend-side (covers variant products
+                            // too, unlike the qty-only badge logic above) — use it directly rather
+                            // than re-deriving from `label`, so it's accurate for variant products.
+                            const daysOutOfStock = product.outOfStockSince
+                              ? Math.max(0, Math.floor((Date.now() - new Date(product.outOfStockSince).getTime()) / 86400000))
+                              : null;
+
                             return (
                               <div className="flex flex-col items-center gap-1">
                                 <div
@@ -2569,6 +2613,14 @@ Note: If you don't have the required permission, the bulk action buttons will be
                                     <span className="opacity-70 text-[11px]">({qty})</span>
                                   )}
                                 </div>
+                                {daysOutOfStock !== null && (
+                                  <span
+                                    className="text-[10px] font-medium text-red-400/80"
+                                    title={`Out of stock since ${new Date(product.outOfStockSince!).toLocaleDateString()}`}
+                                  >
+                                    {daysOutOfStock === 0 ? "Out today" : `${daysOutOfStock} day${daysOutOfStock === 1 ? "" : "s"} out`}
+                                  </span>
+                                )}
                               </div>
                             );
                           })()}

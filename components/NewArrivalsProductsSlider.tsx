@@ -15,7 +15,7 @@ export default function NewArrivalsProductsSlider({ baseUrl }: Props) {
     const fetchNewProducts = async () => {
       try {
         const res = await fetch(
-          `${baseUrl}/api/Products?page=1&pageSize=20&isPublished=true&markAsNew=true&sortBy=createdAt&sortDirection=desc&outOfStockLast=false`,
+          `${baseUrl}/api/Products?markAsNew=true&isPublished=true&pageSize=20&sortBy=displayOrder&sortDirection=asc`,
           { cache: "no-store" }
         );
 
@@ -43,7 +43,7 @@ export default function NewArrivalsProductsSlider({ baseUrl }: Props) {
       products={products}
       baseUrl={baseUrl}
       title="Newly Added Products"
-      viewAllLink="/new-arrivals"
+      viewAllHref="/new-arrivals"
     />
   );
 }

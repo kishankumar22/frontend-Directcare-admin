@@ -124,6 +124,8 @@ const closeDeleteModal = () => {
       weight: null,
       stockQuantity: 0,
       trackInventory: true,
+      orderMinimumQuantity: null,
+      orderMaximumQuantity: null,
       optionValues: options.map(() => ''),
       option1Name: options[0]?.name || null,
       option1Value: null,
@@ -168,6 +170,8 @@ const closeDeleteModal = () => {
       weight: null,
       stockQuantity: 0,
       trackInventory: true,
+      orderMinimumQuantity: null,
+      orderMaximumQuantity: null,
       optionValues: [],
       option1Name: null,
       option1Value: null,
@@ -274,6 +278,8 @@ const closeDeleteModal = () => {
         weight: null,
         stockQuantity: 0,
         trackInventory: true,
+        orderMinimumQuantity: null,
+        orderMaximumQuantity: null,
         optionValues: combo,
         option1Name: options[0]?.name || null,
         option1Value: combo[0] || null,
@@ -863,6 +869,68 @@ const closeDeleteModal = () => {
                           />
                         </label>
                       </div>
+                    </div>
+
+                    {/* Cart Limits (override) */}
+                    <div className="pt-3 border-t border-slate-700/50 space-y-2">
+                      <h4 className="text-sm font-semibold text-white border-b border-slate-700 pb-2">
+                        Cart Limits <span className="text-xs font-normal text-slate-400">(leave blank to inherit from product)</span>
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Min Qty
+                          </label>
+                          <input
+                            type="number"
+                            value={variant.orderMinimumQuantity ?? ''}
+                            onChange={(e) =>
+                              updateProductVariant(
+                                variant.id,
+                                'orderMinimumQuantity',
+                                e.target.value ? parseInt(e.target.value) : null
+                              )
+                            }
+                            placeholder="Inherits product min"
+                            min="1"
+                            disabled={disabled}
+                            className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Max Qty
+                          </label>
+                          <input
+                            type="number"
+                            value={variant.orderMaximumQuantity ?? ''}
+                            onChange={(e) =>
+                              updateProductVariant(
+                                variant.id,
+                                'orderMaximumQuantity',
+                                e.target.value ? parseInt(e.target.value) : null
+                              )
+                            }
+                            placeholder="Inherits product max"
+                            min={variant.orderMinimumQuantity || 1}
+                            disabled={disabled}
+                            className={`w-full px-3 py-2 text-sm bg-slate-800 border rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 ${
+                              variant.orderMinimumQuantity != null &&
+                              variant.orderMaximumQuantity != null &&
+                              variant.orderMaximumQuantity < variant.orderMinimumQuantity
+                                ? 'border-red-500'
+                                : 'border-slate-600'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                      {variant.orderMinimumQuantity != null &&
+                        variant.orderMaximumQuantity != null &&
+                        variant.orderMaximumQuantity < variant.orderMinimumQuantity && (
+                          <p className="text-xs text-red-400">
+                            Max qty must be greater than or equal to min qty
+                          </p>
+                        )}
                     </div>
 
                     {/* Row 4: Variant Image (Full Width) */}

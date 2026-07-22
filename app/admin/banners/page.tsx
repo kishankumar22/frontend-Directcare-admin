@@ -1499,7 +1499,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                             )}
                           </p>
                           {formData.title && (
-                            <p className="text-xs text-slate-500">WebP (.webp) only • Max 1MB • Rec: 1920x640</p>
+                            <p className="text-xs text-slate-500">WebP (.webp) only • Max 1MB</p>
                           )}
                         </div>
                         <input
@@ -1597,7 +1597,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                           <p className="text-sm text-slate-500">
                             <span className="font-semibold">Click to upload</span> mobile image
                           </p>
-                         <p className="text-xs text-slate-500">WebP (.webp) only • Max 1MB • Rec: 1080x1080px</p>
+                         <p className="text-xs text-slate-500">WebP (.webp) only • Max 1MB</p>
                         </div>
                         <input
                           type="file"

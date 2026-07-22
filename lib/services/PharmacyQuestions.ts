@@ -2,13 +2,15 @@ import { apiClient } from "../api";
 import { API_ENDPOINTS } from "../api-config";
 
 // --- PharmacyQuestion TypeScript Interfaces ---
+// Options can each carry a nested follow-up question (itself Multiple Choice or Text),
+// to any depth — PharmacyQuestionOption.followUpQuestion is a full PharmacyQuestion.
 export interface PharmacyQuestionOption {
   id: string;
   pharmacyQuestionId: string;
   optionText: string;
   displayOrder: number;
-  requiresFollowUpText?: boolean;
-  followUpPrompt?: string;
+  hasFollowUpQuestion?: boolean;
+  followUpQuestion?: PharmacyQuestion | null;
 }
 
 export interface PharmacyQuestion {
@@ -22,6 +24,22 @@ export interface PharmacyQuestion {
   createdBy?: string;
   updatedAt?: string;
   options: PharmacyQuestionOption[];
+  productCount?: number; // only populated by the list endpoint (getAll)
+}
+
+// Product a pharmacy question is assigned to — shown in the "Products" count popup
+export interface PharmacyQuestionAssignedProduct {
+  productId: string;
+  productName: string;
+  sku?: string | null;
+  slug?: string | null;
+}
+
+export interface PharmacyQuestionAssignedProductsApiResponse {
+  success: boolean;
+  message?: string;
+  data: PharmacyQuestionAssignedProduct[];
+  errors?: string[];
 }
 
 export interface PharmacyQuestionApiResponse {
@@ -38,17 +56,42 @@ export interface SinglePharmacyQuestionApiResponse {
   errors?: string[];
 }
 
+export interface CreatePharmacyFollowUpQuestionDto {
+  questionText: string;
+  isActive: boolean;
+  answerType: string;
+  options: CreatePharmacyQuestionOptionDto[];
+}
+
+export interface CreatePharmacyQuestionOptionDto {
+  optionText: string;
+  displayOrder: number;
+  hasFollowUpQuestion?: boolean;
+  followUpQuestion?: CreatePharmacyFollowUpQuestionDto | null;
+}
+
 export interface CreatePharmacyQuestionDto {
   questionText: string;
   isActive: boolean;
   displayOrder: number;
   answerType: string;
-  options: {
-    optionText: string;
-    displayOrder: number;
-    requiresFollowUpText?: boolean;
-    followUpPrompt?: string;
-  }[];
+  options: CreatePharmacyQuestionOptionDto[];
+}
+
+export interface UpdatePharmacyFollowUpQuestionDto {
+  id?: string; // undefined/null = new follow-up question, else = update existing
+  questionText: string;
+  isActive: boolean;
+  answerType: string;
+  options: UpdatePharmacyQuestionOptionDto[];
+}
+
+export interface UpdatePharmacyQuestionOptionDto {
+  id?: string;
+  optionText: string;
+  displayOrder: number;
+  hasFollowUpQuestion?: boolean;
+  followUpQuestion?: UpdatePharmacyFollowUpQuestionDto | null;
 }
 
 export interface UpdatePharmacyQuestionDto {
@@ -58,13 +101,7 @@ export interface UpdatePharmacyQuestionDto {
   isActive: boolean;
   displayOrder: number;
   answerType: string;
-  options: {
-    id?: string;
-    optionText: string;
-    displayOrder: number;
-    requiresFollowUpText?: boolean;
-    followUpPrompt?: string;
-  }[];
+  options: UpdatePharmacyQuestionOptionDto[];
 }
 
 
@@ -125,6 +162,13 @@ export const pharmacyQuestionsService = {
   getById: (id: string, config: any = {}) =>
     apiClient.get<SinglePharmacyQuestionApiResponse>(
       `${API_ENDPOINTS.PharmacyQuestions}/${id}`,
+      config
+    ),
+
+  // Get products this question is assigned to (name + SKU only)
+  getAssignedProducts: (id: string, config: any = {}) =>
+    apiClient.get<PharmacyQuestionAssignedProductsApiResponse>(
+      `${API_ENDPOINTS.PharmacyQuestions}/${id}/products`,
       config
     ),
 

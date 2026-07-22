@@ -24,12 +24,22 @@ import {
   List,
   HelpCircle,
   ChevronDown,
-  Info
+  Info,
+  Package,
+  Loader2
 } from "lucide-react";
+import Link from "next/link";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
-import { PharmacyQuestion, pharmacyQuestionsService, UpdatePharmacyQuestionDto } from "@/lib/services/PharmacyQuestions";
+import {
+  PharmacyQuestion,
+  PharmacyQuestionOption,
+  pharmacyQuestionsService,
+  UpdatePharmacyQuestionDto,
+  UpdatePharmacyQuestionOptionDto,
+  PharmacyQuestionAssignedProduct,
+} from "@/lib/services/PharmacyQuestions";
 import PharmacyQuestionFormModal from "./PharmacyQuestionFormModal";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { getBackendMessage } from "../_utils/errorUtils";
@@ -40,6 +50,32 @@ import { permissionsService } from "@/lib/services/permissions";
 type ViewMode = "all" | "active" | "inactive";
 type SortField = "questionText" | "displayOrder" | "createdAt" | "optionsCount";
 type SortDirection = "asc" | "desc";
+
+// Converts a fetched option (whose follow-up, if any, is a full nested PharmacyQuestion) into
+// the Update-DTO shape. Must be built from a fully-loaded question (via getById) — the list
+// endpoint only returns hasFollowUpQuestion booleans, not the follow-up questions themselves,
+// so building this from list data would tell the backend to delete any existing follow-ups.
+function toUpdateOptionDto(opt: PharmacyQuestionOption): UpdatePharmacyQuestionOptionDto {
+  return {
+    id: opt.id,
+    optionText: opt.optionText,
+    displayOrder: opt.displayOrder,
+    hasFollowUpQuestion: opt.hasFollowUpQuestion ?? false,
+    followUpQuestion:
+      opt.hasFollowUpQuestion && opt.followUpQuestion
+        ? {
+            id: opt.followUpQuestion.id,
+            questionText: opt.followUpQuestion.questionText,
+            isActive: opt.followUpQuestion.isActive,
+            answerType: opt.followUpQuestion.answerType,
+            options:
+              opt.followUpQuestion.answerType === "Text"
+                ? []
+                : opt.followUpQuestion.options.map(toUpdateOptionDto),
+          }
+        : null,
+  };
+}
 
 
 export default function PharmacyQuestionsPage() {
@@ -66,6 +102,25 @@ export default function PharmacyQuestionsPage() {
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+
+  // Products-count popup — which products a question is assigned to (name + SKU)
+  const [productsModalQuestion, setProductsModalQuestion] = useState<PharmacyQuestion | null>(null);
+  const [assignedProducts, setAssignedProducts] = useState<PharmacyQuestionAssignedProduct[]>([]);
+  const [loadingAssignedProducts, setLoadingAssignedProducts] = useState(false);
+
+  const openProductsModal = async (question: PharmacyQuestion) => {
+    setProductsModalQuestion(question);
+    setAssignedProducts([]);
+    setLoadingAssignedProducts(true);
+    try {
+      const res = await pharmacyQuestionsService.getAssignedProducts(question.id);
+      setAssignedProducts(res.data?.data || []);
+    } catch {
+      toast.error("Failed to load assigned products");
+    } finally {
+      setLoadingAssignedProducts(false);
+    }
+  };
   const [isEditMode, setIsEditMode] = useState(false);
 const [includeDeleted, setIncludeDeleted] = useState(false);
 
@@ -284,20 +339,33 @@ toast.success(
     });
   };
 
-  const handleStatusToggle = (question: PharmacyQuestion) => {
+  const handleStatusToggle = async (question: PharmacyQuestion) => {
     if (!pharmacyPerms.edit) {
       toast.error("You do not have permission to update pharmacy questions");
       return;
     }
+
+    // Fetch the full question (with its complete nested follow-up tree) before building the
+    // update payload — the list row only has hasFollowUpQuestion booleans, and sending that
+    // back without the actual follow-up questions would tell the backend to delete them.
+    let fullQuestion: PharmacyQuestion;
+    try {
+      const detailRes = await pharmacyQuestionsService.getById(question.id);
+      fullQuestion = detailRes.data?.data ?? question;
+    } catch {
+      toast.error("Failed to load question details");
+      return;
+    }
+
   setConfirmDialog({
     isOpen: true,
-    title: `${question.isActive ? "Deactivate" : "Activate"} Question`,
+    title: `${fullQuestion.isActive ? "Deactivate" : "Activate"} Question`,
     message: `Are you sure you want to ${
-      question.isActive ? "deactivate" : "activate"
-    } "${question.questionText}"?`,
+      fullQuestion.isActive ? "deactivate" : "activate"
+    } "${fullQuestion.questionText}"?`,
     icon: AlertCircle,
-    iconColor: question.isActive ? "text-red-400" : "text-green-400",
-    confirmButtonStyle: question.isActive
+    iconColor: fullQuestion.isActive ? "text-red-400" : "text-green-400",
+    confirmButtonStyle: fullQuestion.isActive
       ? "bg-gradient-to-r from-red-500 to-rose-500"
       : "bg-gradient-to-r from-green-500 to-emerald-500",
     isLoading: false,
@@ -306,25 +374,19 @@ onConfirm: async () => {
     setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
 
     const updateData: UpdatePharmacyQuestionDto = {
-      id: question.id,
-      questionText: question.questionText,
-      isActive: !question.isActive,
-      displayOrder: question.displayOrder,
-      answerType: question.answerType,
+      id: fullQuestion.id,
+      questionText: fullQuestion.questionText,
+      isActive: !fullQuestion.isActive,
+      displayOrder: fullQuestion.displayOrder,
+      answerType: fullQuestion.answerType,
       options:
-        question.answerType === "Text"
+        fullQuestion.answerType === "Text"
           ? []
-          : question.options.map((opt) => ({
-              id: opt.id,
-              optionText: opt.optionText,
-              displayOrder: opt.displayOrder,
-              requiresFollowUpText: opt.requiresFollowUpText ?? false,
-              followUpPrompt: opt.followUpPrompt ?? "",
-            })),
+          : fullQuestion.options.map(toUpdateOptionDto),
     };
 
     const response = await pharmacyQuestionsService.update(
-      question.id,
+      fullQuestion.id,
       updateData
     );
 
@@ -689,6 +751,8 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                     </button>
                   </th>
 
+                  <th className="text-center py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">Products</th>
+
                   <th className="text-center py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">Status</th>
 
                   <th className="text-left py-2 px-3 text-slate-600 dark:text-slate-400 font-medium text-sm whitespace-nowrap">
@@ -726,6 +790,17 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                       <span className="px-2.5 py-1 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-lg text-sm font-medium">
                         {question.options.length}
                       </span>
+                    </td>
+
+                    <td className="py-2.5 px-3 text-center">
+                      <button
+                        onClick={() => openProductsModal(question)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-400 transition-all"
+                        title="View products this question is assigned to"
+                      >
+                        <Package className="h-3.5 w-3.5" />
+                        {question.productCount ?? 0}
+                      </button>
                     </td>
 
                 <td className="py-2.5 px-3 text-center">
@@ -899,7 +974,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
             <div className="overflow-y-auto p-4 space-y-4">
               <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
                 <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">Question Text</h3>
-                <p className="text-slate-900 dark:text-white text-lg font-medium">{selectedQuestion.questionText}</p>
+                <p className="text-slate-900 dark:text-white text-lg font-medium whitespace-pre-line">{selectedQuestion.questionText}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -983,6 +1058,68 @@ Note: Buttons will be hidden if you lack the required permission.`}>
 
       {/* Confirm Dialog */}
       <ConfirmDialog {...confirmDialog} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} />
+
+      {/* Assigned Products Popup */}
+      {productsModalQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="border rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+            <div className="flex items-start justify-between gap-3 p-5 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 rounded-xl bg-violet-500/15 shrink-0">
+                  <Package className="h-5 w-5 text-violet-500" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-base text-slate-800 dark:text-white">
+                    Assigned Products
+                  </h3>
+                  <p className="text-xs mt-0.5 truncate text-slate-500 dark:text-slate-400" title={productsModalQuestion.questionText}>
+                    {productsModalQuestion.questionText}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProductsModalQuestion(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/20 rounded-lg transition-all shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-5">
+              {loadingAssignedProducts ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+                </div>
+              ) : assignedProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                  <Package className="h-8 w-8 text-slate-400 dark:text-slate-600" />
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    This question isn't assigned to any product yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {assignedProducts.map((p) => (
+                    <div
+                      key={p.productId}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 transition-all"
+                    >
+                      <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                        {p.productName}
+                      </span>
+                      {p.sku && (
+                        <span className="shrink-0 px-2 py-0.5 rounded-md text-[11px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {p.sku}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

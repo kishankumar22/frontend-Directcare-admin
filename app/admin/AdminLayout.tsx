@@ -1145,69 +1145,39 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                             </p>
                           </div>
 
-                    <div className="p-2">
-  {/* Change Password */}
-  <button
-    onClick={() => {
-      setProfileDropdownOpen(false);
-      setChangePwdOpen(true);
-    }}
-    className={cn(
-      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group",
-      isLight
-        ? "text-gray-700 hover:bg-gray-100 hover:text-[#445D41]"
-        : "text-slate-300 hover:text-white hover:bg-slate-800/70 dark:hover:bg-gray-800/70"
-    )}
-  >
-    <LockKeyhole
-      className={cn(
-        "h-4 w-4 group-hover:scale-110 transition-transform",
-        isLight
-          ? "text-gray-700 group-hover:text-[#445D41]"
-          : "text-violet-400"
-      )}
-    />
-    <span
-      className={cn(
-        "text-sm font-medium",
-        isLight
-          ? "text-gray-700 group-hover:text-[#445D41]"
-          : ""
-      )}
-    >
-      Change Password
-    </span>
-  </button>
+                          <div className="p-2">
+                            <button
+                              onClick={() => {
+                                setProfileDropdownOpen(false);
+                                setChangePwdOpen(true);
+                              }}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group",
+                                isLight
+                                  ? "text-gray-600 hover:text-[#445D41] hover:bg-[#445D41]/5"
+                                  : "text-slate-300 hover:text-white hover:bg-slate-800/70 dark:hover:bg-gray-800/70"
+                              )}
+                            >
+                              <LockKeyhole className={cn("h-4 w-4 group-hover:scale-110 transition-transform", isLight ? "text-[#445D41]" : "text-violet-400")} />
+                              <span className="text-sm font-medium">Change Password</span>
+                            </button>
 
-  {/* Logout */}
-  <button
-    onClick={() => {
-      setProfileDropdownOpen(false);
-      handleLogout();
-    }}
-    className={cn(
-      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group mt-1",
-      isLight
-        ? "text-red-600 hover:bg-red-50 hover:text-red-700"
-        : "text-slate-300 hover:text-red-400 hover:bg-red-500/10"
-    )}
-  >
-    <LogOut
-      className={cn(
-        "h-4 w-4 group-hover:scale-110 transition-transform",
-        isLight ? "text-red-600" : "text-red-400"
-      )}
-    />
-    <span
-      className={cn(
-        "text-sm font-medium",
-        isLight ? "text-red-600" : "text-red-400"
-      )}
-    >
-      Logout
-    </span>
-  </button>
-</div>
+                            <button
+                              onClick={() => {
+                                setProfileDropdownOpen(false);
+                                handleLogout();
+                              }}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group mt-1",
+                                isLight
+                                  ? "text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  : "text-slate-300 hover:text-red-400 hover:bg-red-500/10"
+                              )}
+                            >
+                              <LogOut className={cn("h-4 w-4 group-hover:scale-110 transition-transform", isLight ? "text-red-600" : "text-red-400")} />
+                              <span className={cn("text-sm font-medium", isLight ? "text-red-600" : "text-red-400")}>Logout</span>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

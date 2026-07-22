@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import QuantitySelector from "@/components/shared/QuantitySelector";
-import { AwardIcon, Bell } from "lucide-react";
+import { AwardIcon, Truck, PackageX } from "lucide-react";
 import { useRouter } from "next/navigation";
 interface Props {
   product: any;
@@ -18,13 +18,14 @@ interface Props {
   stockError: string | null;
   setStockError: React.Dispatch<React.SetStateAction<string | null>>;
   vatRate: number | null;   // 🟢 Add this
+  nextDayDeliveryFree?: boolean;
   // ⭐ ADD THIS
   backorderState: {
     canBuy: boolean;
     showNotify: boolean;
     label: string;
   };
-  setShowNotifyModal: (val: boolean) => void;
+  onNotifyClick?: () => void;
 }
 
 export default function SubscriptionPurchaseCard({
@@ -37,8 +38,9 @@ export default function SubscriptionPurchaseCard({
   stockError,
   setStockError,
    vatRate,
+   nextDayDeliveryFree,
    backorderState,
-   setShowNotifyModal,
+   onNotifyClick,
 }: Props) {
 
   const { addToCart } = useCart();
@@ -120,7 +122,8 @@ const stockQty =
   product.stockQuantity ??
   0;
 
-const maxQty = product.orderMaximumQuantity ?? Infinity;
+// Variant-level max order quantity overrides the product-level default when set.
+const maxQty = selectedVariant?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? Infinity;
 
 // 🔥 STOCK CHECK
 if (quantity > stockQty) {
@@ -174,24 +177,8 @@ image: selectedVariant?.imageUrl
     },
       maxStock: selectedVariant?.stockQuantity ?? product.stockQuantity
     });
-  toast.success(
-  <div className="flex items-center justify-between gap-2">
-    <span className="text-sm font-medium">
-     {product.name} added to cart!
-    </span>
-
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        toast.clearAll();
-        router.push("/cart");
-      }}
-      className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
-    >
-      Cart→
-    </button>
-  </div>
-);
+  // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+  // showing exactly what was just added — no separate toast needed here.
   };
 
   return (
@@ -225,7 +212,21 @@ image: selectedVariant?.imageUrl
           <span className="text-xs font-bold text-gray-400 line-through">
             £{(selectedVariant?.price ?? product.price).toFixed(2)}
           </span>
-        
+
+          {selectedPurchaseType === "subscription" && nextDayDeliveryFree && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
+              style={{
+                animation: 'deliveryHighlight 2s ease-in-out infinite',
+              }}
+            >
+              <Truck className="h-3 w-3 text-blue-700" />
+              <span className="text-[11px] font-bold text-blue-700">
+                Next Day Delivery Free
+              </span>
+            </span>
+          )}
+
           {vatRate !== null && vatRate > 0 && !product.vatExempt && (
             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
               {vatRate}% VAT
@@ -341,19 +342,19 @@ image: selectedVariant?.imageUrl
         )}
 
         {selectedPurchaseType === "subscription" && !backorderState.canBuy && (
-          <div className="flex flex-col xl:flex-row gap-2 w-full mt-2">
+          <div className="flex w-full items-center gap-2 mt-3">
             <Button
-              variant="outline"
-              onClick={() => setShowNotifyModal(true)}
-              className="group py-2 px-4 rounded-xl border border-[#445D41] text-[#445D41] text-sm font-semibold hover:bg-[#445D41] hover:text-white transition-all duration-300 whitespace-nowrap"
+              onClick={() => onNotifyClick && onNotifyClick()}
+              className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
             >
-              <Bell className="mr-2 h-4 w-4" />
               Notify Me
             </Button>
+           
           </div>
         )}
       </div>
     </div>
+
       </CardContent>
     </Card>
   );

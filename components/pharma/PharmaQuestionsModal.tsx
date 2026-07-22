@@ -11,13 +11,15 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast/CustomToast";
 import { getPharmaSessionId } from "@/app/lib/pharmaSession";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldCheck, Loader2, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { ShieldCheck, Loader2, AlertCircle, CheckCircle2, CornerDownRight } from "lucide-react";
 
+// A follow-up question nests recursively under the option that triggers it — itself Multiple
+// Choice or Text, and its own options can carry a further follow-up, to any depth.
 interface PharmaOption {
   optionId: string;
   optionText: string;
-  requiresFollowUpText?: boolean;
-  followUpPrompt?: string;
+  hasFollowUpQuestion?: boolean;
+  followUpQuestion?: PharmaQuestion | null;
 }
 
 interface PharmaQuestion {
@@ -33,6 +35,148 @@ interface ExistingResponse {
   questionId: string;
   answerText: string | null;
   selectedOptionId: string | null;
+}
+
+/// Recursively checks that `q`, and — if the selected option reveals one — its follow-up chain,
+/// all have an answer.
+function isQuestionAnswered(q: PharmaQuestion, answers: Record<string, any>): boolean {
+  if (!q.isRequired) return true;
+
+  const val = answers[q.questionId];
+
+  if (q.answerType === "Options") {
+    if (!val) return false;
+    const selectedOpt = q.options?.find((o) => o.optionId === val);
+    if (selectedOpt?.hasFollowUpQuestion && selectedOpt.followUpQuestion) {
+      return isQuestionAnswered(selectedOpt.followUpQuestion, answers);
+    }
+    return true;
+  }
+
+  return val && String(val).trim().length > 0;
+}
+
+/// Recursively collects one response entry per answered question down the chain the customer
+/// actually walked (top-level answer, then its follow-up if one was revealed and answered, etc).
+function collectAnswers(q: PharmaQuestion, answers: Record<string, any>, out: any[]) {
+  const val = answers[q.questionId];
+  if (val === undefined || val === null || String(val).trim() === "") return;
+
+  if (q.answerType === "Options") {
+    out.push({ questionId: q.questionId, selectedOptionId: val, answerText: null });
+    const selectedOpt = q.options?.find((o) => o.optionId === val);
+    if (selectedOpt?.hasFollowUpQuestion && selectedOpt.followUpQuestion) {
+      collectAnswers(selectedOpt.followUpQuestion, answers, out);
+    }
+  } else {
+    out.push({ questionId: q.questionId, selectedOptionId: null, answerText: String(val) });
+  }
+}
+
+/// Renders one question field (options or free text) and, once an option revealing a follow-up
+/// is selected, recursively renders that follow-up question beneath it.
+function QuestionField({
+  question,
+  label,
+  depth,
+  answers,
+  setAnswers,
+}: {
+  question: PharmaQuestion;
+  label: string;
+  depth: number;
+  answers: Record<string, any>;
+  setAnswers: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+}) {
+  const selectedOptId = answers[question.questionId];
+  const selectedOpt = question.options?.find((o) => o.optionId === selectedOptId);
+
+  const body = (
+    <div
+      className={
+        depth === 0
+          ? "bg-white border rounded-lg p-3 shadow-sm space-y-2"
+          : "bg-white border border-[#445D41]/20 rounded-lg p-3 space-y-2"
+      }
+    >
+      <div className="flex items-start justify-between gap-2">
+        <label className="text-xs md:text-sm font-semibold text-gray-800 flex items-start gap-1.5">
+          {depth > 0 && <CornerDownRight className="h-3.5 w-3.5 text-[#445D41] shrink-0 mt-0.5" />}
+          <span className="whitespace-pre-line">
+            {label}
+            {question.questionText}
+          </span>
+        </label>
+
+        {question.isRequired && (
+          <span className="flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium shrink-0">
+            <AlertCircle className="h-3 w-3" />
+            Required
+          </span>
+        )}
+      </div>
+
+      {question.answerType === "Options" && (
+        <div className="flex flex-wrap gap-2">
+          {question.options?.map((opt) => {
+            const selected = answers[question.questionId] === opt.optionId;
+
+            return (
+              <button
+                key={opt.optionId}
+                type="button"
+                onClick={() => {
+                  setAnswers((prev) => ({ ...prev, [question.questionId]: opt.optionId }));
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5
+                  ${
+                    selected
+                      ? "bg-[#445D41] text-white border-[#445D41] shadow"
+                      : "bg-white text-gray-700 border-gray-300 hover:border-[#445D41]"
+                  }
+                `}
+              >
+                {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
+                {opt.optionText}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {question.answerType !== "Options" && (
+        <textarea
+          rows={depth === 0 ? 3 : 2}
+          value={answers[question.questionId] ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            setAnswers((prev) => ({ ...prev, [question.questionId]: val }));
+          }}
+          placeholder="Type your answer here..."
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:ring-2 focus:ring-[#445D41]/30 focus:border-[#445D41] outline-none resize-y transition-all"
+        />
+      )}
+    </div>
+  );
+
+  const followUp = selectedOpt?.hasFollowUpQuestion ? selectedOpt.followUpQuestion : null;
+
+  return (
+    <div>
+      {body}
+      {followUp && (
+        <div className="mt-2 pl-3 border-l-2 border-[#445D41]/30">
+          <QuestionField
+            question={followUp}
+            label=""
+            depth={depth + 1}
+            answers={answers}
+            setAnswers={setAnswers}
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PharmaQuestionsModal({
@@ -53,31 +197,12 @@ export default function PharmaQuestionsModal({
 
   const [questions, setQuestions] = useState<PharmaQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [followUpAnswers, setFollowUpAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // ✅ Check required answers before allowing submit - NO CHARACTER LIMIT
-  const isFormValid = questions.every((q) => {
-    if (!q.isRequired) return true;
-
-    const val = answers[q.questionId];
-
-    if (q.answerType === "Options") {
-      if (!val) return false;
-      // also check follow-up if the selected option requires it
-      const selectedOpt = q.options?.find(o => o.optionId === val);
-      if (selectedOpt?.requiresFollowUpText) {
-        const followUp = followUpAnswers[q.questionId];
-        return !!(followUp && followUp.trim().length > 0);
-      }
-      return true;
-    }
-
-    // For Text/Number fields - just check if not empty (trim removes whitespace)
-    return val && String(val).trim().length > 0;
-  });
+  // ✅ Check required answers (recursively, down any answered follow-up chain) before allowing submit
+  const isFormValid = questions.every((q) => isQuestionAnswered(q, answers));
 
   // 🔥 LOAD QUESTIONS + CHECK EXISTING RESPONSES
   useEffect(() => {
@@ -131,29 +256,22 @@ export default function PharmaQuestionsModal({
           const existing: ExistingResponse[] = respJson?.data || [];
 
           if (existing.length > 0) {
+            // Every question in the chain — top-level or any nested follow-up — has its own
+            // response row keyed by its own questionId, so a flat map covers the whole tree.
             const prefilled: Record<string, any> = {};
-            const prefilledFollowUp: Record<string, string> = {};
-
             existing.forEach((r) => {
               prefilled[r.questionId] = r.selectedOptionId ?? r.answerText ?? "";
-              // if there's answerText alongside a selectedOptionId, it's a follow-up answer
-              if (r.selectedOptionId && r.answerText) {
-                prefilledFollowUp[r.questionId] = r.answerText;
-              }
             });
 
             setAnswers(prefilled);
-            setFollowUpAnswers(prefilledFollowUp);
             setIsEditMode(true);
           } else {
             setAnswers({});
-            setFollowUpAnswers({});
             setIsEditMode(false);
           }
         } else {
           // 🔥 ADD TO CART MODE → always fresh form
           setAnswers({});
-          setFollowUpAnswers({});
           setIsEditMode(false);
         }
       } catch (err) {
@@ -185,35 +303,10 @@ export default function PharmaQuestionsModal({
 
       const sessionId = isAuthenticated ? null : getPharmaSessionId();
 
-      const payload = {
-        sessionId,
-        answers: questions
-          .map((q) => {
-            const val = answers[q.questionId];
+      const collected: any[] = [];
+      questions.forEach((q) => collectAnswers(q, answers, collected));
 
-            // 🔴 skip empty answers
-            if (!val || String(val).trim() === "") {
-              return null;
-            }
-
-            if (q.answerType === "Options") {
-              const selectedOpt = q.options?.find(o => o.optionId === val);
-              const followUp = selectedOpt?.requiresFollowUpText ? (followUpAnswers[q.questionId] ?? null) : null;
-              return {
-                questionId: q.questionId,
-                selectedOptionId: val,
-                answerText: followUp,
-              };
-            }
-
-            return {
-              questionId: q.questionId,
-              selectedOptionId: null,
-              answerText: String(val),
-            };
-          })
-          .filter(Boolean),
-      };
+      const payload = { sessionId, answers: collected };
       const method = isEditMode ? "PUT" : "POST";
 
       const res = await fetch(
@@ -276,98 +369,14 @@ export default function PharmaQuestionsModal({
         ) : (
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-gray-50">
             {questions.map((q, index) => (
-              <div
+              <QuestionField
                 key={q.questionId}
-                className="bg-white border rounded-lg p-3 shadow-sm space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <label className="text-xs md:text-sm font-semibold text-gray-800">
-                    {index + 1}. {q.questionText}
-                  </label>
-
-                  {q.isRequired && (
-                    <span className="flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium shrink-0">
-                      <AlertCircle className="h-3 w-3" />
-                      Required
-                    </span>
-                  )}
-                </div>
-
-                {/* OPTIONS TYPE */}
-                {q.answerType === "Options" && (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {q.options?.map((opt) => {
-                        const selected = answers[q.questionId] === opt.optionId;
-
-                        return (
-                          <button
-                            key={opt.optionId}
-                            type="button"
-                            onClick={() => {
-                              setAnswers((prev) => ({ ...prev, [q.questionId]: opt.optionId }));
-                              // clear follow-up if switching to an option that doesn't need it
-                              if (!opt.requiresFollowUpText) {
-                                setFollowUpAnswers((prev) => ({ ...prev, [q.questionId]: "" }));
-                              }
-                            }}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5
-                              ${
-                                selected
-                                  ? "bg-[#445D41] text-white border-[#445D41] shadow"
-                                  : "bg-white text-gray-700 border-gray-300 hover:border-[#445D41]"
-                              }
-                            `}
-                          >
-                            {selected && <CheckCircle2 className="h-3.5 w-3.5" />}
-                            {opt.optionText}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Follow-up textarea — shown when selected option requiresFollowUpText */}
-                    {(() => {
-                      const selectedOptId = answers[q.questionId];
-                      const selectedOpt = q.options?.find(o => o.optionId === selectedOptId);
-                      if (!selectedOpt?.requiresFollowUpText) return null;
-                      return (
-                        <div className="mt-1">
-                          <label className="block text-[11px] font-medium text-gray-700 mb-1">
-                            {selectedOpt.followUpPrompt || "Please provide more details"} <span className="text-red-500">*</span>
-                          </label>
-                          <textarea
-                            rows={2}
-                            value={followUpAnswers[q.questionId] ?? ""}
-                            onChange={(e) =>
-                              setFollowUpAnswers((prev) => ({ ...prev, [q.questionId]: e.target.value }))
-                            }
-                            placeholder="Type your answer here..."
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:ring-2 focus:ring-[#445D41]/30 focus:border-[#445D41] outline-none resize-y transition-all"
-                          />
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                {/* TEXT / NUMBER TYPE - NO CHARACTER LIMIT */}
-                {q.answerType !== "Options" && (
-                  <textarea
-                    rows={3}
-                    value={answers[q.questionId] ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setAnswers((prev) => ({
-                        ...prev,
-                        [q.questionId]: val,
-                      }));
-                    }}
-                    placeholder="Type your answer here..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:ring-2 focus:ring-[#445D41]/30 focus:border-[#445D41] outline-none resize-y transition-all"
-                  />
-                )}
-              </div>
+                question={q}
+                label={`${index + 1}. `}
+                depth={0}
+                answers={answers}
+                setAnswers={setAnswers}
+              />
             ))}
           </div>
         )}

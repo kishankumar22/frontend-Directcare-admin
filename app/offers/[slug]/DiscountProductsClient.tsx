@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import ProductCard from "@/components/ProductCard";
 import { useVatRates } from "@/app/hooks/useVatRates";
 import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
@@ -73,6 +73,30 @@ const getFinalPrice = (item: any) => {
       setLoading(false);
     }
   }, [loading, hasMore, page, pageSize, discountId, sortBy, sortDirection]);
+
+  // Intersection Observer for infinite scrolling
+  const observerTarget = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [hasMore, loading, loadMore]);
 
   // Price range
   useEffect(() => {
@@ -454,11 +478,8 @@ const handleSortChange = (value: string) => {
                 ))}
               </div>
               {hasMore && (
-                <div className="text-center pb-8">
-                  <button onClick={loadMore} disabled={loading}
-                    className="inline-flex items-center gap-2 px-8 py-3 bg-[#445D41] text-white rounded-xl font-semibold hover:bg-[#3a5237] transition-colors disabled:opacity-60">
-                    {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Loading...</> : "Load More Products"}
-                  </button>
+                <div ref={observerTarget} className="text-center pb-8 pt-4 flex justify-center w-full min-h-[60px]">
+                  {loading && <Loader2 className="h-6 w-6 animate-spin text-[#445D41]" />}
                 </div>
               )}
             </>

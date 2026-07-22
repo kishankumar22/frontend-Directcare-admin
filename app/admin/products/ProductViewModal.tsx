@@ -1110,6 +1110,20 @@ url: getImageUrl(variant.imageUrl || undefined),
                           </div>
                         </div>
 
+                        {/* Variant Cart Limits (override) */}
+                        {((variant as any).orderMinimumQuantity != null || (variant as any).orderMaximumQuantity != null) && (
+                          <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-purple-500/20">
+                            <div className="flex flex-col">
+                              <p className="text-xs text-slate-400 font-bold mb-1">Min Quantity (override)</p>
+                              <p className="text-sm text-white font-bold">{(variant as any).orderMinimumQuantity ?? '—'}</p>
+                            </div>
+                            <div className="flex flex-col">
+                              <p className="text-xs text-slate-400 font-bold mb-1">Max Quantity (override)</p>
+                              <p className="text-sm text-white font-bold">{(variant as any).orderMaximumQuantity ?? '—'}</p>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Variant Sales Stats */}
                         {((variant as any).fakeSaleCount !== undefined || (variant as any).saleCount !== undefined) && (
                           <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-purple-500/20">

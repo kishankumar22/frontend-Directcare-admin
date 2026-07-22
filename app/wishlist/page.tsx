@@ -27,12 +27,16 @@ const handleAddToCart = (item: WishlistItem) => {
   const stock = item.stockQuantity ?? 0;
 
   const productData = (item as any).productData;
+  const wishlistVariant = item.variantId
+    ? productData?.variants?.find((v: any) => v.id === item.variantId)
+    : null;
 
+  // Variant-level min/max override the product-level default when set.
   const maxQty =
-    productData?.orderMaximumQuantity ?? Infinity;
+    wishlistVariant?.orderMaximumQuantity ?? productData?.orderMaximumQuantity ?? Infinity;
 
   const minQty =
-    productData?.orderMinimumQuantity ?? 1;
+    wishlistVariant?.orderMinimumQuantity ?? productData?.orderMinimumQuantity ?? 1;
 
   const finalQty = minQty;
 
@@ -106,7 +110,8 @@ systemDiscountAmount:
     variantId: item.variantId ?? null,
   });
 
-  toast.success(`${item.name} added to cart`);
+  // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+  // showing exactly what was just added — no separate toast needed here.
 };
 
   if (wishlist.length === 0) {

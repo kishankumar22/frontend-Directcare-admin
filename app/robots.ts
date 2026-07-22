@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/admin/', '/api/'],
       },
     ],
-    sitemap: 'https://test.direct-care.co.uk/sitemap.xml',
+    sitemap: 'https://api.direct-care.co.uk/sitemap.xml',
   }
 }

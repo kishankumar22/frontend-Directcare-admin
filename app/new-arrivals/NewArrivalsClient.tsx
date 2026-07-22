@@ -1,264 +1,105 @@
-// app/category/[slug]/CategoryClient.tsx
 "use client";
 
-import { useState, useMemo, useTransition, useEffect, useCallback, useRef, } from "react";
-import Image from "next/image";
-import { useRouter, useSearchParams, useParams } from "next/navigation";
-import { getVatRate } from "@/app/lib/vatHelpers";
-import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
+import { useState, useMemo, useTransition, useEffect, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ShoppingCart, Star, SlidersHorizontal, X, Search, Grid3x3, LayoutGrid, ChevronRight, ExternalLink, BadgePercent, Grid2x2, AwardIcon, Loader2, } from "lucide-react";
+import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
+import { Star, SlidersHorizontal, X, Search, ChevronRight, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/context/CartContext";
-import { useToast } from "@/components/toast/CustomToast";
-import { getDiscountBadge, getDiscountedPrice, } from "@/app/lib/discountHelpers";
-
+import { getDiscountedPrice } from "@/app/lib/discountHelpers";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
-import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import ProductCard from "@/components/ProductCard";
 
-// ---------- Types ----------
-interface ProductImage {
-  id: string;
-  imageUrl: string;
-  altText: string;
-  sortOrder: number;
-  isMain: boolean;
-}
-
-interface Product {
+interface CategoryNode {
   id: string;
   name: string;
-  description: string;
-  shortDescription: string;
   slug: string;
-  sku: string;
-  price: number;
-  oldPrice: number;
-  stockQuantity: number;
-  images: ProductImage[];
-  averageRating: number;
-  reviewCount: number;
-  tags: string;
-  vatExempt?: boolean;
-  gender?: string;
-  brands?: {
-    brandId: string;
-    brandName: string;
-    isPrimary: boolean;
-  }[];
-  categories?: {
-    categoryId: string;
-    categorySlug: string;
-    isPrimary: boolean;
-  }[];
-  disableBuyButton?: boolean;
-  excludeFromLoyaltyPoints?: boolean;
-  loyaltyPointsEarnable?: number;
-  loyaltyPointsMessage?: string;
-  shipSeparately?: boolean;
-  orderMinimumQuantity?: number;
-  orderMaximumQuantity?: number;
+  productCount?: number;
 }
-
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  slug: string;
-  imageUrl: string;
-  isActive: boolean;
-  sortOrder: number;
-  metaTitle?: string | null;
-  metaDescription?: string | null;
-  metaKeywords?: string | null;
-  productCount: number;
-  subCategories: Category[];
-  schemaDescription?: string | null;
-}
-type BreadcrumbItem = {
-  label: string;
-  href?: string;
-};
 
 interface Brand {
   id: string;
   name: string;
   slug: string;
-  logoUrl: string;
-  isPublished: boolean;
-  productCount: number;
 }
 
-interface CategoryClientProps {
-  category: Category | null;
-  // 🧭 Breadcrumbs (NEW)
-  breadcrumbs: BreadcrumbItem[];
-  initialProducts: Product[];
+interface NewArrivalsClientProps {
+  categories: CategoryNode[];
+  brands: Brand[];
+  initialProducts: any[];
   totalCount: number;
   currentPage: number;
   pageSize: number;
   totalPages: number;
   initialSortBy: string;
   initialSortDirection: string;
-  brands: Brand[];
-  discount?: number | null; // ✅ ADD THIS
+  vatRates: any[];
 }
-
-// ---------- Debounce hook ----------
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
-// ---------- Component ----------
 
 export default function NewArrivalsClient({
-  category,
-  breadcrumbs,
+  categories,
+  brands,
   initialProducts,
-  totalCount,
   currentPage,
   pageSize,
   totalPages,
   initialSortBy,
   initialSortDirection,
-  brands,
-  vatRates, // ✅ SERVER SE AAYA
-  discount, // ✅ ADD THIS
-}: CategoryClientProps & { vatRates: any[] }) {
+  vatRates,
+}: NewArrivalsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const routeParams = useParams();
-  // ✅ Always use URL slug (not category.slug which may differ from URL)
-  const urlSlug = (routeParams?.slug as string) ?? category?.slug ?? "";
-  const isOfferPage = searchParams.get("offer") === "true";
-  const offerDiscountIds = useMemo(
-    () =>
-      (searchParams.get("discountIds") || "")
-        .split(",")
-        .map((id) => id.trim())
-        .filter(Boolean),
-    [searchParams]
-  );
-
-  const toast = useToast();
   const [isPending, startTransition] = useTransition();
-  const [products, setProducts] = useState<Product[]>(initialProducts ?? []);
-  const [page, setPage] = useState(currentPage ?? 1);
-  const [hasMore, setHasMore] = useState(
-    totalPages ? currentPage < totalPages : true
-  );
 
+  const [products, setProducts] = useState<any[]>(initialProducts ?? []);
+  const [page, setPage] = useState(currentPage ?? 1);
+  const [hasMore, setHasMore] = useState(totalPages ? currentPage < totalPages : true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const isFetchingRef = useRef(false);
-  const fetchCbRef = useRef<() => void>(() => { });
-  const [sortBy, setSortBy] = useState((initialSortBy ?? "default").toLowerCase());
+  const fetchCbRef = useRef<() => void>(() => {});
+
+  const [sortBy, setSortBy] = useState((initialSortBy ?? "displayorder").toLowerCase());
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | "default">(
     initialSortDirection as "asc" | "desc" | "default"
   );
+
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+    const slugsParam = searchParams.get("categorySlug");
+    if (!slugsParam) return [];
+    const slugs = slugsParam.split(",").filter(Boolean);
+    return categories.filter((c) => slugs.includes(c.slug)).map((c) => c.id);
+  });
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>(() => {
     const brandsParam = searchParams.get("brands");
     if (!brandsParam) return [];
     const slugs = brandsParam.split(",").filter(Boolean);
-    return brands.filter(b => slugs.includes(b.slug)).map(b => b.id);
-  });
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>(() => {
-    const subSlugs = searchParams.get("subCategorySlug");
-    if (!subSlugs) return [];
-    return subSlugs.split(",").filter(Boolean);
+    return brands.filter((b) => slugs.includes(b.slug)).map((b) => b.id);
   });
 
-  // dragRange: local override while user is actively dragging (cleared after debounce commits)
   const [dragRange, setDragRange] = useState<[number, number] | null>(null);
-
   const [minRating, setMinRating] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
-  const [gridCols, setGridCols] = useState(3);
-
-
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
 
-  const availableBrands = useMemo(() => {
-    const map = new Map();
-    const filteredByCat = selectedSubCategories.length > 0 
-      ? products.filter(p => p.categories?.some(c => selectedSubCategories.includes(c.categorySlug)))
-      : products;
-
-    filteredByCat.forEach((product) => {
-      product.brands?.forEach((brand) => {
-        map.set(brand.brandId, {
-          id: brand.brandId,
-          name: brand.brandName,
-        });
-      });
-    });
-    return Array.from(map.values());
-  }, [products, selectedSubCategories]);
-
-  const availableCategories = useMemo(() => {
-    const map = new Map();
-    products.forEach((product) => {
-      product.categories?.forEach((cat) => {
-        if (!map.has(cat.categoryId)) {
-          const name = cat.categorySlug
-            .split('-')
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(' ');
-          map.set(cat.categoryId, {
-            id: cat.categoryId,
-            slug: cat.categorySlug,
-            name: name
-          });
-        }
-      });
-    });
-    return Array.from(map.values());
-  }, [products]);
-
-  // ---------- Compute slider bounds (min/max track) from all loaded products ----------
-
-  // It is derived from URL on every render (see committedRange below).
   useEffect(() => {
     if (!products || products.length === 0) return;
-
     const flat = flattenProductsForListing(products as any);
     const prices = flat
       .map((item: any) => {
         const v = item.variantForCard;
-        return typeof v?.price === "number" && v.price > 0
-          ? v.price
-          : (item.productData.price ?? 0);
+        return typeof v?.price === "number" && v.price > 0 ? v.price : (item.productData.price ?? 0);
       })
       .filter((p: number) => p > 0);
-
     if (prices.length === 0) return;
-
     const newMin = Math.floor(Math.min(...prices));
     const newMax = Math.ceil(Math.max(...prices));
-
-    // Expand bounds only — never shrink (so slider track accommodates all products seen so far)
     setMinPrice((prev) => (prev === 0 ? newMin : Math.min(prev, newMin)));
     setMaxPrice((prev) => Math.max(prev, newMax));
   }, [products]);
 
-  // ---------- Price range (URL is single source of truth) ----------
-  // committedRange = what the server is actually filtering by (from URL)
-  // dragRange = user's in-progress drag (overrides committedRange visually until debounce commits)
   const urlPriceParam = searchParams.get("price");
   const committedRange = useMemo<[number, number]>(() => {
     if (urlPriceParam && maxPrice > 0) {
@@ -267,106 +108,14 @@ export default function NewArrivalsClient({
         return [parts[0], Math.min(parts[1], maxPrice)];
       }
     }
-    return [minPrice, maxPrice]; // default: full range
+    return [minPrice, maxPrice];
   }, [urlPriceParam, minPrice, maxPrice]);
 
-  // What the slider shows: drag in progress → dragRange, else committed URL value
   const displayRange: [number, number] = dragRange ?? committedRange;
 
-  // ---------- Filtering + sorting ----------
-  const filteredAndSortedProducts = useMemo(() => {
-    const filtered = products.filter((product) => {
-      // 🔥 OFFER DISCOUNT FILTER (NON-BREAKING)
-      // 🔥 OFFER / DISCOUNT FILTER (HYBRID – OPTION 3)
-
-      // Case 1: exact discount selected (chip click)
-      if (typeof discount === "number") {
-        const now = new Date();
-
-        const hasExactDiscount = (product as any).assignedDiscounts?.some(
-          (d: any) =>
-            d.isActive === true &&
-            d.usePercentage === true &&
-            d.discountPercentage === discount &&
-            (!d.startDate || now >= new Date(d.startDate)) &&
-            (!d.endDate || now <= new Date(d.endDate))
-        );
-
-        if (!hasExactDiscount) return false;
-      }
-
-
-      // Case 2: category offer page → show products for the clicked category offer only.
-      else if (isOfferPage) {
-        const now = new Date();
-
-        const hasValidDiscount = (product as any).assignedDiscounts?.some(
-          (d: any) => {
-            if (offerDiscountIds.length > 0 && !offerDiscountIds.includes(d.id)) {
-              return false;
-            }
-            if (!d.isActive) return false;
-
-            const start = d.startDate ? new Date(d.startDate) : null;
-            const end = d.endDate ? new Date(d.endDate) : null;
-
-            const started = !start || now >= start;
-            const notEnded = !end || now <= end;
-
-            return started && notEnded;
-          }
-        );
-
-        if (!hasValidDiscount) return false;
-      }
-
-
-
-      // Subcategory filter (when user selects a specific subcategory)
-      // Backend already filters by categorySlug, so no need to re-check parent category here
-      // if (selectedSubCategories.length > 0) {
-      //   const productCategoryIds =
-      //     product.categories?.map((c) => c.categoryId) ?? [];
-      //   const match = productCategoryIds.some((id) =>
-      //     selectedSubCategories.includes(id)
-      //   );
-      //   if (!match) return false;
-      // }
-
-
-      // Brand, price, rating filters are handled server-side — no client-side filter needed
-
-      return true;
-    });
-    const getEffectivePrice = (product: any) => {
-      const defaultVariant =
-        product.variants?.find((v: any) => v.isDefault) ??
-        product.variants?.[0];
-
-      const basePrice =
-        typeof defaultVariant?.price === "number" &&
-          defaultVariant.price > 0
-          ? defaultVariant.price
-          : product.price;
-
-      return getDiscountedPrice(product, basePrice);
-    };
-
-    return filtered;
-  }, [
-    products,
-    selectedBrands,
-    minRating,
-    selectedSubCategories,
-    discount,
-    isOfferPage,
-    offerDiscountIds,
-  ]);
-
   const flattenedProducts = useMemo(() => {
-    const flat = flattenProductsForListing(filteredAndSortedProducts);
+    const flat = flattenProductsForListing(products);
 
-    // Parse price range from URL — filter individual variant cards precisely
     let priceMin: number | null = null;
     let priceMax: number | null = null;
     if (urlPriceParam) {
@@ -379,113 +128,53 @@ export default function NewArrivalsClient({
 
     const priceFiltered = (priceMin !== null && priceMax !== null)
       ? flat.filter((item: any) => {
-        const rawPrice = typeof item.variantForCard?.price === "number" && item.variantForCard.price > 0
-          ? item.variantForCard.price
-          : item.productData.price ?? 0;
-        return rawPrice >= priceMin! && rawPrice <= priceMax!;
-      })
+          const rawPrice = typeof item.variantForCard?.price === "number" && item.variantForCard.price > 0
+            ? item.variantForCard.price
+            : item.productData.price ?? 0;
+          return rawPrice >= priceMin! && rawPrice <= priceMax!;
+        })
       : flat;
 
-    // 🔥 REMOVE DUPLICATES
     const seen = new Set<string>();
-
     const unique = priceFiltered.filter((item: any) => {
       const key = `${item.productData.id}-${item.variantForCard?.id ?? "parent"}`;
-
       if (seen.has(key)) return false;
-
       seen.add(key);
       return true;
     });
 
     const getCardPrice = (item: any) => {
-      const basePrice =
-        typeof item.variantForCard?.price === "number"
-          ? item.variantForCard.price
-          : item.productData.price;
-
+      const basePrice = typeof item.variantForCard?.price === "number" ? item.variantForCard.price : item.productData.price;
       return getDiscountedPrice(item.productData, basePrice);
     };
 
-    // 🔥 SORT AFTER UNIQUE
     const sorted = [...unique].sort((a, b) => {
-      // ✅ STEP 1: STOCK PRIORITY (MOST IMPORTANT)
-      const stockA =
-        a.variantForCard?.stockQuantity ??
-        a.productData.stockQuantity ??
-        0;
-
-      const stockB =
-        b.variantForCard?.stockQuantity ??
-        b.productData.stockQuantity ??
-        0;
-
+      const stockA = a.variantForCard?.stockQuantity ?? a.productData.stockQuantity ?? 0;
+      const stockB = b.variantForCard?.stockQuantity ?? b.productData.stockQuantity ?? 0;
       const isOutA = stockA <= 0;
       const isOutB = stockB <= 0;
+      if (isOutA !== isOutB) return isOutA ? 1 : -1;
 
-      // 👉 in-stock first
-      if (isOutA !== isOutB) {
-        return isOutA ? 1 : -1;
-      }
       if (sortBy === "name") {
-
         const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();
         const nameB = (b.cardSlug ?? b.productData.name).toLowerCase();
-
         const comparison = nameA.localeCompare(nameB);
-
         return sortDirection === "asc" ? comparison : -comparison;
       }
-
       if (sortBy === "price") {
         const comparison = getCardPrice(a) - getCardPrice(b);
         return sortDirection === "asc" ? comparison : -comparison;
       }
       if (sortBy === "rating") {
-  const ratingA = a.productData.averageRating ?? 0;
-  const ratingB = b.productData.averageRating ?? 0;
-
-  // same rating ho to review count se sort karo
-  if (ratingA === ratingB) {
-    const reviewsA = a.productData.reviewCount ?? 0;
-    const reviewsB = b.productData.reviewCount ?? 0;
-
-    return sortDirection === "asc"
-      ? reviewsA - reviewsB
-      : reviewsB - reviewsA;
-  }
-
-  return sortDirection === "asc"
-    ? ratingA - ratingB
-    : ratingB - ratingA;
-}
-
-      // ✅ DEFAULT SORT: rank each variant card by ITS OWN sale count (variant-level),
-      // then by name. This keeps low-selling variants of a product from riding to the top
-      // alongside a high-selling sibling variant.
-      const saleA = a.variantForCard?.saleCount ?? a.productData.saleCount ?? 0;
-      const saleB = b.variantForCard?.saleCount ?? b.productData.saleCount ?? 0;
-      if (saleA !== saleB) return saleB - saleA;
-
-      const dNameA = (a.cardSlug ?? a.productData.name ?? "").toLowerCase();
-      const dNameB = (b.cardSlug ?? b.productData.name ?? "").toLowerCase();
-      return dNameA.localeCompare(dNameB);
+        const ratingA = a.productData.averageRating ?? 0;
+        const ratingB = b.productData.averageRating ?? 0;
+        return ratingB - ratingA;
+      }
+      return 0; // displayorder / default — keep server order
     });
 
     return sorted;
-
-  }, [filteredAndSortedProducts, sortBy, sortDirection, urlPriceParam]);
-
-  // ---------- Helpers ----------
-
-  const getMainImage = useCallback((images: ProductImage[]) => {
-    const mainImage = images.find((img) => img.isMain) || images[0];
-    return mainImage?.imageUrl
-      ? mainImage.imageUrl.startsWith("http")
-        ? mainImage.imageUrl
-        : `${process.env.NEXT_PUBLIC_API_URL}${mainImage.imageUrl}`
-      : "/placeholder-product.jpg";
-  }, []);
+  }, [products, sortBy, sortDirection, urlPriceParam]);
 
   const fetchMoreProducts = useCallback(async () => {
     if (isFetchingRef.current || !hasMore) return;
@@ -493,21 +182,17 @@ export default function NewArrivalsClient({
     setIsLoadingMore(true);
 
     try {
-      // Build API params the same way page.tsx getProducts() does —
-      // so all active filters are correctly forwarded on scroll pages.
       const query = new URLSearchParams();
       query.set("page", String(page + 1));
       query.set("pageSize", String(pageSize));
-      if (sortBy !== "default") query.set("sortBy", sortBy);
-      if (sortDirection !== "default") query.set("sortDirection", sortDirection);
-
       query.set("markAsNew", "true");
       query.set("isPublished", "true");
-      // subCategorySlug (comma-separated) → categorySlug, else main slug
-      const subSlug = searchParams.get("subCategorySlug");
-      if (subSlug) query.set("categorySlug", subSlug);
+      if (sortBy) query.set("sortBy", sortBy);
+      if (sortDirection && sortDirection !== "default") query.set("sortDirection", sortDirection);
 
-      // price "X-Y" → minPrice + maxPrice  (page.tsx does same conversion)
+      const categorySlugParam = searchParams.get("categorySlug");
+      if (categorySlugParam) query.set("categorySlug", categorySlugParam);
+
       const priceParam = searchParams.get("price");
       if (priceParam) {
         const [pMin, pMax] = priceParam.split("-");
@@ -515,348 +200,144 @@ export default function NewArrivalsClient({
         if (pMax) query.set("maxPrice", pMax);
       }
 
-      // brands: selectedBrands state already holds IDs (resolved from slugs on mount)
-      if (selectedBrands.length > 0) {
-        query.set("brandIds", selectedBrands.join(","));
-      }
+      if (selectedBrands.length > 0) query.set("brandIds", selectedBrands.join(","));
 
-      // rating
       const ratingParam = searchParams.get("minRating");
       if (ratingParam) query.set("minRating", ratingParam);
 
-      const discountIdsParam = searchParams.get("discountIds");
-      if (discountIdsParam) query.set("discountIds", discountIdsParam);
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`
-      );
-
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`);
       if (!res.ok) throw new Error(`Failed to load products: ${res.status}`);
-
       const json = await res.json();
 
       setProducts((prev) => [...prev, ...json.data.items]);
       setPage(json.data.page);
-      setHasMore(json.data.hasNext);
+      setHasMore(json.data.hasNext ?? json.data.page < json.data.totalPages);
     } catch (e) {
       console.error(e);
     } finally {
       isFetchingRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [page, hasMore, searchParams, sortBy, sortDirection, urlSlug, selectedBrands]);
-
+  }, [page, hasMore, pageSize, searchParams, sortBy, sortDirection, selectedBrands]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // Always keep ref pointing to latest fetchMoreProducts (no observer dep on it)
   useEffect(() => {
     fetchCbRef.current = fetchMoreProducts;
   }, [fetchMoreProducts]);
 
   const loadMoreRef = useCallback((node: HTMLDivElement | null) => {
     if (observerRef.current) observerRef.current.disconnect();
-
     if (node && hasMore) {
       observerRef.current = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
-            fetchCbRef.current();
-          }
+          if (entry.isIntersecting) fetchCbRef.current();
         },
         { rootMargin: "800px" }
       );
       observerRef.current.observe(node);
     }
-  }, [hasMore, products.length]);
+  }, [hasMore]);
 
-  // Reset products whenever the server provides new initialProducts (covers both URL changes
-  // and the delayed server re-render after a filter change like subcategory multi-select)
   useEffect(() => {
     setProducts(initialProducts ?? []);
     setPage(currentPage ?? 1);
     setHasMore(totalPages ? currentPage < totalPages : true);
   }, [initialProducts, currentPage, totalPages]);
 
-
-
-
-  const getDefaultVariant = (product: any, cardSlug?: string) => {
-    if (product.variants?.length > 0) {
-      return product.variants.find((v: any) => v.isDefault) ?? product.variants[0];
-    }
-    return null;
-  };
-
-
   const updateServerFilters = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams(searchParams.toString());
-
       Object.entries(updates).forEach(([key, value]) => {
-        if (value) {
-          params.set(key, value);
-        } else {
-          params.delete(key);
-        }
+        if (value) params.set(key, value);
+        else params.delete(key);
       });
-
       startTransition(() => {
-        // same pattern as /products page
-        router.push(`/new-arrivals?${params.toString()}`, {
-          scroll: false,
-        });
+        router.push(`/new-arrivals?${params.toString()}`, { scroll: false });
       });
     },
-    [router, searchParams, urlSlug]
+    [router, searchParams]
   );
 
-const handleSortChange = useCallback((value: string) => {
-  const [newSortBy, newDirection] = value.split("-");
-
-  setSortBy(newSortBy);
-  setSortDirection(newDirection as "asc" | "desc" | "default");
-
-  updateServerFilters({
-    sortBy: newSortBy === "default" ? "" : newSortBy,
-    sortDirection: newDirection === "default" ? "" : newDirection,
-  });
-}, [updateServerFilters]);
-  const [showPharmaModal, setShowPharmaModal] = useState(false);
-  const [pendingProduct, setPendingProduct] = useState<{
-    product: any;
-    cardSlug?: string;
-  } | null>(null);
-
-  // 🔒 double-submit protection
-  const pharmaApprovedRef = useRef(false);
-  const handlePharmaGuard = (
-    product: any,
-    cardSlug?: string
-  ): boolean => {
-    // already approved → allow
-    if (pharmaApprovedRef.current) return true;
-
-    if (product.isPharmaProduct) {
-      setPendingProduct({ product, cardSlug });
-      setShowPharmaModal(true);
-      return false;
-    }
-
-    return true;
-  };
-  const getInitialQty = (product: any) => {
-    return product.orderMinimumQuantity ?? 1;
-  };
+  const handleSortChange = useCallback((value: string) => {
+    const [newSortBy, newDirection] = value.split("-");
+    setSortBy(newSortBy);
+    setSortDirection(newDirection as "asc" | "desc" | "default");
+    updateServerFilters({
+      sortBy: newSortBy === "displayorder" ? "" : newSortBy,
+      sortDirection: newDirection === "asc" && newSortBy === "displayorder" ? "" : newDirection,
+    });
+  }, [updateServerFilters]);
 
   const resetFilters = useCallback(() => {
     setSelectedBrands([]);
-    setSelectedSubCategories([]);
+    setSelectedCategories([]);
     setMinRating(0);
-    setSortBy("name");
+    setSortBy("displayorder");
     setSortDirection("asc");
-    setDragRange(null); // clear any in-progress drag
+    setDragRange(null);
+    router.push(`/new-arrivals`);
+  }, [router]);
 
-    const params = new URLSearchParams();
-    if (discount) params.set("discount", String(discount));
-
-    router.push(`/new-arrivals?${params.toString()}`);
-  }, [router, urlSlug, discount]);
-
-  // Category toggle
-  const handleSubCategoryChange = useCallback((subSlug: string, checked: boolean) => {
+  const handleCategoryChange = useCallback((cat: CategoryNode, checked: boolean) => {
     const newSelected = checked
-      ? [...selectedSubCategories, subSlug]
-      : selectedSubCategories.filter((s) => s !== subSlug);
+      ? [...selectedCategories, cat.id]
+      : selectedCategories.filter((s) => s !== cat.id);
+    setSelectedCategories(newSelected);
+    const slugs = newSelected
+      .map((id) => categories.find((c) => c.id === id)?.slug ?? "")
+      .filter(Boolean)
+      .join(",");
+    updateServerFilters({ categorySlug: slugs });
+  }, [selectedCategories, categories, updateServerFilters]);
 
-    setSelectedSubCategories(newSelected);
-    updateServerFilters({ subCategorySlug: newSelected.length > 0 ? newSelected.join(",") : "" });
-  }, [selectedSubCategories, updateServerFilters]);
-
-  // Brand toggle — server-side refetch with SEO-friendly slugs in URL
   const handleBrandChange = useCallback((brandId: string, checked: boolean) => {
     const newSelected = checked
       ? [...selectedBrands, brandId]
       : selectedBrands.filter((b) => b !== brandId);
-
     setSelectedBrands(newSelected);
-
-    // Use brand slugs in URL (not GUIDs)
     const slugs = newSelected
-      .map(id => availableBrands.find(b => b.id === id)?.slug ?? "")
+      .map((id) => brands.find((b) => b.id === id)?.slug ?? "")
       .filter(Boolean);
-
     updateServerFilters({ brands: slugs.join(",") });
-  }, [selectedBrands, availableBrands, updateServerFilters]);
+  }, [selectedBrands, brands, updateServerFilters]);
 
-  // Price slider — local drag feedback + debounced URL commit
   const priceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handlePriceChange = useCallback((v: number[]) => {
-    setDragRange(v as [number, number]); // immediate visual feedback
+    setDragRange(v as [number, number]);
     if (priceDebounceRef.current) clearTimeout(priceDebounceRef.current);
     priceDebounceRef.current = setTimeout(() => {
-      setDragRange(null); // clear drag override — URL will drive the slider now
+      setDragRange(null);
       updateServerFilters({ price: `${v[0]}-${v[1]}` });
     }, 600);
   }, [updateServerFilters]);
 
-  // Rating radio — server-side refetch
   const handleRatingChange = useCallback((rating: number) => {
     setMinRating(rating);
     updateServerFilters({ minRating: rating > 0 ? String(rating) : "" });
   }, [updateServerFilters]);
 
-  const { addToCart, cart } = useCart();
-  const handleAddToCart = useCallback(
-    (product: any, cardSlug?: string) => {
-      // if (product.disableBuyButton) return;
-
-      // 🔥 PHARMA GUARD
-      if (!handlePharmaGuard(product, cardSlug)) return;
-      const defaultVariant: any = getDefaultVariant(product);
-
-      const basePrice =
-        typeof defaultVariant?.price === "number" && defaultVariant.price > 0
-          ? defaultVariant.price
-          : product.price;
-
-      const finalPrice = getDiscountedPrice(product, basePrice);
-
-      const imageUrl = defaultVariant?.imageUrl
-        ? defaultVariant.imageUrl.startsWith("http")
-          ? defaultVariant.imageUrl
-          : `${process.env.NEXT_PUBLIC_API_URL}${defaultVariant.imageUrl}`
-        : product.images?.[0]?.imageUrl
-          ? product.images[0].imageUrl.startsWith("http")
-            ? product.images[0].imageUrl
-            : `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
-          : "/placeholder-product.jpg";
-
-      // ============================
-      // ⭐ MIN / MAX / STOCK LOGIC
-      // ============================
-      const maxQty = product.orderMaximumQuantity ?? Infinity;
-      const finalQty = getInitialQty(product);
-
-
-      const variantId = defaultVariant?.id ?? null;
-
-      const existingCartQty = cart
-        .filter(
-          (c) =>
-            c.productId === product.id &&
-            (c.variantId ?? null) === variantId
-        )
-        .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
-
-      const stockQty =
-        defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
-
-      const allowedMaxQty = Math.min(stockQty, maxQty);
-
-      if (existingCartQty + finalQty > allowedMaxQty) {
-        toast.error(`Maximum allowed quantity is ${allowedMaxQty}`);
-        return;
-      }
-      const vatRate = getVatRate(
-        vatRates,
-        (product as any).vatRateId,
-        product.vatExempt
-      );
-
-      // ============================
-      // ⭐ ADD TO CART
-      // ============================
-
-      addToCart({
-        id: `${variantId ?? product.id}-one`,
-        productId: product.id,
-        name: defaultVariant
-          ? `${product.name} (${[
-            defaultVariant.option1Value,
-            defaultVariant.option2Value,
-            defaultVariant.option3Value,
-          ]
-            .filter(Boolean)
-            .join(", ")})`
-          : product.name,
-        price: finalPrice,
-        priceBeforeDiscount: basePrice,
-        finalPrice: finalPrice,
-        discountAmount: basePrice - finalPrice,
-        quantity: finalQty,
-        image: imageUrl,
-        sku: defaultVariant?.sku ?? product.sku,
-        variantId: variantId,
-        vatRate: vatRate,
-        vatIncluded: vatRate !== null,
-
-        slug: cardSlug ?? product.slug,
-        variantOptions: {
-          option1: defaultVariant?.option1Value ?? null,
-          option2: defaultVariant?.option2Value ?? null,
-          option3: defaultVariant?.option3Value ?? null,
-        },
-        shipSeparately: product.shipSeparately,
-        nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
-        sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
-        productData: JSON.parse(JSON.stringify(product)),
-      });
-
-      if (product.orderMinimumQuantity > 1) {
-        toast.warning(
-          `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
-        );
-      } else {
-        toast.success(`${product.name} added to cart! 🛒`);
-      }
-
-
-    },
-    [toast, addToCart, cart]
-  );
-
   const anyFilterApplied =
     selectedBrands.length > 0 ||
-    selectedSubCategories.length > 0 ||
+    selectedCategories.length > 0 ||
     minRating > 0 ||
     !!urlPriceParam;
 
-  // ---------- JSX ----------
   return (
     <div className="min-h-screen bg-gray-50">
       {isPending && (
         <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-gray-200">
-          <div
-            className="h-full bg-[#445D41] animate-pulse"
-            style={{ width: "70%" }}
-          />
+          <div className="h-full bg-[#445D41] animate-pulse" style={{ width: "70%" }} />
         </div>
       )}
       <main className="max-w-7xl mx-auto px-3 md:px-4 py-3 md:py-4">
         <div className="hidden md:flex items-center justify-between gap-4 mb-2">
-
-          {/* LEFT: Breadcrumb */}
           <nav className="flex items-center flex-wrap gap-1 text-xs md:text-sm text-gray-600">
-            {breadcrumbs.map((crumb, index) => (
-              <div key={index} className="flex items-center gap-1 flex-shrink-0">
-                {index > 0 && (
-                  <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
-                )}
-                {crumb.href ? (
-                  <Link href={crumb.href} className="hover:text-[#445D41] transition-colors truncate max-w-[80px] md:max-w-none">
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">
-                    {crumb.label}
-                  </span>
-                )}
-              </div>
-            ))}
+            <Link href="/" className="hover:text-[#445D41] transition-colors">Home</Link>
+            <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
+            <span className="font-semibold text-gray-900">Newly Added Products</span>
           </nav>
 
-          {/* RIGHT: Sort */}
           <div className="flex items-center gap-3">
             {anyFilterApplied && (
               <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap animate-in fade-in duration-300">
@@ -868,7 +349,7 @@ const handleSortChange = useCallback((value: string) => {
               onChange={(e) => handleSortChange(e.target.value)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
             >
-              <option value="default-default">Default Sorting</option>
+              <option value="displayorder-asc">Default Sorting</option>
               <option value="name-asc">A-Z</option>
               <option value="name-desc">Z-A</option>
               <option value="price-asc">Low-High</option>
@@ -876,25 +357,22 @@ const handleSortChange = useCallback((value: string) => {
               <option value="rating-desc">Popularity</option>
             </select>
           </div>
-
         </div>
 
-        {/* Filter + Sort bar — below breadcrumbs */}
         <div className="flex items-center justify-between gap-2 mb-3 lg:hidden">
-          {/* Mobile filter button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 active:bg-gray-50 flex-shrink-0"
           >
             <SlidersHorizontal className="h-4 w-4" />
             <span>Filters</span>
-            {(selectedBrands.length > 0 || selectedSubCategories.length > 0 || minRating > 0) && (
+            {(selectedBrands.length > 0 || selectedCategories.length > 0 || minRating > 0) && (
               <span className="ml-0.5 bg-[#445D41] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                {selectedBrands.length + selectedSubCategories.length + (minRating > 0 ? 1 : 0)}
+                {selectedBrands.length + selectedCategories.length + (minRating > 0 ? 1 : 0)}
               </span>
             )}
           </button>
-          
+
           <div className="flex items-center gap-2 min-w-0">
             {anyFilterApplied && (
               <span className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap truncate animate-in fade-in duration-300">
@@ -906,6 +384,7 @@ const handleSortChange = useCallback((value: string) => {
               onChange={(e) => handleSortChange(e.target.value)}
               className="px-2 py-2 border border-gray-300 rounded-lg bg-white text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41] flex-shrink-0"
             >
+              <option value="displayorder-asc">Default</option>
               <option value="name-asc">A-Z</option>
               <option value="name-desc">Z-A</option>
               <option value="price-asc">Low-High</option>
@@ -913,461 +392,266 @@ const handleSortChange = useCallback((value: string) => {
             </select>
           </div>
         </div>
-{/* Category header */}
-<div className="flex gap-8">
-  <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar">
-    <Card className="shadow-sm">
-      <CardContent className="p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b mb-3">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-[#445D41]" />
-            <h2 className="font-semibold text-sm text-gray-900">Filters</h2>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetFilters}
-            disabled={isPending}
-            className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 px-2"
-          >
-            Reset
-          </Button>
-        </div>
 
-        {/* Category Filter */}
-        {availableCategories.length > 0 && (
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
-              Categories
-            </h3>
-            <div className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
-            {availableCategories
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((cat) => (
-                <label
-                  key={cat.id}
-                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
-                >
-                  <input
-                    type="checkbox"
-                    className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
-                    checked={selectedSubCategories.includes(cat.slug)}
-                    onChange={(e) => handleSubCategoryChange(cat.slug, e.target.checked)}
-                  />
-                  <span className="text-xs text-gray-700 truncate">{cat.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Brand Filter */}
-        <div className="mb-4 pb-4 border-b border-gray-200">
-          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Brand</h3>
-          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
-            {availableBrands
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((brand) => (
-                <label key={brand.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group" title={brand.name}>
-                  <input type="checkbox" className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0" checked={selectedBrands.includes(brand.id)} onChange={(e) => handleBrandChange(brand.id, e.target.checked)} />
-                  <div className="flex items-center justify-between flex-1 min-w-0">
-                    <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">{brand.name}</span>
+        <div className="flex gap-8">
+          <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar">
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between pb-3 border-b mb-3">
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4 text-[#445D41]" />
+                    <h2 className="font-semibold text-sm text-gray-900">Filters</h2>
                   </div>
-                </label>
-              ))}
-          </div>
-        </div>
-
-        {/* Price Range */}
-        {minPrice < maxPrice && (
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-3">
-              Price Range
-            </h3>
-            <PremiumPriceSlider
-              value={[
-                Math.max(displayRange[0], minPrice),
-                Math.min(displayRange[1], maxPrice),
-              ]}
-              min={minPrice}
-              max={maxPrice}
-              onChange={handlePriceChange}
-            />
-          </div>
-        )}
-
-        {/* Rating Filter */}
-        <div className="mb-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
-          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
-            Minimum Rating
-          </h3>
-          <div className="space-y-1.5">
-            {[4, 3, 2, 1, 0].map((rating) => (
-              <label
-                key={rating}
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
-              >
-                <input
-                  type="radio"
-                  name="rating"
-                  className="w-3.5 h-3.5 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
-                  checked={minRating === rating}
-                  onChange={() => handleRatingChange(rating)}
-                />
-                <div className="flex items-center gap-1.5">
-                  <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                  <span className="text-xs text-gray-700">
-                    {rating > 0 ? `${rating}+ Stars` : "All Ratings"}
-                  </span>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  </aside>
-
-  {/* MAIN CONTENT */}
-  <div className="flex-1">
-    {/* Mobile Filter — Left Side Drawer */}
-    {showFilters && (
-      <div className="lg:hidden fixed inset-0 z-50 flex">
-        {/* Left panel */}
-        <div className="relative bg-white w-[78vw] max-w-xs h-full flex flex-col shadow-2xl">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b">
-            <h2 className="font-semibold text-base text-gray-900">Filters</h2>
-            <div className="flex items-center gap-2">
-              <button
-                className="text-xs text-[#445D41] font-medium underline"
-                onClick={resetFilters}
-              >
-                Reset All
-              </button>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="p-1 rounded-full hover:bg-gray-100"
-              >
-                <X className="h-4 w-4 text-gray-500" />
-              </button>
-            </div>
-          </div>
-
-          {/* Scrollable filters */}
-          <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
-            {/* Categories */}
-            {availableCategories.length > 0 && (
-              <div className="pb-4 border-b border-gray-200">
-                <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
-                  Categories
-                </h3>
-                <div className="space-y-1.5">
-                  {availableCategories.sort((a, b) => a.name.localeCompare(b.name)).map((cat) => (
-                    <label key={cat.id} className="flex items-center gap-2 cursor-pointer py-1">
-                      <input
-                        type="checkbox"
-                        className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
-                        checked={selectedSubCategories.includes(cat.slug)}
-                        onChange={(e) => handleSubCategoryChange(cat.slug, e.target.checked)}
-                      />
-                      <span className="text-xs text-gray-700">{cat.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Brand - Mobile */}
-            {brands.length > 0 && (
-              <div className="pb-4 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider">Brand</h3>
-                  <button 
-                    className="text-[10px] text-[#445D41] font-medium" 
-                    onClick={() => setSelectedBrands([])}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetFilters}
+                    disabled={isPending}
+                    className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 px-2"
                   >
-                    Clear
-                  </button>
+                    Reset
+                  </Button>
                 </div>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {availableBrands.map((brand) => (
-                    <label key={brand.id} className="flex items-center gap-2 cursor-pointer py-1">
-                      <input
-                        type="checkbox"
-                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
-                        checked={selectedBrands.includes(brand.id)}
-                        onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
-                      />
-                      <span className="text-xs text-gray-700 truncate">{brand.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Price Range - Mobile */}
-            {minPrice < maxPrice && (
-              <div className="pb-4 border-b border-gray-200">
-                <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
-                  Price
-                </h3>
-                <PremiumPriceSlider
-                  value={[
-                    Math.max(displayRange[0], minPrice),
-                    Math.min(displayRange[1], maxPrice),
-                  ]}
-                  min={minPrice}
-                  max={maxPrice}
-                  onChange={handlePriceChange}
-                />
-              </div>
-            )}
-
-            {/* Rating - Mobile */}
-            <div className="pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
-              <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">
-                Rating
-              </h3>
-              <div className="space-y-1.5">
-                {[4, 3, 2, 1, 0].map((rating) => (
-                  <label key={rating} className="flex items-center gap-2 cursor-pointer py-1">
-                    <input
-                      type="radio"
-                      name="rating-mobile"
-                      className="w-3.5 h-3.5 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
-                      checked={minRating === rating}
-                      onChange={() => handleRatingChange(rating)}
-                    />
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                      <span className="text-xs text-gray-700">
-                        {rating > 0 ? `${rating}+ Stars` : "All Ratings"}
-                      </span>
+                {categories.length > 0 && (
+                  <div className="mb-4 pb-4 border-b border-gray-200">
+                    <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Category</h3>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+                      {categories
+                        .filter((c) => c.productCount === undefined || c.productCount > 0)
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((cat) => (
+                          <label key={cat.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition">
+                            <input
+                              type="checkbox"
+                              className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
+                              checked={selectedCategories.includes(cat.id)}
+                              onChange={(e) => handleCategoryChange(cat, e.target.checked)}
+                            />
+                            <span className="text-xs text-gray-700 truncate">{cat.name}</span>
+                          </label>
+                        ))}
                     </div>
-                  </label>
+                  </div>
+                )}
+
+                {brands.length > 0 && (
+                  <div className="mb-4 pb-4 border-b border-gray-200">
+                    <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Brand</h3>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                      {brands
+                        .slice()
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((brand) => (
+                          <label key={brand.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group" title={brand.name}>
+                            <input
+                              type="checkbox"
+                              className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                              checked={selectedBrands.includes(brand.id)}
+                              onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
+                            />
+                            <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">{brand.name}</span>
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {minPrice < maxPrice && (
+                  <div className="mb-4 pb-4 border-b border-gray-200">
+                    <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-3">Price Range</h3>
+                    <PremiumPriceSlider
+                      value={[Math.max(displayRange[0], minPrice), Math.min(displayRange[1], maxPrice)]}
+                      min={minPrice}
+                      max={maxPrice}
+                      onChange={handlePriceChange}
+                    />
+                  </div>
+                )}
+
+                <div className="mb-4 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+                  <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Minimum Rating</h3>
+                  <div className="space-y-1.5">
+                    {[4, 3, 2, 1, 0].map((rating) => (
+                      <label key={rating} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition">
+                        <input
+                          type="radio"
+                          name="rating"
+                          className="w-3.5 h-3.5 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                          checked={minRating === rating}
+                          onChange={() => handleRatingChange(rating)}
+                        />
+                        <div className="flex items-center gap-1.5">
+                          <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs text-gray-700">{rating > 0 ? `${rating}+ Stars` : "All Ratings"}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </aside>
+
+          <div className="flex-1">
+            {showFilters && (
+              <div className="lg:hidden fixed inset-0 z-50 flex">
+                <div className="relative bg-white w-[78vw] max-w-xs h-full flex flex-col shadow-2xl">
+                  <div className="flex items-center justify-between px-4 py-3 border-b">
+                    <h2 className="font-semibold text-base text-gray-900">Filters</h2>
+                    <div className="flex items-center gap-2">
+                      <button className="text-xs text-[#445D41] font-medium underline" onClick={resetFilters}>Reset All</button>
+                      <button onClick={() => setShowFilters(false)} className="p-1 rounded-full hover:bg-gray-100">
+                        <X className="h-4 w-4 text-gray-500" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
+                    {categories.length > 0 && (
+                      <div className="pb-4 border-b border-gray-200">
+                        <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Category</h3>
+                        <div className="space-y-1.5">
+                          {categories.filter((c) => c.productCount === undefined || c.productCount > 0).map((cat) => (
+                            <label key={cat.id} className="flex items-center gap-2 cursor-pointer py-1">
+                              <input
+                                type="checkbox"
+                                className="w-3.5 h-3.5 text-[#445D41] rounded border-gray-300 flex-shrink-0"
+                                checked={selectedCategories.includes(cat.id)}
+                                onChange={(e) => handleCategoryChange(cat, e.target.checked)}
+                              />
+                              <span className="text-xs text-gray-700">{cat.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {brands.length > 0 && (
+                      <div className="pb-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider">Brand</h3>
+                          <button className="text-[10px] text-[#445D41] font-medium" onClick={() => setSelectedBrands([])}>Clear</button>
+                        </div>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                          {brands.map((brand) => (
+                            <label key={brand.id} className="flex items-center gap-2 cursor-pointer py-1">
+                              <input
+                                type="checkbox"
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                                checked={selectedBrands.includes(brand.id)}
+                                onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
+                              />
+                              <span className="text-xs text-gray-700 truncate">{brand.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {minPrice < maxPrice && (
+                      <div className="pb-4 border-b border-gray-200">
+                        <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Price</h3>
+                        <PremiumPriceSlider
+                          value={[Math.max(displayRange[0], minPrice), Math.min(displayRange[1], maxPrice)]}
+                          min={minPrice}
+                          max={maxPrice}
+                          onChange={handlePriceChange}
+                        />
+                      </div>
+                    )}
+
+                    <div className="pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+                      <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Rating</h3>
+                      <div className="space-y-1.5">
+                        {[4, 3, 2, 1, 0].map((rating) => (
+                          <label key={rating} className="flex items-center gap-2 cursor-pointer py-1">
+                            <input
+                              type="radio"
+                              name="rating-mobile"
+                              className="w-3.5 h-3.5 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                              checked={minRating === rating}
+                              onChange={() => handleRatingChange(rating)}
+                            />
+                            <div className="flex items-center gap-1">
+                              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                              <span className="text-xs text-gray-700">{rating > 0 ? `${rating}+ Stars` : "All Ratings"}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t px-4 py-3">
+                    <Button className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white font-medium py-2.5 text-sm" onClick={() => setShowFilters(false)}>
+                      Show Results ({flattenedProducts.length})
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex-1 bg-black/50" onClick={() => setShowFilters(false)} />
+              </div>
+            )}
+
+            <div className="relative">
+              {isPending && (
+                <div className="absolute inset-0 z-10 bg-white/60 rounded-xl flex items-center justify-center min-h-[200px]">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#445D41]" />
+                    <span className="text-sm text-[#445D41] font-medium">Filtering...</span>
+                  </div>
+                </div>
+              )}
+
+              <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mb-6 md:mb-8 ${isPending ? "opacity-40 pointer-events-none" : ""}`}>
+                {flattenedProducts.map((item) => (
+                  <ProductCard
+                    key={`${item.productData.id}-${item.variantForCard?.id ?? "parent"}`}
+                    product={item.productData}
+                    vatRates={vatRates}
+                    variantForCard={item.variantForCard}
+                    cardSlug={item.cardSlug}
+                  />
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Apply button */}
-          <div className="border-t px-4 py-3">
-            <Button
-              className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white font-medium py-2.5 text-sm"
-              onClick={() => setShowFilters(false)}
-            >
-              Show Results ({filteredAndSortedProducts.length})
-            </Button>
+            {hasMore && <div ref={loadMoreRef} className="h-10 w-full" />}
+            {isLoadingMore && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-6 mb-8 min-h-[400px]">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="rounded-xl border border-gray-200 overflow-hidden bg-white animate-pulse">
+                    <div className="bg-gray-200 h-44 md:h-56 w-full" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3 bg-gray-200 rounded w-4/5" />
+                      <div className="h-3 bg-gray-200 rounded w-3/5" />
+                      <div className="h-3 bg-gray-200 rounded w-1/3" />
+                      <div className="h-4 bg-gray-200 rounded w-2/5 mt-1" />
+                      <div className="h-8 bg-gray-200 rounded-lg w-full mt-2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {flattenedProducts.length === 0 && !isPending && (
+              <Card className="shadow-sm">
+                <CardContent className="p-8 md:p-10 text-center">
+                  <div className="mb-3">
+                    <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Search className="h-7 w-7 text-gray-400" />
+                    </div>
+                    <p className="text-gray-700 font-semibold mb-1">No products found</p>
+                  </div>
+                  <Button onClick={resetFilters} className="bg-[#445D41] hover:bg-[#334a2c] text-white text-sm">
+                    Reset All Filters
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
-
-        {/* Right backdrop — tap to close */}
-        <div className="flex-1 bg-black/50" onClick={() => setShowFilters(false)} />
-      </div>
-    )}
-
-    {/* PRODUCT GRID */}
-    <div className="relative">
-      {/* Filter loading overlay */}
-      {isPending && (
-        <div className="absolute inset-0 z-10 bg-white/60 rounded-xl flex items-center justify-center min-h-[200px]">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-[#445D41]" />
-            <span className="text-sm text-[#445D41] font-medium">Filtering...</span>
-          </div>
-        </div>
-      )}
-      
-      <div
-        className={`grid grid-cols-2 ${
-          gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
-        } gap-2 md:gap-4 mb-6 md:mb-8 ${
-          isPending ? "opacity-40 pointer-events-none" : ""
-        }`}
-      >
-        {flattenedProducts.map((item) => (
-          <ProductCard
-            key={`${item.productData.id}-${item.variantForCard?.id ?? "parent"}`}
-            product={item.productData}
-            vatRates={vatRates}
-            variantForCard={item.variantForCard}
-            cardSlug={item.cardSlug}
-          />
-        ))}
-      </div>
-    </div>
-
-    {/* Load more trigger + skeleton cards */}
-    {hasMore && <div ref={loadMoreRef} className="h-10 w-full" />}
-    {isLoadingMore && (
-      <div className={`grid grid-cols-2 ${gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-2 md:gap-6 mb-8 min-h-[400px]`}>
-        {Array.from({ length: gridCols === 3 ? 3 : 2 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-gray-200 overflow-hidden bg-white animate-pulse">
-            <div className="bg-gray-200 h-44 md:h-56 w-full" />
-            <div className="p-3 space-y-2">
-              <div className="h-3 bg-gray-200 rounded w-4/5" />
-              <div className="h-3 bg-gray-200 rounded w-3/5" />
-              <div className="h-3 bg-gray-200 rounded w-1/3" />
-              <div className="h-4 bg-gray-200 rounded w-2/5 mt-1" />
-              <div className="h-8 bg-gray-200 rounded-lg w-full mt-2" />
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-
-    {/* No results */}
-    {filteredAndSortedProducts.length === 0 && !isPending && (
-      <Card className="shadow-sm">
-        <CardContent className="p-8 md:p-10 text-center">
-          <div className="mb-3">
-            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Search className="h-7 w-7 text-gray-400" />
-            </div>
-            <p className="text-gray-700 font-semibold mb-1">No products found</p>
-          </div>
-          <Button
-            onClick={resetFilters}
-            className="bg-[#445D41] hover:bg-[#334a2c] text-white text-sm"
-          >
-            Reset All Filters
-          </Button>
-        </CardContent>
-      </Card>
-    )}
-  </div>
-</div>
-        {/* ================= CATEGORY DESCRIPTION + FAQ REMOVED ================= */}
-        {showPharmaModal && pendingProduct && (
-          <PharmaQuestionsModal
-            open={showPharmaModal}
-            productId={pendingProduct.product.id}
-            mode="add"
-            onClose={() => {
-              setShowPharmaModal(false);
-              setPendingProduct(null);
-            }}
-            onSuccess={(messageFromBackend) => {
-              // 🔒 mark approved
-              pharmaApprovedRef.current = true;
-
-
-
-              setShowPharmaModal(false);
-
-              // 🔁 resume original add-to-cart
-              handleAddToCart(
-                pendingProduct.product,
-                pendingProduct.cardSlug
-              );
-
-              setPendingProduct(null);
-
-              // reset for next product
-              setTimeout(() => {
-                pharmaApprovedRef.current = false;
-              }, 0);
-            }}
-          />
-        )}
-
-        {/* Custom scrollbar + dual slider CSS */}
-        <style jsx>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-          }
-
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #555;
-          }
-
-         .dual-range-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 0;
-  background: transparent;
-  position: absolute;
-  top: 2px;
-  outline: none;
-  z-index: 10;
-}
-
-
-          .dual-range-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            background: #445d41;
-            border: 3px solid white;
-            border-radius: 50%;
-            cursor: pointer;
-            pointer-events: all;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            transition: all 0.2s ease;
-            position: relative;
-            z-index: 3;
-          }
-            .dual-range-slider:last-of-type::-webkit-slider-thumb {
-  z-index: 20;
-}
-
-
-          .dual-range-slider::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-          }
-
-          .dual-range-slider::-webkit-slider-thumb:active {
-            transform: scale(1.1);
-            background: #334a2c;
-          }
-
-          .dual-range-slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            background: #445d41;
-            border: 3px solid white;
-            border-radius: 50%;
-            cursor: pointer;
-            pointer-events: all;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            transition: all 0.2s ease;
-            position: relative;
-            z-index: 3;
-          }
-
-          .dual-range-slider::-moz-range-thumb:hover {
-            transform: scale(1.2);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-          }
-
-          .dual-range-slider::-moz-range-thumb:active {
-            transform: scale(1.1);
-            background: #334a2c;
-          }
-
-          .dual-range-slider:focus::-webkit-slider-thumb {
-            box-shadow: 0 0 0 4px rgba(68, 93, 65, 0.15);
-          }
-
-          .dual-range-slider:focus::-moz-range-thumb {
-            box-shadow: 0 0 0 4px rgba(68, 93, 65, 0.15);
-          }
-        `}</style>
       </main>
     </div>
   );

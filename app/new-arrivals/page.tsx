@@ -2,85 +2,83 @@ export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
-import { notFound } from "next/navigation";
 import NewArrivalsClient from "./NewArrivalsClient";
-
-/* =====================
-   Types
-===================== */
 
 interface SearchParams {
   sortBy?: string;
   sortDirection?: string;
   page?: string;
   pageSize?: string;
-  discount?: string;
-  discountIds?: string;
-  subCategorySlug?: string;
-  brands?: string;    // brand slugs, comma-separated  e.g. "acme,bandaid"
-  price?: string;     // price range e.g. "10-100"
+  categorySlug?: string;
+  brands?: string; // brand slugs, comma-separated
+  price?: string;  // "min-max"
   minRating?: string;
 }
-type BreadcrumbItem = {
-  label: string;
-  href: string;
-};
-/* =====================
-   Helpers (CATEGORY TREE)
-===================== */
 
-function findCategoryBySlug(categories: any[], slug: string): any | null {
-  if (!Array.isArray(categories)) return null; // 🔥 FIX
-  for (const cat of categories) {
-    if (cat.slug === slug) return cat;
-
-    if (Array.isArray(cat.subCategories) && cat.subCategories.length > 0) {
-      const found = findCategoryBySlug(cat.subCategories, slug);
-      if (found) return found;
-    }
-  }
-  return null;
+interface CategoryNode {
+  id: string;
+  name: string;
+  slug: string;
+  productCount?: number;
+  subCategories?: CategoryNode[];
 }
 
-function findCategoryPath(
-  categories: any[],
-  slug: string,
-  path: any[] = []
-): any[] | null {
-  if (!Array.isArray(categories)) return null; // 🔥 FIX
-
-  for (const cat of categories) {
-    const newPath = [...path, cat];
-
-    if (cat.slug === slug) {
-      return newPath;
-    }
-
-    if (Array.isArray(cat.subCategories) && cat.subCategories.length > 0) {
-      const result = findCategoryPath(cat.subCategories, slug, newPath);
-      if (result) return result;
+function flattenCategories(categories: CategoryNode[]): CategoryNode[] {
+  const result: CategoryNode[] = [];
+  function recurse(cats: CategoryNode[]) {
+    for (const cat of cats) {
+      if (!result.some((r) => r.id === cat.id)) {
+        result.push(cat);
+      }
+      if (cat.subCategories && cat.subCategories.length > 0) {
+        recurse(cat.subCategories);
+      }
     }
   }
-  return null;
+  recurse(categories);
+  return result;
 }
 
-/* =====================
-   Products Fetch
-===================== */
+async function getCategories(baseUrl: string): Promise<CategoryNode[]> {
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/Categories?includeInactive=false&includeSubCategories=true&isActive=true&isDeleted=false`,
+      { next: { revalidate: 60 } }
+    );
+    const text = await res.text();
+    if (!text) return [];
+    const json = JSON.parse(text);
+    const items = Array.isArray(json.data) ? json.data : json.data?.items || [];
+    return flattenCategories(items);
+  } catch {
+    return [];
+  }
+}
 
-async function getProducts(
-  params: SearchParams = {},
-  categorySlug?: string,
-  brandIds?: string   // pre-resolved brand IDs (mapped from slugs)
-) {
+async function getBrands(baseUrl: string): Promise<any[]> {
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/Brands?includeUnpublished=false&isActive=true&isDeleted=false`,
+      { next: { revalidate: 60 } }
+    );
+    const text = await res.text();
+    if (!text) return [];
+    const json = JSON.parse(text);
+    return Array.isArray(json.data) ? json.data : json.data?.items || [];
+  } catch {
+    return [];
+  }
+}
+
+async function getProducts(baseUrl: string, params: SearchParams, brandIds?: string) {
   const {
     page = "1",
     pageSize = "20",
-    sortBy = "default",
-    sortDirection = "default",
+    sortBy = "displayorder",
+    sortDirection = "asc",
     price,
     minRating,
-    discountIds,
+    categorySlug,
   } = params;
 
   const query = new URLSearchParams({
@@ -90,12 +88,10 @@ async function getProducts(
     isPublished: "true",
   });
 
-  if (sortBy && sortBy !== "default") query.set("sortBy", sortBy);
-  if (sortDirection && sortDirection !== "default") query.set("sortDirection", sortDirection);
-
+  if (sortBy) query.set("sortBy", sortBy);
+  if (sortDirection) query.set("sortDirection", sortDirection);
   if (categorySlug) query.set("categorySlug", categorySlug);
-  if (brandIds)     query.set("brandIds", brandIds);
-  if (discountIds)  query.set("discountIds", discountIds);
+  if (brandIds) query.set("brandIds", brandIds);
 
   if (price) {
     const [min, max] = price.split("-");
@@ -105,13 +101,9 @@ async function getProducts(
 
   if (minRating) query.set("minRating", minRating);
 
-  // Safe fetch: never throw on an empty/non-JSON/error response (would crash the page).
   const empty = { success: false, data: { items: [], totalCount: 0, page: 1, pageSize: 20, totalPages: 1 } };
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
-      { cache: "no-store" }
-    );
+    const res = await fetch(`${baseUrl}/api/Products?${query.toString()}`, { cache: "no-store" });
     const text = await res.text();
     if (!text) return empty;
     try {
@@ -124,97 +116,82 @@ async function getProducts(
   }
 }
 
-/* =====================
-   Metadata
-===================== */
-
-export async function generateMetadata() {
-  return {
-    title: "New Arrivals | Direct Care",
-    description: "Shop the latest newly added products at Direct Care.",
-  };
-}
-
-export default async function NewArrivalsPage({ params, searchParams }: any) {
-  const resolvedSearchParams = await searchParams;
-
-  // We don't need a specific category for New Arrivals
-  const category = {
-    id: "new-arrivals-dummy-id",
-    name: "New Arrivals",
-    description: "Explore our recently added products.",
-    slug: "new-arrivals",
-    imageUrl: "",
-    isActive: true,
-    sortOrder: 0,
-    productCount: 0,
-    subCategories: []
-  };
-
-  const breadcrumbs = [
-    { label: "Home", href: "/" },
-    { label: "New Arrivals", href: "/new-arrivals" },
-  ];
-
-  const discount = resolvedSearchParams.discount
-    ? Number(resolvedSearchParams.discount)
-    : null;
-
-  // Fetch brands
-  const brandsRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?page=1&pageSize=100`,
-    { next: { revalidate: 3600 } }
-  ).then((r) => r.json());
-  const brands = brandsRes.data?.items || [];
-
-  // Match brand slugs from URL to IDs
-  const brandSlugs = resolvedSearchParams?.brands
-    ? resolvedSearchParams.brands.split(",").map((s: string) => s.trim())
-    : [];
-  let brandIdsStr = "";
-  if (brandSlugs.length > 0) {
-    const brandIds = brandSlugs
-      .map((slug: string) => brands.find((b: any) => b.slug === slug)?.id)
-      .filter(Boolean);
-    if (brandIds.length > 0) {
-      brandIdsStr = brandIds.join(",");
-    }
-  }
-
-  // Fetch New Arrivals (with filters applied)
-  const productsRes = await getProducts(
-    resolvedSearchParams,
-    undefined,
-    brandIdsStr
-  );
-  
-  const vatRatesRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/VATRates?activeOnly=true`,
-    { next: { revalidate: 60 } }
-  ).then((r) => r.json());
-  const vatRates = vatRatesRes.data || [];
-
-  const loadingFallback = (
+function Loading() {
+  return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Loader2 className="h-12 w-12 animate-spin text-[#445D41]" />
     </div>
   );
+}
+
+export async function generateMetadata() {
+  return {
+    title: "Newly Added Products",
+    description: "Browse all newly added products.",
+  };
+}
+
+export default async function NewArrivalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL!;
+  const searchParamsResolved = await searchParams;
+
+  const allCategories = await getCategories(baseUrl);
+  const allBrands = await getBrands(baseUrl);
+
+  // 1. Fetch all new arrivals (large pageSize) to see which categories and brands are actually present
+  const baseProductsRes = await getProducts(baseUrl, { pageSize: "1000", page: "1" });
+  const baseProducts = baseProductsRes?.data?.items || [];
+
+  const baseCategoryIds = new Set<string>();
+  const baseBrandIds = new Set<string>();
+  baseProducts.forEach((p: any) => {
+    if (p.brandId) baseBrandIds.add(p.brandId);
+    p.categories?.forEach((c: any) => baseCategoryIds.add(c.categoryId));
+  });
+
+  const availableCategories = allCategories.filter((c: any) => baseCategoryIds.has(c.id));
+  let availableBrands = allBrands.filter((b: any) => baseBrandIds.has(b.id));
+
+  // 2. If a category is selected, further filter the brands to only those in the selected category
+  if (searchParamsResolved.categorySlug) {
+    const catProductsRes = await getProducts(baseUrl, { pageSize: "1000", page: "1", categorySlug: searchParamsResolved.categorySlug });
+    const catProducts = catProductsRes?.data?.items || [];
+    const catBrandIds = new Set<string>();
+    catProducts.forEach((p: any) => {
+      if (p.brandId) catBrandIds.add(p.brandId);
+    });
+    availableBrands = allBrands.filter((b: any) => catBrandIds.has(b.id));
+  }
+
+  const brandSlugs = searchParamsResolved.brands?.split(",").filter(Boolean) ?? [];
+  const resolvedBrandIds = brandSlugs.length > 0
+    ? allBrands.filter((b: any) => brandSlugs.includes(b.slug)).map((b: any) => b.id).join(",")
+    : undefined;
+
+  const productsRes = await getProducts(baseUrl, searchParamsResolved, resolvedBrandIds);
+
+  const vatRatesRes = await fetch(
+    `${baseUrl}/api/VATRates?activeOnly=true`,
+    { next: { revalidate: 60 } }
+  ).then((r) => r.json());
 
   return (
-    <Suspense fallback={loadingFallback}>
+    <Suspense fallback={<Loading />}>
       <NewArrivalsClient
-        category={category}
-        breadcrumbs={breadcrumbs}
-        initialProducts={productsRes.data?.items || []}
-        totalCount={productsRes.data?.totalCount || 0}
-        currentPage={productsRes.data?.page || 1}
-        pageSize={productsRes.data?.pageSize || 20}
-        totalPages={productsRes.data?.totalPages || 1}
-        initialSortBy={resolvedSearchParams?.sortBy || "createdAt"}
-        initialSortDirection={resolvedSearchParams?.sortDirection || "desc"}
-        brands={brands}
-        vatRates={vatRates}
-        discount={discount}
+        categories={availableCategories}
+        brands={availableBrands}
+        initialProducts={productsRes.data?.items ?? []}
+        totalCount={productsRes.data?.totalCount ?? 0}
+        currentPage={productsRes.data?.page ?? 1}
+        pageSize={productsRes.data?.pageSize ?? 20}
+        totalPages={productsRes.data?.totalPages ?? 1}
+        initialSortBy={searchParamsResolved.sortBy || "displayorder"}
+        initialSortDirection={searchParamsResolved.sortDirection || "asc"}
+        vatRates={vatRatesRes.data || []}
       />
     </Suspense>
   );

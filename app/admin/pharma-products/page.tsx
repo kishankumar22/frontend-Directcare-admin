@@ -522,8 +522,17 @@ export default function PharmaProductPage() {
     fetchProducts();
   }, [fetchProducts]);
 
+  // user.role may hold several roles joined into one string (e.g. "Admin, SuperAdmin,
+  // Pharmacist") when a user has more than one role — so this must check membership, not
+  // exact-equality, or a multi-role user who does have Pharmacist would still get denied.
+  const hasPharmacistRole = (user?.role || "")
+    .toLowerCase()
+    .split(",")
+    .map((r) => r.trim())
+    .includes("pharmacist");
+
   const handleActionClick = (mode: "approve" | "reject", productId: string, productName: string) => {
-    if (user?.role?.toLowerCase() !== "pharmacist") {
+    if (!hasPharmacistRole) {
       toast.error("Access Denied: Only users with the 'Pharmacist' role can approve or reject pharmacy products.");
       return;
     }
@@ -533,35 +542,16 @@ export default function PharmaProductPage() {
 
   const handleReview = async () => {
     if (!modal) return;
-    if (user?.role?.toLowerCase() !== "pharmacist") {
+    if (!hasPharmacistRole) {
       toast.error("Access Denied: Only users with the 'Pharmacist' role can approve or reject pharmacy products.");
       return;
     }
 
-    const currentProduct = products.find((p) => p.id === modal.productId);
-    const isPreviouslyRejected = currentProduct?.pharmaApprovalStatus === "Rejected";
-
-    if (modal.mode === "approve" && isPreviouslyRejected) {
-      const confirmApprove = window.confirm(
-        "Warning: You are approving a previously rejected product. Since rejecting it unpublished the product, this action will automatically publish it again. Do you want to proceed?"
-      );
-      if (!confirmApprove) {
-        return;
-      }
-    }
-
     setProcessing(true);
     try {
-      if (modal.mode === "approve" && isPreviouslyRejected) {
-        // Toggle publish to publish it first, as rejected products are unpublished
-        const publishResponse = await productsService.togglePublish(modal.productId);
-        if (!publishResponse.data?.success) {
-          toast.error("Failed to publish/re-publish the product before approval.");
-          setProcessing(false);
-          return;
-        }
-      }
-
+      // Approve only clears the pharmacist review gate — it never publishes the product.
+      // Publishing is a separate, deliberate step the listing team does afterwards (Publish
+      // toggle / edit form), which itself requires Approved status before it'll go live.
       const response =
         modal.mode === "approve"
           ? await productsService.pharmaApprove(modal.productId, comment)
@@ -585,7 +575,7 @@ export default function PharmaProductPage() {
         );
         toast.success(
           modal.mode === "approve"
-            ? `"${modal.productName}" approved`
+            ? `"${modal.productName}" approved — publish it separately to make it live`
             : `"${modal.productName}" rejected and unpublished`
         );
         setModal(null);

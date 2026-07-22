@@ -249,19 +249,17 @@ export interface Order {
   pharmacyVerifiedAt?: string | null;
   pharmacyVerifiedBy?: string | null;
 
+  // A follow-up question's response has parentOptionId set to the *other* response's
+  // selectedOptionId that revealed it — used to nest it under that answer in the admin UI.
   pharmacyResponses?: {
+    questionId: string;
     questionText: string;
     answerText: string;
+    selectedOptionId?: string | null;
+    parentOptionId?: string | null;
+    productId: string;
     productName: string;
     answeredAt: string;
-    selectedOption?: {
-      id: string;
-      optionText: string;
-      requiresFollowUpText: boolean;
-      followUpPrompt?: string;
-    } | null;
-    selectedOptionText?: string | null;
-    followUpText?: string | null;
   }[];
 
   // ================= PAYMENT =================

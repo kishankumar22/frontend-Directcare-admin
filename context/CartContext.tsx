@@ -443,10 +443,12 @@ connection.on(
 
       if (existing) {
         const product = item.productData;
-        const mainMax = product?.orderMaximumQuantity ?? Infinity;
-        const variantStock = item.variantId
-          ? product?.variants?.find((v: any) => v.id === item.variantId)?.stockQuantity
-          : product?.stockQuantity;
+        const variant = item.variantId
+          ? product?.variants?.find((v: any) => v.id === item.variantId)
+          : null;
+        // Variant-level max order quantity overrides the product-level default when set.
+        const mainMax = variant?.orderMaximumQuantity ?? product?.orderMaximumQuantity ?? Infinity;
+        const variantStock = variant?.stockQuantity;
         const maxStock = item.maxStock ?? variantStock ?? product?.stockQuantity ?? Infinity;
         const allowedMax = Math.min(mainMax, maxStock);
         const newQty = existing.quantity + item.quantity;
@@ -501,6 +503,12 @@ connection.on(
         }, 7000);
       }
     } catch {}
+
+    // Open the header's mini-cart dropdown instead of a toast notification — the
+    // customer sees exactly what just got added, right there, no extra click needed.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cart:open"));
+    }
 
     // Sync to backend (fire-and-forget; update backendId when response comes)
     const payload = frontendToBackend(item, sessionId);
@@ -572,12 +580,14 @@ connection.on(
       if (target.parentProductId) return prev; // block child updates
 
       const product = target.productData;
-      const variantStock = target.variantId
-        ? product?.variants?.find((v: any) => v.id === target.variantId)?.stockQuantity
-        : product?.stockQuantity;
+      const variant = target.variantId
+        ? product?.variants?.find((v: any) => v.id === target.variantId)
+        : null;
+      const variantStock = variant?.stockQuantity;
       const maxStock = target.maxStock ?? variantStock ?? product?.stockQuantity ?? 0;
-      const mainMin = product?.orderMinimumQuantity ?? 1;
-      const mainMax = product?.orderMaximumQuantity ?? Infinity;
+      // Variant-level min/max override the product-level default when set.
+      const mainMin = variant?.orderMinimumQuantity ?? product?.orderMinimumQuantity ?? 1;
+      const mainMax = variant?.orderMaximumQuantity ?? product?.orderMaximumQuantity ?? Infinity;
 
       let finalQty = qty;
       if (qty === 0) finalQty = 0;

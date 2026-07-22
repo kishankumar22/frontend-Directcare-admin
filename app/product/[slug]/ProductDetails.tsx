@@ -18,7 +18,7 @@ import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle, Info, Bell } from "lucide-react";
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, PackageX, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle, Info } from "lucide-react";
 import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,8 @@ interface Variant {
   nextDayDeliveryCutoffTime?: string;
   fakeSaleCount?: number;
   saleCount?: number;
+  orderMinimumQuantity?: number | null;
+  orderMaximumQuantity?: number | null;
 }
 interface AssignedDiscount {
   id: string;
@@ -745,6 +747,16 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     ? selectedVariant.saleCount
     : product.saleCount;
 
+  // Variant-level cart quantity limits override the product-level default when set.
+  const activeOrderMinimumQuantity =
+    (product.productType === "variable" ? selectedVariant?.orderMinimumQuantity : undefined) ??
+    product.orderMinimumQuantity ??
+    1;
+  const activeOrderMaximumQuantity =
+    (product.productType === "variable" ? selectedVariant?.orderMaximumQuantity : undefined) ??
+    product.orderMaximumQuantity ??
+    Infinity;
+
   useEffect(() => {
     if (
       !isUKUser ||
@@ -1224,7 +1236,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       });
 
       setSelectedVariant(autoMatch);
-      setNormalQty(product.orderMinimumQuantity ?? 1);
+      setNormalQty(autoMatch.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1);
       updateVariantInUrl(autoMatch);
     }
   };
@@ -1610,6 +1622,36 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     });
   }, []);
 
+  // Shared quantity/stock validation used by both Add to Cart and Buy Now, so a fix
+  // here (e.g. variant-level min/max) never needs to be duplicated in both handlers
+  // again. `existingQty` is the quantity already in the real cart for this exact
+  // product+variant — 0 for Buy Now, since it doesn't touch the cart at all.
+  const getQuantityValidationError = useCallback((qty: number, selected: Variant | null, existingQty: number = 0): string | null => {
+    const stockQty = selected?.stockQuantity ?? product.stockQuantity ?? 0;
+    const mainMin = selected?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1;
+    const mainMax = selected?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? Infinity;
+
+    if (qty < mainMin) return `Minimum order quantity is ${mainMin}`;
+    if (existingQty + qty > mainMax) return `Maximum order quantity is ${mainMax}`;
+    if (existingQty + qty > stockQty) {
+      return existingQty > 0
+        ? `You can add only  ${Math.max(0, stockQty - existingQty)} item in your cart`
+        : `Only ${stockQty} items available`;
+    }
+
+    if (isGroupedProduct && groupEnabled && product.groupedProducts) {
+      const selectedGrouped = product.groupedProducts.filter(
+        gp => groupedSelections[gp.productId]?.selected
+      );
+      const insufficient = selectedGrouped.find(gp => (gp.stockQuantity ?? 0) < qty);
+      if (insufficient) {
+        return `${insufficient.name} has only ${insufficient.stockQuantity} items available`;
+      }
+    }
+
+    return null;
+  }, [product, isGroupedProduct, groupEnabled, groupedSelections]);
+
   const handleAddToCart = useCallback(() => {
     // 🔥 PHARMA GUARD
     if (product.isPharmaProduct && !pharmaApprovedRef.current && hasPharmaQuestions !== false) {
@@ -1629,49 +1671,10 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       )
       .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
 
-    const stockQty =
-      selected?.stockQuantity ?? product.stockQuantity ?? 0;
-
-    if (existingCartQty + normalQty > stockQty) {
-      toast.error(
-        `You can add only  ${stockQty - existingCartQty} item in your cart`
-      );
+    const validationError = getQuantityValidationError(normalQty, selected, existingCartQty);
+    if (validationError) {
+      toast.error(validationError);
       return;
-    }
-
-    const mainMin = product.orderMinimumQuantity ?? 1;
-
-    // 🔥 MAX ORDER CHECK (IMPORTANT FIX)
-    const mainMax = product.orderMaximumQuantity ?? Infinity;
-
-    if (existingCartQty + normalQty > mainMax) {
-      toast.error(`Maximum order quantity is ${mainMax}`);
-      return;
-    }
-
-    if (normalQty < mainMin) {
-      toast.error(`Minimum order quantity is ${mainMin}`);
-      return;
-    }
-    if (normalQty > mainMax) {
-      toast.error(`Maximum order quantity is ${mainMax}`);
-      return;
-    }
-    // ⭐ GROUPED PRODUCTS STOCK VALIDATION
-    if (isGroupedProduct && groupEnabled && product.groupedProducts) {
-      const selectedGrouped = product.groupedProducts.filter(
-        gp => groupedSelections[gp.productId]?.selected
-      );
-
-      const insufficient = selectedGrouped.find(
-        gp => (gp.stockQuantity ?? 0) < normalQty
-      );
-      if (insufficient) {
-        toast.error(
-          `${insufficient.name} has only ${insufficient.stockQuantity} items available`
-        );
-        return;
-      }
     }
     // BASE + FINAL PRICE
     const basePrice = resolveBasePrice(product, selected);
@@ -1869,24 +1872,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       },
     });
 
-    toast.success(
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">
-          {normalQty} × {product.name} added to cart!
-        </span>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toast.clearAll();
-            router.push("/cart");
-          }}
-          className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
-        >
-          Cart→
-        </button>
-      </div>
-    );
+    // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+    // showing exactly what was just added — no separate toast needed here.
   }, [
     addToCart,
     normalQty,
@@ -1903,6 +1890,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     groupEnabled,
     isUKUser,
     vatRate,
+    cart,
+    getQuantityValidationError,
   ]);
   const handleBuyNow = () => {
     // 🔥 PHARMA GUARD
@@ -1912,35 +1901,11 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
       return;
     }
     const selected = selectedVariant ?? null;
-    const stockQty = selected?.stockQuantity ?? product.stockQuantity ?? 0;
-    const mainMin = product.orderMinimumQuantity ?? 1;
-    const mainMax = product.orderMaximumQuantity ?? Infinity;
-    if (normalQty < mainMin) {
-      toast.error(`Minimum order quantity is ${mainMin}`);
+    // Buy Now doesn't touch the real cart, so existingQty is always 0 here.
+    const validationError = getQuantityValidationError(normalQty, selected);
+    if (validationError) {
+      toast.error(validationError);
       return;
-    }
-
-    if (normalQty > mainMax) {
-      toast.error(`Maximum order quantity is ${mainMax}`);
-      return;
-    }
-    if (normalQty > stockQty) {
-      toast.error(`Only ${stockQty} items available`);
-      return;
-    }
-    if (isGroupedProduct && groupEnabled && product.groupedProducts) {
-      const selectedGrouped = product.groupedProducts.filter(
-        gp => groupedSelections[gp.productId]?.selected
-      );
-      const insufficient = selectedGrouped.find(
-        gp => (gp.stockQuantity ?? 0) < normalQty
-      );
-      if (insufficient) {
-        toast.error(
-          `${insufficient.name} has only ${insufficient.stockQuantity} items available`
-        );
-        return;
-      }
     }
     const basePrice = resolveBasePrice(product, selected);
     const final = finalPrice;
@@ -2036,7 +2001,7 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
   }, [product.images.length]);
   const handleVariantSelect = (variant: Variant) => {
     setSelectedVariant(variant);
-    setNormalQty(product.orderMinimumQuantity ?? 1);
+    setNormalQty(variant.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1);
     if (variant.slug) updateVariantInUrl(variant);
     // <-- ONLY HERE URL UPDATES
     setSelectedOptions({
@@ -2308,9 +2273,15 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
                             null,
                           productData: JSON.parse(JSON.stringify(product)),
 
-                          // 🔥 OPTIONAL BUT IMPORTANT
-                          orderMaximumQuantity: product.orderMaximumQuantity ?? null,
-                          orderMinimumQuantity: product.orderMinimumQuantity ?? null,
+                          // 🔥 OPTIONAL BUT IMPORTANT — variant-level limits override product-level when set.
+                          orderMaximumQuantity:
+                            (product.productType === "variable" ? selectedVariant?.orderMaximumQuantity : undefined) ??
+                            product.orderMaximumQuantity ??
+                            null,
+                          orderMinimumQuantity:
+                            (product.productType === "variable" ? selectedVariant?.orderMinimumQuantity : undefined) ??
+                            product.orderMinimumQuantity ??
+                            null,
                         });
                         toast.success(isInWishlist(wishlistId) ? "Removed from wishlist" : "Added to wishlist!");
                       }}
@@ -2848,6 +2819,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </span>
                             )}
 
+                        
+
                             {vatRate !== null && vatRate > 0 && !product.vatExempt && (
                               <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
                                 {vatRate}% VAT
@@ -2859,7 +2832,19 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 Earn {loyaltyPoints} pts
                               </span>
                             )}
-
+    {purchaseType === "one" && activeNextDayDeliveryFree && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
+                                style={{
+                                  animation: 'deliveryHighlight 2s ease-in-out infinite',
+                                }}
+                              >
+                                <Truck className="h-3 w-3 text-blue-700" />
+                                <span className="text-[11px] font-bold text-blue-700">
+                                  Next Day Delivery Free
+                                </span>
+                              </span>
+                            )}
                           </div>
 
                           {/* Qty + Stock — same row */}
@@ -2873,8 +2858,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                   maxStock={groupedMaxQty}
                                   stockError={normalStockError}
                                   setStockError={setNormalStockError}
-                                  minQty={product.orderMinimumQuantity ?? 1}
-                                  maxQty={product.orderMaximumQuantity}
+                                  minQty={activeOrderMinimumQuantity}
+                                  maxQty={activeOrderMaximumQuantity === Infinity ? undefined : activeOrderMaximumQuantity}
                                 />
                                 {stockDisplay.show && (
                                   <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${stockDisplay.type === "out" ? "bg-red-100 text-red-700"
@@ -2925,21 +2910,17 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                          {purchaseType === "one" && !backorderState.canBuy && (
                             <>
                               <Button
-                                disabled
-                                className="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold cursor-not-allowed opacity-100"
-                              >
-                                Out of Stock
-                              </Button>
-                              <Button
-                                variant="outline"
                                 onClick={() => setShowNotifyModal(true)}
-                                className="group py-2 px-4 rounded-xl border border-[#445D41] text-[#445D41] text-sm font-semibold hover:bg-[#445D41] hover:text-white transition-all duration-300"
+                                className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
                               >
-                                <Bell className="mr-2 h-4 w-4" />
                                 Notify Me
                               </Button>
+                              <span className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold whitespace-nowrap">
+                                <PackageX className="h-4 w-4" />
+                                Out of Stock
+                              </span>
                             </>
-                          )}
+                         )}
                           </div>
 
                         </CardContent>
@@ -2963,9 +2944,10 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                         setQuantity={setSubscriptionQty}
                         stockError={subscriptionStockError}
                         setStockError={setSubscriptionStockError}
-                        vatRate={vatRate}
-                        backorderState={backorderState}
-                        setShowNotifyModal={setShowNotifyModal}
+                        vatRate={vatRate}   // 🟢 Add this
+                        nextDayDeliveryFree={activeNextDayDeliveryFree}
+                        backorderState={backorderState}   // ⭐ REQUIRED
+                        onNotifyClick={() => setShowNotifyModal(true)}
                       />
                     </div>
                   </div>
@@ -2991,7 +2973,22 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                             </span>
                           )}
 
-                          {activeNextDayDeliveryFree && (
+                     
+
+                          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
+                            <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
+                              {vatRate}% VAT
+                            </span>
+                          )}                          
+
+                          {loyaltyPoints && (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
+                              <AwardIcon className="h-3 w-3 text-[#445D41]" />
+                              Earn {loyaltyPoints} pts
+                            </span>
+                          )}
+
+                               {activeNextDayDeliveryFree && (
                             <span
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
                               style={{
@@ -3004,19 +3001,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </span>
                             </span>
                           )}
-
-                          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
-                            <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
-                              {vatRate}% VAT
-                            </span>
-                          )}
-
-                          {loyaltyPoints && (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
-                              <AwardIcon className="h-3 w-3 text-[#445D41]" />
-                              Earn {loyaltyPoints} pts
-                            </span>
-                          )}
                         </div>
                         {/* Quantity + Stock — same row, no label */}
                         <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -3027,7 +3011,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               size="sm"
                               className="px-2"
                               onClick={() => {
-                                const minQty = product.orderMinimumQuantity ?? 1;
+                                const minQty = activeOrderMinimumQuantity;
                                 if (normalQty <= minQty) {
                                   toast.error(`Minimum order quantity is ${minQty}`);
                                   return;
@@ -3050,11 +3034,10 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                   return;
                                 }
                                 let num = parseInt(val, 10);
-                                const minQty = product.orderMinimumQuantity ?? 1;
+                                const minQty = activeOrderMinimumQuantity;
                                 const maxStock =
                                   (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
-                                const maxQty =
-                                  product.orderMaximumQuantity ?? maxStock;
+                                const maxQty = activeOrderMaximumQuantity;
                                 const limit = Math.min(maxQty, maxStock);
                                 if (num < minQty) {
                                   toast.error(`Minimum order quantity is ${minQty}`);
@@ -3069,11 +3052,10 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 setNormalQty(num);
                               }}
                               onBlur={() => {
-                                const minQty = product.orderMinimumQuantity ?? 1;
+                                const minQty = activeOrderMinimumQuantity;
                                 const maxStock =
                                   (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
-                                const maxQty =
-                                  product.orderMaximumQuantity ?? maxStock;
+                                const maxQty = activeOrderMaximumQuantity;
                                 const limit = Math.min(maxQty, maxStock);
                                 let val = normalQty;
                                 if (!val || val < minQty) val = minQty;
@@ -3092,8 +3074,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               onClick={() => {
                                 const maxStock =
                                   (product.productType === "variable" ? selectedVariant?.stockQuantity : undefined) ?? product.stockQuantity;
-                                const maxQty =
-                                  product.orderMaximumQuantity ?? maxStock;
+                                const maxQty = activeOrderMaximumQuantity;
                                 const limit = Math.min(maxQty, maxStock);
                                 if (normalQty >= limit) {
                                   toast.error(`You can add only ${limit} Quantity in your cart.`);
@@ -3188,7 +3169,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </Button>
                             )}
                             {/* NOTIFY MODE */}
-                            {purchaseType === "one" && backorderState.showNotify && (
+                            {/* {purchaseType === "one" && backorderState.showNotify && (
                               <Button
                                 variant="outline"
                                 className="flex-1 px-3 py-2 rounded-lg border-green-600 text-green-700 hover:bg-green-50 text-sm flex items-center justify-center gap-2"
@@ -3197,7 +3178,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 <BellRing className="h-4 w-4" />
                                 Notify me when available
                               </Button>
-                            )}
+                            )} */}
                             {purchaseType === "one" && !backorderState.canBuy && (
   <Button
     onClick={() => setShowNotifyModal(true)}

@@ -634,8 +634,8 @@ const handleSortChange = useCallback((value: string) => {
 
     return true;
   };
-  const getInitialQty = (product: any) => {
-    return product.orderMinimumQuantity ?? 1;
+  const getInitialQty = (product: any, variant?: any) => {
+    return variant?.orderMinimumQuantity ?? product.orderMinimumQuantity ?? 1;
   };
 
   const resetFilters = useCallback(() => {
@@ -731,8 +731,9 @@ const handleSortChange = useCallback((value: string) => {
       // ============================
       // ⭐ MIN / MAX / STOCK LOGIC
       // ============================
-      const maxQty = product.orderMaximumQuantity ?? Infinity;
-      const finalQty = getInitialQty(product);
+      // Variant-level min/max override the product-level default when set.
+      const maxQty = defaultVariant?.orderMaximumQuantity ?? product.orderMaximumQuantity ?? Infinity;
+      const finalQty = getInitialQty(product, defaultVariant);
 
 
       const variantId = defaultVariant?.id ?? null;
@@ -799,12 +800,12 @@ const handleSortChange = useCallback((value: string) => {
         productData: JSON.parse(JSON.stringify(product)),
       });
 
-      if (product.orderMinimumQuantity > 1) {
+      // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
+      // showing exactly what was just added — no separate toast needed for the success case.
+      if (finalQty > 1) {
         toast.warning(
-          `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
+          `Minimum order quantity is ${finalQty}. Added ${finalQty} items to cart.`
         );
-      } else {
-        toast.success(`${product.name} added to cart! 🛒`);
       }
 
 

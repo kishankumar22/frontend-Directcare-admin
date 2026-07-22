@@ -234,6 +234,140 @@ if (!result.paymentIntent?.id) {
     </div>
   );
 }
+
+/* === PayPal SDK loader — loads once, reused across mounts (e.g. remounting this
+   component doesn't re-inject the script tag) === */
+let payPalScriptPromise: Promise<void> | null = null;
+function loadPayPalScript(clientId: string): Promise<void> {
+  if (typeof window !== "undefined" && (window as any).paypal) return Promise.resolve();
+  if (payPalScriptPromise) return payPalScriptPromise;
+
+  payPalScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=GBP&intent=capture`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      payPalScriptPromise = null; // allow a retry on next attempt
+      reject(new Error("Failed to load PayPal"));
+    };
+    document.body.appendChild(script);
+  });
+
+  return payPalScriptPromise;
+}
+
+/* === PAYPAL PAYMENT COMPONENT ===
+   Renders PayPal's own Buttons widget. createOrder/onApprove call our backend's native
+   PayPal endpoints (paypal/create-order, paypal/capture) — the same ones the admin refund
+   flow already knows how to reconcile against. */
+function PayPalCheckoutPayment({
+  orderId,
+  onPaymentSuccess,
+  onError,
+}: {
+  orderId: string;
+  onPaymentSuccess: (result: any) => void;
+  onError: (err: any) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const configRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/config`);
+        const configJson = await configRes.json();
+        const clientId = configJson?.data?.payPalClientId;
+        const enabled = configJson?.data?.payPalEnabled;
+
+        if (!enabled || !clientId) {
+          if (!cancelled) setLoadError("PayPal isn't available right now — please choose Card instead.");
+          return;
+        }
+
+        await loadPayPalScript(clientId);
+        if (cancelled || !containerRef.current) return;
+
+        containerRef.current.innerHTML = "";
+
+        (window as any).paypal.Buttons({
+          style: { layout: "vertical", color: "gold", shape: "rect", label: "paypal" },
+          createOrder: async () => {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/paypal/create-order`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId }),
+            });
+            const json = await res.json();
+            if (!json?.success || !json?.data?.paypalOrderId) {
+              throw new Error(json?.message || "Failed to start PayPal checkout");
+            }
+            return json.data.paypalOrderId;
+          },
+          onApprove: async (data: any) => {
+            try {
+              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/paypal/capture`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderId, payPalOrderId: data.orderID }),
+              });
+              const json = await res.json();
+              if (!json?.success) {
+                onError({ message: json?.message || "PayPal payment could not be completed" });
+                return;
+              }
+              onPaymentSuccess({ data: { id: orderId } });
+            } catch (err) {
+              console.error("PayPal capture failed:", err);
+              onError({ message: "PayPal payment could not be completed" });
+            }
+          },
+          onError: (err: any) => {
+            console.error("PayPal button error:", err);
+            onError({ message: "PayPal payment failed. Please try again." });
+          },
+        }).render(containerRef.current);
+
+        if (!cancelled) setLoading(false);
+      } catch (err: any) {
+        console.error("PayPal init failed:", err);
+        if (!cancelled) setLoadError(err?.message || "Failed to load PayPal");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
+
+  if (loadError) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+        {loadError}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {loading && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+          <svg className="animate-spin h-4 w-4 text-[#445D41]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>
+          Loading PayPal...
+        </div>
+      )}
+      <div ref={containerRef} />
+    </div>
+  );
+}
+
 const ErrorText = ({ error }: { error?: string }) => {
   if (!error) return null;
   return <p className="text-red-600 text-xs mt-1">{error}</p>;
@@ -354,8 +488,7 @@ const handleAddressSelect = (addr: any | null) => {
  
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
 const [stripeOrderId, setStripeOrderId] = useState<string | null>(null);
-// Resume-payment (Approach B): if a Pending unpaid order exists from an earlier
-// attempt, the mount effect below redirects to the order page to complete payment.
+const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<"card" | "paypal">("card");
 const [orderSummary, setOrderSummary] = useState<{
   subtotalAmount: number;
   shippingAmount: number;
@@ -370,6 +503,10 @@ const [orderSummary, setOrderSummary] = useState<{
 // ✅ Terms & Newsletter states
 const [acceptTerms, setAcceptTerms] = useState(true);
 const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
+// Third-party targeted marketing/profiling consent — UI only for now, not sent to
+// the backend anywhere. Hidden once the customer opts out of marketing entirely
+// (see the "take you off our marketing email list" checkbox below).
+const [thirdPartyMarketing, setThirdPartyMarketing] = useState(false);
 const [pointsDiscount, setPointsDiscount] = useState(0);
 const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
@@ -388,50 +525,8 @@ useEffect(() => {
   }
 }, []);
 
-// ── Resume pending payment (Approach B) ──────────────────────────────────
-// On mount, if a Pending unpaid order was created earlier in this browser,
-// verify it's still unpaid via the public track endpoint and offer to resume.
-useEffect(() => {
-  const raw = typeof window !== "undefined" ? localStorage.getItem("pending_order") : null;
-  if (!raw) return;
-
-  let saved: any;
-  try { saved = JSON.parse(raw); } catch { localStorage.removeItem("pending_order"); return; }
-
-  // Ignore stale captures (older than 24h)
-  if (!saved?.orderNumber || !saved?.orderId || (saved.ts && Date.now() - saved.ts > 24 * 60 * 60 * 1000)) {
-    localStorage.removeItem("pending_order");
-    return;
-  }
-
-  (async () => {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Orders/track/${encodeURIComponent(saved.orderNumber)}?email=${encodeURIComponent(saved.email || "")}`
-      );
-      if (!res.ok) { localStorage.removeItem("pending_order"); return; }
-      const json = await res.json();
-      const o = json?.data;
-      const status = String(o?.status ?? "").toLowerCase();
-      const payStatus = String(o?.paymentStatus ?? "").toLowerCase();
-      const paid = payStatus === "successful" || payStatus === "paid";
-      const closed = ["cancelled", "refunded"].includes(status);
-
-      // Still Pending and unpaid → send the customer to the order page to complete
-      // payment (instead of a fresh checkout). The order-success page handles paying.
-      if (o && status === "pending" && !paid && !closed) {
-        router.replace(`/order/success?orderId=${o.id ?? saved.orderId}`);
-      } else {
-        localStorage.removeItem("pending_order");
-      }
-    } catch {
-      // Network issue — keep the stored order; don't block checkout.
-    }
-  })();
-}, []);
-
-// Restore the billing/shipping details the customer typed for a still-pending order,
-// so the checkout form is pre-filled when they come back (Approach B).
+// Restore the billing/shipping details the customer typed previously,
+// so the checkout form is pre-filled when they come back.
 useEffect(() => {
   const raw = typeof window !== "undefined" ? localStorage.getItem("checkout_form") : null;
   if (!raw) return;
@@ -462,6 +557,27 @@ useEffect(() => {
     if (f.shippingPhone) setShippingPhone(f.shippingPhone);
   } catch { /* ignore */ }
 }, []);
+
+// Keep the typed billing/shipping details saved as the customer fills the form —
+// not just at order-creation time — so an abandoned attempt (e.g. they navigate
+// away to add another product before finishing) still restores on the next visit.
+useEffect(() => {
+  try {
+    localStorage.setItem("checkout_form", JSON.stringify({
+      billingFirstName, billingLastName, billingEmail, billingPhone, billingCompany,
+      billingAddress1, billingAddress2, billingCity, billingState, billingPostalCode, billingCountry,
+      deliveryMethod, shippingSameAsBilling,
+      shippingFirstName, shippingLastName, shippingCompany,
+      shippingAddress1, shippingAddress2, shippingCity, shippingState, shippingPostalCode, shippingCountry, shippingPhone,
+    }));
+  } catch { /* storage blocked — ignore */ }
+}, [
+  billingFirstName, billingLastName, billingEmail, billingPhone, billingCompany,
+  billingAddress1, billingAddress2, billingCity, billingState, billingPostalCode, billingCountry,
+  deliveryMethod, shippingSameAsBilling,
+  shippingFirstName, shippingLastName, shippingCompany,
+  shippingAddress1, shippingAddress2, shippingCity, shippingState, shippingPostalCode, shippingCountry, shippingPhone,
+]);
 
 const isBuyNowFlow = !!buyNowItem;
 
@@ -1127,7 +1243,7 @@ if (!isAuthenticated && hasPharmaProduct) {
           deliveryMethod === "ClickAndCollect"
           ? selectedStoreId
           : null,    
-      paymentMethod: "Card",
+      paymentMethod: checkoutPaymentMethod === "paypal" ? "PayPal" : "Card",
       customerEmail: billingEmail,
       customerPhone: `+44${billingPhone}`,
       billingPhone: `+44${billingPhone}`, 
@@ -1352,8 +1468,6 @@ const onPaymentSuccess = (createdOrder: any) => {
 if (!isAuthenticated) {
   localStorage.removeItem("pharmacy_session_id");
 }
-  // Payment done — clear the resume-payment markers.
-  localStorage.removeItem("pending_order");
   localStorage.removeItem("checkout_form");
   router.push(`/order/success?orderId=${createdOrder.data.id}`);
 };
@@ -1441,7 +1555,8 @@ if (!checkoutItems || checkoutItems.length === 0) {
     className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
   />
 </div>
-{/* <div className="flex flex-col space-y-0.5 col-span-2 relative z-[40]">
+{/* Search address or postcode — commented out for now
+<div className="flex flex-col space-y-0.5 col-span-2 relative z-[40]">
   <label className="text-xs font-medium text-gray-700">Search address or postcode</label>
   <input
     type="text"
@@ -1457,7 +1572,8 @@ if (!checkoutItems || checkoutItems.length === 0) {
       ))}
     </div>
   )}
-</div> */}
+</div>
+*/}
 <div className="flex flex-col space-y-0.5 col-span-2">
   <label className="text-xs font-medium text-gray-700">Address line 1 *</label>
   <input
@@ -1986,6 +2102,7 @@ const isNextDay =
      {formatCurrency(finalPayableAmount)}
     </span>
   </div>
+
 </div>
 <LoyaltyRedemptionBox
   orderTotal={cartTotalAmount}
@@ -2010,10 +2127,36 @@ const isNextDay =
   <label className="text-xs font-semibold block mb-1.5">
     Payment
   </label>
+  {!stripeOrderId && (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        onClick={() => setCheckoutPaymentMethod("card")}
+        className={`flex-1 py-2 text-sm rounded border transition ${
+          checkoutPaymentMethod === "card"
+            ? "border-[#445D41] bg-[#445D41]/10 text-[#445D41] font-semibold"
+            : "border-gray-300 text-gray-600"
+        }`}
+      >
+        Stripe
+      </button>
+      <button
+        type="button"
+        onClick={() => setCheckoutPaymentMethod("paypal")}
+        className={`flex-1 py-2 text-sm rounded border transition ${
+          checkoutPaymentMethod === "paypal"
+            ? "border-[#445D41] bg-[#445D41]/10 text-[#445D41] font-semibold"
+            : "border-gray-300 text-gray-600"
+        }`}
+      >
+        PayPal
+      </button>
+    </div>
+  )}
 </div>
 
 {/* STEP 1 */}
-{!stripeClientSecret && (
+{!stripeOrderId && (
   <button
     title={
       shippingError
@@ -2104,88 +2247,71 @@ const isNextDay =
         const totalAmount =
           orderJson.data.totalAmount;
 
-        // PAYMENT INTENT
-        const intentResp = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/Payment/create-intent`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              amount: totalAmount,
-              currency: "GBP",
-              customerEmail: billingEmail,
-              orderId,
-            }),
+        if (checkoutPaymentMethod === "card") {
+          // PAYMENT INTENT (Stripe)
+          const intentResp = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/Payment/create-intent`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                amount: totalAmount,
+                currency: "GBP",
+                customerEmail: billingEmail,
+                orderId,
+              }),
+            }
+          );
+
+          const intentText =
+            await intentResp.text();
+
+          let intentJson: any = null;
+
+          if (intentText) {
+            try {
+              intentJson = JSON.parse(intentText);
+            } catch (e) {
+              console.error(
+                "Failed to parse intent JSON:",
+                e
+              );
+            }
           }
-        );
 
-        const intentText =
-          await intentResp.text();
-
-        let intentJson: any = null;
-
-        if (intentText) {
-          try {
-            intentJson = JSON.parse(intentText);
-          } catch (e) {
-            console.error(
-              "Failed to parse intent JSON:",
-              e
+          if (!intentResp.ok) {
+            setError(
+              intentJson?.message ||
+                "Payment initialization failed"
             );
+
+            setIsPlacing(false);
+            return;
           }
-        }
 
-        if (!intentResp.ok) {
-          setError(
-            intentJson?.message ||
+          if (!intentJson?.data?.clientSecret) {
+            setError(
               "Payment initialization failed"
+            );
+
+            setIsPlacing(false);
+            return;
+          }
+
+          setStripeClientSecret(
+            intentJson.data.clientSecret
           );
-
-          setIsPlacing(false);
-          return;
         }
-
-        if (!intentJson?.data?.clientSecret) {
-          setError(
-            "Payment initialization failed"
-          );
-
-          setIsPlacing(false);
-          return;
-        }
+        // PayPal needs no client secret up front — PayPalCheckoutPayment creates the
+        // PayPal order itself (via paypal/create-order) once it mounts below.
 
         setStripeOrderId(orderId);
 
-        setStripeClientSecret(
-          intentJson.data.clientSecret
-        );
-
-        // Remember this Pending order so the customer can resume payment if they
-        // navigate away before paying (Approach B — works for guest & logged-in).
-        try {
-          localStorage.setItem("pending_order", JSON.stringify({
-            orderId,
-            orderNumber: orderJson.data.orderNumber,
-            email: billingEmail,
-            total: totalAmount,
-            ts: Date.now(),
-          }));
-          // Also remember the details the customer typed so the checkout form is
-          // pre-filled if they come back (they don't have to re-enter everything).
-          localStorage.setItem("checkout_form", JSON.stringify({
-            billingFirstName, billingLastName, billingEmail, billingPhone, billingCompany,
-            billingAddress1, billingAddress2, billingCity, billingState, billingPostalCode, billingCountry,
-            deliveryMethod, shippingSameAsBilling,
-            shippingFirstName, shippingLastName, shippingCompany,
-            shippingAddress1, shippingAddress2, shippingCity, shippingState, shippingPostalCode, shippingCountry, shippingPhone,
-          }));
-        } catch { /* storage blocked — ignore */ }
-
         trackAddPaymentInfo(
           checkoutItems,
-          "stripe"
+          checkoutPaymentMethod
         );
       } catch (err: any) {
         console.error(
@@ -2247,7 +2373,7 @@ const isNextDay =
 )}
 
 {/* STEP 2 */}
-{stripeClientSecret && stripeOrderId && (
+{checkoutPaymentMethod === "card" && stripeClientSecret && stripeOrderId && (
   <StripeWrapper clientSecret={stripeClientSecret}>
     <CheckoutPayment
       clientSecret={stripeClientSecret}
@@ -2263,6 +2389,14 @@ const isNextDay =
       onError={onPaymentError}
     />
   </StripeWrapper>
+)}
+
+{checkoutPaymentMethod === "paypal" && stripeOrderId && (
+  <PayPalCheckoutPayment
+    orderId={stripeOrderId}
+    onPaymentSuccess={onPaymentSuccess}
+    onError={onPaymentError}
+  />
 )}
         
 
@@ -2292,10 +2426,42 @@ const isNextDay =
 
     <span>I agree to the <Link href="/terms-and-conditions" className="text-blue-600 underline">Terms & Conditions</Link></span>
   </label>
-  <label className="flex items-start gap-2 text-xs text-gray-700">
-    <input type="checkbox" checked={subscribeNewsletter} onChange={(e) => setSubscribeNewsletter(e.target.checked)} className="mt-0.5" />
-    <span>Subscribe to newsletter for offers & updates</span>
+  <label className="flex items-start gap-2 text-xs bg-green-50 border border-green-200 rounded-md p-2.5 cursor-pointer">
+    <input
+      type="checkbox"
+      checked={!subscribeNewsletter}
+      onChange={(e) => setSubscribeNewsletter(!e.target.checked)}
+      className="mt-0.5"
+    />
+    <span className="text-gray-800">
+      <strong>If you tick the box, you're asking us to take you off our marketing email list.</strong>
+      <br />
+      <span className="text-gray-600">
+        If you choose to receive marketing messages about similar products or services from us,
+        you're agreeing to our{" "}
+        <Link href="/terms-and-conditions" className="text-blue-600 underline">Terms & Conditions</Link>{" "}
+        and{" "}
+        <Link href="/privacy-policy" className="text-blue-600 underline">Privacy Policy</Link>.
+        You can stop receiving marketing messages at any time by clicking the unsubscribe link in each email.
+      </span>
+    </span>
   </label>
+
+  {subscribeNewsletter && (
+    <label className="flex items-start gap-2 text-xs text-gray-700">
+      <input
+        type="checkbox"
+        checked={thirdPartyMarketing}
+        onChange={(e) => setThirdPartyMarketing(e.target.checked)}
+        className="mt-0.5"
+      />
+      <span>
+        By ticking this box, you're giving us permission to use your personal information to send
+        you targeted marketing promotions and offers with our partners. You can stop receiving these
+        messages at any time by clicking the unsubscribe link in our emails or contacting us directly.
+      </span>
+    </label>
+  )}
 </div>
             </div>
           </div>
