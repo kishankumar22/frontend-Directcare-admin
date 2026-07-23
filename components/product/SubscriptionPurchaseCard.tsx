@@ -213,7 +213,15 @@ image: selectedVariant?.imageUrl
             £{(selectedVariant?.price ?? product.price).toFixed(2)}
           </span>
 
-          {selectedPurchaseType === "subscription" && nextDayDeliveryFree && (
+      
+
+          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
+            <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
+              {vatRate}% VAT
+            </span>
+          )}
+          
+              {selectedPurchaseType === "subscription" && nextDayDeliveryFree && (
             <span
               className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
               style={{
@@ -227,11 +235,6 @@ image: selectedVariant?.imageUrl
             </span>
           )}
 
-          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
-            <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
-              {vatRate}% VAT
-            </span>
-          )}
           {(product as any).loyaltyPointsEnabled && (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
               <AwardIcon className="h-3 w-3 text-green-600" />

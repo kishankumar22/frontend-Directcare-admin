@@ -136,7 +136,12 @@ const categories = useMemo(() => {
 // Brands - A-Z Sort
 const brands = useMemo(() => {
   const map = new Map<string, any>();
-  products.forEach((p) => {
+  
+  const validProducts = selectedCategories.length > 0 
+    ? products.filter(p => p.categories?.some((c: any) => selectedCategories.includes(c.categoryId)))
+    : products;
+
+  validProducts.forEach((p) => {
     p.brands?.forEach((b: any) => {
       if (!map.has(b.brandId)) {
         map.set(b.brandId, {
@@ -150,7 +155,7 @@ const brands = useMemo(() => {
   return Array.from(map.values()).sort((a, b) => 
     a.name.localeCompare(b.name)
   );
-}, [products]);
+}, [products, selectedCategories]);
   // Price range derive
 useEffect(() => {
   if (!products || products.length === 0) return;

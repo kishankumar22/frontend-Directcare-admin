@@ -128,14 +128,19 @@ const categories = useMemo(() => {
 // Brands - A-Z Sort
 const brands = useMemo(() => {
   const map = new Map<string, any>();
-  products.forEach(p => p.brands?.forEach((b: any) => {
+  
+  const validProducts = selectedCategories.length > 0
+    ? products.filter(p => p.categories?.some((c: any) => selectedCategories.includes(c.categoryId)))
+    : products;
+
+  validProducts.forEach(p => p.brands?.forEach((b: any) => {
     if (!map.has(b.brandId)) map.set(b.brandId, { id: b.brandId, name: b.brandName });
   }));
   // ✅ SORT A-Z by name
   return Array.from(map.values()).sort((a, b) => 
     a.name.localeCompare(b.name)
   );
-}, [products]);
+}, [products, selectedCategories]);
 
   // Filter + flatten + sort
   const flattenedProducts = useMemo(() => {

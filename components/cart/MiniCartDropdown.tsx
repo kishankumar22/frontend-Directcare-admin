@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Trash2, ShoppingBag, Truck } from "lucide-react";
@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { getOrderSummaryPricing } from "@/utils/pricing";
+import ConfirmRemoveModal from "@/components/ui/ConfirmRemoveModal";
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
@@ -15,6 +16,7 @@ function formatCurrency(n = 0) {
 
 export default function MiniCartDropdown({ onClose }: { onClose: () => void }) {
   const { cart, updateQuantity, removeFromCart } = useCart();
+  const [showEmptyConfirm, setShowEmptyConfirm] = useState(false);
   const { isAuthenticated } = useAuth();
   const toast = useToast();
   const router = useRouter();
@@ -22,8 +24,8 @@ export default function MiniCartDropdown({ onClose }: { onClose: () => void }) {
   // Variant-level min/max/stock override the product-level default when set —
   // same resolution order as the full cart page's getItemMinQty/getItemMaxQty/getItemStock.
   const getItemVariant = (item: (typeof cart)[number]) => {
-    if (item.productData?.productType === "variable" && item.variantId) {
-      return item.productData?.variants?.find((v: any) => v.id === item.variantId) ?? null;
+    if (item.variantId && item.productData?.variants?.length) {
+      return item.productData.variants.find((v: any) => v.id === item.variantId) ?? null;
     }
     return null;
   };
@@ -304,13 +306,25 @@ export default function MiniCartDropdown({ onClose }: { onClose: () => void }) {
           </div>
 
           <button
-            onClick={() => cart.forEach((i) => removeFromCart(i.id, i.type))}
+            onClick={() => setShowEmptyConfirm(true)}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 transition pt-1"
           >
             <Trash2 size={14} /> Empty Basket
           </button>
         </div>
       )}
+
+      {/* Empty Basket Confirmation Modal */}
+      <ConfirmRemoveModal
+        open={showEmptyConfirm}
+        title="Empty Basket"
+        description="Are you sure you want to remove all items from your basket?"
+        onConfirm={() => {
+          cart.forEach((i) => removeFromCart(i.id, i.type));
+          setShowEmptyConfirm(false);
+        }}
+        onCancel={() => setShowEmptyConfirm(false)}
+      />
     </div>
   );
 }

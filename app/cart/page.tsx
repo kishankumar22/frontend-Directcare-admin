@@ -594,8 +594,8 @@ export default function CartPage() {
 
   const getItemStock = (item: any) => {
     // Variant stock check
-    if (item.productData?.productType === "variable" && item.variantId) {
-      const variant = item.productData?.variants?.find(
+    if (item.variantId && item.productData?.variants?.length) {
+      const variant = item.productData.variants.find(
         (v: any) => v.id === item.variantId
       );
 
@@ -618,8 +618,8 @@ export default function CartPage() {
 
   // Variant-level min/max cart quantity override the product-level default when set.
   const getItemVariant = (item: any) => {
-    if (item.productData?.productType === "variable" && item.variantId) {
-      return item.productData?.variants?.find((v: any) => v.id === item.variantId) ?? null;
+    if (item.variantId && item.productData?.variants?.length) {
+      return item.productData.variants.find((v: any) => v.id === item.variantId) ?? null;
     }
     return null;
   };
@@ -665,6 +665,8 @@ export default function CartPage() {
       (i) => i.parentProductId === parentProductId
     );
   };
+
+
   const orderVatAmount = useMemo(() => {
     return cart.reduce((sum, item) => {
       const rate =
@@ -829,8 +831,6 @@ export default function CartPage() {
                             {(() => {
 
                               let comparePrice: number | null = null;
-
-                              // SYSTEM DISCOUNT
                               // SYSTEM DISCOUNT
                               if (
                                 item.displayDiscountType === "System" &&
