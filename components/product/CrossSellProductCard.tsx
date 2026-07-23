@@ -243,7 +243,8 @@ export default function CrossSellProductCard({ product, getImageUrl }: any) {
         option3: (defaultVariant as any)?.option3Value ?? null,
       },
       shipSeparately: product.shipSeparately,
-      nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+      nextDayDeliveryEnabled: defaultVariant?.nextDayDeliveryEnabled ?? product.nextDayDeliveryEnabled ?? false,
+      nextDayDeliveryFree: defaultVariant?.nextDayDeliveryFree ?? product.nextDayDeliveryFree ?? false,
       sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
       productData: JSON.parse(JSON.stringify(product)),
     });
@@ -389,14 +390,6 @@ export default function CrossSellProductCard({ product, getImageUrl }: any) {
             </div>
           )}
           
-          {/* VAT Relief — bottom left on image */}
-          {product.vatExempt && vatRate === 0 && (
-            <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
-              <BadgePercent className="h-2.5 w-2.5" />
-              VAT Relief
-            </span>
-          )}
-          
           {/* ✅ WISHLIST BUTTON - RIGHT SIDE (Top Right) */}
           <button
             onClick={(e) => {
@@ -494,11 +487,16 @@ export default function CrossSellProductCard({ product, getImageUrl }: any) {
             </span>
           )}
           
-          {vatRate !== null && vatRate > 0 && !product.vatExempt && (
+          {product.vatExempt && vatRate === 0 ? (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-black/80 border border-black/20 px-1 py-0.5 rounded whitespace-nowrap">
+              <BadgePercent className="h-2.5 w-2.5" />
+              VAT Relief
+            </span>
+          ) : vatRate !== null && vatRate > 0 ? (
             <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
               {vatRate}% VAT
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* QUANTITY + BUTTON */}

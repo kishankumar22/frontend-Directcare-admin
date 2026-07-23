@@ -705,20 +705,24 @@ const shippingCost = useMemo(() => {
   return selectedShippingOption.price ?? 0;
 }, [selectedShippingOption, allNextDayFree]);
 
+// Safety net: a discount (however it was computed/persisted) must never exceed the subtotal
+// it applies to, or the payable total goes negative. Clamp defensively before charging.
+const safeCartDiscount = useMemo(() => {
+  return Math.min(cartBundleDiscount + cartDiscount, cartSubtotal);
+}, [cartBundleDiscount, cartDiscount, cartSubtotal]);
+
 const cartTotalAmount = useMemo(() => {
   return (
     cartSubtotal -
-    cartBundleDiscount -
-    cartDiscount +
-    shippingCost 
-   
+    safeCartDiscount +
+    shippingCost
+
   );
 }, [
   cartSubtotal,
-  cartBundleDiscount,
-  cartDiscount,
+  safeCartDiscount,
   shippingCost,
-  
+
 ]);
 const finalPayableAmount = cartTotalAmount - pointsDiscount;
 const checkoutVatAmount = useMemo(() => {
@@ -1886,6 +1890,16 @@ onChange={(e) => setShippingAddressQuery(e.target.value)}
 {deliveryMethod === "HomeDelivery" && shippingOptions.length > 0 && (
   <div className="bg-white p-3 rounded shadow">
     <h2 className="text-sm font-semibold mb-2">Delivery options</h2>
+    {checkoutItems.length > 0 && !allSupportNextDay && (
+      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mb-2">
+        Next Day Delivery isn't available for this order — one or more items in your cart only support Standard Delivery.
+      </p>
+    )}
+    {checkoutItems.length > 0 && allSupportNextDay && !allNextDayFree && checkoutItems.some(i => i.nextDayDeliveryFree) && (
+      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mb-2">
+        Next Day Delivery won't be free for this order — a charge applies because not all items in your cart qualify for free Next Day Delivery.
+      </p>
+    )}
     {shippingQuoteLoading ? (
       <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
         <svg className="animate-spin h-4 w-4 text-[#445D41]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

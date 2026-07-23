@@ -55,6 +55,21 @@ export default function AllowedDeliveryOptions<
             };
           });
         }
+
+        // Older products can have nextDayDeliveryEnabled = true saved without a matching
+        // allowedDeliveryOptionIds entry (this checkbox's real source of truth). Without this
+        // sync, the checkbox silently renders as unchecked even though the product still allows
+        // Next Day everywhere else (cart/checkout), hiding the real state from the admin.
+        const nextDayOpt = options.find(opt => opt.name === 'next-day');
+        if (nextDayOpt) {
+          setFormData((prev) => {
+            if (!prev.nextDayDeliveryEnabled) return prev;
+            const hasId = prev.allowedDeliveryOptionIds.includes(nextDayOpt.id);
+            return hasId
+              ? prev
+              : { ...prev, allowedDeliveryOptionIds: [...prev.allowedDeliveryOptionIds, nextDayOpt.id] };
+          });
+        }
       } catch (e) {
         console.error("Failed to load delivery options", e);
       } finally {

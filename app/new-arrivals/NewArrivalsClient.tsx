@@ -435,27 +435,25 @@ export default function NewArrivalsClient({
                   </div>
                 )}
 
-                {brands.length > 0 && (
-                  <div className="mb-4 pb-4 border-b border-gray-200">
-                    <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Brand</h3>
-                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
-                      {brands
-                        .slice()
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((brand) => (
-                          <label key={brand.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group" title={brand.name}>
-                            <input
-                              type="checkbox"
-                              className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
-                              checked={selectedBrands.includes(brand.id)}
-                              onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
-                            />
-                            <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">{brand.name}</span>
-                          </label>
-                        ))}
-                    </div>
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <h3 className="font-semibold text-xs text-gray-900 uppercase tracking-wider mb-2">Brand</h3>
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                    {brands
+                      .slice()
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((brand) => (
+                        <label key={brand.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group" title={brand.name}>
+                          <input
+                            type="checkbox"
+                            className="w-3.5 h-3.5 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] flex-shrink-0"
+                            checked={selectedBrands.includes(brand.id)}
+                            onChange={(e) => handleBrandChange(brand.id, e.target.checked)}
+                          />
+                          <span className="text-xs text-gray-700 truncate group-hover:text-[#445D41] transition">{brand.name}</span>
+                        </label>
+                      ))}
                   </div>
-                )}
+                </div>
 
                 {minPrice < maxPrice && (
                   <div className="mb-4 pb-4 border-b border-gray-200">

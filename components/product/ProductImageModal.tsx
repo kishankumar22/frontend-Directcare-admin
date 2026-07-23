@@ -67,17 +67,16 @@ export default function ProductImageModal({
       )}
 
       {/* IMAGE */}
-<div className="relative w-[90vw] h-[80vh] max-w-5xl">
-  <Image
-    src={getImageUrl(images[activeIndex].imageUrl)}
-    alt={images[activeIndex].altText || "Product image"}
-    fill
-    className="object-contain"
-    sizes="100vw"
-    priority
-    unoptimized
-  />
-</div>
+      <div className="relative w-[90vw] h-[80vh] max-w-5xl">
+        <Image
+          src={getImageUrl(images[activeIndex].imageUrl)}
+          alt={images[activeIndex].altText || "Product image"}
+          fill
+          className="object-contain"
+          sizes="100vw"
+          priority
+        />
+      </div>
 
       {/* NEXT */}
       {images.length > 1 && (

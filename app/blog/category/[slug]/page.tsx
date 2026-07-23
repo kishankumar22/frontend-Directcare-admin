@@ -53,7 +53,7 @@ export async function generateMetadata({
         `Explore ${category.name} related health articles, medicine guides, and wellness tips in the UK.`,
 
       alternates: {
-        canonical: `https://api.direct-care.co.uk/blog/category/${category.slug}`,
+        canonical: `https://test.direct-care.co.uk/blog/category/${category.slug}`,
       },
 
       openGraph: {
@@ -61,7 +61,7 @@ export async function generateMetadata({
         description:
           category.metaDescription ||
           `Browse ${category.name} health articles and guides.`,
-        url: `https://api.direct-care.co.uk/blog/category/${category.slug}`,
+        url: `https://test.direct-care.co.uk/blog/category/${category.slug}`,
         type: "website",
 
         images: category.imageUrl
@@ -123,7 +123,7 @@ export default async function BlogCategoryPage({
               description:
                 category.metaDescription ||
                 `Articles related to ${category.name}`,
-              url: `https://api.direct-care.co.uk/blog/category/${category.slug}`,
+              url: `https://test.direct-care.co.uk/blog/category/${category.slug}`,
             }),
           }}
         />

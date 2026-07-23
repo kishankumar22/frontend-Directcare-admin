@@ -120,6 +120,8 @@ export interface OrderItem {
   variantName?: string;
   productId: string;
   productVariantId?: string;
+  nextDayDeliveryEnabled?: boolean;
+  nextDayDeliveryFree?: boolean;
 }
 
 export interface Payment {

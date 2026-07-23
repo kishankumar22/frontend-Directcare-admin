@@ -96,6 +96,9 @@ systemDiscountAmount:
     vatRate: item.vatRate ?? null,
     vatIncluded: item.vatRate != null,
 
+    nextDayDeliveryEnabled: wishlistVariant?.nextDayDeliveryEnabled ?? productData?.nextDayDeliveryEnabled ?? false,
+    nextDayDeliveryFree: wishlistVariant?.nextDayDeliveryFree ?? productData?.nextDayDeliveryFree ?? false,
+
     // 🔥🔥🔥 MOST IMPORTANT
     productData: productData,
   });

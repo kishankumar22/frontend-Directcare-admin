@@ -1374,6 +1374,19 @@ export default function AddProductPage() {
           return;
         }
 
+        // 5.3 Check Variant SKU Matches Product SKU
+        for (const variant of productVariants) {
+          if (variant.sku.toUpperCase() === formData.sku.toUpperCase()) {
+            toast.error(`Variant "${variant.name}" SKU cannot be same as main product SKU`, {
+              autoClose: 8000,
+            });
+            target.removeAttribute("data-submitting");
+            setIsSubmitting(false);
+            setSubmitProgress(null);
+            return;
+          }
+        }
+
         if (formData.productType === "variable") {
           // 👇 YAHAN ADD KARO
           const defaultVariants = productVariants.filter(
@@ -1400,7 +1413,10 @@ export default function AddProductPage() {
             return;
           }
         }
-        }
+
+
+
+      }
 
       setSubmitProgress({
         step: "Processing categories and brands...",

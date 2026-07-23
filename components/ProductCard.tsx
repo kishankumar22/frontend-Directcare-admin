@@ -220,7 +220,8 @@ const currentDisplayType =
         option3: defaultVariant?.option3Value ?? null,
       },
       shipSeparately: product.shipSeparately,
-      nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+      nextDayDeliveryEnabled: defaultVariant?.nextDayDeliveryEnabled ?? product.nextDayDeliveryEnabled ?? false,
+      nextDayDeliveryFree: defaultVariant?.nextDayDeliveryFree ?? product.nextDayDeliveryFree ?? false,
       sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
       productData: JSON.parse(JSON.stringify(product)),
     };
@@ -384,8 +385,8 @@ const currentDisplayType =
             />
           </button>
           {/* Next Day Delivery Free — bottom left on image */}
-          {(product.nextDayDeliveryFree || defaultVariant?.nextDayDeliveryFree) && stock > 0 && (
-            <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap shadow-sm">
+          {(defaultVariant?.nextDayDeliveryFree ?? product.nextDayDeliveryFree) && stock > 0 && (
+            <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none">
               Next Day Delivery Free
             </span>
           )}
@@ -437,14 +438,6 @@ const currentDisplayType =
             ({product.reviewCount || 0})
           </span>
 
-          {/* VAT Relief */}
-          {product.vatExempt && vatRate === 0 && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/80 border border-black/20 text-white text-[10px] font-bold whitespace-nowrap">
-              <BadgePercent className="h-2.5 w-2.5" />
-              VAT Relief
-            </span>
-          )}
-
           {stock <= 0 && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold whitespace-nowrap">
               <PackageX className="h-2.5 w-2.5" />
@@ -478,11 +471,16 @@ const currentDisplayType =
             </span>
           )}
 
-          {vatRate !== null && vatRate > 0 && (
+          {product.vatExempt && vatRate === 0 ? (
+            <span className="inline-flex items-center gap-0.5 text-[10px] md:text-xs font-bold text-white bg-black/80 border border-black/20 px-1 py-[2px] rounded-md whitespace-nowrap leading-none">
+              <BadgePercent className="h-2.5 w-2.5" />
+              VAT Relief
+            </span>
+          ) : vatRate !== null && vatRate > 0 ? (
             <span className="text-[10px] md:text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-[2px] rounded-md whitespace-nowrap leading-none">
               ({vatRate}% VAT)
             </span>
-          )}
+          ) : null}
         </div>
 
 {/* ADD TO CART + NOTIFY ME */}

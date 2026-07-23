@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import ProductCard from "@/components/ProductCard";
 import { useVatRates } from "@/app/hooks/useVatRates";
 import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
@@ -74,30 +74,6 @@ const getFinalPrice = (item: any) => {
     }
   }, [loading, hasMore, page, pageSize, discountId, sortBy, sortDirection]);
 
-  // Intersection Observer for infinite scrolling
-  const observerTarget = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          loadMore();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
-    };
-  }, [hasMore, loading, loadMore]);
-
   // Price range
   useEffect(() => {
     if (!products.length) return;
@@ -125,22 +101,33 @@ const categories = useMemo(() => {
   );
 }, [products]);
 
-// Brands - A-Z Sort
+// Brands - A-Z Sort — narrowed to the selected categories, so only brands that actually
+// have products in the chosen category show up (instead of every brand on the whole page).
 const brands = useMemo(() => {
   const map = new Map<string, any>();
-  
-  const validProducts = selectedCategories.length > 0
-    ? products.filter(p => p.categories?.some((c: any) => selectedCategories.includes(c.categoryId)))
+  const relevantProducts = selectedCategories.length
+    ? products.filter(p =>
+        p.categories?.some((c: any) => selectedCategories.includes(c.categoryId))
+      )
     : products;
-
-  validProducts.forEach(p => p.brands?.forEach((b: any) => {
+  relevantProducts.forEach(p => p.brands?.forEach((b: any) => {
     if (!map.has(b.brandId)) map.set(b.brandId, { id: b.brandId, name: b.brandName });
   }));
   // ✅ SORT A-Z by name
-  return Array.from(map.values()).sort((a, b) => 
+  return Array.from(map.values()).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
 }, [products, selectedCategories]);
+
+// Drop any selected brand that no longer belongs to the narrowed list (e.g. after switching
+// category) so an invisible, unremovable brand filter can't silently keep filtering results.
+useEffect(() => {
+  setSelectedBrands(prev => {
+    const validIds = new Set(brands.map(b => b.id));
+    const next = prev.filter(id => validIds.has(id));
+    return next.length === prev.length ? prev : next;
+  });
+}, [brands]);
 
   // Filter + flatten + sort
   const flattenedProducts = useMemo(() => {
@@ -483,8 +470,11 @@ const handleSortChange = (value: string) => {
                 ))}
               </div>
               {hasMore && (
-                <div ref={observerTarget} className="text-center pb-8 pt-4 flex justify-center w-full min-h-[60px]">
-                  {loading && <Loader2 className="h-6 w-6 animate-spin text-[#445D41]" />}
+                <div className="text-center pb-8">
+                  <button onClick={loadMore} disabled={loading}
+                    className="inline-flex items-center gap-2 px-8 py-3 bg-[#445D41] text-white rounded-xl font-semibold hover:bg-[#3a5237] transition-colors disabled:opacity-60">
+                    {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Loading...</> : "Load More Products"}
+                  </button>
                 </div>
               )}
             </>

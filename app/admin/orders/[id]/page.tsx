@@ -2248,6 +2248,14 @@ export default function OrderDetailPage() {
                     <Hash className="h-3 w-3" />
                     SKU: {item.productSku}
                   </p>
+                  {item.nextDayDeliveryEnabled && (
+                    <span
+                      title="This product supports Next Day Delivery — shown regardless of which delivery method the overall order used"
+                      className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-500/10 border border-violet-300 dark:border-violet-500/30 rounded px-1.5 py-0.5"
+                    >
+                      Next Day Delivery{item.nextDayDeliveryFree ? " · Free" : ""}
+                    </span>
+                  )}
                 </div>
 
               </div>
@@ -2505,7 +2513,14 @@ export default function OrderDetailPage() {
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
                         <Hash className="h-3 w-3" />
-                        Transaction ID: {payment.transactionId || 'Pending'}
+                        Transaction ID: {
+                          // PayPal stores its checkout Order ID in transactionId, but that ID
+                          // doesn't appear in PayPal's own dashboard/transaction search — only
+                          // the capture id (gatewayTransactionId) does, so prefer that for PayPal.
+                          (payment.paymentMethod?.toLowerCase() === 'paypal'
+                            ? payment.gatewayTransactionId || payment.transactionId
+                            : payment.transactionId) || 'Pending'
+                        }
                       </p>
                       {payment.processedAt && (
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">

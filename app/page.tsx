@@ -1,19 +1,18 @@
 //app/page.tsx
 import Link from "next/link";
 
-import dynamic from "next/dynamic";
 import HomeBannerSlider from "@/components/HomeBannerSlider";
-const FeaturedProductsSlider = dynamic(() => import("@/components/FeaturedProductsSlider"));
-const NewArrivalsProductsSlider = dynamic(() => import("@/components/NewArrivalsProductsSlider"));
+import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
+import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
 import Image from "next/image";
-const TopBrandsSlider = dynamic(() => import("@/components/TopBrandsSlider"));
-const CategorySlider = dynamic(() => import("@/components/CategorySlider"));
-const NewsletterWrapper = dynamic(() => import("@/components/NewsletterWrapper"));
-const CategoryOffersSlider = dynamic(() => import("@/components/CategoryOffersSlider"));
+import TopBrandsSlider from "@/components/TopBrandsSlider";
+import CategorySlider from "@/components/CategorySlider";
+import NewsletterWrapper from "@/components/NewsletterWrapper";
+import CategoryOffersSlider from "@/components/CategoryOffersSlider";
 import { getActiveBanners } from "@/lib/bannerUtils";
 import Script from "next/script";
 import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react";
-const WhyChooseUs = dynamic(() => import("@/components/WhyChooseUs"));
+import WhyChooseUs from "@/components/WhyChooseUs";
 import type { Metadata } from "next";
 
 export const revalidate = 60;
@@ -197,7 +196,7 @@ async function getBrands(baseUrl: string) {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://api.direct-care.co.uk"),
+  metadataBase: new URL("https://test.direct-care.co.uk"),
 
   title: "Direct Care UK - Shop Beauty, Health, Incontinence Items & More",
 
@@ -216,7 +215,7 @@ export const metadata: Metadata = {
     title: "Direct Care UK - Healthcare & Personal Care Online",
     description:
       "Order medicines and healthcare products online in the UK with fast delivery and trusted brands.",
-    url: "https://api.direct-care.co.uk",
+    url: "https://test.direct-care.co.uk",
     siteName: "Direct Care",
     locale: "en_GB", // ✅ VERY IMPORTANT
     type: "website",
@@ -228,7 +227,7 @@ export const metadata: Metadata = {
   },
 
   alternates: {
-    canonical: "https://api.direct-care.co.uk",
+    canonical: "https://test.direct-care.co.uk",
   },
 };
 // ✅ MAIN PAGE
@@ -280,7 +279,7 @@ export default async function Home() {
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "Direct Care",
-            url: "https://api.direct-care.co.uk",
+            url: "https://test.direct-care.co.uk",
             address: {
               "@type": "PostalAddress",
               addressCountry: "GB",
@@ -298,11 +297,11 @@ export default async function Home() {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebSite",
-            url: "https://api.direct-care.co.uk",
+            url: "https://test.direct-care.co.uk",
             name: "Direct Care",
             potentialAction: {
               "@type": "SearchAction",
-              target: "https://api.direct-care.co.uk/search?q={search_term_string}",
+              target: "https://test.direct-care.co.uk/search?q={search_term_string}",
               "query-input": "required name=search_term_string",
             },
           }),
@@ -314,7 +313,7 @@ export default async function Home() {
         </h1>
 
         {/* ===== HERO SLIDER ===== */}
-        <section className="w-full max-w-[1920px] mx-auto overflow-hidden">
+        <section className="w-full">
           <HomeBannerSlider banners={homeBanners} baseUrl={baseUrl} />
         </section>
 
@@ -331,7 +330,7 @@ export default async function Home() {
         </section>
         {/* ===== PROMO BANNER ===== */}
         {seasonalBannerTop && (
-          <section className="w-full max-w-[1920px] mx-auto py-4 bg-white">
+          <section className="w-full py-4 bg-white">
             {(() => {
               const desktopSrc = `${baseUrl}${seasonalBannerTop.imageUrl}`;
               const mobileSrc = seasonalBannerTop.mobileImageUrl ? `${baseUrl}${seasonalBannerTop.mobileImageUrl}` : null;

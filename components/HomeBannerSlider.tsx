@@ -30,7 +30,7 @@ export default function HomeBannerSlider({
   const enableAutoplay = banners.length > 1;
 
   return (
-    <div className="relative w-full max-w-[1920px] mx-auto overflow-hidden">
+    <div className="relative w-full">
       <Swiper
         modules={[Autoplay, Pagination]}
         slidesPerView={1}
@@ -47,7 +47,7 @@ export default function HomeBannerSlider({
         pagination={enableAutoplay ? { clickable: true } : false}
         className="w-full"
       >
-        {banners.map((banner, index) => {
+        {banners.map((banner) => {
           const desktopSrc = banner.imageUrl?.startsWith("http") ? banner.imageUrl : `${baseUrl}${banner.imageUrl}`;
           const mobileSrc = banner.mobileImageUrl
             ? (banner.mobileImageUrl.startsWith("http") ? banner.mobileImageUrl : `${baseUrl}${banner.mobileImageUrl}`)
@@ -61,8 +61,6 @@ export default function HomeBannerSlider({
                 src={desktopSrc}
                 alt={banner.title || "Banner"}
                 className="w-full h-auto object-contain"
-                fetchPriority={index === 0 ? "high" : "auto"}
-                loading={index === 0 ? "eager" : "lazy"}
               />
             </picture>
           );

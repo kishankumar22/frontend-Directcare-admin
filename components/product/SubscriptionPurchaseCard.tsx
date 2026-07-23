@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import QuantitySelector from "@/components/shared/QuantitySelector";
-import { AwardIcon, Truck, PackageX } from "lucide-react";
+import { AwardIcon, Truck } from "lucide-react";
 import { useRouter } from "next/navigation";
 interface Props {
   product: any;
@@ -25,7 +25,7 @@ interface Props {
     showNotify: boolean;
     label: string;
   };
-  onNotifyClick?: () => void;
+  onNotifyMe?: () => void;
 }
 
 export default function SubscriptionPurchaseCard({
@@ -40,7 +40,8 @@ export default function SubscriptionPurchaseCard({
    vatRate,
    nextDayDeliveryFree,
    backorderState,
-   onNotifyClick,
+   onNotifyMe,
+
 }: Props) {
 
   const { addToCart } = useCart();
@@ -175,6 +176,8 @@ image: selectedVariant?.imageUrl
       ...(selectedVariant?.option2Name && { [selectedVariant.option2Name]: selectedVariant.option2Value }),
       ...(selectedVariant?.option3Name && { [selectedVariant.option3Name]: selectedVariant.option3Value }),
     },
+      nextDayDeliveryEnabled: selectedVariant?.nextDayDeliveryEnabled ?? product.nextDayDeliveryEnabled ?? false,
+      nextDayDeliveryFree: selectedVariant?.nextDayDeliveryFree ?? product.nextDayDeliveryFree ?? false,
       maxStock: selectedVariant?.stockQuantity ?? product.stockQuantity
     });
   // The header's mini-cart dropdown opens automatically (see CartContext.addToCart)
@@ -213,15 +216,13 @@ image: selectedVariant?.imageUrl
             £{(selectedVariant?.price ?? product.price).toFixed(2)}
           </span>
 
-      
-
           {vatRate !== null && vatRate > 0 && !product.vatExempt && (
             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
               {vatRate}% VAT
             </span>
           )}
-          
-              {selectedPurchaseType === "subscription" && nextDayDeliveryFree && (
+
+          {selectedPurchaseType === "subscription" && nextDayDeliveryFree && (
             <span
               className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
               style={{
@@ -234,7 +235,6 @@ image: selectedVariant?.imageUrl
               </span>
             </span>
           )}
-
           {(product as any).loyaltyPointsEnabled && (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
               <AwardIcon className="h-3 w-3 text-green-600" />
@@ -345,15 +345,12 @@ image: selectedVariant?.imageUrl
         )}
 
         {selectedPurchaseType === "subscription" && !backorderState.canBuy && (
-          <div className="flex w-full items-center gap-2 mt-3">
-            <Button
-              onClick={() => onNotifyClick && onNotifyClick()}
-              className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
-            >
-              Notify Me
-            </Button>
-           
-          </div>
+          <Button
+            onClick={onNotifyMe}
+            className="w-full py-2 rounded-xl text-sm font-semibold bg-black hover:bg-[#445D41] text-white"
+          >
+            Notify Me
+          </Button>
         )}
       </div>
     </div>

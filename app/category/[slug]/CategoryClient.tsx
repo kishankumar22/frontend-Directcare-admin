@@ -795,7 +795,8 @@ const handleSortChange = useCallback((value: string) => {
           option3: defaultVariant?.option3Value ?? null,
         },
         shipSeparately: product.shipSeparately,
-        nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+        nextDayDeliveryEnabled: defaultVariant?.nextDayDeliveryEnabled ?? product.nextDayDeliveryEnabled ?? false,
+        nextDayDeliveryFree: defaultVariant?.nextDayDeliveryFree ?? product.nextDayDeliveryFree ?? false,
         sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
         productData: JSON.parse(JSON.stringify(product)),
       });

@@ -1100,9 +1100,10 @@ Note: Buttons will be hidden if you lack the required permission.`}>
               ) : (
                 <div className="space-y-2">
                   {assignedProducts.map((p) => (
-                    <div
+                    <Link
                       key={p.productId}
-                      className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 transition-all"
+                      href={`/admin/products/edit/${p.productId}`}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-500/50 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 transition-all"
                     >
                       <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
                         {p.productName}
@@ -1112,7 +1113,7 @@ Note: Buttons will be hidden if you lack the required permission.`}>
                           {p.sku}
                         </span>
                       )}
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}

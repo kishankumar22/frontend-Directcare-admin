@@ -8,7 +8,6 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { getOrderSummaryPricing } from "@/utils/pricing";
-import ConfirmRemoveModal from "@/components/ui/ConfirmRemoveModal";
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
@@ -16,16 +15,15 @@ function formatCurrency(n = 0) {
 
 export default function MiniCartDropdown({ onClose }: { onClose: () => void }) {
   const { cart, updateQuantity, removeFromCart } = useCart();
-  const [showEmptyConfirm, setShowEmptyConfirm] = useState(false);
   const { isAuthenticated } = useAuth();
   const toast = useToast();
   const router = useRouter();
-
+const [showEmptyCartModal, setShowEmptyCartModal] = useState(false);
   // Variant-level min/max/stock override the product-level default when set —
   // same resolution order as the full cart page's getItemMinQty/getItemMaxQty/getItemStock.
   const getItemVariant = (item: (typeof cart)[number]) => {
-    if (item.variantId && item.productData?.variants?.length) {
-      return item.productData.variants.find((v: any) => v.id === item.variantId) ?? null;
+    if (item.productData?.productType === "variable" && item.variantId) {
+      return item.productData?.variants?.find((v: any) => v.id === item.variantId) ?? null;
     }
     return null;
   };
@@ -130,7 +128,9 @@ export default function MiniCartDropdown({ onClose }: { onClose: () => void }) {
     }, 0);
   }, [cart]);
 
-  const finalTotalAmount = correctSubtotal - totalCombinedDiscount;
+  // Safety net: a discount (however it was computed/persisted) must never exceed the
+  // subtotal it applies to, or the total goes negative. Clamp defensively.
+  const finalTotalAmount = Math.max(0, correctSubtotal - Math.min(totalCombinedDiscount, correctSubtotal));
 
   const remaining = Math.max(0, freeShippingThreshold - finalTotalAmount);
 
@@ -305,26 +305,66 @@ export default function MiniCartDropdown({ onClose }: { onClose: () => void }) {
             <span>{formatCurrency(finalTotalAmount)}</span>
           </div>
 
-          <button
-            onClick={() => setShowEmptyConfirm(true)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 transition pt-1"
-          >
-            <Trash2 size={14} /> Empty Basket
-          </button>
+         <button
+  onClick={() => setShowEmptyCartModal(true)}
+  className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 transition pt-1"
+>
+  <Trash2 size={14} /> Empty Basket
+</button>
         </div>
       )}
 
-      {/* Empty Basket Confirmation Modal */}
-      <ConfirmRemoveModal
-        open={showEmptyConfirm}
-        title="Empty Basket"
-        description="Are you sure you want to remove all items from your basket?"
-        onConfirm={() => {
-          cart.forEach((i) => removeFromCart(i.id, i.type));
-          setShowEmptyConfirm(false);
-        }}
-        onCancel={() => setShowEmptyConfirm(false)}
-      />
+{showEmptyCartModal && (
+  <div className="fixed inset-0 z-[10000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="relative z-10 w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden">
+      {/* Header Strip - Green */}
+      <div className="bg-[#445D41] px-5 py-3 flex items-center justify-between">
+        <h2 className="text-white text-base font-semibold">
+          Empty Basket
+        </h2>
+        <button
+          onClick={() => setShowEmptyCartModal(false)}
+          className="text-white/70 hover:text-white transition"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="p-5">
+        <p className="text-sm text-gray-700">
+          Are you sure you want to remove all items from your basket?
+        </p>
+
+        {/* Actions */}
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={() => setShowEmptyCartModal(false)}
+            className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={() => {
+              cart.forEach((item) => removeFromCart(item.id, item.type));
+              setShowEmptyCartModal(false);
+              toast.success("Cart cleared successfully.");
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Yes, Empty Basket
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

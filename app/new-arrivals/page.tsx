@@ -139,37 +139,12 @@ export default async function NewArrivalsPage({
   const baseUrl = process.env.NEXT_PUBLIC_API_URL!;
   const searchParamsResolved = await searchParams;
 
-  const allCategories = await getCategories(baseUrl);
-  const allBrands = await getBrands(baseUrl);
-
-  // 1. Fetch all new arrivals (large pageSize) to see which categories and brands are actually present
-  const baseProductsRes = await getProducts(baseUrl, { pageSize: "1000", page: "1" });
-  const baseProducts = baseProductsRes?.data?.items || [];
-
-  const baseCategoryIds = new Set<string>();
-  const baseBrandIds = new Set<string>();
-  baseProducts.forEach((p: any) => {
-    if (p.brandId) baseBrandIds.add(p.brandId);
-    p.categories?.forEach((c: any) => baseCategoryIds.add(c.categoryId));
-  });
-
-  const availableCategories = allCategories.filter((c: any) => baseCategoryIds.has(c.id));
-  let availableBrands = allBrands.filter((b: any) => baseBrandIds.has(b.id));
-
-  // 2. If a category is selected, further filter the brands to only those in the selected category
-  if (searchParamsResolved.categorySlug) {
-    const catProductsRes = await getProducts(baseUrl, { pageSize: "1000", page: "1", categorySlug: searchParamsResolved.categorySlug });
-    const catProducts = catProductsRes?.data?.items || [];
-    const catBrandIds = new Set<string>();
-    catProducts.forEach((p: any) => {
-      if (p.brandId) catBrandIds.add(p.brandId);
-    });
-    availableBrands = allBrands.filter((b: any) => catBrandIds.has(b.id));
-  }
+  const categories = await getCategories(baseUrl);
+  const brands = await getBrands(baseUrl);
 
   const brandSlugs = searchParamsResolved.brands?.split(",").filter(Boolean) ?? [];
   const resolvedBrandIds = brandSlugs.length > 0
-    ? allBrands.filter((b: any) => brandSlugs.includes(b.slug)).map((b: any) => b.id).join(",")
+    ? brands.filter((b: any) => brandSlugs.includes(b.slug)).map((b: any) => b.id).join(",")
     : undefined;
 
   const productsRes = await getProducts(baseUrl, searchParamsResolved, resolvedBrandIds);
@@ -182,8 +157,8 @@ export default async function NewArrivalsPage({
   return (
     <Suspense fallback={<Loading />}>
       <NewArrivalsClient
-        categories={availableCategories}
-        brands={availableBrands}
+        categories={categories}
+        brands={brands}
         initialProducts={productsRes.data?.items ?? []}
         totalCount={productsRes.data?.totalCount ?? 0}
         currentPage={productsRes.data?.page ?? 1}

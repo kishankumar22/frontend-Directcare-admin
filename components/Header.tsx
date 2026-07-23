@@ -76,8 +76,7 @@ export default function Header({
   const { wishlistCount } = useWishlist();
   const router = useRouter();
   const { isAuthenticated, user, logout } = useAuth();
-  
-  const userFullName = user ? user.fullName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "User" : "User";
+
 
   const handleAccountClick = () => {
     router.push("/account");
@@ -661,7 +660,7 @@ useEffect(() => {
               >
                 <User size={20} className="block" />
                 <span className="text-sm font-medium text-gray-700">
-                  {userFullName}
+                  {user.fullName ?? "User"}
                 </span>
               </button>
             ) : (

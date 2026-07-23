@@ -18,7 +18,7 @@ import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, PackageX, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle, Info } from "lucide-react";
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon, PlusCircle, Info } from "lucide-react";
 import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -1335,8 +1335,8 @@ export default function ProductDetails({ product, initialVariantId }: ProductDet
     // ❌ Always dominant
     if (stock === 0) {
       return {
-        show: false, // 🔥 HIDE BADGE
-        text: "",
+        show: true,
+        text: "Out of Stock",
         type: "out",
       };
     }
@@ -2819,20 +2819,13 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </span>
                             )}
 
-                        
-
                             {vatRate !== null && vatRate > 0 && !product.vatExempt && (
                               <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md font-semibold">
                                 {vatRate}% VAT
                               </span>
                             )}
-                            {loyaltyPoints && (
-                              <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
-                                <AwardIcon className="h-3 w-3 text-green-600" />
-                                Earn {loyaltyPoints} pts
-                              </span>
-                            )}
-    {purchaseType === "one" && activeNextDayDeliveryFree && (
+
+                            {purchaseType === "one" && activeNextDayDeliveryFree && (
                               <span
                                 className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
                                 style={{
@@ -2845,6 +2838,13 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 </span>
                               </span>
                             )}
+                            {loyaltyPoints && (
+                              <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
+                                <AwardIcon className="h-3 w-3 text-green-600" />
+                                Earn {loyaltyPoints} pts
+                              </span>
+                            )}
+
                           </div>
 
                           {/* Qty + Stock — same row */}
@@ -2908,19 +2908,13 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </Button>
                             )}
                          {purchaseType === "one" && !backorderState.canBuy && (
-                            <>
-                              <Button
-                                onClick={() => setShowNotifyModal(true)}
-                                className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
-                              >
-                                Notify Me
-                              </Button>
-                              <span className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold whitespace-nowrap">
-                                <PackageX className="h-4 w-4" />
-                                Out of Stock
-                              </span>
-                            </>
-                         )}
+  <Button
+    onClick={() => setShowNotifyModal(true)}
+    className="flex-1 py-2 px-3 rounded-xl bg-[#445D41] hover:bg-black text-white text-sm font-semibold"
+  >
+    Notify Me
+  </Button>
+)}
                           </div>
 
                         </CardContent>
@@ -2947,7 +2941,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                         vatRate={vatRate}   // 🟢 Add this
                         nextDayDeliveryFree={activeNextDayDeliveryFree}
                         backorderState={backorderState}   // ⭐ REQUIRED
-                        onNotifyClick={() => setShowNotifyModal(true)}
+                        onNotifyMe={() => setShowNotifyModal(true)}
                       />
                     </div>
                   </div>
@@ -2973,22 +2967,13 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                             </span>
                           )}
 
-                     
-
                           {vatRate !== null && vatRate > 0 && !product.vatExempt && (
                             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded font-semibold">
                               {vatRate}% VAT
                             </span>
-                          )}                          
-
-                          {loyaltyPoints && (
-                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
-                              <AwardIcon className="h-3 w-3 text-[#445D41]" />
-                              Earn {loyaltyPoints} pts
-                            </span>
                           )}
 
-                               {activeNextDayDeliveryFree && (
+                          {activeNextDayDeliveryFree && (
                             <span
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 border border-blue-200 whitespace-nowrap"
                               style={{
@@ -2999,6 +2984,13 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               <span className="text-[11px] font-bold text-blue-700">
                                 Next Day Delivery Free
                               </span>
+                            </span>
+                          )}
+
+                          {loyaltyPoints && (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md">
+                              <AwardIcon className="h-3 w-3 text-[#445D41]" />
+                              Earn {loyaltyPoints} pts
                             </span>
                           )}
                         </div>
@@ -3169,7 +3161,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                               </Button>
                             )}
                             {/* NOTIFY MODE */}
-                            {/* {purchaseType === "one" && backorderState.showNotify && (
+                            {purchaseType === "one" && backorderState.showNotify && (
                               <Button
                                 variant="outline"
                                 className="flex-1 px-3 py-2 rounded-lg border-green-600 text-green-700 hover:bg-green-50 text-sm flex items-center justify-center gap-2"
@@ -3178,7 +3170,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                                 <BellRing className="h-4 w-4" />
                                 Notify me when available
                               </Button>
-                            )} */}
+                            )}
                             {purchaseType === "one" && !backorderState.canBuy && (
   <Button
     onClick={() => setShowNotifyModal(true)}

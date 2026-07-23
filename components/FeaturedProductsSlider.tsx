@@ -238,6 +238,8 @@ export default function FeaturedProductsSlider({
         image: getProductDisplayImage(product, defaultVariant),
         sku: defaultVariant?.sku ?? product.sku,
         variantId: defaultVariant?.id ?? null,
+        nextDayDeliveryEnabled: defaultVariant?.nextDayDeliveryEnabled ?? product.nextDayDeliveryEnabled ?? false,
+        nextDayDeliveryFree: defaultVariant?.nextDayDeliveryFree ?? (product as any).nextDayDeliveryFree ?? false,
 
         slug: cardSlug,
         variantOptions: {
@@ -490,13 +492,6 @@ export default function FeaturedProductsSlider({
                       />
 
 
-                      {/* Next Day Delivery Free — bottom left on image */}
-                      {(product.nextDayDeliveryFree || defaultVariant?.nextDayDeliveryFree) && stock > 0 && (
-                        <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-bold whitespace-nowrap shadow-sm backdrop-blur-sm">
-                          Next Day Delivery Free
-                        </span>
-                      )}
-
                       {/* Offer badge — top right, smaller */}
                       {product.displayDiscountType === "System" &&
                         discountBadge && (
@@ -694,15 +689,7 @@ export default function FeaturedProductsSlider({
                         ({product.reviewCount ?? 0})
                       </span>
 
-                      {/* VAT Relief */}
-                      {product.vatExempt && vatRate === 0 && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/80 border border-black/20 text-white text-[10px] font-bold whitespace-nowrap flex-shrink-0">
-                          <BadgePercent className="h-2.5 w-2.5" />
-                          VAT Relief
-                        </span>
-                      )}
-
-                      {stock <= 0 && (
+                      {!backorderState.canBuy && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold whitespace-nowrap flex-shrink-0">
                           <PackageX className="h-2.5 w-2.5" />
                           Out of Stock
@@ -751,11 +738,16 @@ export default function FeaturedProductsSlider({
                             £{oldPriceData.oldPrice.toFixed(2)}
                           </span>
                         )}
-                        {vatRate !== null && vatRate > 0 && !product.vatExempt && (
+                        {product.vatExempt && vatRate === 0 ? (
+                          <span className="inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold text-white bg-black/80 border border-black/20 px-1 py-0.5 rounded whitespace-nowrap leading-none">
+                            <BadgePercent className="h-2.5 w-2.5" />
+                            VAT Relief
+                          </span>
+                        ) : vatRate !== null && vatRate > 0 ? (
                           <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap leading-none">
                             {vatRate}% VAT
                           </span>
-                        )}
+                        ) : null}
                       </div>
 
 
@@ -856,10 +848,10 @@ export default function FeaturedProductsSlider({
             image: getProductDisplayImage(product, defaultVariant),
             sku: defaultVariant?.sku ?? product.sku,
             shipSeparately: product.shipSeparately,
-            nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+            nextDayDeliveryEnabled: defaultVariant?.nextDayDeliveryEnabled ?? product.nextDayDeliveryEnabled ?? false,
             // 🔥🔥🔥 MAIN FIX
             nextDayDeliveryFree:
-              (product as any).nextDayDeliveryFree ?? false,
+              defaultVariant?.nextDayDeliveryFree ?? (product as any).nextDayDeliveryFree ?? false,
             sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
             variantId: defaultVariant?.id ?? null,
             slug: cardSlug,
@@ -1054,10 +1046,10 @@ disabled:opacity-60 disabled:cursor-not-allowed"
                 image: getProductDisplayImage(product, variant),
                 sku: variant?.sku ?? product.sku,
                 shipSeparately: product.shipSeparately,
-                nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+                nextDayDeliveryEnabled: variant?.nextDayDeliveryEnabled ?? product.nextDayDeliveryEnabled ?? false,
                 // 🔥🔥🔥 MAIN FIX
                 nextDayDeliveryFree:
-                  (product as any).nextDayDeliveryFree ?? false,
+                  variant?.nextDayDeliveryFree ?? (product as any).nextDayDeliveryFree ?? false,
                 sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
                 variantId: variant?.id ?? null,
                 slug: cardSlug,

@@ -47,7 +47,7 @@ export default function CartPage() {
 
     setIsCheckingStock(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.direct-care.co.uk";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://test.direct-care.co.uk";
 
       const stockChecks = await Promise.all(
         inStockItems.map(async (item) => {
@@ -308,7 +308,10 @@ export default function CartPage() {
     }, 0);
   }, [cart]);
 
-  const finalTotalAmount = correctSubtotal - totalCombinedDiscount;
+  // Safety net: a discount (however it was computed/persisted) must never exceed what it's
+  // discounting, or the order total goes negative. Clamp defensively at render/total time.
+  const safeCombinedDiscount = Math.min(totalCombinedDiscount, correctSubtotal);
+  const finalTotalAmount = correctSubtotal - safeCombinedDiscount;
 
   const applyCouponFromBackend = (item: any, couponData: any) => {
 
@@ -594,8 +597,8 @@ export default function CartPage() {
 
   const getItemStock = (item: any) => {
     // Variant stock check
-    if (item.variantId && item.productData?.variants?.length) {
-      const variant = item.productData.variants.find(
+    if (item.productData?.productType === "variable" && item.variantId) {
+      const variant = item.productData?.variants?.find(
         (v: any) => v.id === item.variantId
       );
 
@@ -618,8 +621,8 @@ export default function CartPage() {
 
   // Variant-level min/max cart quantity override the product-level default when set.
   const getItemVariant = (item: any) => {
-    if (item.variantId && item.productData?.variants?.length) {
-      return item.productData.variants.find((v: any) => v.id === item.variantId) ?? null;
+    if (item.productData?.productType === "variable" && item.variantId) {
+      return item.productData?.variants?.find((v: any) => v.id === item.variantId) ?? null;
     }
     return null;
   };
@@ -665,8 +668,6 @@ export default function CartPage() {
       (i) => i.parentProductId === parentProductId
     );
   };
-
-
   const orderVatAmount = useMemo(() => {
     return cart.reduce((sum, item) => {
       const rate =
@@ -707,6 +708,13 @@ export default function CartPage() {
     }
     return threshold;
   }, [cart]);
+
+  // If every item in the cart already qualifies for free Next Day Delivery, delivery is already
+  // free regardless of the standard £X threshold — showing "add £X more for free delivery" here
+  // would be misleading, since this cart's delivery is free either way.
+  const allNextDayFree = useMemo(() =>
+    cart.length > 0 && cart.every((item: any) => item.nextDayDeliveryFree === true),
+    [cart]);
 
   // UI render
   // -------------------------
@@ -831,6 +839,8 @@ export default function CartPage() {
                             {(() => {
 
                               let comparePrice: number | null = null;
+
+                              // SYSTEM DISCOUNT
                               // SYSTEM DISCOUNT
                               if (
                                 item.displayDiscountType === "System" &&
@@ -1207,9 +1217,14 @@ export default function CartPage() {
           <div className="lg:col-span-1">
             <div className="bg-white border border-gray-200 rounded-xl shadow-md p-2 sticky top-24">
               {/* Free Shipping Progress */}
-              {freeShippingThreshold > 0 && (
+              {(freeShippingThreshold > 0 || allNextDayFree) && (
                 <div className="mb-2 bg-[#f8fafc] border border-gray-200 rounded-lg p-2.5">
-                  {finalTotalAmount >= freeShippingThreshold ? (
+                  {allNextDayFree ? (
+                    <div className="flex items-center gap-2 text-[#445D41] text-xs font-semibold">
+                      <Truck size={14} className="flex-shrink-0" />
+                      <span>Yay! You get <strong className="text-green-600">FREE Next Day Delivery!</strong></span>
+                    </div>
+                  ) : finalTotalAmount >= freeShippingThreshold ? (
                     <div className="flex items-center gap-2 text-[#445D41] text-xs font-semibold">
                       <Truck size={14} className="flex-shrink-0" />
                       <span>Yay! You get <strong className="text-green-600">FREE Delivery!</strong></span>
@@ -1269,29 +1284,16 @@ export default function CartPage() {
                   <span>£{orderVatAmount.toFixed(2)}</span>
                 </div>
 
-                {bundleSavings > 0 && (
-                  <div className="flex justify-between text-green-700">
-                    <span>Bundle Savings</span>
-                    <span>- £{bundleSavings.toFixed(2)}</span>
-                  </div>
-                )}
-                {finalDiscount > 0 && (
+                {safeCombinedDiscount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Discount</span>
-                    <span>- £{finalDiscount.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {totalCombinedDiscount > 0 && (
-                  <div className="flex justify-between text-green-800 font-semibold border-t pt-1.5 mt-1">
-                    <span>Total Discount</span>
-                    <span>- £{totalCombinedDiscount.toFixed(2)}</span>
+                    <span>- £{safeCombinedDiscount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-semibold text-gray-900 border-t pt-1.5 text-sm">
                   <span>Total Amount</span>
                   <span>
-                    £{(correctSubtotal - totalCombinedDiscount).toFixed(2)}
+                    £{finalTotalAmount.toFixed(2)}
                   </span>
                 </div>
               </div>

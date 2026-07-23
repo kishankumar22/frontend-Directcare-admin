@@ -133,15 +133,16 @@ const categories = useMemo(() => {
   );
 }, [products]);
 
-// Brands - A-Z Sort
+// Brands - A-Z Sort — narrowed to the selected categories, so only brands that actually
+// have products in the chosen category show up (instead of every brand on the whole page).
 const brands = useMemo(() => {
   const map = new Map<string, any>();
-  
-  const validProducts = selectedCategories.length > 0 
-    ? products.filter(p => p.categories?.some((c: any) => selectedCategories.includes(c.categoryId)))
+  const relevantProducts = selectedCategories.length
+    ? products.filter((p) =>
+        p.categories?.some((c: any) => selectedCategories.includes(c.categoryId))
+      )
     : products;
-
-  validProducts.forEach((p) => {
+  relevantProducts.forEach((p) => {
     p.brands?.forEach((b: any) => {
       if (!map.has(b.brandId)) {
         map.set(b.brandId, {
@@ -152,10 +153,20 @@ const brands = useMemo(() => {
     });
   });
   // ✅ SORT A-Z by name
-  return Array.from(map.values()).sort((a, b) => 
+  return Array.from(map.values()).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
 }, [products, selectedCategories]);
+
+// Drop any selected brand that no longer belongs to the narrowed list (e.g. after switching
+// category) so an invisible, unremovable brand filter can't silently keep filtering results.
+useEffect(() => {
+  setSelectedBrands((prev) => {
+    const validIds = new Set(brands.map((b) => b.id));
+    const next = prev.filter((id) => validIds.has(id));
+    return next.length === prev.length ? prev : next;
+  });
+}, [brands]);
   // Price range derive
 useEffect(() => {
   if (!products || products.length === 0) return;

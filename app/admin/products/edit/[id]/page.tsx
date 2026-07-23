@@ -3532,6 +3532,18 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           return null;
         }
 
+        // Check if variant SKU matches product SKU
+   // Check if variant SKU matches product SKU (ONLY FOR VARIABLE PRODUCTS)
+if (
+  formData.productType === "variable" &&  // ✅ Only for variable products
+  variant.sku.trim().toUpperCase() === formData.sku.trim().toUpperCase()
+) {
+  toast.error(`Variant SKU "${variant.sku}" cannot be the same as main product SKU`, {
+    autoClose: 8000
+  });
+  return null;
+}
+
         // Variant-level min/max cart quantity validation
         if (
           variant.orderMinimumQuantity != null &&
@@ -3542,6 +3554,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           return null;
         }
 
+        // Price validation
+        // const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;
+        // if (variantPrice <= 0) {
+        //   toast.error(`Variant "${variant.name}" price must be greater than 0`);
+        //   return null; // ⬅ stop this variant
+
+        // }
 
         // ========== ✅ CLEAN VARIANT OPTIONS BEFORE BUILDING ==========
         const cleanedVariant = cleanVariantOptions(variant, firstVariant);
@@ -5787,24 +5806,45 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
 
                       {/* Column 2 - Display Order */}
-                      <div className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all bg-slate-800/50 border border-slate-700">
-                        <label
-                          htmlFor="displayOrder"
-                          className="text-sm font-medium text-slate-300 whitespace-nowrap"
-                        >
-                          Display Order
-                        </label>
+                      <div
+                        className={cn(
+                          "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all",
+                          formData.showOnHomepage
+                            ? "bg-slate-800/50 border border-slate-700"
+                            : "bg-slate-800/30 border border-slate-700/50"
+                        )}
+                      >
+                        {formData.showOnHomepage ? (
+                          <>
+                            <label
+                              htmlFor="displayOrder"
+                              className="text-sm font-medium text-slate-300 whitespace-nowrap"
+                            >
+                              Display Order
+                            </label>
 
-                        <input
-                          id="displayOrder"
-                          type="number"
-                          name="displayOrder"
-                          value={formData.displayOrder}
-                          onChange={handleChange}
-                          placeholder="1"
-                          min="0"
-                          className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
+                            <input
+                              id="displayOrder"
+                              type="number"
+                              name="displayOrder"
+                              value={formData.displayOrder}
+                              onChange={handleChange}
+                              placeholder="1"
+                              min="0"
+                              className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                            />
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-2 text-slate-500">
+                            <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+
+                            <span className="text-sm italic">
+                              Enable homepage feature to set the display order of this product.
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                     </div>
